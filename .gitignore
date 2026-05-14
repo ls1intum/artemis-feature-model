@@ -3,6 +3,15 @@
 !**/src/**/build/
 devdocs
 
+# Node / Angular
+node_modules/
+out-tsc/
+coverage/
+dist/
+.angular/
+*.log
+npm-debug.log*
+
 # Editors / IDEs
 .idea/
 .vscode/

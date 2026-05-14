@@ -1,0 +1,16 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #f5f6f8;
+    color: #1f2933;
+}
+
+a {
+    color: inherit;
+}
+
+main.container-fluid {
+    min-height: calc(100vh - 56px);
+}
