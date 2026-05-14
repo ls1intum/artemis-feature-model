@@ -4,9 +4,6 @@ Interactive feature model MVP for Artemis. Standalone Spring Boot + Angular
 project that turns the WP1 functional feature catalog into a usable, constraint
 aware exploration and configuration tool.
 
-The planning documents for the MVP live under `devdocs/mvp/` and are the
-source of truth for scope, architecture, and per-phase work plans.
-
 ## Status
 
 This repository is currently on phase 2 of the MVP: the project scaffold.
@@ -44,8 +41,6 @@ devdocs/                    MVP planning documents (gitignored locally)
 ```bash
 ./gradlew test              # run backend unit tests
 ./gradlew bootRun           # start the backend on http://localhost:8080
-./gradlew syncFeatureModelResource
-                            # refresh src/main/resources copy from devdocs source
 ```
 
 ## Frontend commands
@@ -58,14 +53,6 @@ npm run test                # run Angular unit tests (Vitest + jsdom)
 ```
 
 The dev server proxies `/api/*` to the backend on port 8080.
-
-## Feature model source vs runtime
-
-- Source of truth: `devdocs/mvp/common/functional-feature-model.json`
-- Runtime classpath copy: `src/main/resources/feature-model/functional-feature-model.json`
-
-The Gradle task `syncFeatureModelResource` copies the source into the runtime
-location explicitly so that no developer is surprised by silent edits.
 
 ## Routes
 
