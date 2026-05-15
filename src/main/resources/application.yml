@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: artemis-feature-model
+
+logging:
+  level:
+    root: INFO
+    de.tum.cit.aet.artemis.featuremodel: INFO

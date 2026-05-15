@@ -2,13 +2,39 @@
 **/build/
 !**/src/**/build/
 devdocs
+LOCAL_CONTEXT.md
+
+# Node / Angular
+node_modules/
+out-tsc/
+coverage/
+dist/
+.angular/
+*.log
+npm-debug.log*
 
 # Editors / IDEs
-.idea/
 .vscode/
 *.swp
 *.swo
 *~
+
+######################
+# Intellij
+######################
+.idea/*
+!.idea/runConfigurations/
+!.idea/icon.svg
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+classes/
+.IntelliJIdea*/
+.local/share/JetBrains/
+.java/
+out/
 
 # Ignore Gradle GUI config
 gradle-app.setting
