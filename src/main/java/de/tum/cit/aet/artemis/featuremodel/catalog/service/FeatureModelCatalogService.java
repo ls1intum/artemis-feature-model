@@ -1,7 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,28 +44,70 @@ public class FeatureModelCatalogService {
         return model;
     }
 
+    /**
+     * Builds the complete REST response from the canonical domain model and derived read models.
+     */
     public FeatureModelResponse getActiveFeatureModelResponse() {
         FeatureModel model = loadActiveModel();
         FeatureTreeNodeDTO tree = treeService.buildTree(model);
-        return new FeatureModelResponse(ModelMetadataDTO.fromDomain(model.model()), model.features().stream().map(FeatureDTO::fromDomain).toList(),
-                model.relations().stream().map(RelationDTO::fromDomain).toList(), model.constraints().stream().map(ConstraintDTO::fromDomain).toList(), tree,
-                defaultSelectedFeatureIds(model), modelWarnings(model));
+        List<FeatureDTO> features = featureDTOs(model);
+        List<RelationDTO> relations = relationDTOs(model);
+        List<ConstraintDTO> constraints = constraintDTOs(model);
+        List<String> defaultSelectedFeatureIds = defaultSelectedFeatureIds(model);
+        List<ModelWarningDTO> warnings = modelWarnings(model);
+
+        return new FeatureModelResponse(ModelMetadataDTO.fromDomain(model.model()), features, relations, constraints, tree, defaultSelectedFeatureIds, warnings);
     }
 
+    /**
+     * Derives the initial configurator selection from the source model instead of duplicating this logic in the frontend.
+     */
     public List<String> defaultSelectedFeatureIds(FeatureModel model) {
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
-        return treeService.treeOrderedFeatureIds(model).stream().map(featuresById::get).filter(feature -> feature != null && feature.selectable())
-                .filter(feature -> "enabled".equals(feature.defaultState())).map(FeatureNode::id).toList();
+        List<String> defaultSelectedFeatureIds = new ArrayList<>();
+
+        for (String featureId : treeService.treeOrderedFeatureIds(model)) {
+            FeatureNode feature = featuresById.get(featureId);
+            if (isDefaultSelectedFeature(feature)) {
+                defaultSelectedFeatureIds.add(feature.id());
+            }
+        }
+
+        return List.copyOf(defaultSelectedFeatureIds);
     }
 
     public List<ModelWarningDTO> modelWarnings(FeatureModel model) {
-        return model.constraints().stream().filter(FeatureConstraint::isExpression)
-                .map(constraint -> new ModelWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
-                        "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id()))
-                .toList();
+        List<ModelWarningDTO> warnings = new ArrayList<>();
+        for (FeatureConstraint constraint : model.constraints()) {
+            if (constraint.isExpression()) {
+                warnings.add(expressionConstraintWarning(constraint));
+            }
+        }
+        return List.copyOf(warnings);
+    }
+
+    private List<FeatureDTO> featureDTOs(FeatureModel model) {
+        return model.features().stream().map(FeatureDTO::fromDomain).toList();
+    }
+
+    private List<RelationDTO> relationDTOs(FeatureModel model) {
+        return model.relations().stream().map(RelationDTO::fromDomain).toList();
+    }
+
+    private List<ConstraintDTO> constraintDTOs(FeatureModel model) {
+        return model.constraints().stream().map(ConstraintDTO::fromDomain).toList();
+    }
+
+    private boolean isDefaultSelectedFeature(FeatureNode feature) {
+        return feature != null && feature.selectable() && feature.isEnabledByDefault();
+    }
+
+    private ModelWarningDTO expressionConstraintWarning(FeatureConstraint constraint) {
+        return new ModelWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
+                "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id());
     }
 
     private List<String> relatedFeatureIds(FeatureConstraint constraint) {
-        return java.util.stream.Stream.of(constraint.source(), constraint.target()).filter(java.util.Objects::nonNull).toList();
+        return java.util.stream.Stream.of(constraint.source(), constraint.target()).filter(Objects::nonNull).toList();
     }
 }

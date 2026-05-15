@@ -1,8 +1,10 @@
 package de.tum.cit.aet.artemis.featuremodel.validation.service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,41 +42,104 @@ public class FeatureModelValidationService {
         return validateSelection(model, request);
     }
 
+    /**
+     * Validates a transient client selection against the supplied model. Synthetic models use this entry point in tests.
+     */
     public ValidationResultDTO validateSelection(FeatureModel model, ValidationRequest request) {
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
         NormalizedSelection normalizedSelection = normalizeSelection(model, request, featuresById);
         Set<String> selectedKnownIds = Set.copyOf(normalizedSelection.selectedFeatureIds());
 
-        List<ValidationViolationDTO> violations = java.util.stream.Stream
-                .concat(unknownFeatureViolations(request, featuresById).stream(),
-                        java.util.stream.Stream.concat(mandatoryRelationViolations(model, featuresById, selectedKnownIds).stream(),
-                                constraintViolations(model, selectedKnownIds).stream()))
-                .toList();
+        List<ValidationViolationDTO> violations = validationViolations(model, request, featuresById, selectedKnownIds);
         List<ValidationWarningDTO> warnings = expressionWarnings(model);
         return new ValidationResultDTO(violations.isEmpty(), normalizedSelection.selectedFeatureIds(), violations, warnings);
     }
 
     private NormalizedSelection normalizeSelection(FeatureModel model, ValidationRequest request, Map<String, FeatureNode> featuresById) {
         Set<String> submittedIds = new LinkedHashSet<>(request.selectedFeatureIds());
-        List<String> orderedKnownSelection = treeService.treeOrderedFeatureIds(model).stream().filter(submittedIds::contains).toList();
-        List<String> orderedUnknownKnownIds = submittedIds.stream().filter(featuresById::containsKey).filter(id -> !orderedKnownSelection.contains(id)).toList();
-        List<String> normalizedSelection = java.util.stream.Stream.concat(orderedKnownSelection.stream(), orderedUnknownKnownIds.stream()).toList();
+        List<String> normalizedSelection = new ArrayList<>();
+
+        addKnownIdsInTreeOrder(model, submittedIds, normalizedSelection);
+        addKnownIdsMissingFromTree(submittedIds, featuresById, normalizedSelection);
+
         return new NormalizedSelection(normalizedSelection, submittedIds);
     }
 
+    private void addKnownIdsInTreeOrder(FeatureModel model, Set<String> submittedIds, List<String> normalizedSelection) {
+        for (String featureId : treeService.treeOrderedFeatureIds(model)) {
+            if (submittedIds.contains(featureId)) {
+                normalizedSelection.add(featureId);
+            }
+        }
+    }
+
+    private void addKnownIdsMissingFromTree(Set<String> submittedIds, Map<String, FeatureNode> featuresById, List<String> normalizedSelection) {
+        for (String submittedId : submittedIds) {
+            if (featuresById.containsKey(submittedId) && !normalizedSelection.contains(submittedId)) {
+                normalizedSelection.add(submittedId);
+            }
+        }
+    }
+
+    private List<ValidationViolationDTO> validationViolations(FeatureModel model, ValidationRequest request, Map<String, FeatureNode> featuresById,
+            Set<String> selectedKnownIds) {
+        List<ValidationViolationDTO> violations = new ArrayList<>();
+        violations.addAll(unknownFeatureViolations(request, featuresById));
+        violations.addAll(mandatoryRelationViolations(model, featuresById, selectedKnownIds));
+        violations.addAll(constraintViolations(model, selectedKnownIds));
+        return List.copyOf(violations);
+    }
+
     private List<ValidationViolationDTO> unknownFeatureViolations(ValidationRequest request, Map<String, FeatureNode> featuresById) {
-        return request.selectedFeatureIds().stream().distinct().filter(id -> !featuresById.containsKey(id))
-                .map(id -> new ValidationViolationDTO(ValidationCode.UNKNOWN_SELECTED_FEATURE.name(), "Selected feature '" + id + "' does not exist.", List.of(id), null,
-                        "Remove '" + id + "' from the selection."))
-                .toList();
+        List<ValidationViolationDTO> violations = new ArrayList<>();
+        Set<String> alreadyReportedIds = new LinkedHashSet<>();
+
+        for (String submittedId : request.selectedFeatureIds()) {
+            if (!featuresById.containsKey(submittedId) && alreadyReportedIds.add(submittedId)) {
+                violations.add(unknownFeatureViolation(submittedId));
+            }
+        }
+
+        return List.copyOf(violations);
+    }
+
+    private ValidationViolationDTO unknownFeatureViolation(String featureId) {
+        String message = "Selected feature '" + featureId + "' does not exist.";
+        String suggestion = "Remove '" + featureId + "' from the selection.";
+
+        return new ValidationViolationDTO(ValidationCode.UNKNOWN_SELECTED_FEATURE.name(), message, List.of(featureId), null, suggestion);
     }
 
     private List<ValidationViolationDTO> mandatoryRelationViolations(FeatureModel model, Map<String, FeatureNode> featuresById, Set<String> selectedKnownIds) {
-        Set<String> activeFeatureIds = model.features().stream().filter(feature -> feature.isRoot() || feature.isGroup() || selectedKnownIds.contains(feature.id()))
-                .map(FeatureNode::id).collect(Collectors.toSet());
-        return model.relations().stream().filter(FeatureRelation::isMandatory).filter(relation -> activeFeatureIds.contains(relation.parentId()))
-                .filter(relation -> isSelectableModule(featuresById.get(relation.childId()))).filter(relation -> !selectedKnownIds.contains(relation.childId()))
-                .map(relation -> mandatoryViolation(relation, featuresById.get(relation.childId()), featuresById.get(relation.parentId()))).toList();
+        Set<String> activeFeatureIds = activeFeatureIds(model, selectedKnownIds);
+        List<ValidationViolationDTO> violations = new ArrayList<>();
+
+        for (FeatureRelation relation : model.relations()) {
+            if (isMissingMandatoryChild(relation, activeFeatureIds, featuresById, selectedKnownIds)) {
+                FeatureNode child = featuresById.get(relation.childId());
+                FeatureNode parent = featuresById.get(relation.parentId());
+                violations.add(mandatoryViolation(relation, child, parent));
+            }
+        }
+
+        return List.copyOf(violations);
+    }
+
+    private Set<String> activeFeatureIds(FeatureModel model, Set<String> selectedKnownIds) {
+        Set<String> activeFeatureIds = new java.util.HashSet<>();
+        for (FeatureNode feature : model.features()) {
+            // Root and group nodes are structural paths and are active even when the client cannot toggle them.
+            if (feature.isRoot() || feature.isGroup() || selectedKnownIds.contains(feature.id())) {
+                activeFeatureIds.add(feature.id());
+            }
+        }
+        return Set.copyOf(activeFeatureIds);
+    }
+
+    private boolean isMissingMandatoryChild(FeatureRelation relation, Set<String> activeFeatureIds, Map<String, FeatureNode> featuresById,
+            Set<String> selectedKnownIds) {
+        FeatureNode child = featuresById.get(relation.childId());
+        return relation.isMandatory() && activeFeatureIds.contains(relation.parentId()) && isSelectableModule(child) && !selectedKnownIds.contains(relation.childId());
     }
 
     private boolean isSelectableModule(FeatureNode feature) {
@@ -87,30 +152,55 @@ public class FeatureModelValidationService {
     }
 
     private List<ValidationViolationDTO> constraintViolations(FeatureModel model, Set<String> selectedKnownIds) {
-        return model.constraints().stream().filter(constraint -> constraint.isRequires() || constraint.isExcludes()).flatMap(constraint -> {
-            if (constraint.isRequires() && selectedKnownIds.contains(constraint.source()) && !selectedKnownIds.contains(constraint.target())) {
-                return java.util.stream.Stream.of(new ValidationViolationDTO(ValidationCode.REQUIRES_CONSTRAINT_VIOLATED.name(),
-                        "Feature '" + constraint.source() + "' requires feature '" + constraint.target() + "'.", relatedFeatureIds(constraint), null,
-                        "Enable '" + constraint.target() + "' or disable '" + constraint.source() + "'."));
+        List<ValidationViolationDTO> violations = new ArrayList<>();
+        for (FeatureConstraint constraint : model.constraints()) {
+            if (isRequiresConstraintViolated(constraint, selectedKnownIds)) {
+                violations.add(requiresConstraintViolation(constraint));
             }
-            if (constraint.isExcludes() && selectedKnownIds.contains(constraint.source()) && selectedKnownIds.contains(constraint.target())) {
-                return java.util.stream.Stream.of(new ValidationViolationDTO(ValidationCode.EXCLUDES_CONSTRAINT_VIOLATED.name(),
-                        "Feature '" + constraint.source() + "' excludes feature '" + constraint.target() + "'.", relatedFeatureIds(constraint), null,
-                        "Disable either '" + constraint.source() + "' or '" + constraint.target() + "'."));
+            if (isExcludesConstraintViolated(constraint, selectedKnownIds)) {
+                violations.add(excludesConstraintViolation(constraint));
             }
-            return java.util.stream.Stream.empty();
-        }).toList();
+        }
+        return List.copyOf(violations);
+    }
+
+    private boolean isRequiresConstraintViolated(FeatureConstraint constraint, Set<String> selectedKnownIds) {
+        return constraint.isRequires() && selectedKnownIds.contains(constraint.source()) && !selectedKnownIds.contains(constraint.target());
+    }
+
+    private boolean isExcludesConstraintViolated(FeatureConstraint constraint, Set<String> selectedKnownIds) {
+        return constraint.isExcludes() && selectedKnownIds.contains(constraint.source()) && selectedKnownIds.contains(constraint.target());
+    }
+
+    private ValidationViolationDTO requiresConstraintViolation(FeatureConstraint constraint) {
+        return new ValidationViolationDTO(ValidationCode.REQUIRES_CONSTRAINT_VIOLATED.name(),
+                "Feature '" + constraint.source() + "' requires feature '" + constraint.target() + "'.", relatedFeatureIds(constraint), null,
+                "Enable '" + constraint.target() + "' or disable '" + constraint.source() + "'.");
+    }
+
+    private ValidationViolationDTO excludesConstraintViolation(FeatureConstraint constraint) {
+        return new ValidationViolationDTO(ValidationCode.EXCLUDES_CONSTRAINT_VIOLATED.name(),
+                "Feature '" + constraint.source() + "' excludes feature '" + constraint.target() + "'.", relatedFeatureIds(constraint), null,
+                "Disable either '" + constraint.source() + "' or '" + constraint.target() + "'.");
     }
 
     private List<ValidationWarningDTO> expressionWarnings(FeatureModel model) {
-        return model.constraints().stream().filter(FeatureConstraint::isExpression)
-                .map(constraint -> new ValidationWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
-                        "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id(),
-                        "Review this constraint manually."))
-                .toList();
+        List<ValidationWarningDTO> warnings = new ArrayList<>();
+        for (FeatureConstraint constraint : model.constraints()) {
+            if (constraint.isExpression()) {
+                warnings.add(expressionConstraintWarning(constraint));
+            }
+        }
+        return List.copyOf(warnings);
+    }
+
+    private ValidationWarningDTO expressionConstraintWarning(FeatureConstraint constraint) {
+        return new ValidationWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
+                "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id(),
+                "Review this constraint manually.");
     }
 
     private List<String> relatedFeatureIds(FeatureConstraint constraint) {
-        return java.util.stream.Stream.of(constraint.source(), constraint.target()).filter(java.util.Objects::nonNull).toList();
+        return java.util.stream.Stream.of(constraint.source(), constraint.target()).filter(Objects::nonNull).toList();
     }
 }

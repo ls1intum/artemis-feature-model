@@ -26,19 +26,25 @@ public class FeatureModelIntegrityService {
 
     private void validateUniqueFeatureIds(FeatureModel model) {
         Set<String> seenIds = new HashSet<>();
-        model.features().stream().map(FeatureNode::id).filter(id -> !seenIds.add(id)).findFirst().ifPresent(duplicateId -> {
-            throw new FeatureModelIntegrityException(ValidationCode.DUPLICATE_FEATURE_ID.name(), "Feature id '" + duplicateId + "' is used more than once.");
-        });
+        for (FeatureNode feature : model.features()) {
+            if (!seenIds.add(feature.id())) {
+                throw new FeatureModelIntegrityException(ValidationCode.DUPLICATE_FEATURE_ID.name(), "Feature id '" + feature.id() + "' is used more than once.");
+            }
+        }
     }
 
     private void validateRootCount(FeatureModel model) {
-        ListRootCount rootCount = new ListRootCount(model.features().stream().filter(FeatureNode::isRoot).count());
-        if (rootCount.value() == 0) {
+        long rootCount = countRootFeatures(model);
+        if (rootCount == 0) {
             throw new FeatureModelIntegrityException(ValidationCode.NO_ROOT_FEATURE.name(), "The feature model does not contain a root feature.");
         }
-        if (rootCount.value() > 1) {
+        if (rootCount > 1) {
             throw new FeatureModelIntegrityException(ValidationCode.MULTIPLE_ROOT_FEATURES.name(), "The feature model contains more than one root feature.");
         }
+    }
+
+    private long countRootFeatures(FeatureModel model) {
+        return model.features().stream().filter(FeatureNode::isRoot).count();
     }
 
     private void validateRelationEndpoints(FeatureModel model, Map<String, FeatureNode> featuresById) {
@@ -53,6 +59,4 @@ public class FeatureModelIntegrityService {
         }
     }
 
-    private record ListRootCount(long value) {
-    }
 }
