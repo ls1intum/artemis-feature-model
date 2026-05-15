@@ -2,6 +2,7 @@
 **/build/
 !**/src/**/build/
 devdocs
+LOCAL_CONTEXT.md
 
 # Node / Angular
 node_modules/
