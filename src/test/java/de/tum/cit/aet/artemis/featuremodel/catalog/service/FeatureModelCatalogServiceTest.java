@@ -15,15 +15,14 @@ class FeatureModelCatalogServiceTest {
 
     private final FeatureModelTreeService treeService = new FeatureModelTreeService();
 
-    private final FeatureModelCatalogService service = new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()),
-            new FeatureModelIntegrityService(), treeService);
+    private final FeatureModelCatalogService service = catalogService();
 
     @Test
     void derivesDefaultSelectedFeatureIdsInTreeOrder() {
         var model = service.loadActiveModel();
 
-        assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-                "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "atlas");
+        assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("lecture", "tutorialgroup", "course-workflow", "communication",
+                "exercise-common", "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "atlas");
     }
 
     @Test
@@ -37,5 +36,10 @@ class FeatureModelCatalogServiceTest {
         assertThat(response.tree().feature().id()).isEqualTo("artemis");
         assertThat(response.defaultSelectedFeatureIds()).containsAll(List.of("programming", "quiz", "atlas"));
         assertThat(response.warnings()).isEmpty();
+    }
+
+    private FeatureModelCatalogService catalogService() {
+        JsonFeatureModelStore store = new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper());
+        return new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
     }
 }

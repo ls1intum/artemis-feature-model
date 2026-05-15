@@ -28,9 +28,13 @@ public class FeatureModelIntegrityService {
         Set<String> seenIds = new HashSet<>();
         for (FeatureNode feature : model.features()) {
             if (!seenIds.add(feature.id())) {
-                throw new FeatureModelIntegrityException(ValidationCode.DUPLICATE_FEATURE_ID.name(), "Feature id '" + feature.id() + "' is used more than once.");
+                throw new FeatureModelIntegrityException(ValidationCode.DUPLICATE_FEATURE_ID.name(), duplicateFeatureIdMessage(feature));
             }
         }
+    }
+
+    private String duplicateFeatureIdMessage(FeatureNode feature) {
+        return "Feature id '" + feature.id() + "' is used more than once.";
     }
 
     private void validateRootCount(FeatureModel model) {
@@ -39,7 +43,8 @@ public class FeatureModelIntegrityService {
             throw new FeatureModelIntegrityException(ValidationCode.NO_ROOT_FEATURE.name(), "The feature model does not contain a root feature.");
         }
         if (rootCount > 1) {
-            throw new FeatureModelIntegrityException(ValidationCode.MULTIPLE_ROOT_FEATURES.name(), "The feature model contains more than one root feature.");
+            throw new FeatureModelIntegrityException(ValidationCode.MULTIPLE_ROOT_FEATURES.name(),
+                    "The feature model contains more than one root feature.");
         }
     }
 
@@ -54,7 +59,8 @@ public class FeatureModelIntegrityService {
                         "Relation parent '" + relation.parentId() + "' does not exist.");
             }
             if (!featuresById.containsKey(relation.childId())) {
-                throw new FeatureModelIntegrityException(ValidationCode.MISSING_RELATION_CHILD.name(), "Relation child '" + relation.childId() + "' does not exist.");
+                throw new FeatureModelIntegrityException(ValidationCode.MISSING_RELATION_CHILD.name(),
+                        "Relation child '" + relation.childId() + "' does not exist.");
             }
         }
     }

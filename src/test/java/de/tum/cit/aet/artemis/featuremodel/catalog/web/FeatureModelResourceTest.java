@@ -22,14 +22,20 @@ class FeatureModelResourceTest {
 
     @Test
     void returnsActiveFeatureModelContract() throws Exception {
-        mockMvc.perform(get("/api/feature-model")).andExpect(status().isOk()).andExpect(jsonPath("$.model.name").value("Artemis Functional Feature Tree"))
-                .andExpect(jsonPath("$.features.length()").value(24)).andExpect(jsonPath("$.relations.length()").value(23)).andExpect(jsonPath("$.constraints.length()").value(0))
-                .andExpect(jsonPath("$.tree.feature.id").value("artemis")).andExpect(jsonPath("$.tree.incomingRelation").doesNotExist())
-                .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("programming"))).andExpect(jsonPath("$.warnings.length()").value(0));
+        mockMvc.perform(get("/api/feature-model")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.model.name").value("Artemis Functional Feature Tree"))
+                .andExpect(jsonPath("$.features.length()").value(24))
+                .andExpect(jsonPath("$.relations.length()").value(23))
+                .andExpect(jsonPath("$.constraints.length()").value(0))
+                .andExpect(jsonPath("$.tree.feature.id").value("artemis"))
+                .andExpect(jsonPath("$.tree.incomingRelation").doesNotExist())
+                .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("programming")))
+                .andExpect(jsonPath("$.warnings.length()").value(0));
     }
 
     private FeatureModelCatalogService catalogService() {
         FeatureModelTreeService treeService = new FeatureModelTreeService();
-        return new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()), new FeatureModelIntegrityService(), treeService);
+        JsonFeatureModelStore store = new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper());
+        return new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
     }
 }

@@ -32,7 +32,8 @@ public class FeatureModelCatalogService {
 
     private final FeatureModelTreeService treeService;
 
-    public FeatureModelCatalogService(FeatureModelStore featureModelStore, FeatureModelIntegrityService integrityService, FeatureModelTreeService treeService) {
+    public FeatureModelCatalogService(FeatureModelStore featureModelStore, FeatureModelIntegrityService integrityService,
+            FeatureModelTreeService treeService) {
         this.featureModelStore = featureModelStore;
         this.integrityService = integrityService;
         this.treeService = treeService;
@@ -56,7 +57,8 @@ public class FeatureModelCatalogService {
         List<String> defaultSelectedFeatureIds = defaultSelectedFeatureIds(model);
         List<ModelWarningDTO> warnings = modelWarnings(model);
 
-        return new FeatureModelResponse(ModelMetadataDTO.fromDomain(model.model()), features, relations, constraints, tree, defaultSelectedFeatureIds, warnings);
+        ModelMetadataDTO modelMetadata = ModelMetadataDTO.fromDomain(model.model());
+        return new FeatureModelResponse(modelMetadata, features, relations, constraints, tree, defaultSelectedFeatureIds, warnings);
     }
 
     /**
@@ -103,8 +105,8 @@ public class FeatureModelCatalogService {
     }
 
     private ModelWarningDTO expressionConstraintWarning(FeatureConstraint constraint) {
-        return new ModelWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
-                "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id());
+        String message = "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.";
+        return new ModelWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(), message, relatedFeatureIds(constraint), constraint.id());
     }
 
     private List<String> relatedFeatureIds(FeatureConstraint constraint) {

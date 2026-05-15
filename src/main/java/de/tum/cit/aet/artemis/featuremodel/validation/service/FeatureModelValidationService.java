@@ -110,7 +110,8 @@ public class FeatureModelValidationService {
         return new ValidationViolationDTO(ValidationCode.UNKNOWN_SELECTED_FEATURE.name(), message, List.of(featureId), null, suggestion);
     }
 
-    private List<ValidationViolationDTO> mandatoryRelationViolations(FeatureModel model, Map<String, FeatureNode> featuresById, Set<String> selectedKnownIds) {
+    private List<ValidationViolationDTO> mandatoryRelationViolations(FeatureModel model, Map<String, FeatureNode> featuresById,
+            Set<String> selectedKnownIds) {
         Set<String> activeFeatureIds = activeFeatureIds(model, selectedKnownIds);
         List<ValidationViolationDTO> violations = new ArrayList<>();
 
@@ -139,7 +140,9 @@ public class FeatureModelValidationService {
     private boolean isMissingMandatoryChild(FeatureRelation relation, Set<String> activeFeatureIds, Map<String, FeatureNode> featuresById,
             Set<String> selectedKnownIds) {
         FeatureNode child = featuresById.get(relation.childId());
-        return relation.isMandatory() && activeFeatureIds.contains(relation.parentId()) && isSelectableModule(child) && !selectedKnownIds.contains(relation.childId());
+        boolean parentIsActive = activeFeatureIds.contains(relation.parentId());
+        boolean childIsMissing = !selectedKnownIds.contains(relation.childId());
+        return relation.isMandatory() && parentIsActive && isSelectableModule(child) && childIsMissing;
     }
 
     private boolean isSelectableModule(FeatureNode feature) {
@@ -147,8 +150,11 @@ public class FeatureModelValidationService {
     }
 
     private ValidationViolationDTO mandatoryViolation(FeatureRelation relation, FeatureNode child, FeatureNode parent) {
-        return new ValidationViolationDTO(ValidationCode.MANDATORY_FEATURE_MISSING.name(), child.name() + " is mandatory under " + parent.name() + ".",
-                List.of(child.id()), ValidationRelationDTO.fromDomain(relation), "Enable " + child.name() + ".");
+        String message = child.name() + " is mandatory under " + parent.name() + ".";
+        String suggestion = "Enable " + child.name() + ".";
+
+        ValidationRelationDTO relationDTO = ValidationRelationDTO.fromDomain(relation);
+        return new ValidationViolationDTO(ValidationCode.MANDATORY_FEATURE_MISSING.name(), message, List.of(child.id()), relationDTO, suggestion);
     }
 
     private List<ValidationViolationDTO> constraintViolations(FeatureModel model, Set<String> selectedKnownIds) {
@@ -195,9 +201,10 @@ public class FeatureModelValidationService {
     }
 
     private ValidationWarningDTO expressionConstraintWarning(FeatureConstraint constraint) {
-        return new ValidationWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(),
-                "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.", relatedFeatureIds(constraint), constraint.id(),
-                "Review this constraint manually.");
+        String message = "Expression constraint '" + constraint.id() + "' is not evaluated by this MVP backend.";
+        String suggestion = "Review this constraint manually.";
+        List<String> featureIds = relatedFeatureIds(constraint);
+        return new ValidationWarningDTO(ValidationCode.UNSUPPORTED_EXPRESSION_CONSTRAINT.name(), message, featureIds, constraint.id(), suggestion);
     }
 
     private List<String> relatedFeatureIds(FeatureConstraint constraint) {

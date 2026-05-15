@@ -17,6 +17,7 @@ public class FeatureModelExceptionHandler {
 
     @ExceptionHandler(FeatureModelLoadException.class)
     public ResponseEntity<Map<String, String>> handleLoadException(FeatureModelLoadException exception) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("code", "FEATURE_MODEL_LOAD_FAILED", "message", exception.getMessage()));
+        Map<String, String> body = Map.of("code", "FEATURE_MODEL_LOAD_FAILED", "message", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }

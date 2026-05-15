@@ -21,20 +21,24 @@ import tools.jackson.databind.ObjectMapper;
 
 class FeatureModelValidationResourceTest {
 
+    private static final String INVALID_SELECTION_REQUEST = "{\"selectedFeatureIds\":[\"course-workflow\",\"communication\",\"exercise-common\"]}";
+
     private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new FeatureModelValidationResource(validationService())).build();
 
     @Test
     void validatesSubmittedSelection() throws Exception {
         mockMvc.perform(post("/api/feature-model/validate").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selectedFeatureIds\":[\"course-workflow\",\"communication\",\"exercise-common\"]}")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.valid").value(false)).andExpect(jsonPath("$.normalizedSelection", hasItem("course-workflow")))
-                .andExpect(jsonPath("$.violations[*].code", hasItem(ValidationCode.MANDATORY_FEATURE_MISSING.name()))).andExpect(jsonPath("$.warnings.length()").value(0));
+                .content(INVALID_SELECTION_REQUEST)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.normalizedSelection", hasItem("course-workflow")))
+                .andExpect(jsonPath("$.violations[*].code", hasItem(ValidationCode.MANDATORY_FEATURE_MISSING.name())))
+                .andExpect(jsonPath("$.warnings.length()").value(0));
     }
 
     private FeatureModelValidationService validationService() {
         FeatureModelTreeService treeService = new FeatureModelTreeService();
-        FeatureModelCatalogService catalogService = new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()),
-                new FeatureModelIntegrityService(), treeService);
+        JsonFeatureModelStore store = new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper());
+        FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
         return new FeatureModelValidationService(catalogService, treeService);
     }
 }

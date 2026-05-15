@@ -19,14 +19,16 @@ import tools.jackson.databind.ObjectMapper;
 
 class FeatureModelValidationServiceTest {
 
+    private static final List<String> VALID_BASE_SELECTION = List.of("exercise-common", "programming", "quiz");
+
     @Test
     void currentDefaultSelectionIsValid() {
-        FeatureModelTreeService treeService = new FeatureModelTreeService();
-        FeatureModelCatalogService catalogService = new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()),
-                new FeatureModelIntegrityService(), treeService);
+        FeatureModelTreeService treeService = treeService();
+        FeatureModelCatalogService catalogService = runtimeCatalogService(treeService);
         FeatureModel model = catalogService.loadActiveModel();
+        ValidationRequest request = new ValidationRequest(catalogService.defaultSelectedFeatureIds(model));
 
-        var result = new FeatureModelValidationService(catalogService, treeService).validateSelection(new ValidationRequest(catalogService.defaultSelectedFeatureIds(model)));
+        var result = new FeatureModelValidationService(catalogService, treeService).validateSelection(request);
 
         assertThat(result.valid()).isTrue();
         assertThat(result.violations()).isEmpty();
@@ -59,7 +61,7 @@ class FeatureModelValidationServiceTest {
     void reportsRequiresConstraintViolation() {
         FeatureModel model = TestFeatureModels.withConstraints(TestFeatureModels.requires("programming", "athena"));
 
-        var result = validationService(model).validateSelection(new ValidationRequest(List.of("exercise-common", "programming", "quiz")));
+        var result = validationService(model).validateSelection(new ValidationRequest(VALID_BASE_SELECTION));
 
         assertThat(result.valid()).isFalse();
         assertThat(result.violations()).extracting("code").contains(ValidationCode.REQUIRES_CONSTRAINT_VIOLATED.name());
@@ -79,7 +81,7 @@ class FeatureModelValidationServiceTest {
     void reportsUnsupportedExpressionConstraintAsWarningOnly() {
         FeatureModel model = TestFeatureModels.withConstraints(TestFeatureModels.expression(null));
 
-        var result = validationService(model).validateSelection(new ValidationRequest(List.of("exercise-common", "programming", "quiz")));
+        var result = validationService(model).validateSelection(new ValidationRequest(VALID_BASE_SELECTION));
 
         assertThat(result.valid()).isTrue();
         assertThat(result.violations()).isEmpty();
@@ -87,8 +89,17 @@ class FeatureModelValidationServiceTest {
     }
 
     private FeatureModelValidationService validationService(FeatureModel model) {
-        FeatureModelTreeService treeService = new FeatureModelTreeService();
+        FeatureModelTreeService treeService = treeService();
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(() -> model, new FeatureModelIntegrityService(), treeService);
         return new FeatureModelValidationService(catalogService, treeService);
+    }
+
+    private FeatureModelCatalogService runtimeCatalogService(FeatureModelTreeService treeService) {
+        JsonFeatureModelStore store = new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper());
+        return new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
+    }
+
+    private FeatureModelTreeService treeService() {
+        return new FeatureModelTreeService();
     }
 }
