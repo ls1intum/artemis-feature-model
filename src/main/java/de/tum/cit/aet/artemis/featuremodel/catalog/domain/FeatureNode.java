@@ -2,11 +2,11 @@ package de.tum.cit.aet.artemis.featuremodel.catalog.domain;
 
 public record FeatureNode(String id, String name, String kind, boolean selectable, String description, String defaultState, FeatureSource source) {
 
-    public static final String KIND_ROOT = "root";
+    private static final String KIND_ROOT = "root";
 
-    public static final String KIND_GROUP = "group";
+    private static final String KIND_GROUP = "group";
 
-    public static final String DEFAULT_STATE_ENABLED = "enabled";
+    private static final String DEFAULT_STATE_ENABLED = "enabled";
 
     public boolean isRoot() {
         return FeatureNode.KIND_ROOT.equals(kind);

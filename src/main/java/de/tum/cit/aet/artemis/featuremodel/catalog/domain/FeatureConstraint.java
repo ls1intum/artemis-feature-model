@@ -4,11 +4,11 @@ import tools.jackson.databind.JsonNode;
 
 public record FeatureConstraint(String id, String type, String source, String target, JsonNode expression, String description) {
 
-    public static final String TYPE_REQUIRES = "requires";
+    private static final String TYPE_REQUIRES = "requires";
 
-    public static final String TYPE_EXCLUDES = "excludes";
+    private static final String TYPE_EXCLUDES = "excludes";
 
-    public static final String TYPE_EXPRESSION = "expression";
+    private static final String TYPE_EXPRESSION = "expression";
 
     public boolean isRequires() {
         return FeatureConstraint.TYPE_REQUIRES.equals(type);
