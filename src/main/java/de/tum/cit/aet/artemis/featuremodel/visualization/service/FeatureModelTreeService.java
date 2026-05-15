@@ -19,6 +19,13 @@ import de.tum.cit.aet.artemis.featuremodel.visualization.dto.IncomingRelationDTO
 @Service
 public class FeatureModelTreeService {
 
+    /**
+     * Builds a tree DTO from the flat source model.
+     *
+     * @param model model to transform.
+     * @return root tree node.
+     * @throws java.util.NoSuchElementException if the model does not contain a root feature.
+     */
     public FeatureTreeNodeDTO buildTree(FeatureModel model) {
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
         Map<String, List<FeatureRelation>> relationsByParentId = relationsByParentId(model);
@@ -29,6 +36,10 @@ public class FeatureModelTreeService {
 
     /**
      * Returns feature ids in the same order as the tree view so selection responses are stable for clients.
+     *
+     * @param model model to inspect.
+     * @return feature ids in tree order.
+     * @throws java.util.NoSuchElementException if the model does not contain a root feature.
      */
     public List<String> treeOrderedFeatureIds(FeatureModel model) {
         List<String> featureIds = new ArrayList<>();
@@ -36,11 +47,26 @@ public class FeatureModelTreeService {
         return List.copyOf(featureIds);
     }
 
+    /**
+     * Groups source relations by parent id and sorts each child list.
+     *
+     * @param model model containing relations.
+     * @return sorted relations keyed by parent feature id.
+     */
     private Map<String, List<FeatureRelation>> relationsByParentId(FeatureModel model) {
         return model.relations().stream()
                 .collect(Collectors.groupingBy(FeatureRelation::parentId, Collectors.collectingAndThen(Collectors.toList(), this::sortRelations)));
     }
 
+    /**
+     * Builds one tree node and its descendants.
+     *
+     * @param feature feature represented by the node.
+     * @param incomingRelation incoming relation, or null for the root.
+     * @param featuresById known features keyed by id.
+     * @param relationsByParentId sorted relations keyed by parent id.
+     * @return tree node DTO.
+     */
     private FeatureTreeNodeDTO buildNode(FeatureNode feature, FeatureRelation incomingRelation, Map<String, FeatureNode> featuresById,
             Map<String, List<FeatureRelation>> relationsByParentId) {
         List<FeatureTreeNodeDTO> children = new ArrayList<>();
@@ -53,10 +79,22 @@ public class FeatureModelTreeService {
         return new FeatureTreeNodeDTO(FeatureDTO.fromDomain(feature), incomingRelationDTO, children);
     }
 
+    /**
+     * Sorts relations by configured order and then by child id for deterministic output.
+     *
+     * @param relations relations to sort.
+     * @return sorted relations.
+     */
     private List<FeatureRelation> sortRelations(List<FeatureRelation> relations) {
         return relations.stream().sorted(Comparator.comparingInt(FeatureRelation::order).thenComparing(FeatureRelation::childId)).toList();
     }
 
+    /**
+     * Appends the ids of a node and all descendants to an accumulator.
+     *
+     * @param node tree node to traverse.
+     * @param featureIds mutable feature id accumulator.
+     */
     private void appendFeatureIds(FeatureTreeNodeDTO node, List<String> featureIds) {
         featureIds.add(node.feature().id());
         for (FeatureTreeNodeDTO child : node.children()) {

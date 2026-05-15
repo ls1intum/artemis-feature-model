@@ -7,10 +7,25 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 public record FeatureSourceDTO(String configKey, String springProfile, String frontendConstant, String backendConditionClass,
         List<String> evidence) {
 
+    /**
+     * Creates a feature source DTO and normalizes nullable evidence to an immutable empty list.
+     *
+     * @param configKey optional backend configuration key.
+     * @param springProfile optional Spring profile.
+     * @param frontendConstant optional frontend feature constant.
+     * @param backendConditionClass optional backend condition class.
+     * @param evidence source evidence entries.
+     */
     public FeatureSourceDTO {
         evidence = evidence == null ? List.of() : List.copyOf(evidence);
     }
 
+    /**
+     * Converts domain source metadata to its REST DTO representation.
+     *
+     * @param source domain source metadata, or null if a feature has no source metadata.
+     * @return DTO containing the same source data, or null when {@code source} is null.
+     */
     public static FeatureSourceDTO fromDomain(FeatureSource source) {
         if (source == null) {
             return null;

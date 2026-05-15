@@ -17,6 +17,12 @@ import de.tum.cit.aet.artemis.featuremodel.validation.domain.ValidationCode;
 @Service
 public class FeatureModelIntegrityService {
 
+    /**
+     * Validates structural integrity rules for a feature model.
+     *
+     * @param model model to validate.
+     * @throws FeatureModelIntegrityException if a structural integrity rule is violated.
+     */
     public void validate(FeatureModel model) {
         validateUniqueFeatureIds(model);
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
@@ -24,6 +30,12 @@ public class FeatureModelIntegrityService {
         validateRelationEndpoints(model, featuresById);
     }
 
+    /**
+     * Checks that each feature id is unique.
+     *
+     * @param model model to validate.
+     * @throws FeatureModelIntegrityException if a duplicate feature id exists.
+     */
     private void validateUniqueFeatureIds(FeatureModel model) {
         Set<String> seenIds = new HashSet<>();
         for (FeatureNode feature : model.features()) {
@@ -33,10 +45,22 @@ public class FeatureModelIntegrityService {
         }
     }
 
+    /**
+     * Builds the duplicate feature id exception message.
+     *
+     * @param feature duplicate feature.
+     * @return exception message.
+     */
     private String duplicateFeatureIdMessage(FeatureNode feature) {
         return "Feature id '" + feature.id() + "' is used more than once.";
     }
 
+    /**
+     * Checks that the model contains exactly one root feature.
+     *
+     * @param model model to validate.
+     * @throws FeatureModelIntegrityException if the model has no root or multiple roots.
+     */
     private void validateRootCount(FeatureModel model) {
         long rootCount = countRootFeatures(model);
         if (rootCount == 0) {
@@ -48,10 +72,23 @@ public class FeatureModelIntegrityService {
         }
     }
 
+    /**
+     * Counts root feature nodes in a model.
+     *
+     * @param model model to inspect.
+     * @return number of root feature nodes.
+     */
     private long countRootFeatures(FeatureModel model) {
         return model.features().stream().filter(FeatureNode::isRoot).count();
     }
 
+    /**
+     * Checks that every relation references existing parent and child feature ids.
+     *
+     * @param model model containing relations to validate.
+     * @param featuresById known features keyed by id.
+     * @throws FeatureModelIntegrityException if a relation references a missing feature.
+     */
     private void validateRelationEndpoints(FeatureModel model, Map<String, FeatureNode> featuresById) {
         for (FeatureRelation relation : model.relations()) {
             if (!featuresById.containsKey(relation.parentId())) {

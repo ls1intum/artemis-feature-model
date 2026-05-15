@@ -13,10 +13,22 @@ public class FeatureModelResource {
 
     private final FeatureModelCatalogService featureModelCatalogService;
 
+    /**
+     * Creates the feature model resource.
+     *
+     * @param featureModelCatalogService catalog service used to build feature model responses.
+     */
     public FeatureModelResource(FeatureModelCatalogService featureModelCatalogService) {
         this.featureModelCatalogService = featureModelCatalogService;
     }
 
+    /**
+     * Returns the active feature model API response.
+     *
+     * @return active feature model response.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException if the active model cannot be loaded.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException if the loaded model is structurally invalid.
+     */
     @GetMapping
     public FeatureModelResponse getActiveFeatureModel() {
         return featureModelCatalogService.getActiveFeatureModelResponse();
