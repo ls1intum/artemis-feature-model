@@ -246,4 +246,67 @@ describe('FeatureModelExplorerComponent', () => {
         const error = failingFixture.nativeElement.querySelector('[data-testid="error-state"]');
         expect(error?.textContent).toContain('boom');
     });
+
+    it('starts in list view with the diagram view hidden', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        expect(rootElement(fixture).querySelector('[data-testid="list-view"]')).not.toBeNull();
+        expect(rootElement(fixture).querySelector('[data-testid="diagram"]')).toBeNull();
+
+        const listToggle = rootElement(fixture).querySelector('[data-testid="view-list"]');
+        expect(listToggle?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('renders the diagram view when the user toggles to Diagram', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
+        diagramToggle?.click();
+        fixture.detectChanges();
+
+        const diagram = rootElement(fixture).querySelector('[data-testid="diagram"]');
+        expect(diagram).not.toBeNull();
+        expect(rootElement(fixture).querySelectorAll('.diagram-node')).toHaveLength(24);
+        expect(rootElement(fixture).querySelector('[data-testid="list-view"]')).toBeNull();
+    });
+
+    it('hides Expand all and Collapse all controls in diagram view', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
+        diagramToggle?.click();
+        fixture.detectChanges();
+
+        expect(rootElement(fixture).querySelector('[data-testid="expand-all"]')).toBeNull();
+        expect(rootElement(fixture).querySelector('[data-testid="collapse-all"]')).toBeNull();
+    });
+
+    it('keeps selection and details consistent across the view toggle', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
+        diagramToggle?.click();
+        fixture.detectChanges();
+
+        const lectureNode = rootElement(fixture).querySelector('.diagram-node[data-feature-id="lecture"]') as HTMLElement | null;
+        lectureNode?.dispatchEvent(new Event('click'));
+        fixture.detectChanges();
+
+        expect(rootElement(fixture).querySelector('[data-testid="details-name"]')?.textContent).toContain('Lecture');
+        expect(rootElement(fixture).querySelector('[data-testid="details-config-key"]')?.textContent).toContain('artemis.lecture.enabled');
+
+        const listToggle = rootElement(fixture).querySelector('[data-testid="view-list"]') as HTMLButtonElement | null;
+        listToggle?.click();
+        fixture.detectChanges();
+
+        expect(rootElement(fixture).querySelector('[data-testid="details-name"]')?.textContent).toContain('Lecture');
+    });
 });
