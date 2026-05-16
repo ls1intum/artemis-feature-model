@@ -20,16 +20,16 @@
                     @case ('mandatory') {
                         <circle
                             class="diagram-marker diagram-marker--mandatory"
-                            [attr.cx]="node.x"
-                            [attr.cy]="node.y + node.relationMarkerY"
+                            [attr.cx]="node.markerCx"
+                            [attr.cy]="node.markerCy"
                             [attr.r]="nodeRadius"
                         />
                     }
                     @case ('optional') {
                         <circle
                             class="diagram-marker diagram-marker--optional"
-                            [attr.cx]="node.x"
-                            [attr.cy]="node.y + node.relationMarkerY"
+                            [attr.cx]="node.markerCx"
+                            [attr.cy]="node.markerCy"
                             [attr.r]="nodeRadius"
                         />
                     }
@@ -45,6 +45,7 @@
                     [class.diagram-node--match]="node.isMatched"
                     [class.diagram-node--root]="node.isRoot"
                     [class.diagram-node--structural]="node.isStructural"
+                    [class.diagram-node--collapsed]="node.isCollapsed"
                     [attr.transform]="node.transform"
                     [attr.data-feature-id]="node.id"
                     [attr.aria-selected]="node.isSelected"
@@ -65,6 +66,32 @@
                     />
                     <text class="diagram-node__label" text-anchor="middle" dy="0.35em">{{ node.displayName }}</text>
                     <title>{{ node.name }} ({{ node.id }})</title>
+
+                    @if (node.hasChildren) {
+                        <g
+                            class="diagram-toggle"
+                            [class.diagram-toggle--collapsed]="node.isCollapsed"
+                            [attr.transform]="toggleTransform"
+                            [attr.data-feature-id]="node.id"
+                            [attr.aria-label]="node.isCollapsed ? 'Expand ' + node.name : 'Collapse ' + node.name"
+                            role="button"
+                            tabindex="0"
+                            (click)="onToggle($event, node.id)"
+                            (keydown.enter)="onToggle($event, node.id)"
+                            (keydown.space)="onToggle($event, node.id)"
+                        >
+                            <rect
+                                class="diagram-toggle__bg"
+                                [attr.x]="-toggleBadgeHalfWidth"
+                                [attr.y]="-toggleBadgeHalfHeight"
+                                [attr.width]="toggleBadgeWidth"
+                                [attr.height]="toggleBadgeHeight"
+                                rx="9"
+                                ry="9"
+                            />
+                            <text class="diagram-toggle__label" text-anchor="middle" dy="0.35em">{{ node.toggleLabel }}</text>
+                        </g>
+                    }
                 </g>
             }
         </g>
