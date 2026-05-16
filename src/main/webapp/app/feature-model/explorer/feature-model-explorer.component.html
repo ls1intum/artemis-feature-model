@@ -71,25 +71,23 @@
                 </span>
             }
             <div class="ms-auto toolbar-actions">
-                @if (isListView()) {
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        (click)="onExpandAll()"
-                        [disabled]="allExpanded()"
-                        data-testid="expand-all"
-                    >
-                        Expand all
-                    </button>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        (click)="onCollapseAll()"
-                        data-testid="collapse-all"
-                    >
-                        Collapse all
-                    </button>
-                }
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onExpandAll()"
+                    [disabled]="allExpanded()"
+                    data-testid="expand-all"
+                >
+                    Expand all
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onCollapseAll()"
+                    data-testid="collapse-all"
+                >
+                    Collapse all
+                </button>
                 <div class="btn-group btn-group-sm view-mode-toggle" role="group" aria-label="View mode">
                     <button
                         type="button"
@@ -138,8 +136,10 @@
                             <fm-feature-model-diagram
                                 [tree]="root"
                                 [matchedIds]="matchedIds()"
+                                [expandedIds]="effectiveExpandedIds()"
                                 [selectedId]="selectedFeatureId()"
                                 (selectFeature)="onSelectFeature($event)"
+                                (toggleExpand)="onToggleExpand($event)"
                             />
                         }
                     }
