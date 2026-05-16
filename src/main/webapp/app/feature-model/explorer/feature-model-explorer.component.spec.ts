@@ -259,7 +259,7 @@ describe('FeatureModelExplorerComponent', () => {
         expect(listToggle?.getAttribute('aria-pressed')).toBe('true');
     });
 
-    it('renders the diagram view when the user toggles to Diagram', () => {
+    it('renders the diagram view with only the initially expanded branch visible', () => {
         fixture.detectChanges();
         stub.subject.next(buildMvpFeatureModelResponse());
         fixture.detectChanges();
@@ -270,11 +270,33 @@ describe('FeatureModelExplorerComponent', () => {
 
         const diagram = rootElement(fixture).querySelector('[data-testid="diagram"]');
         expect(diagram).not.toBeNull();
-        expect(rootElement(fixture).querySelectorAll('.diagram-node')).toHaveLength(24);
+        const visibleIds = Array.from(rootElement(fixture).querySelectorAll('.diagram-node')).map((node) =>
+            node.getAttribute('data-feature-id'),
+        );
+        expect(visibleIds).toContain('artemis');
+        expect(visibleIds).toContain('teaching-and-content');
+        expect(visibleIds).not.toContain('lecture');
+        expect(visibleIds).toHaveLength(6);
         expect(rootElement(fixture).querySelector('[data-testid="list-view"]')).toBeNull();
     });
 
-    it('hides Expand all and Collapse all controls in diagram view', () => {
+    it('renders all 24 nodes in diagram view after Expand all', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const expandAll = rootElement(fixture).querySelector('[data-testid="expand-all"]') as HTMLButtonElement | null;
+        expandAll?.click();
+        fixture.detectChanges();
+
+        const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
+        diagramToggle?.click();
+        fixture.detectChanges();
+
+        expect(rootElement(fixture).querySelectorAll('.diagram-node')).toHaveLength(24);
+    });
+
+    it('keeps Expand all and Collapse all controls available in diagram view', () => {
         fixture.detectChanges();
         stub.subject.next(buildMvpFeatureModelResponse());
         fixture.detectChanges();
@@ -283,13 +305,39 @@ describe('FeatureModelExplorerComponent', () => {
         diagramToggle?.click();
         fixture.detectChanges();
 
-        expect(rootElement(fixture).querySelector('[data-testid="expand-all"]')).toBeNull();
-        expect(rootElement(fixture).querySelector('[data-testid="collapse-all"]')).toBeNull();
+        expect(rootElement(fixture).querySelector('[data-testid="expand-all"]')).not.toBeNull();
+        expect(rootElement(fixture).querySelector('[data-testid="collapse-all"]')).not.toBeNull();
+    });
+
+    it('expands a subtree when the diagram toggle badge is clicked', () => {
+        fixture.detectChanges();
+        stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
+        diagramToggle?.click();
+        fixture.detectChanges();
+
+        const teachingToggle = rootElement(fixture).querySelector(
+            '.diagram-toggle[data-feature-id="teaching-and-content"]',
+        ) as Element | null;
+        teachingToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        fixture.detectChanges();
+
+        const visibleIds = Array.from(rootElement(fixture).querySelectorAll('.diagram-node')).map((node) =>
+            node.getAttribute('data-feature-id'),
+        );
+        expect(visibleIds).toContain('lecture');
+        expect(visibleIds).toContain('communication');
     });
 
     it('keeps selection and details consistent across the view toggle', () => {
         fixture.detectChanges();
         stub.subject.next(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const expandAll = rootElement(fixture).querySelector('[data-testid="expand-all"]') as HTMLButtonElement | null;
+        expandAll?.click();
         fixture.detectChanges();
 
         const diagramToggle = rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null;
