@@ -6,8 +6,8 @@ aware exploration and configuration tool.
 
 ## Status
 
-This repository has completed Phase 3 of the MVP: the server feature-model API
-is implemented and tested.
+This repository has completed Phase 4 of the MVP: the Angular feature-model
+explorer now loads the server API and renders the model interactively.
 
 Current server capabilities:
 
@@ -21,8 +21,23 @@ Current server capabilities:
   `requires`, `excludes`, and unsupported `expression` constraint handling are
   covered by server tests.
 
-The Angular explorer and configurator pages are still placeholder pages. Their
-full implementations are planned for later MVP phases.
+Current explorer capabilities:
+
+- `/feature-model/explorer` loads `GET /api/feature-model` through a shared
+  `FeatureModelService` and renders the 24-node feature tree with kind,
+  relation, and default-state badges.
+- Branches can be expanded and collapsed individually, or in bulk via
+  Expand all and Collapse all.
+- A search box filters branches by feature id or name (case-insensitive) and
+  preserves ancestor paths so matches stay in context.
+- Selecting a feature opens a details panel that surfaces description,
+  parent relation, default-selected status, and source metadata (config
+  key, Spring profile, frontend constant, backend condition class, and
+  evidence entries) when present.
+- Loading, error, empty-search, and model-warning states are handled.
+
+The configurator page is still a placeholder; its interactive selection and
+validation behavior is planned for Phase 5.
 
 ## Prerequisites
 
@@ -76,8 +91,9 @@ The dev server proxies `/api/*` to the server on port 8080.
 ## Routes
 
 - `/` redirects to `/feature-model/explorer`
-- `/feature-model/explorer` — read-only feature model overview (Phase 4)
+- `/feature-model/explorer` — read-only feature model overview
 - `/feature-model/configurator` — interactive configurator (Phase 5)
 
-The routes are currently placeholder pages. Later client phases will connect
-them to the Phase 3 server API without restructuring the app shell.
+The explorer is implemented. The configurator remains a placeholder page;
+Phase 5 will connect it to `POST /api/feature-model/validate` without
+restructuring the app shell.
