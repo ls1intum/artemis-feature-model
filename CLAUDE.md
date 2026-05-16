@@ -24,10 +24,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Dock
 Run commands from the repository root:
 
 ```bash
-./gradlew test                    # backend tests
-./gradlew bootRun                 # backend on http://localhost:8080
+./gradlew test                    # server tests
+./gradlew bootRun                 # server on http://localhost:8080
 
-npm install                       # install frontend dependencies
+npm install                       # install client dependencies
 npm run start                     # Angular dev server on http://localhost:9000
 npm run build                     # Angular build into build/webapp
 npm run test                      # Angular unit tests with Vitest
@@ -56,7 +56,7 @@ src/main/webapp/
 src/test/java/de/tum/cit/aet/artemis/featuremodel/
 ```
 
-Backend package areas:
+Server package areas:
 
 - `catalog` owns the feature model catalog, source model records, storage boundary, JSON-backed store, and model metadata.
 - `validation` owns model and selection validation.
@@ -65,7 +65,7 @@ Backend package areas:
 - `export` is reserved for later deployment/configuration artifact generation.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
-Frontend areas:
+Client areas:
 
 - `src/main/webapp/app/app.*` contains the application shell and routes.
 - `src/main/webapp/app/feature-model/core` is for shared feature-model interfaces and pure helpers.
@@ -78,7 +78,7 @@ Frontend areas:
 
 - Runtime resource: `src/main/resources/feature-model/functional-feature-model.json`
 
-Do not duplicate the feature model in frontend code. The backend loads the runtime classpath copy and exposes it through APIs.
+Do not duplicate the feature model in client code. The server loads the runtime classpath copy and exposes it through APIs.
 
 ## Java Conventions
 
@@ -96,7 +96,7 @@ Follow Artemis-style Java conventions where they fit this standalone MVP:
 - Do not introduce JPA, repositories backed by a database, Liquibase, Spring Security, or user/session persistence unless a later phase explicitly requires it.
 - Do not inject `EntityManager` or `EntityManagerFactory`.
 - Use controlled exceptions for model loading and integrity failures instead of raw parser errors leaking to API callers.
-- Keep backend services dependent on `FeatureModelStore`, not directly on JSON files.
+- Keep server services dependent on `FeatureModelStore`, not directly on JSON files.
 - Prefer intention-revealing method and variable names over terse names.
 - Keep methods small and focused on one action. Split validation, mapping, warning creation, and message construction into named helper methods when a method starts doing multiple things.
 - Avoid long stream/lambda chains when they make control flow hard to read. Use clear local variables and ordinary loops for multi-step validation or tree traversal logic.
@@ -104,19 +104,25 @@ Follow Artemis-style Java conventions where they fit this standalone MVP:
 - Define constants for repeated literal values. Use `private static final` by default and expose constants only when another class genuinely needs them.
 - Use the least possible access level for fields, methods, and constants. Increase visibility only when there is a concrete caller outside the class.
 - Keep methods ordered from higher-level behavior to lower-level helpers, following the order in which they are used where practical.
-- Add Javadoc for backend methods and constructors. Each Javadoc should include a short description, `@param` for every parameter, `@return` for non-void methods, and `@throws` for exceptions the method can throw.
+- Add Javadoc for server-side methods and constructors. Each Javadoc should include a short description, `@param` for every parameter, `@return` for non-void methods, and `@throws` for exceptions the method can throw.
 - Comments and Javadocs must be in English and should clarify intent or non-obvious behavior. Do not add comments that merely repeat the code.
-- For the feature-model backend, document structural validation assumptions, such as root and group nodes being active paths even though users cannot toggle them.
+- For the feature-model server, document structural validation assumptions, such as root and group nodes being active paths even though users cannot toggle them.
 - Keep DTO conversion methods explicit and local to the owning DTO. Do not expose domain records directly from REST resources.
 
 ## TypeScript and Angular Conventions
 
-Follow current Artemis frontend direction as much as possible:
+Follow current Artemis client direction as much as possible:
 
 - Use standalone Angular components.
+- Use lazy loading for route-level features so the initial bundle stays small.
 - Use `ChangeDetectionStrategy.OnPush`.
 - Use kebab-case filenames.
-- Use PascalCase for classes and camelCase for members.
+- Use PascalCase for classes, types, and enums.
+- Do not prefix interfaces with `I`.
+- Use camelCase for functions, properties, and local variables.
+- Use SCREAMING_SNAKE_CASE for constants.
+- Do not prefix private members with `_`.
+- Use descriptive whole words instead of terse abbreviations.
 - Use 4-space indentation and single quotes.
 - Prefer `inject()` over constructor injection.
 - Prefer signal-based APIs for new code:
@@ -125,19 +131,44 @@ Follow current Artemis frontend direction as much as possible:
   - `viewChild()` / `viewChild.required()` instead of `@ViewChild()`
   - `viewChildren()` instead of `@ViewChildren()`
   - `signal()`, `computed()`, and `effect()` for component state
+- Do not add legacy decorators such as `@Input`, `@Output`, `@ViewChild`, `@ViewChildren`, `@ContentChild`, or `@ContentChildren` in new code.
 - Use Angular template control flow:
   - `@if`
   - `@for`
   - `@switch`
 - Do not use new `*ngIf`, `*ngFor`, or `*ngSwitch` in new templates.
+- Do not call component methods or getters from templates. Signals are the exception. Precompute values with `computed()` or assign view-ready state before rendering.
 - Avoid `null` where `undefined` works.
-- Prefer strong typing over `any`.
+- Prefer interfaces over type aliases whenever an interface can express the shape.
+- Put local type definitions near the top of the file.
+- Do not export types, constants, or helpers unless another file genuinely needs them.
+- Do not introduce global types or global values.
+- Do not use anonymous object shapes for meaningful data. Define named interfaces.
+- Never use `any`; keep client code strictly typed.
+- Treat objects and arrays as immutable outside the component or helper that created them.
 - Keep API calls in feature-model API services, not directly in route components.
 - Keep validation display components separate from validation service logic.
+- Use buttons for actions and links for navigation.
+- Associate labels with form controls using `for`/`id` or a wrapped input.
+- Keep route paths explicit: every variable segment should be preceded by a unique textual segment.
+- Use arrow functions instead of anonymous function expressions, and always wrap arrow parameters in parentheses.
+- Always use curly braces for loop and conditional bodies except for same-line statements.
 
 This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilities sparingly and do not add `ng-bootstrap`, FontAwesome, PrimeNG, or another component library until a project plan explicitly calls for it.
 
-## API and Backend Design Conventions
+### Client Styling and Theming
+
+- Use SCSS for component styles.
+- Prefer component-local styles over broad global styles.
+- Use BEM-style class structure for custom component CSS where it improves readability.
+- Do not hard-code color values in component styles, templates, or TypeScript.
+- Prefer theme-aware defaults, Bootstrap utility classes, or CSS variables such as `var(--bs-body-color)` and `var(--bs-body-bg)`.
+- If a custom color is unavoidable, define a named CSS variable and provide theme-aware values in the appropriate global theme file.
+- Verify UI changes in light and dark themes once theme support exists.
+- Do not use `::ng-deep`.
+- Use responsive layouts that adapt to small screens. Prefer a `.container` or deliberate responsive layout over brittle nested grid wrappers.
+
+## API and Server Design Conventions
 
 - Public MVP API routes live under `/api/feature-model`.
 - `GET /api/feature-model` returns the loaded model, derived tree, default selected feature ids, and warnings.
@@ -151,24 +182,31 @@ This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilit
 
 ## Testing Guidelines
 
-Backend:
+Server:
 
 - Use `./gradlew test`.
 - Use `./gradlew test --rerun-tasks` when you need to prove tests executed instead of relying on Gradle's `UP-TO-DATE` result.
-- Backend tests must not require Docker or a database.
+- Server tests must not require Docker or a database.
 - Name server tests `*Test.java`.
 - Prefer focused unit tests for services.
 - Use Spring tests only for application context and web/API contract coverage.
 - Build synthetic in-memory feature models for invalid cases. Do not mutate the runtime JSON in tests.
-- Check `build/test-results/test/TEST-*.xml` when you need exact backend test class counts and pass/fail evidence.
+- Check `build/test-results/test/TEST-*.xml` when you need exact server test class counts and pass/fail evidence.
 
-Frontend:
+Client:
 
 - Use `npm run test`.
 - Prefer Vitest for new tests.
-- Use `vi.fn()`, `vi.spyOn()`, and `vi.clearAllMocks()` when mocks are needed.
+- Use `vi.fn()`, `vi.spyOn()`, `vi.clearAllMocks()`, and `vi.restoreAllMocks()` instead of Jest APIs.
 - Keep tests co-located with Angular components or services.
-- Run `npm run build` after frontend-relevant changes.
+- Test components in isolation. Do not import broad production modules when stubs or focused providers are enough.
+- Do not use `NO_ERRORS_SCHEMA`; stub or mock child components, pipes, and directives instead.
+- Do not use `overrideTemplate()` to hide a component template. The template is part of the behavior under test.
+- Mock services that only fetch server data. For services with logic, keep the real service and mock HTTP requests with Angular HTTP testing utilities.
+- Reset mocks in `afterEach` when they are created across tests.
+- Prefer user-interaction tests over direct tests of internal component methods.
+- Make expectations specific, for example `toBeUndefined()`, `toHaveLength(3)`, or `toHaveBeenCalledOnce()` instead of broad truthiness checks.
+- Run `npm run build` after client-relevant changes.
 
 Before handing off code changes, prefer:
 
@@ -193,7 +231,7 @@ If a command cannot run, document the exact command and reason in the handoff.
 Recommended commit message examples:
 
 ```text
-chore: add backend feature model store
+chore: add server feature model store
 test: cover mandatory feature validation
-docs: add phase 3 backend api plan
+docs: add phase 3 server api plan
 ```
