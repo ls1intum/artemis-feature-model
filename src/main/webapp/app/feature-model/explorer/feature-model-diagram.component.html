@@ -1,0 +1,72 @@
+<div class="diagram-scroll" data-testid="diagram">
+    <svg
+        class="diagram-svg"
+        xmlns="http://www.w3.org/2000/svg"
+        [attr.width]="width()"
+        [attr.height]="height()"
+        [attr.viewBox]="viewBox()"
+        role="tree"
+        aria-label="Feature model tree diagram"
+    >
+        <g class="diagram-links">
+            @for (link of links(); track link.id) {
+                <path class="diagram-link" [attr.d]="link.path" />
+            }
+        </g>
+
+        <g class="diagram-markers">
+            @for (node of nodes(); track node.id) {
+                @switch (node.incomingRelationType) {
+                    @case ('mandatory') {
+                        <circle
+                            class="diagram-marker diagram-marker--mandatory"
+                            [attr.cx]="node.x"
+                            [attr.cy]="node.y + node.relationMarkerY"
+                            [attr.r]="nodeRadius"
+                        />
+                    }
+                    @case ('optional') {
+                        <circle
+                            class="diagram-marker diagram-marker--optional"
+                            [attr.cx]="node.x"
+                            [attr.cy]="node.y + node.relationMarkerY"
+                            [attr.r]="nodeRadius"
+                        />
+                    }
+                }
+            }
+        </g>
+
+        <g class="diagram-nodes">
+            @for (node of nodes(); track node.id) {
+                <g
+                    class="diagram-node"
+                    [class.diagram-node--selected]="node.isSelected"
+                    [class.diagram-node--match]="node.isMatched"
+                    [class.diagram-node--root]="node.isRoot"
+                    [class.diagram-node--structural]="node.isStructural"
+                    [attr.transform]="node.transform"
+                    [attr.data-feature-id]="node.id"
+                    [attr.aria-selected]="node.isSelected"
+                    role="treeitem"
+                    tabindex="0"
+                    (click)="onSelect(node.id)"
+                    (keydown.enter)="onSelect(node.id)"
+                    (keydown.space)="onSelect(node.id)"
+                >
+                    <rect
+                        class="diagram-node__box"
+                        [attr.x]="-nodeHalfWidth"
+                        [attr.y]="-nodeHalfHeight"
+                        [attr.width]="nodeWidth"
+                        [attr.height]="nodeHeight"
+                        rx="3"
+                        ry="3"
+                    />
+                    <text class="diagram-node__label" text-anchor="middle" dy="0.35em">{{ node.displayName }}</text>
+                    <title>{{ node.name }} ({{ node.id }})</title>
+                </g>
+            }
+        </g>
+    </svg>
+</div>
