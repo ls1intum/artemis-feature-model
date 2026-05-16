@@ -6,8 +6,24 @@ aware exploration and configuration tool.
 
 ## Status
 
-This repository is currently on phase 2 of the MVP: the project scaffold.
-All Phase 2 work happens on the `feature/bootstrap-project-structure` branch.
+This repository has completed Phase 3 of the MVP on the
+`feature/backend-feature-model-api` branch: the backend feature-model API is
+implemented and tested.
+
+Current backend capabilities:
+
+- `GET /api/feature-model` returns model metadata, source features, source
+  relations, source constraints, the derived tree, backend-derived default
+  selected feature ids, and model warnings.
+- `POST /api/feature-model/validate` validates submitted feature selections.
+- The backend loads the runtime classpath JSON through `FeatureModelStore`.
+- Model integrity checks, tree derivation, default selection derivation,
+  mandatory hierarchy validation, unknown selected id reporting, and synthetic
+  `requires`, `excludes`, and unsupported `expression` constraint handling are
+  covered by backend tests.
+
+The Angular explorer and configurator pages are still placeholder pages. Their
+full implementations are planned for later MVP phases.
 
 ## Prerequisites
 
@@ -40,8 +56,13 @@ devdocs/                    MVP planning documents (gitignored locally)
 
 ```bash
 ./gradlew test              # run backend unit tests
+./gradlew test --rerun-tasks # force backend unit tests to execute again
 ./gradlew bootRun           # start the backend on http://localhost:8080
 ```
+
+Gradle may report `:test UP-TO-DATE` when inputs have not changed. In that
+case, the previous test result is reused. Use `--rerun-tasks` when you need to
+force a fresh backend test execution.
 
 ## Frontend commands
 
@@ -60,5 +81,5 @@ The dev server proxies `/api/*` to the backend on port 8080.
 - `/feature-model/explorer` — read-only feature model overview (Phase 4)
 - `/feature-model/configurator` — interactive configurator (Phase 5)
 
-Phase 2 ships the routes as placeholder pages so later phases can wire up the
-backend and tree rendering without restructuring the app shell.
+The routes are currently placeholder pages. Later frontend phases will connect
+them to the Phase 3 backend API without restructuring the app shell.

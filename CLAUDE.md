@@ -97,6 +97,17 @@ Follow Artemis-style Java conventions where they fit this standalone MVP:
 - Do not inject `EntityManager` or `EntityManagerFactory`.
 - Use controlled exceptions for model loading and integrity failures instead of raw parser errors leaking to API callers.
 - Keep backend services dependent on `FeatureModelStore`, not directly on JSON files.
+- Prefer intention-revealing method and variable names over terse names.
+- Keep methods small and focused on one action. Split validation, mapping, warning creation, and message construction into named helper methods when a method starts doing multiple things.
+- Avoid long stream/lambda chains when they make control flow hard to read. Use clear local variables and ordinary loops for multi-step validation or tree traversal logic.
+- Avoid horizontally long lines and deeply chained assertions or method calls. Break complex statements into named local variables.
+- Define constants for repeated literal values. Use `private static final` by default and expose constants only when another class genuinely needs them.
+- Use the least possible access level for fields, methods, and constants. Increase visibility only when there is a concrete caller outside the class.
+- Keep methods ordered from higher-level behavior to lower-level helpers, following the order in which they are used where practical.
+- Add Javadoc for backend methods and constructors. Each Javadoc should include a short description, `@param` for every parameter, `@return` for non-void methods, and `@throws` for exceptions the method can throw.
+- Comments and Javadocs must be in English and should clarify intent or non-obvious behavior. Do not add comments that merely repeat the code.
+- For the feature-model backend, document structural validation assumptions, such as root and group nodes being active paths even though users cannot toggle them.
+- Keep DTO conversion methods explicit and local to the owning DTO. Do not expose domain records directly from REST resources.
 
 ## TypeScript and Angular Conventions
 
@@ -143,11 +154,13 @@ This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilit
 Backend:
 
 - Use `./gradlew test`.
+- Use `./gradlew test --rerun-tasks` when you need to prove tests executed instead of relying on Gradle's `UP-TO-DATE` result.
 - Backend tests must not require Docker or a database.
 - Name server tests `*Test.java`.
 - Prefer focused unit tests for services.
 - Use Spring tests only for application context and web/API contract coverage.
 - Build synthetic in-memory feature models for invalid cases. Do not mutate the runtime JSON in tests.
+- Check `build/test-results/test/TEST-*.xml` when you need exact backend test class counts and pass/fail evidence.
 
 Frontend:
 
