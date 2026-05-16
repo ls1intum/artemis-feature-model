@@ -6,8 +6,23 @@ aware exploration and configuration tool.
 
 ## Status
 
-This repository is currently on phase 2 of the MVP: the project scaffold.
-All Phase 2 work happens on the `feature/bootstrap-project-structure` branch.
+This repository has completed Phase 3 of the MVP: the server feature-model API
+is implemented and tested.
+
+Current server capabilities:
+
+- `GET /api/feature-model` returns model metadata, source features, source
+  relations, source constraints, the derived tree, server-derived default
+  selected feature ids, and model warnings.
+- `POST /api/feature-model/validate` validates submitted feature selections.
+- The server loads the runtime classpath JSON through `FeatureModelStore`.
+- Model integrity checks, tree derivation, default selection derivation,
+  mandatory hierarchy validation, unknown selected id reporting, and synthetic
+  `requires`, `excludes`, and unsupported `expression` constraint handling are
+  covered by server tests.
+
+The Angular explorer and configurator pages are still placeholder pages. Their
+full implementations are planned for later MVP phases.
 
 ## Prerequisites
 
@@ -29,21 +44,25 @@ package.json                Angular workspace and scripts
 angular.json                Angular CLI workspace
 tsconfig*.json              TypeScript configs
 proxy.conf.json             dev-server proxy for /api -> :8080
-src/main/java/...           Spring Boot backend (Artemis-style package split)
+src/main/java/...           Spring Boot server (Artemis-style package split)
 src/main/resources/         application.yml and runtime feature-model JSON
-src/main/webapp/            Angular 21 frontend (standalone components)
-src/test/java/...           Backend tests
-devdocs/                    MVP planning documents (gitignored locally)
+src/main/webapp/            Angular 21 client (standalone components)
+src/test/java/...           Server tests
 ```
 
-## Backend commands
+## Server commands
 
 ```bash
-./gradlew test              # run backend unit tests
-./gradlew bootRun           # start the backend on http://localhost:8080
+./gradlew test              # run server unit tests
+./gradlew test --rerun-tasks # force server unit tests to execute again
+./gradlew bootRun           # start the server on http://localhost:8080
 ```
 
-## Frontend commands
+Gradle may report `:test UP-TO-DATE` when inputs have not changed. In that
+case, the previous test result is reused. Use `--rerun-tasks` when you need to
+force a fresh server test execution.
+
+## Client commands
 
 ```bash
 npm install                 # install Angular and tooling
@@ -52,7 +71,7 @@ npm run build               # production-style build into build/webapp
 npm run test                # run Angular unit tests (Vitest + jsdom)
 ```
 
-The dev server proxies `/api/*` to the backend on port 8080.
+The dev server proxies `/api/*` to the server on port 8080.
 
 ## Routes
 
@@ -60,5 +79,5 @@ The dev server proxies `/api/*` to the backend on port 8080.
 - `/feature-model/explorer` — read-only feature model overview (Phase 4)
 - `/feature-model/configurator` — interactive configurator (Phase 5)
 
-Phase 2 ships the routes as placeholder pages so later phases can wire up the
-backend and tree rendering without restructuring the app shell.
+The routes are currently placeholder pages. Later client phases will connect
+them to the Phase 3 server API without restructuring the app shell.
