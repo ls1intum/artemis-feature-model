@@ -5,14 +5,17 @@ import { FormsModule } from '@angular/forms';
 import { FeatureModelService } from '../api/feature-model.service';
 import { collectExpandableNodeIds, countTreeNodes, filterTreeByQuery, findNodeById } from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
+import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 import { FeatureModelTreeNodeComponent } from './feature-model-tree-node.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
 
+export type ExplorerViewMode = 'list' | 'diagram';
+
 @Component({
     selector: 'fm-feature-model-explorer',
     standalone: true,
-    imports: [FormsModule, FeatureModelTreeNodeComponent],
+    imports: [FormsModule, FeatureModelTreeNodeComponent, FeatureModelDiagramComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-explorer.component.html',
     styleUrl: './feature-model-explorer.component.scss',
@@ -26,6 +29,7 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly searchQuery = signal<string>('');
     readonly selectedFeatureId = signal<string | undefined>(undefined);
+    readonly viewMode = signal<ExplorerViewMode>('list');
     private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
 
     readonly model = computed(() => this.response()?.model);
@@ -41,6 +45,8 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly matchedIds = computed(() => this.filterResult().matchedIds);
     readonly matchCount = computed(() => this.filterResult().matchedIds.size);
     readonly hasActiveSearch = computed(() => this.searchQuery().trim().length > 0);
+    readonly isListView = computed(() => this.viewMode() === 'list');
+    readonly isDiagramView = computed(() => this.viewMode() === 'diagram');
 
     readonly expandableIds = computed(() => collectExpandableNodeIds(this.tree()));
 
@@ -123,6 +129,10 @@ export class FeatureModelExplorerComponent implements OnInit {
 
     onClearSearch(): void {
         this.searchQuery.set('');
+    }
+
+    onSetViewMode(mode: ExplorerViewMode): void {
+        this.viewMode.set(mode);
     }
 
     private handleLoaded(response: FeatureModelResponse): void {

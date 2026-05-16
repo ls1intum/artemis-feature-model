@@ -71,40 +71,78 @@
                 </span>
             }
             <div class="ms-auto toolbar-actions">
-                <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    (click)="onExpandAll()"
-                    [disabled]="allExpanded()"
-                    data-testid="expand-all"
-                >
-                    Expand all
-                </button>
-                <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    (click)="onCollapseAll()"
-                    data-testid="collapse-all"
-                >
-                    Collapse all
-                </button>
+                @if (isListView()) {
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="onExpandAll()"
+                        [disabled]="allExpanded()"
+                        data-testid="expand-all"
+                    >
+                        Expand all
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="onCollapseAll()"
+                        data-testid="collapse-all"
+                    >
+                        Collapse all
+                    </button>
+                }
+                <div class="btn-group btn-group-sm view-mode-toggle" role="group" aria-label="View mode">
+                    <button
+                        type="button"
+                        class="btn"
+                        [class.btn-primary]="isListView()"
+                        [class.btn-outline-primary]="!isListView()"
+                        [attr.aria-pressed]="isListView()"
+                        (click)="onSetViewMode('list')"
+                        data-testid="view-list"
+                    >
+                        List
+                    </button>
+                    <button
+                        type="button"
+                        class="btn"
+                        [class.btn-primary]="isDiagramView()"
+                        [class.btn-outline-primary]="!isDiagramView()"
+                        [attr.aria-pressed]="isDiagramView()"
+                        (click)="onSetViewMode('diagram')"
+                        data-testid="view-diagram"
+                    >
+                        Diagram
+                    </button>
+                </div>
             </div>
         </div>
 
         <div class="explorer-layout">
             <aside class="tree-panel" aria-label="Feature tree">
                 @if (visibleTree(); as root) {
-                    <ul class="tree-root">
-                        <fm-feature-model-tree-node
-                            [node]="root"
-                            [expandedIds]="effectiveExpandedIds()"
-                            [matchedIds]="matchedIds()"
-                            [selectedId]="selectedFeatureId()"
-                            [depth]="0"
-                            (toggleExpand)="onToggleExpand($event)"
-                            (selectFeature)="onSelectFeature($event)"
-                        />
-                    </ul>
+                    @switch (viewMode()) {
+                        @case ('list') {
+                            <ul class="tree-root" data-testid="list-view">
+                                <fm-feature-model-tree-node
+                                    [node]="root"
+                                    [expandedIds]="effectiveExpandedIds()"
+                                    [matchedIds]="matchedIds()"
+                                    [selectedId]="selectedFeatureId()"
+                                    [depth]="0"
+                                    (toggleExpand)="onToggleExpand($event)"
+                                    (selectFeature)="onSelectFeature($event)"
+                                />
+                            </ul>
+                        }
+                        @case ('diagram') {
+                            <fm-feature-model-diagram
+                                [tree]="root"
+                                [matchedIds]="matchedIds()"
+                                [selectedId]="selectedFeatureId()"
+                                (selectFeature)="onSelectFeature($event)"
+                            />
+                        }
+                    }
                 } @else {
                     <p class="text-muted mb-0" data-testid="empty-tree">
                         No features match the current search.

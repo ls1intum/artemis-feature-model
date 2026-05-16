@@ -67,6 +67,10 @@
     align-items: start;
 }
 
+.view-mode-toggle .btn[aria-pressed='true'] {
+    pointer-events: none;
+}
+
 @media (max-width: 992px) {
     .explorer-layout {
         grid-template-columns: 1fr;
