@@ -141,12 +141,30 @@ export class FeatureModelDiagramComponent {
         this.selectFeature.emit(id);
     }
 
+    /**
+     * Emits `toggleExpand` for `id` and stops the click from bubbling to the surrounding node
+     * `<g>`, which would otherwise also fire `selectFeature` because the badge sits inside the
+     * clickable node group.
+     *
+     * @param event Click or keyboard event from the toggle badge.
+     * @param id Feature id whose subtree should be expanded or collapsed.
+     */
     onToggle(event: Event, id: string): void {
         event.stopPropagation();
         this.toggleExpand.emit(id);
     }
 }
 
+/**
+ * Builds the augmented tree that is fed to `d3.hierarchy`. Collapsed subtrees (parents whose id is
+ * not in `expandedIds`) become childless leaves carrying a `hiddenDescendantCount`, while expanded
+ * subtrees recurse normally. `hasChildrenInSource` is preserved on every node so the renderer can
+ * still show a toggle badge on collapsed nodes that had children originally.
+ *
+ * @param node Source feature-tree node.
+ * @param expandedIds Set of ids whose subtrees should remain expanded.
+ * @returns Augmented node ready for `d3.hierarchy(...)`.
+ */
 function buildDiagramTree(node: FeatureTreeNode, expandedIds: ReadonlySet<string>): DiagramTreeData {
     const hasChildrenInSource = node.children.length > 0;
     const isExpanded = !hasChildrenInSource || expandedIds.has(node.feature.id);
@@ -176,6 +194,18 @@ function countDescendants(node: FeatureTreeNode): number {
     return count;
 }
 
+/**
+ * Converts a positioned `d3-hierarchy` node into the view-ready `DiagramNode` consumed by the
+ * template. Performs two important transformations: (1) the d3 (x, y) pair is swapped so the
+ * diagram grows left-to-right (depth becomes the SVG x axis, sibling axis becomes the SVG y
+ * axis), and (2) the relation marker's absolute position is precomputed at the left edge of the
+ * child box so the template can place markers without doing arithmetic.
+ *
+ * @param node Positioned node returned by `d3.tree()(root)`.
+ * @param selectedId Currently selected feature id, or `undefined` when nothing is selected.
+ * @param matched Set of ids highlighted by the current search.
+ * @returns View-ready node with SVG coordinates, marker position, and modifier flags.
+ */
 function decorateNode(
     node: HierarchyPointNode<DiagramTreeData>,
     selectedId: string | undefined,
@@ -211,6 +241,14 @@ function decorateNode(
     };
 }
 
+/**
+ * Builds the SVG path for a parent-to-child link, applying the same LTR axis swap as
+ * `decorateNode`: the line starts at the parent's right edge (depth + half-width) and ends at the
+ * child's left edge (depth − half-width), with both y coordinates taken from the d3 sibling axis.
+ *
+ * @param link Source/target pair returned by `positionedRoot.links()`.
+ * @returns SVG `path` `d` attribute drawing a single straight line between the two nodes.
+ */
 function linkPath(link: HierarchyPointLink<DiagramTreeData>): string {
     const sx = link.source.y + NODE_WIDTH / 2;
     const sy = link.source.x;

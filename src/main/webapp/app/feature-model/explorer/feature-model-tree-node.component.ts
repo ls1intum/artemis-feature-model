@@ -31,6 +31,12 @@ export class FeatureModelTreeNodeComponent {
     readonly defaultStateLabel = computed(() => formatDefaultState(this.node().feature.defaultState));
     readonly defaultStateBadgeClass = computed(() => formatDefaultStateBadgeClass(this.node().feature.defaultState));
 
+    /**
+     * Emits `toggleExpand` for this node and stops the click from bubbling to the row, which would
+     * otherwise also fire `selectFeature` (the row and the toggle button live in the same element).
+     *
+     * @param event Click or keyboard event from the expand/collapse button.
+     */
     onToggle(event: Event): void {
         event.stopPropagation();
         this.toggleExpand.emit(this.featureId());

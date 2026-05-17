@@ -104,6 +104,12 @@ export class FeatureModelExplorerComponent implements OnInit {
         this.selectedFeatureId.set(id);
     }
 
+    /**
+     * Toggles the expand/collapse state of a single branch by flipping membership of `id` in
+     * `userExpandedIds`. Allocates a new `Set` so the signal sees a fresh reference.
+     *
+     * @param id Feature id whose subtree should be expanded if collapsed, or collapsed if expanded.
+     */
     onToggleExpand(id: string): void {
         const next = new Set(this.userExpandedIds());
         if (next.has(id)) {
@@ -122,6 +128,13 @@ export class FeatureModelExplorerComponent implements OnInit {
         this.userExpandedIds.set(new Set<string>());
     }
 
+    /**
+     * Updates the search query signal and, if the previously selected feature is now hidden by the
+     * filter, moves the selection onto the first remaining match so the details panel does not
+     * point at an invisible node.
+     *
+     * @param value Raw value from the search input.
+     */
     onSearchInput(value: string): void {
         this.searchQuery.set(value);
         this.realignSelectionToVisibleTree();
@@ -135,6 +148,13 @@ export class FeatureModelExplorerComponent implements OnInit {
         this.viewMode.set(mode);
     }
 
+    /**
+     * Installs the loaded model into the component state and primes the explorer so the user lands
+     * on the root: expansion contains only the root id (groups stay collapsed), the details panel
+     * focuses the root, and any earlier loading/error state is cleared.
+     *
+     * @param response Successful payload from `GET /api/feature-model`.
+     */
     private handleLoaded(response: FeatureModelResponse): void {
         this.response.set(response);
         this.errorMessage.set(undefined);
@@ -144,12 +164,23 @@ export class FeatureModelExplorerComponent implements OnInit {
         this.selectedFeatureId.set(rootId);
     }
 
+    /**
+     * Surfaces the API failure to the user by storing the error message (or a generic fallback
+     * when the error has no usable message) and clearing the loading flag so the error panel renders.
+     *
+     * @param error Error emitted by the `FeatureModelService` observable.
+     */
     private handleError(error: Error): void {
         const message = error?.message?.trim();
         this.errorMessage.set(message && message.length > 0 ? message : DEFAULT_ERROR_MESSAGE);
         this.loading.set(false);
     }
 
+    /**
+     * Keeps the details panel pointing at a visible node after the search query changes: if the
+     * currently selected feature is still in the filtered tree (or nothing matches), selection is
+     * left alone; otherwise the first matching id becomes the new selection.
+     */
     private realignSelectionToVisibleTree(): void {
         const visibleRoot = this.visibleTree();
         if (!visibleRoot) {
