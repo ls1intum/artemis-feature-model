@@ -1,0 +1,129 @@
+:host {
+    display: block;
+}
+
+.diagram-scroll {
+    overflow: auto;
+    max-height: 70vh;
+    padding: 0.5rem;
+}
+
+.diagram-svg {
+    display: block;
+    font-family: var(--bs-body-font-family);
+    color: var(--bs-body-color);
+}
+
+.diagram-link {
+    fill: none;
+    stroke: var(--bs-border-color);
+    stroke-width: 1.25;
+}
+
+.diagram-marker {
+    stroke: var(--bs-emphasis-color);
+    stroke-width: 1.25;
+}
+
+.diagram-marker--mandatory {
+    fill: var(--bs-emphasis-color);
+}
+
+.diagram-marker--optional {
+    fill: var(--bs-body-bg);
+}
+
+.diagram-node {
+    cursor: pointer;
+}
+
+.diagram-node:focus-visible {
+    outline: none;
+}
+
+.diagram-node:focus-visible .diagram-node__box {
+    stroke: var(--bs-primary);
+    stroke-width: 2;
+}
+
+.diagram-node__box {
+    fill: var(--bs-body-bg);
+    stroke: var(--bs-border-color);
+    stroke-width: 1.25;
+    transition: fill 80ms ease-in;
+}
+
+.diagram-node:hover .diagram-node__box {
+    fill: var(--bs-tertiary-bg);
+}
+
+.diagram-node__label {
+    fill: var(--bs-body-color);
+    font-size: 0.78rem;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
+}
+
+.diagram-node--root .diagram-node__box {
+    fill: var(--bs-secondary-bg);
+    stroke: var(--bs-emphasis-color);
+    stroke-width: 1.5;
+}
+
+.diagram-node--structural .diagram-node__box {
+    fill: var(--bs-secondary-bg);
+}
+
+.diagram-node--selected .diagram-node__box {
+    fill: var(--bs-primary-bg-subtle);
+    stroke: var(--bs-primary);
+    stroke-width: 2;
+}
+
+.diagram-node--match .diagram-node__box {
+    stroke: var(--bs-info);
+    stroke-width: 2;
+}
+
+.diagram-node--collapsed .diagram-node__box {
+    stroke-dasharray: 4 3;
+}
+
+.diagram-toggle {
+    cursor: pointer;
+}
+
+.diagram-toggle__bg {
+    fill: var(--bs-body-bg);
+    stroke: var(--bs-border-color);
+    stroke-width: 1.25;
+    transition: fill 80ms ease-in;
+}
+
+.diagram-toggle:hover .diagram-toggle__bg {
+    fill: var(--bs-tertiary-bg);
+    stroke: var(--bs-primary);
+}
+
+.diagram-toggle:focus-visible {
+    outline: none;
+}
+
+.diagram-toggle:focus-visible .diagram-toggle__bg {
+    stroke: var(--bs-primary);
+    stroke-width: 2;
+}
+
+.diagram-toggle__label {
+    fill: var(--bs-body-color);
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+}
+
+.diagram-toggle--collapsed .diagram-toggle__bg {
+    fill: var(--bs-primary-bg-subtle);
+    stroke: var(--bs-primary);
+}

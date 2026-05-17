@@ -1,0 +1,247 @@
+<section class="feature-model-explorer">
+    <header class="explorer-header">
+        <div class="explorer-title">
+            @if (model(); as meta) {
+                <h1 class="h4 mb-0">{{ meta.name }}</h1>
+                <small class="text-muted">
+                    Model id <code>{{ meta.id }}</code> · version <code>{{ meta.version }}</code>
+                </small>
+            } @else {
+                <h1 class="h4 mb-0">Feature Model Explorer</h1>
+            }
+        </div>
+        @if (response()) {
+            <ul class="explorer-stats list-unstyled mb-0">
+                <li><strong>{{ featureCount() }}</strong> features</li>
+                <li><strong>{{ relationCount() }}</strong> relations</li>
+                <li><strong>{{ constraintCount() }}</strong> constraints</li>
+                <li><strong>{{ defaultSelectedCount() }}</strong> default-selected</li>
+            </ul>
+        }
+    </header>
+
+    @if (loading()) {
+        <div class="alert alert-info" role="status" data-testid="loading-state">
+            Loading feature model…
+        </div>
+    } @else if (errorMessage(); as error) {
+        <div class="alert alert-danger" role="alert" data-testid="error-state">
+            <strong>Could not load the feature model.</strong>
+            <div>{{ error }}</div>
+        </div>
+    } @else if (response()) {
+        @if (warnings().length > 0) {
+            <div class="alert alert-warning" role="alert" data-testid="warnings-panel">
+                <strong>Model warnings ({{ warnings().length }})</strong>
+                <ul class="mb-0 mt-2">
+                    @for (warning of warnings(); track warning.code) {
+                        <li>
+                            <code>{{ warning.code }}</code> — {{ warning.message }}
+                            @if (warning.featureIds.length > 0) {
+                                <small class="text-muted"> ({{ warning.featureIds.join(', ') }})</small>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <div class="toolbar">
+            <div class="search-control">
+                <label for="feature-model-search" class="visually-hidden">Search features by name or id</label>
+                <input
+                    id="feature-model-search"
+                    type="search"
+                    class="form-control form-control-sm"
+                    placeholder="Search by name or id"
+                    autocomplete="off"
+                    [value]="searchQuery()"
+                    (input)="onSearchInput($any($event.target).value)"
+                    data-testid="search-input"
+                />
+                @if (hasActiveSearch()) {
+                    <button type="button" class="btn btn-sm btn-link" (click)="onClearSearch()" data-testid="clear-search">
+                        Clear
+                    </button>
+                }
+            </div>
+            @if (hasActiveSearch()) {
+                <span class="match-count text-muted" data-testid="match-count">
+                    {{ matchCount() }} match{{ matchCount() === 1 ? '' : 'es' }}
+                </span>
+            }
+            <div class="ms-auto toolbar-actions">
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onExpandAll()"
+                    [disabled]="allExpanded()"
+                    data-testid="expand-all"
+                >
+                    Expand all
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onCollapseAll()"
+                    data-testid="collapse-all"
+                >
+                    Collapse all
+                </button>
+                <div class="btn-group btn-group-sm view-mode-toggle" role="group" aria-label="View mode">
+                    <button
+                        type="button"
+                        class="btn"
+                        [class.btn-primary]="isListView()"
+                        [class.btn-outline-primary]="!isListView()"
+                        [attr.aria-pressed]="isListView()"
+                        (click)="onSetViewMode('list')"
+                        data-testid="view-list"
+                    >
+                        List
+                    </button>
+                    <button
+                        type="button"
+                        class="btn"
+                        [class.btn-primary]="isDiagramView()"
+                        [class.btn-outline-primary]="!isDiagramView()"
+                        [attr.aria-pressed]="isDiagramView()"
+                        (click)="onSetViewMode('diagram')"
+                        data-testid="view-diagram"
+                    >
+                        Diagram
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="explorer-layout">
+            <aside class="tree-panel" aria-label="Feature tree">
+                @if (visibleTree(); as root) {
+                    @switch (viewMode()) {
+                        @case ('list') {
+                            <ul class="tree-root" data-testid="list-view">
+                                <fm-feature-model-tree-node
+                                    [node]="root"
+                                    [expandedIds]="effectiveExpandedIds()"
+                                    [matchedIds]="matchedIds()"
+                                    [selectedId]="selectedFeatureId()"
+                                    [depth]="0"
+                                    (toggleExpand)="onToggleExpand($event)"
+                                    (selectFeature)="onSelectFeature($event)"
+                                />
+                            </ul>
+                        }
+                        @case ('diagram') {
+                            <fm-feature-model-diagram
+                                [tree]="root"
+                                [matchedIds]="matchedIds()"
+                                [expandedIds]="effectiveExpandedIds()"
+                                [selectedId]="selectedFeatureId()"
+                                (selectFeature)="onSelectFeature($event)"
+                                (toggleExpand)="onToggleExpand($event)"
+                            />
+                        }
+                    }
+                } @else {
+                    <p class="text-muted mb-0" data-testid="empty-tree">
+                        No features match the current search.
+                    </p>
+                }
+            </aside>
+
+            <section class="details-panel" aria-label="Selected feature details" data-testid="details-panel">
+                @if (selectedNode(); as node) {
+                    <header class="details-header">
+                        <h2 class="h5 mb-1" data-testid="details-name">{{ node.feature.name }}</h2>
+                        <code class="text-muted" data-testid="details-id">{{ node.feature.id }}</code>
+                    </header>
+
+                    <dl class="details-grid mb-0">
+                        <dt>Kind</dt>
+                        <dd><span class="badge text-bg-secondary">{{ node.feature.kind }}</span></dd>
+
+                        <dt>Selectable</dt>
+                        <dd>
+                            @if (node.feature.selectable) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">Structural</span>
+                            }
+                        </dd>
+
+                        @if (node.feature.defaultState) {
+                            <dt>Default state</dt>
+                            <dd><span class="badge {{ defaultStateBadgeClass() }}">{{ node.feature.defaultState }}</span></dd>
+                        }
+
+                        <dt>Default-selected</dt>
+                        <dd>
+                            @if (isDefaultSelected()) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">No</span>
+                            }
+                        </dd>
+
+                        @if (selectedIncomingRelation(); as relation) {
+                            <dt>Parent</dt>
+                            <dd><code>{{ relation.parentId }}</code></dd>
+
+                            <dt>Relation</dt>
+                            <dd>
+                                <span class="badge {{ relationBadgeClass() }}">{{ relation.relationType }}</span>
+                                @if (relation.groupType) {
+                                    <small class="ms-1 text-muted">group type: {{ relation.groupType }}</small>
+                                }
+                            </dd>
+                        }
+                    </dl>
+
+                    @if (node.feature.description) {
+                        <section class="details-section">
+                            <h3 class="h6">Description</h3>
+                            <p class="mb-0" data-testid="details-description">{{ node.feature.description }}</p>
+                        </section>
+                    }
+
+                    @if (hasSourceMetadata() && node.feature.source; as source) {
+                        <section class="details-section" data-testid="details-source">
+                            <h3 class="h6">Source metadata</h3>
+                            <dl class="details-grid mb-0">
+                                @if (source.configKey) {
+                                    <dt>Config key</dt>
+                                    <dd><code data-testid="details-config-key">{{ source.configKey }}</code></dd>
+                                }
+                                @if (source.springProfile) {
+                                    <dt>Spring profile</dt>
+                                    <dd><code>{{ source.springProfile }}</code></dd>
+                                }
+                                @if (source.frontendConstant) {
+                                    <dt>Frontend constant</dt>
+                                    <dd><code>{{ source.frontendConstant }}</code></dd>
+                                }
+                                @if (source.backendConditionClass) {
+                                    <dt>Backend condition class</dt>
+                                    <dd><code>{{ source.backendConditionClass }}</code></dd>
+                                }
+                                @if (source.evidence.length > 0) {
+                                    <dt>Evidence</dt>
+                                    <dd>
+                                        <ul class="evidence-list mb-0">
+                                            @for (entry of source.evidence; track entry) {
+                                                <li><code>{{ entry }}</code></li>
+                                            }
+                                        </ul>
+                                    </dd>
+                                }
+                            </dl>
+                        </section>
+                    }
+                } @else {
+                    <p class="text-muted mb-0">Select a feature to see its details.</p>
+                }
+            </section>
+        </div>
+    }
+</section>

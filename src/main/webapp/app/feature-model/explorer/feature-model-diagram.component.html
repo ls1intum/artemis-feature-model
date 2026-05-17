@@ -1,0 +1,99 @@
+<div class="diagram-scroll" data-testid="diagram">
+    <svg
+        class="diagram-svg"
+        xmlns="http://www.w3.org/2000/svg"
+        [attr.width]="width()"
+        [attr.height]="height()"
+        [attr.viewBox]="viewBox()"
+        role="tree"
+        aria-label="Feature model tree diagram"
+    >
+        <g class="diagram-links">
+            @for (link of links(); track link.id) {
+                <path class="diagram-link" [attr.d]="link.path" />
+            }
+        </g>
+
+        <g class="diagram-markers">
+            @for (node of nodes(); track node.id) {
+                @switch (node.incomingRelationType) {
+                    @case ('mandatory') {
+                        <circle
+                            class="diagram-marker diagram-marker--mandatory"
+                            [attr.cx]="node.markerCx"
+                            [attr.cy]="node.markerCy"
+                            [attr.r]="nodeRadius"
+                        />
+                    }
+                    @case ('optional') {
+                        <circle
+                            class="diagram-marker diagram-marker--optional"
+                            [attr.cx]="node.markerCx"
+                            [attr.cy]="node.markerCy"
+                            [attr.r]="nodeRadius"
+                        />
+                    }
+                }
+            }
+        </g>
+
+        <g class="diagram-nodes">
+            @for (node of nodes(); track node.id) {
+                <g
+                    class="diagram-node"
+                    [class.diagram-node--selected]="node.isSelected"
+                    [class.diagram-node--match]="node.isMatched"
+                    [class.diagram-node--root]="node.isRoot"
+                    [class.diagram-node--structural]="node.isStructural"
+                    [class.diagram-node--collapsed]="node.isCollapsed"
+                    [attr.transform]="node.transform"
+                    [attr.data-feature-id]="node.id"
+                    [attr.aria-selected]="node.isSelected"
+                    role="treeitem"
+                    tabindex="0"
+                    (click)="onSelect(node.id)"
+                    (keydown.enter)="onSelect(node.id)"
+                    (keydown.space)="onSelect(node.id)"
+                >
+                    <rect
+                        class="diagram-node__box"
+                        [attr.x]="-nodeHalfWidth"
+                        [attr.y]="-nodeHalfHeight"
+                        [attr.width]="nodeWidth"
+                        [attr.height]="nodeHeight"
+                        rx="3"
+                        ry="3"
+                    />
+                    <text class="diagram-node__label" text-anchor="middle" dy="0.35em">{{ node.displayName }}</text>
+                    <title>{{ node.name }} ({{ node.id }})</title>
+
+                    @if (node.hasChildren) {
+                        <g
+                            class="diagram-toggle"
+                            [class.diagram-toggle--collapsed]="node.isCollapsed"
+                            [attr.transform]="toggleTransform"
+                            [attr.data-feature-id]="node.id"
+                            [attr.aria-label]="node.isCollapsed ? 'Expand ' + node.name : 'Collapse ' + node.name"
+                            role="button"
+                            tabindex="0"
+                            (click)="onToggle($event, node.id)"
+                            (keydown.enter)="onToggle($event, node.id)"
+                            (keydown.space)="onToggle($event, node.id)"
+                        >
+                            <rect
+                                class="diagram-toggle__bg"
+                                [attr.x]="-toggleBadgeHalfWidth"
+                                [attr.y]="-toggleBadgeHalfHeight"
+                                [attr.width]="toggleBadgeWidth"
+                                [attr.height]="toggleBadgeHeight"
+                                rx="9"
+                                ry="9"
+                            />
+                            <text class="diagram-toggle__label" text-anchor="middle" dy="0.35em">{{ node.toggleLabel }}</text>
+                        </g>
+                    }
+                </g>
+            }
+        </g>
+    </svg>
+</div>
