@@ -60,6 +60,39 @@
             </div>
         </div>
 
+        <section class="validation-panel" aria-label="Validation status" data-testid="validation-panel">
+            @if (validationErrorMessage(); as message) {
+                <div class="alert alert-danger mb-0" role="alert" data-testid="validation-error">
+                    <strong>Validation failed.</strong>
+                    <div>{{ message }}</div>
+                </div>
+            } @else if (validationLoading() && !hasValidationResult()) {
+                <div class="alert alert-info mb-0" role="status" data-testid="validation-loading">
+                    Validating selection…
+                </div>
+            } @else if (hasValidationResult()) {
+                <div
+                    class="validation-status"
+                    [class.alert]="true"
+                    [class.alert-success]="isValid()"
+                    [class.alert-danger]="!isValid()"
+                    role="status"
+                    data-testid="validation-status"
+                >
+                    <div class="d-flex align-items-center gap-2">
+                        @if (isValid()) {
+                            <strong data-testid="validation-status-label">Configuration is valid.</strong>
+                        } @else {
+                            <strong data-testid="validation-status-label">Configuration is invalid.</strong>
+                        }
+                        @if (validationLoading()) {
+                            <small class="text-muted" data-testid="validation-revalidating">Revalidating…</small>
+                        }
+                    </div>
+                </div>
+            }
+        </section>
+
         <div class="configurator-layout">
             <aside class="diagram-panel" aria-label="Feature configurator diagram">
                 @if (tree(); as root) {
@@ -69,6 +102,8 @@
                         [expandedIds]="effectiveExpandedIds()"
                         [selectedId]="selectedFeatureId()"
                         [selectedFeatureIds]="selectedFeatureIds()"
+                        [violationIds]="violationIds()"
+                        [warningIds]="warningIds()"
                         [toggleableIds]="selectableFeatureIds()"
                         [configurationMode]="true"
                         (selectFeature)="onSelectFeature($event)"

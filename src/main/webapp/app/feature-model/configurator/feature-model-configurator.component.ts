@@ -3,10 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { FeatureModelService } from '../api/feature-model.service';
 import { collectExpandableNodeIds, countTreeNodes, findNodeById } from '../core/feature-model-tree.utils';
-import { Feature, FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
+import { Feature, FeatureModelResponse, FeatureTreeNode, IncomingRelation, ValidationResult } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from '../explorer/feature-model-diagram.component';
+import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
+const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -18,6 +20,7 @@ const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify t
 })
 export class FeatureModelConfiguratorComponent implements OnInit {
     private readonly featureModelService = inject(FeatureModelService);
+    private readonly validationService = inject(FeatureModelValidationService);
     private readonly destroyRef = inject(DestroyRef);
 
     readonly loading = signal<boolean>(true);
@@ -25,7 +28,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly selectedFeatureIds = signal<ReadonlySet<string>>(new Set<string>());
     readonly selectedFeatureId = signal<string | undefined>(undefined);
+    readonly validationResult = signal<ValidationResult | undefined>(undefined);
+    readonly validationLoading = signal<boolean>(false);
+    readonly validationErrorMessage = signal<string | undefined>(undefined);
     private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
+    private validationToken = 0;
 
     readonly model = computed(() => this.response()?.model);
     readonly tree = computed<FeatureTreeNode | null>(() => this.response()?.tree ?? null);
@@ -112,6 +119,49 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return false;
     });
 
+    readonly hasValidationResult = computed(() => this.validationResult() !== undefined);
+    readonly isValid = computed(() => this.validationResult()?.valid ?? false);
+    readonly violations = computed(() => this.validationResult()?.violations ?? []);
+    readonly warnings = computed(() => this.validationResult()?.warnings ?? []);
+    readonly violationIds = computed<ReadonlySet<string>>(() => {
+        const ids = new Set<string>();
+        for (const violation of this.violations()) {
+            for (const id of violation.featureIds) {
+                ids.add(id);
+            }
+            const relation = violation.relation;
+            if (relation && violation.featureIds.length === 0) {
+                ids.add(relation.childId);
+            }
+        }
+        return ids;
+    });
+    readonly warningIds = computed<ReadonlySet<string>>(() => {
+        const ids = new Set<string>();
+        for (const warning of this.warnings()) {
+            for (const id of warning.featureIds) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    });
+
+    readonly selectedFeatureViolations = computed(() => {
+        const id = this.selectedFeatureId();
+        if (!id) {
+            return [];
+        }
+        return this.violations().filter((violation) => violation.featureIds.includes(id));
+    });
+
+    readonly selectedFeatureWarnings = computed(() => {
+        const id = this.selectedFeatureId();
+        if (!id) {
+            return [];
+        }
+        return this.warnings().filter((warning) => warning.featureIds.includes(id));
+    });
+
     ngOnInit(): void {
         this.featureModelService
             .loadFeatureModel()
@@ -129,7 +179,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     /**
      * Flips the membership of `id` in `selectedFeatureIds`, but only when the feature is selectable.
      * Root and group nodes are structural and must never enter or leave the user selection set;
-     * those cases are dropped silently.
+     * those cases are dropped silently. A validation roundtrip is started immediately after the
+     * local update so the user always sees the server's verdict for the current selection.
      *
      * @param id Feature id to toggle in the user selection set.
      */
@@ -144,15 +195,17 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             next.add(id);
         }
         this.selectedFeatureIds.set(next);
+        this.runValidation();
     }
 
     /**
-     * Restores `selectedFeatureIds` to the backend-provided defaults. Focus, expansion, and any
-     * search state are intentionally left untouched so the user does not lose their current
-     * inspection context.
+     * Restores `selectedFeatureIds` to the backend-provided defaults and re-runs validation. Focus,
+     * expansion, and any search state are intentionally left untouched so the user does not lose
+     * their current inspection context.
      */
     onResetSelection(): void {
         this.selectedFeatureIds.set(new Set<string>(this.defaultSelectedFeatureIds()));
+        this.runValidation();
     }
 
     /**
@@ -183,7 +236,9 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     /**
      * Installs the loaded model into the component state and primes the configurator: the user
      * selection is seeded from `defaultSelectedFeatureIds`, only the root branch is expanded so
-     * the diagram does not overwhelm on first paint, and the root focuses the details panel.
+     * the diagram does not overwhelm on first paint, the root focuses the details panel, and an
+     * initial validation roundtrip is kicked off so the validity status reflects the defaults
+     * before the user touches anything.
      *
      * @param response Successful payload from `GET /api/feature-model`.
      */
@@ -195,6 +250,39 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.userExpandedIds.set(new Set<string>([rootId]));
         this.selectedFeatureId.set(rootId);
         this.selectedFeatureIds.set(new Set<string>(response.defaultSelectedFeatureIds));
+        this.runValidation();
+    }
+
+    /**
+     * Issues a validation request for the current selection and updates the validation signals
+     * with the result. A monotonic token guards against stale responses: if the user toggles
+     * quickly enough to start a second request before the first one resolves, the earlier
+     * response is dropped so the latest selection's verdict is what the user sees.
+     */
+    private runValidation(): void {
+        const token = ++this.validationToken;
+        this.validationLoading.set(true);
+        this.validationErrorMessage.set(undefined);
+        this.validationService
+            .validateSelection(this.selectedFeatureIds())
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (result) => {
+                    if (token !== this.validationToken) {
+                        return;
+                    }
+                    this.validationResult.set(result);
+                    this.validationLoading.set(false);
+                },
+                error: (error: Error) => {
+                    if (token !== this.validationToken) {
+                        return;
+                    }
+                    const message = error?.message?.trim();
+                    this.validationErrorMessage.set(message && message.length > 0 ? message : DEFAULT_VALIDATION_ERROR_MESSAGE);
+                    this.validationLoading.set(false);
+                },
+            });
     }
 
     /**

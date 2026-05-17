@@ -4,8 +4,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
-import { FeatureModelResponse } from '../core/feature-model.types';
+import { FeatureModelResponse, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { FeatureModelConfiguratorComponent } from './feature-model-configurator.component';
+
+const MODEL_URL = '/api/feature-model';
+const VALIDATE_URL = '/api/feature-model/validate';
 
 function setup(): {
     fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
@@ -20,16 +23,44 @@ function setup(): {
     return { fixture, httpMock };
 }
 
-function expectModelRequest(httpMock: HttpTestingController): { flush: (response: FeatureModelResponse) => void } {
-    const request = httpMock.expectOne('/api/feature-model');
+function rootEl(fixture: ComponentFixture<FeatureModelConfiguratorComponent>): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
+}
+
+function flushModel(httpMock: HttpTestingController, response: FeatureModelResponse): void {
+    const request = httpMock.expectOne(MODEL_URL);
     expect(request.request.method).toBe('GET');
+    request.flush(response);
+}
+
+function flushValidation(httpMock: HttpTestingController, result: ValidationResult): ValidationRequest {
+    const request = httpMock.expectOne(VALIDATE_URL);
+    expect(request.request.method).toBe('POST');
+    const body = request.request.body as ValidationRequest;
+    request.flush(result);
+    return body;
+}
+
+function validResultFor(response: FeatureModelResponse): ValidationResult {
     return {
-        flush: (response: FeatureModelResponse) => request.flush(response),
+        valid: true,
+        normalizedSelection: [...response.defaultSelectedFeatureIds],
+        violations: [],
+        warnings: [],
     };
 }
 
-function rootEl(fixture: ComponentFixture<FeatureModelConfiguratorComponent>): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+function loadModelAndValidate(
+    fixture: ComponentFixture<FeatureModelConfiguratorComponent>,
+    httpMock: HttpTestingController,
+    response: FeatureModelResponse = buildMvpFeatureModelResponse(),
+): FeatureModelResponse {
+    fixture.detectChanges();
+    flushModel(httpMock, response);
+    fixture.detectChanges();
+    flushValidation(httpMock, validResultFor(response));
+    fixture.detectChanges();
+    return response;
 }
 
 describe('FeatureModelConfiguratorComponent', () => {
@@ -44,175 +75,267 @@ describe('FeatureModelConfiguratorComponent', () => {
         httpMock.verify();
     });
 
-    it('renders the loading state before the model resolves', () => {
-        fixture.detectChanges();
-        const loading = rootEl(fixture).querySelector('[data-testid="loading-state"]');
-        expect(loading).not.toBeNull();
-        expect(loading?.textContent).toContain('Loading feature model');
-        httpMock.expectOne('/api/feature-model').flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+    describe('initial load', () => {
+        it('renders the loading state before the model resolves', () => {
+            fixture.detectChanges();
+            const loading = rootEl(fixture).querySelector('[data-testid="loading-state"]');
+            expect(loading).not.toBeNull();
+            expect(loading?.textContent).toContain('Loading feature model');
+            // Drain pending requests so afterEach verify passes.
+            const response = buildMvpFeatureModelResponse();
+            flushModel(httpMock, response);
+            fixture.detectChanges();
+            flushValidation(httpMock, validResultFor(response));
+        });
+
+        it('renders the model name and stats after the response loads', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            const heading = rootEl(fixture).querySelector('h1');
+            expect(heading?.textContent).toBe('Artemis Functional Feature Tree');
+            const selectedCount = rootEl(fixture).querySelector('[data-testid="selected-count"]');
+            expect(selectedCount?.textContent?.trim()).toBe('13');
+        });
+
+        it('renders the tree diagram (and only the diagram) after the response loads', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            const diagram = rootEl(fixture).querySelector('fm-feature-model-diagram');
+            expect(diagram).not.toBeNull();
+            expect(rootEl(fixture).querySelector('fm-feature-model-tree-node')).toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="view-list"]')).toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="view-diagram"]')).toBeNull();
+        });
+
+        it('initializes selectedFeatureIds from defaultSelectedFeatureIds', () => {
+            const response = loadModelAndValidate(fixture, httpMock);
+
+            const selected = fixture.componentInstance.selectedFeatureIds();
+            expect(selected.size).toBe(response.defaultSelectedFeatureIds.length);
+            for (const id of response.defaultSelectedFeatureIds) {
+                expect(selected.has(id)).toBe(true);
+            }
+        });
+
+        it('focuses the root feature on load', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            expect(fixture.componentInstance.selectedFeatureId()).toBe('artemis');
+            const detailsName = rootEl(fixture).querySelector('[data-testid="details-name"]');
+            expect(detailsName?.textContent).toBe('Artemis');
+        });
+
+        it('renders the error panel when the model service fails', () => {
+            fixture.detectChanges();
+            const request = httpMock.expectOne(MODEL_URL);
+            request.flush('Boom', { status: 500, statusText: 'Server Error' });
+            fixture.detectChanges();
+
+            const error = rootEl(fixture).querySelector('[data-testid="error-state"]');
+            expect(error).not.toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="loading-state"]')).toBeNull();
+        });
     });
 
-    it('renders the model name and stats after the response loads', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+    describe('toggle and reset', () => {
+        it('removes a selectable module id when its toggle is invoked', () => {
+            loadModelAndValidate(fixture, httpMock);
 
-        const heading = rootEl(fixture).querySelector('h1');
-        expect(heading?.textContent).toBe('Artemis Functional Feature Tree');
-        const selectedCount = rootEl(fixture).querySelector('[data-testid="selected-count"]');
-        expect(selectedCount?.textContent?.trim()).toBe('13');
+            expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(true);
+            fixture.componentInstance.onToggleSelection('lecture');
+            flushValidation(httpMock, { valid: true, normalizedSelection: [], violations: [], warnings: [] });
+            expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
+        });
+
+        it('adds a non-default selectable id when toggled on', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
+            fixture.componentInstance.onToggleSelection('iris');
+            flushValidation(httpMock, { valid: true, normalizedSelection: [], violations: [], warnings: [] });
+            expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
+        });
+
+        it('allows toggling mandatory modules off so invalid states can be demonstrated', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(true);
+            fixture.componentInstance.onToggleSelection('programming');
+            flushValidation(httpMock, { valid: false, normalizedSelection: [], violations: [], warnings: [] });
+            expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(false);
+        });
+
+        it('ignores toggle requests for structural root and group ids and does not call validation', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            const before = fixture.componentInstance.selectedFeatureIds();
+            fixture.componentInstance.onToggleSelection('artemis');
+            fixture.componentInstance.onToggleSelection('teaching-and-content');
+            const after = fixture.componentInstance.selectedFeatureIds();
+            expect(after.size).toBe(before.size);
+            expect(after.has('artemis')).toBe(false);
+            expect(after.has('teaching-and-content')).toBe(false);
+            httpMock.expectNone(VALIDATE_URL);
+        });
+
+        it('restores the default selection when reset is clicked', () => {
+            const response = loadModelAndValidate(fixture, httpMock);
+
+            fixture.componentInstance.onToggleSelection('programming');
+            flushValidation(httpMock, { valid: false, normalizedSelection: [], violations: [], warnings: [] });
+            fixture.componentInstance.onToggleSelection('iris');
+            flushValidation(httpMock, { valid: false, normalizedSelection: [], violations: [], warnings: [] });
+            fixture.detectChanges();
+            expect(fixture.componentInstance.changedFromDefault()).toBe(true);
+
+            const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
+            resetButton.click();
+            flushValidation(httpMock, validResultFor(response));
+            fixture.detectChanges();
+
+            const defaults = fixture.componentInstance.defaultSelectedFeatureIds();
+            const current = fixture.componentInstance.selectedFeatureIds();
+            expect(current.size).toBe(defaults.size);
+            for (const id of defaults) {
+                expect(current.has(id)).toBe(true);
+            }
+            expect(fixture.componentInstance.changedFromDefault()).toBe(false);
+        });
+
+        it('disables reset when the selection equals the defaults', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
+            expect(resetButton.disabled).toBe(true);
+        });
+
+        it('renders an enable toggle for selectable features and updates the selected set when clicked', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            fixture.componentInstance.onSelectFeature('lecture');
+            fixture.detectChanges();
+
+            const toggle = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
+            expect(toggle).not.toBeNull();
+            expect(toggle.checked).toBe(true);
+
+            toggle.dispatchEvent(new Event('change'));
+            flushValidation(httpMock, { valid: true, normalizedSelection: [], violations: [], warnings: [] });
+            fixture.detectChanges();
+
+            expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
+            const refreshed = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
+            expect(refreshed.checked).toBe(false);
+        });
+
+        it('shows a structural message instead of a toggle for the root feature', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            expect(fixture.componentInstance.selectedFeatureId()).toBe('artemis');
+            expect(rootEl(fixture).querySelector('[data-testid="details-toggle"]')).toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="structural-message"]')).not.toBeNull();
+        });
     });
 
-    it('renders the tree diagram (and only the diagram) after the response loads', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+    describe('validation', () => {
+        it('calls validation immediately after the defaults load with the default selection', () => {
+            fixture.detectChanges();
+            const response = buildMvpFeatureModelResponse();
+            flushModel(httpMock, response);
+            fixture.detectChanges();
 
-        const diagram = rootEl(fixture).querySelector('fm-feature-model-diagram');
-        expect(diagram).not.toBeNull();
-        expect(rootEl(fixture).querySelector('fm-feature-model-tree-node')).toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="view-list"]')).toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="view-diagram"]')).toBeNull();
-    });
+            const body = flushValidation(httpMock, validResultFor(response));
+            expect(body.selectedFeatureIds.length).toBe(response.defaultSelectedFeatureIds.length);
+            for (const id of response.defaultSelectedFeatureIds) {
+                expect(body.selectedFeatureIds).toContain(id);
+            }
+            fixture.detectChanges();
+            expect(fixture.componentInstance.isValid()).toBe(true);
+        });
 
-    it('initializes selectedFeatureIds from defaultSelectedFeatureIds', () => {
-        fixture.detectChanges();
-        const response = buildMvpFeatureModelResponse();
-        expectModelRequest(httpMock).flush(response);
-        fixture.detectChanges();
+        it('calls validation again after a toggle, with the updated selection', () => {
+            loadModelAndValidate(fixture, httpMock);
 
-        const selected = fixture.componentInstance.selectedFeatureIds();
-        expect(selected.size).toBe(response.defaultSelectedFeatureIds.length);
-        for (const id of response.defaultSelectedFeatureIds) {
-            expect(selected.has(id)).toBe(true);
-        }
-    });
+            fixture.componentInstance.onToggleSelection('programming');
+            const body = flushValidation(httpMock, {
+                valid: false,
+                normalizedSelection: [],
+                violations: [
+                    {
+                        code: 'MANDATORY_FEATURE_MISSING',
+                        message: 'Programming is mandatory under Exercise System.',
+                        featureIds: ['programming'],
+                        relation: { parentId: 'exercise-system', childId: 'programming' },
+                        suggestion: 'Enable Programming.',
+                    },
+                ],
+                warnings: [],
+            });
+            expect(body.selectedFeatureIds).not.toContain('programming');
+            fixture.detectChanges();
+            expect(fixture.componentInstance.isValid()).toBe(false);
+        });
 
-    it('focuses the root feature on load', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+        it('renders a valid status panel for the default selection', () => {
+            loadModelAndValidate(fixture, httpMock);
 
-        expect(fixture.componentInstance.selectedFeatureId()).toBe('artemis');
-        const detailsName = rootEl(fixture).querySelector('[data-testid="details-name"]');
-        expect(detailsName?.textContent).toBe('Artemis');
-    });
+            const status = rootEl(fixture).querySelector('[data-testid="validation-status"]');
+            expect(status).not.toBeNull();
+            expect(status?.classList.contains('alert-success')).toBe(true);
+            const label = rootEl(fixture).querySelector('[data-testid="validation-status-label"]');
+            expect(label?.textContent).toBe('Configuration is valid.');
+        });
 
-    it('renders the error panel when the model service fails', () => {
-        fixture.detectChanges();
-        const request = httpMock.expectOne('/api/feature-model');
-        request.flush('Boom', { status: 500, statusText: 'Server Error' });
-        fixture.detectChanges();
+        it('renders an invalid status panel when the result is invalid', () => {
+            loadModelAndValidate(fixture, httpMock);
 
-        const error = rootEl(fixture).querySelector('[data-testid="error-state"]');
-        expect(error).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="loading-state"]')).toBeNull();
-    });
+            fixture.componentInstance.onToggleSelection('programming');
+            flushValidation(httpMock, {
+                valid: false,
+                normalizedSelection: [],
+                violations: [
+                    {
+                        code: 'MANDATORY_FEATURE_MISSING',
+                        message: 'Programming is mandatory under Exercise System.',
+                        featureIds: ['programming'],
+                        relation: { parentId: 'exercise-system', childId: 'programming' },
+                        suggestion: 'Enable Programming.',
+                    },
+                ],
+                warnings: [],
+            });
+            fixture.detectChanges();
 
-    it('removes a selectable module id when its toggle is invoked', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+            const status = rootEl(fixture).querySelector('[data-testid="validation-status"]');
+            expect(status?.classList.contains('alert-danger')).toBe(true);
+            const label = rootEl(fixture).querySelector('[data-testid="validation-status-label"]');
+            expect(label?.textContent).toBe('Configuration is invalid.');
+        });
 
-        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(true);
-        fixture.componentInstance.onToggleSelection('lecture');
-        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
-    });
+        it('renders a validation error panel when the validation service fails', () => {
+            fixture.detectChanges();
+            const response = buildMvpFeatureModelResponse();
+            flushModel(httpMock, response);
+            fixture.detectChanges();
 
-    it('adds a non-default selectable id when toggled on', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+            const request = httpMock.expectOne(VALIDATE_URL);
+            request.flush('Boom', { status: 500, statusText: 'Server Error' });
+            fixture.detectChanges();
 
-        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
-        fixture.componentInstance.onToggleSelection('iris');
-        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
-    });
+            const errorPanel = rootEl(fixture).querySelector('[data-testid="validation-error"]');
+            expect(errorPanel).not.toBeNull();
+        });
 
-    it('allows toggling mandatory modules off so invalid states can be demonstrated', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
+        it('shows a validation-loading indicator before the first result lands', () => {
+            fixture.detectChanges();
+            const response = buildMvpFeatureModelResponse();
+            flushModel(httpMock, response);
+            fixture.detectChanges();
 
-        expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(true);
-        fixture.componentInstance.onToggleSelection('programming');
-        expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(false);
-    });
-
-    it('ignores toggle requests for structural root and group ids', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
-
-        const before = fixture.componentInstance.selectedFeatureIds();
-        fixture.componentInstance.onToggleSelection('artemis');
-        fixture.componentInstance.onToggleSelection('teaching-and-content');
-        const after = fixture.componentInstance.selectedFeatureIds();
-        expect(after.size).toBe(before.size);
-        expect(after.has('artemis')).toBe(false);
-        expect(after.has('teaching-and-content')).toBe(false);
-    });
-
-    it('restores the default selection when reset is clicked', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
-
-        fixture.componentInstance.onToggleSelection('programming');
-        fixture.componentInstance.onToggleSelection('iris');
-        fixture.detectChanges();
-        expect(fixture.componentInstance.changedFromDefault()).toBe(true);
-
-        const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
-        resetButton.click();
-        fixture.detectChanges();
-
-        const defaults = fixture.componentInstance.defaultSelectedFeatureIds();
-        const current = fixture.componentInstance.selectedFeatureIds();
-        expect(current.size).toBe(defaults.size);
-        for (const id of defaults) {
-            expect(current.has(id)).toBe(true);
-        }
-        expect(fixture.componentInstance.changedFromDefault()).toBe(false);
-    });
-
-    it('disables reset when the selection equals the defaults', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
-
-        const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
-        expect(resetButton.disabled).toBe(true);
-    });
-
-    it('renders an enable toggle for selectable features and updates the selected set when clicked', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
-
-        fixture.componentInstance.onSelectFeature('lecture');
-        fixture.detectChanges();
-
-        const toggle = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
-        expect(toggle).not.toBeNull();
-        expect(toggle.checked).toBe(true);
-
-        toggle.dispatchEvent(new Event('change'));
-        fixture.detectChanges();
-
-        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
-        const refreshed = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
-        expect(refreshed.checked).toBe(false);
-    });
-
-    it('shows a structural message instead of a toggle for the root feature', () => {
-        fixture.detectChanges();
-        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
-        fixture.detectChanges();
-
-        expect(fixture.componentInstance.selectedFeatureId()).toBe('artemis');
-        expect(rootEl(fixture).querySelector('[data-testid="details-toggle"]')).toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="structural-message"]')).not.toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="validation-loading"]')).not.toBeNull();
+            flushValidation(httpMock, validResultFor(response));
+            fixture.detectChanges();
+            expect(rootEl(fixture).querySelector('[data-testid="validation-loading"]')).toBeNull();
+        });
     });
 });
