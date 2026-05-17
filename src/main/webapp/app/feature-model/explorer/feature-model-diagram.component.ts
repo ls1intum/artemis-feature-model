@@ -30,6 +30,10 @@ interface DiagramNode {
     isMatched: boolean;
     isStructural: boolean;
     isRoot: boolean;
+    isConfiguredSelected: boolean;
+    isViolation: boolean;
+    isWarning: boolean;
+    isToggleable: boolean;
 }
 
 interface DiagramLink {
@@ -48,6 +52,9 @@ const TOGGLE_BADGE_HEIGHT = 18;
 const MAX_NAME_LENGTH = 18;
 const HORIZONTAL_PADDING = NODE_WIDTH / 2 + TOGGLE_BADGE_WIDTH;
 const VERTICAL_PADDING = NODE_HEIGHT;
+const STATUS_INDICATOR_RADIUS = 5;
+const STATUS_INDICATOR_OFFSET_X = NODE_WIDTH / 2 - STATUS_INDICATOR_RADIUS - 3;
+const STATUS_INDICATOR_OFFSET_Y = -NODE_HEIGHT / 2 + STATUS_INDICATOR_RADIUS + 3;
 
 @Component({
     selector: 'fm-feature-model-diagram',
@@ -62,9 +69,15 @@ export class FeatureModelDiagramComponent {
     readonly matchedIds = input.required<ReadonlySet<string>>();
     readonly expandedIds = input.required<ReadonlySet<string>>();
     readonly selectedId = input<string | undefined>(undefined);
+    readonly selectedFeatureIds = input<ReadonlySet<string>>(new Set<string>());
+    readonly violationIds = input<ReadonlySet<string>>(new Set<string>());
+    readonly warningIds = input<ReadonlySet<string>>(new Set<string>());
+    readonly toggleableIds = input<ReadonlySet<string>>(new Set<string>());
+    readonly configurationMode = input<boolean>(false);
 
     readonly selectFeature = output<string>();
     readonly toggleExpand = output<string>();
+    readonly toggleSelection = output<string>();
 
     readonly nodeWidth = NODE_WIDTH;
     readonly nodeHeight = NODE_HEIGHT;
@@ -77,6 +90,9 @@ export class FeatureModelDiagramComponent {
     readonly toggleBadgeHalfHeight = TOGGLE_BADGE_HEIGHT / 2;
     readonly toggleBadgeOffsetX = NODE_WIDTH / 2;
     readonly toggleTransform = `translate(${NODE_WIDTH / 2}, 0)`;
+    readonly statusIndicatorRadius = STATUS_INDICATOR_RADIUS;
+    readonly statusIndicatorOffsetX = STATUS_INDICATOR_OFFSET_X;
+    readonly statusIndicatorOffsetY = STATUS_INDICATOR_OFFSET_Y;
 
     private readonly augmentedTree = computed(() => buildDiagramTree(this.tree(), this.expandedIds()));
 
@@ -92,7 +108,13 @@ export class FeatureModelDiagramComponent {
         const descendants = this.layout().descendants();
         const selectedId = this.selectedId();
         const matched = this.matchedIds();
-        return descendants.map((node) => decorateNode(node, selectedId, matched));
+        const selectedSet = this.selectedFeatureIds();
+        const violations = this.violationIds();
+        const warnings = this.warningIds();
+        const toggleable = this.toggleableIds();
+        return descendants.map((node) =>
+            decorateNode(node, selectedId, matched, selectedSet, violations, warnings, toggleable),
+        );
     });
 
     readonly links = computed<DiagramLink[]>(() =>
@@ -137,8 +159,19 @@ export class FeatureModelDiagramComponent {
         return `${minX - HORIZONTAL_PADDING} ${minY - VERTICAL_PADDING} ${this.width()} ${this.height()}`;
     });
 
-    onSelect(id: string): void {
-        this.selectFeature.emit(id);
+    /**
+     * Handles a node body click: always emits `selectFeature` so the details panel can focus the
+     * clicked feature. In configuration mode, additionally emits `toggleSelection` when the clicked
+     * node is in the toggleable set so root/group nodes remain focus-only while selectable modules
+     * also flip their selected state.
+     *
+     * @param node Diagram node descriptor for the clicked feature.
+     */
+    onSelect(node: DiagramNode): void {
+        this.selectFeature.emit(node.id);
+        if (this.configurationMode() && node.isToggleable) {
+            this.toggleSelection.emit(node.id);
+        }
     }
 
     /**
@@ -202,14 +235,22 @@ function countDescendants(node: FeatureTreeNode): number {
  * child box so the template can place markers without doing arithmetic.
  *
  * @param node Positioned node returned by `d3.tree()(root)`.
- * @param selectedId Currently selected feature id, or `undefined` when nothing is selected.
+ * @param selectedId Currently focused feature id, or `undefined` when nothing is focused.
  * @param matched Set of ids highlighted by the current search.
+ * @param selectedSet Set of feature ids that are currently configured-selected.
+ * @param violations Set of feature ids that have validation violations.
+ * @param warnings Set of feature ids that have validation warnings.
+ * @param toggleable Set of feature ids that can be toggled in configuration mode.
  * @returns View-ready node with SVG coordinates, marker position, and modifier flags.
  */
 function decorateNode(
     node: HierarchyPointNode<DiagramTreeData>,
     selectedId: string | undefined,
     matched: ReadonlySet<string>,
+    selectedSet: ReadonlySet<string>,
+    violations: ReadonlySet<string>,
+    warnings: ReadonlySet<string>,
+    toggleable: ReadonlySet<string>,
 ): DiagramNode {
     const data = node.data;
     const feature = data.feature;
@@ -238,6 +279,10 @@ function decorateNode(
         isMatched: matched.has(feature.id),
         isStructural: !feature.selectable,
         isRoot: feature.kind === 'root',
+        isConfiguredSelected: selectedSet.has(feature.id),
+        isViolation: violations.has(feature.id),
+        isWarning: warnings.has(feature.id),
+        isToggleable: toggleable.has(feature.id),
     };
 }
 

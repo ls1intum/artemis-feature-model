@@ -46,14 +46,18 @@
                     [class.diagram-node--root]="node.isRoot"
                     [class.diagram-node--structural]="node.isStructural"
                     [class.diagram-node--collapsed]="node.isCollapsed"
+                    [class.diagram-node--configured-selected]="node.isConfiguredSelected"
+                    [class.diagram-node--violation]="node.isViolation"
+                    [class.diagram-node--warning]="node.isWarning"
+                    [class.diagram-node--toggleable]="node.isToggleable"
                     [attr.transform]="node.transform"
                     [attr.data-feature-id]="node.id"
                     [attr.aria-selected]="node.isSelected"
                     role="treeitem"
                     tabindex="0"
-                    (click)="onSelect(node.id)"
-                    (keydown.enter)="onSelect(node.id)"
-                    (keydown.space)="onSelect(node.id)"
+                    (click)="onSelect(node)"
+                    (keydown.enter)="onSelect(node)"
+                    (keydown.space)="onSelect(node)"
                 >
                     <rect
                         class="diagram-node__box"
@@ -66,6 +70,38 @@
                     />
                     <text class="diagram-node__label" text-anchor="middle" dy="0.35em">{{ node.displayName }}</text>
                     <title>{{ node.name }} ({{ node.id }})</title>
+
+                    @if (node.isViolation) {
+                        <g
+                            class="diagram-node__indicator diagram-node__indicator--violation"
+                            [attr.transform]="'translate(' + statusIndicatorOffsetX + ', ' + statusIndicatorOffsetY + ')'"
+                            aria-hidden="true"
+                            data-testid="violation-indicator"
+                        >
+                            <circle [attr.r]="statusIndicatorRadius" />
+                            <text text-anchor="middle" dy="0.35em">!</text>
+                        </g>
+                    } @else if (node.isWarning) {
+                        <g
+                            class="diagram-node__indicator diagram-node__indicator--warning"
+                            [attr.transform]="'translate(' + statusIndicatorOffsetX + ', ' + statusIndicatorOffsetY + ')'"
+                            aria-hidden="true"
+                            data-testid="warning-indicator"
+                        >
+                            <circle [attr.r]="statusIndicatorRadius" />
+                            <text text-anchor="middle" dy="0.35em">?</text>
+                        </g>
+                    } @else if (node.isConfiguredSelected) {
+                        <g
+                            class="diagram-node__indicator diagram-node__indicator--selected"
+                            [attr.transform]="'translate(' + statusIndicatorOffsetX + ', ' + statusIndicatorOffsetY + ')'"
+                            aria-hidden="true"
+                            data-testid="selected-indicator"
+                        >
+                            <circle [attr.r]="statusIndicatorRadius" />
+                            <text text-anchor="middle" dy="0.4em">✓</text>
+                        </g>
+                    }
 
                     @if (node.hasChildren) {
                         <g

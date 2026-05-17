@@ -10,6 +10,11 @@ interface FixtureOptions {
     expandedIds?: ReadonlySet<string>;
     matchedIds?: ReadonlySet<string>;
     selectedId?: string;
+    selectedFeatureIds?: ReadonlySet<string>;
+    violationIds?: ReadonlySet<string>;
+    warningIds?: ReadonlySet<string>;
+    toggleableIds?: ReadonlySet<string>;
+    configurationMode?: boolean;
 }
 
 function createFixture(tree: FeatureTreeNode, options: FixtureOptions = {}): ComponentFixture<FeatureModelDiagramComponent> {
@@ -20,6 +25,21 @@ function createFixture(tree: FeatureTreeNode, options: FixtureOptions = {}): Com
     fixture.componentRef.setInput('expandedIds', expanded);
     fixture.componentRef.setInput('matchedIds', options.matchedIds ?? new Set());
     fixture.componentRef.setInput('selectedId', options.selectedId);
+    if (options.selectedFeatureIds !== undefined) {
+        fixture.componentRef.setInput('selectedFeatureIds', options.selectedFeatureIds);
+    }
+    if (options.violationIds !== undefined) {
+        fixture.componentRef.setInput('violationIds', options.violationIds);
+    }
+    if (options.warningIds !== undefined) {
+        fixture.componentRef.setInput('warningIds', options.warningIds);
+    }
+    if (options.toggleableIds !== undefined) {
+        fixture.componentRef.setInput('toggleableIds', options.toggleableIds);
+    }
+    if (options.configurationMode !== undefined) {
+        fixture.componentRef.setInput('configurationMode', options.configurationMode);
+    }
     fixture.detectChanges();
     return fixture;
 }
@@ -185,6 +205,136 @@ describe('FeatureModelDiagramComponent', () => {
 
         expect(toggled).toBe('teaching-and-content');
         expect(selected).toBeUndefined();
+    });
+
+    it('applies the configured-selected modifier and indicator for ids in selectedFeatureIds', () => {
+        const fixture = createFixture(mvpTree, { selectedFeatureIds: new Set(['lecture', 'programming']) });
+        const lecture = nodeFor(fixture, 'lecture');
+        const programming = nodeFor(fixture, 'programming');
+        const tutorialgroup = nodeFor(fixture, 'tutorialgroup');
+
+        expect(lecture.classList.contains('diagram-node--configured-selected')).toBe(true);
+        expect(programming.classList.contains('diagram-node--configured-selected')).toBe(true);
+        expect(tutorialgroup.classList.contains('diagram-node--configured-selected')).toBe(false);
+        expect(lecture.querySelector('[data-testid="selected-indicator"]')).not.toBeNull();
+    });
+
+    it('applies the violation modifier and indicator for ids in violationIds', () => {
+        const fixture = createFixture(mvpTree, { violationIds: new Set(['programming']) });
+        const programming = nodeFor(fixture, 'programming');
+        expect(programming.classList.contains('diagram-node--violation')).toBe(true);
+        expect(programming.querySelector('[data-testid="violation-indicator"]')).not.toBeNull();
+    });
+
+    it('applies the warning modifier and indicator for ids in warningIds', () => {
+        const fixture = createFixture(mvpTree, { warningIds: new Set(['iris']) });
+        const iris = nodeFor(fixture, 'iris');
+        expect(iris.classList.contains('diagram-node--warning')).toBe(true);
+        expect(iris.querySelector('[data-testid="warning-indicator"]')).not.toBeNull();
+    });
+
+    it('renders only the violation indicator when a node is also selected and matched', () => {
+        const fixture = createFixture(mvpTree, {
+            selectedId: 'programming',
+            matchedIds: new Set(['programming']),
+            selectedFeatureIds: new Set(['programming']),
+            violationIds: new Set(['programming']),
+        });
+        const programming = nodeFor(fixture, 'programming');
+
+        expect(programming.classList.contains('diagram-node--violation')).toBe(true);
+        expect(programming.classList.contains('diagram-node--selected')).toBe(true);
+        expect(programming.classList.contains('diagram-node--match')).toBe(true);
+        expect(programming.classList.contains('diagram-node--configured-selected')).toBe(true);
+
+        // Only the violation indicator should appear; lower-precedence indicators are suppressed.
+        expect(programming.querySelector('[data-testid="violation-indicator"]')).not.toBeNull();
+        expect(programming.querySelector('[data-testid="warning-indicator"]')).toBeNull();
+        expect(programming.querySelector('[data-testid="selected-indicator"]')).toBeNull();
+    });
+
+    it('marks toggleable nodes via the toggleable modifier class', () => {
+        const fixture = createFixture(mvpTree, { toggleableIds: new Set(['lecture']) });
+        const lecture = nodeFor(fixture, 'lecture');
+        const teaching = nodeFor(fixture, 'teaching-and-content');
+        expect(lecture.classList.contains('diagram-node--toggleable')).toBe(true);
+        expect(teaching.classList.contains('diagram-node--toggleable')).toBe(false);
+    });
+
+    it('emits toggleSelection in configuration mode when a toggleable node is clicked', () => {
+        const fixture = createFixture(mvpTree, {
+            configurationMode: true,
+            toggleableIds: new Set(['lecture']),
+        });
+        let toggled: string | undefined;
+        let focused: string | undefined;
+        fixture.componentInstance.toggleSelection.subscribe((id: string) => {
+            toggled = id;
+        });
+        fixture.componentInstance.selectFeature.subscribe((id: string) => {
+            focused = id;
+        });
+
+        (nodeFor(fixture, 'lecture') as HTMLElement).dispatchEvent(new Event('click'));
+
+        expect(focused).toBe('lecture');
+        expect(toggled).toBe('lecture');
+    });
+
+    it('does not emit toggleSelection in configuration mode when a structural node is clicked', () => {
+        const fixture = createFixture(mvpTree, {
+            configurationMode: true,
+            toggleableIds: new Set(['lecture', 'programming']),
+        });
+        let toggled: string | undefined;
+        let focused: string | undefined;
+        fixture.componentInstance.toggleSelection.subscribe((id: string) => {
+            toggled = id;
+        });
+        fixture.componentInstance.selectFeature.subscribe((id: string) => {
+            focused = id;
+        });
+
+        (nodeFor(fixture, 'teaching-and-content') as HTMLElement).dispatchEvent(new Event('click'));
+
+        expect(focused).toBe('teaching-and-content');
+        expect(toggled).toBeUndefined();
+    });
+
+    it('does not emit toggleSelection when configuration mode is disabled', () => {
+        const fixture = createFixture(mvpTree, {
+            configurationMode: false,
+            toggleableIds: new Set(['lecture']),
+        });
+        let toggled: string | undefined;
+        fixture.componentInstance.toggleSelection.subscribe((id: string) => {
+            toggled = id;
+        });
+
+        (nodeFor(fixture, 'lecture') as HTMLElement).dispatchEvent(new Event('click'));
+        expect(toggled).toBeUndefined();
+    });
+
+    it('keeps the toggle badge expand-only in configuration mode', () => {
+        const fixture = createFixture(mvpTree, {
+            expandedIds: new Set(['artemis']),
+            configurationMode: true,
+            toggleableIds: new Set(['lecture']),
+        });
+        let expanded: string | undefined;
+        let toggled: string | undefined;
+        fixture.componentInstance.toggleExpand.subscribe((id: string) => {
+            expanded = id;
+        });
+        fixture.componentInstance.toggleSelection.subscribe((id: string) => {
+            toggled = id;
+        });
+
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+        toggleFor(fixture, 'teaching-and-content').dispatchEvent(event);
+
+        expect(expanded).toBe('teaching-and-content');
+        expect(toggled).toBeUndefined();
     });
 });
 
