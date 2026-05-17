@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     collectAllNodeIds,
+    collectAncestorIds,
     collectExpandableNodeIds,
     countTreeNodes,
     filterTreeByQuery,
@@ -119,5 +120,26 @@ describe('feature-model-tree.utils', () => {
         const result = filterTreeByQuery(buildSampleTree(), 'nonsense');
         expect(result.tree).toBeNull();
         expect(result.matchedIds.size).toBe(0);
+    });
+
+    it('collects ancestor ids for a single target deep in the tree', () => {
+        const result = collectAncestorIds(buildSampleTree(), new Set(['programming']));
+        expect(result.size).toBe(2);
+        expect(result.has('artemis')).toBe(true);
+        expect(result.has('exercise-system')).toBe(true);
+        expect(result.has('programming')).toBe(false);
+    });
+
+    it('collects ancestors across multiple targets without duplicates', () => {
+        const result = collectAncestorIds(buildSampleTree(), new Set(['programming', 'lecture']));
+        expect(result.has('artemis')).toBe(true);
+        expect(result.has('exercise-system')).toBe(true);
+        expect(result.has('teaching-and-content')).toBe(true);
+    });
+
+    it('returns an empty set when targets are missing or the tree is null', () => {
+        expect(collectAncestorIds(null, new Set(['programming'])).size).toBe(0);
+        expect(collectAncestorIds(buildSampleTree(), new Set<string>()).size).toBe(0);
+        expect(collectAncestorIds(buildSampleTree(), new Set(['nonsense'])).size).toBe(0);
     });
 });

@@ -2,13 +2,50 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, injec
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { collectExpandableNodeIds, countTreeNodes, findNodeById } from '../core/feature-model-tree.utils';
-import { Feature, FeatureModelResponse, FeatureTreeNode, IncomingRelation, ValidationResult } from '../core/feature-model.types';
+import { collectAncestorIds, collectExpandableNodeIds, countTreeNodes, findNodeById } from '../core/feature-model-tree.utils';
+import {
+    Feature,
+    FeatureModelResponse,
+    FeatureTreeNode,
+    IncomingRelation,
+    ValidationRelation,
+    ValidationResult,
+    ValidationViolation,
+    ValidationWarning,
+} from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from '../explorer/feature-model-diagram.component';
 import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
+
+interface LocalizedFeatureRef {
+    id: string;
+    name: string;
+}
+
+interface LocalizedRelation {
+    parentId: string;
+    childId: string;
+    parentName: string;
+    childName: string;
+}
+
+interface LocalizedViolation {
+    code: string;
+    message: string;
+    features: LocalizedFeatureRef[];
+    relation: LocalizedRelation | null;
+    suggestion: string | null;
+}
+
+interface LocalizedWarning {
+    code: string;
+    message: string;
+    features: LocalizedFeatureRef[];
+    constraintId: string | null;
+    suggestion: string | null;
+}
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -53,6 +90,15 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return ids;
     });
 
+    readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
+        const features = this.response()?.features ?? [];
+        const map = new Map<string, string>();
+        for (const feature of features) {
+            map.set(feature.id, feature.name);
+        }
+        return map;
+    });
+
     readonly selectedCount = computed(() => this.selectedFeatureIds().size);
     readonly selectableCount = computed(() => this.selectableFeatureIds().size);
 
@@ -60,7 +106,21 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     readonly expandableIds = computed(() => collectExpandableNodeIds(this.tree()));
 
-    readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => new Set(this.userExpandedIds()));
+    readonly forcedExpandedIds = computed<ReadonlySet<string>>(() => {
+        const flagged = new Set<string>([...this.violationIds(), ...this.warningIds()]);
+        if (flagged.size === 0) {
+            return new Set<string>();
+        }
+        return collectAncestorIds(this.tree(), flagged);
+    });
+
+    readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => {
+        const combined = new Set(this.userExpandedIds());
+        for (const id of this.forcedExpandedIds()) {
+            combined.add(id);
+        }
+        return combined;
+    });
 
     readonly allExpanded = computed(() => {
         const expandable = this.expandableIds();
@@ -146,20 +206,30 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return ids;
     });
 
-    readonly selectedFeatureViolations = computed(() => {
-        const id = this.selectedFeatureId();
-        if (!id) {
-            return [];
-        }
-        return this.violations().filter((violation) => violation.featureIds.includes(id));
+    readonly localizedViolations = computed<LocalizedViolation[]>(() => {
+        const names = this.featureNamesById();
+        return this.violations().map((violation) => localizeViolation(violation, names));
     });
 
-    readonly selectedFeatureWarnings = computed(() => {
+    readonly localizedWarnings = computed<LocalizedWarning[]>(() => {
+        const names = this.featureNamesById();
+        return this.warnings().map((warning) => localizeWarning(warning, names));
+    });
+
+    readonly selectedFeatureViolations = computed<LocalizedViolation[]>(() => {
         const id = this.selectedFeatureId();
         if (!id) {
             return [];
         }
-        return this.warnings().filter((warning) => warning.featureIds.includes(id));
+        return this.localizedViolations().filter((violation) => violation.features.some((feature) => feature.id === id));
+    });
+
+    readonly selectedFeatureWarnings = computed<LocalizedWarning[]>(() => {
+        const id = this.selectedFeatureId();
+        if (!id) {
+            return [];
+        }
+        return this.localizedWarnings().filter((warning) => warning.features.some((feature) => feature.id === id));
     });
 
     ngOnInit(): void {
@@ -296,6 +366,42 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.errorMessage.set(message && message.length > 0 ? message : DEFAULT_ERROR_MESSAGE);
         this.loading.set(false);
     }
+}
+
+function localizeViolation(violation: ValidationViolation, names: ReadonlyMap<string, string>): LocalizedViolation {
+    return {
+        code: violation.code,
+        message: violation.message,
+        features: violation.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
+        relation: localizeRelation(violation.relation, names),
+        suggestion: violation.suggestion,
+    };
+}
+
+function localizeWarning(warning: ValidationWarning, names: ReadonlyMap<string, string>): LocalizedWarning {
+    return {
+        code: warning.code,
+        message: warning.message,
+        features: warning.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
+        constraintId: warning.constraintId,
+        suggestion: warning.suggestion,
+    };
+}
+
+function localizeRelation(relation: ValidationRelation | null, names: ReadonlyMap<string, string>): LocalizedRelation | null {
+    if (!relation) {
+        return null;
+    }
+    return {
+        parentId: relation.parentId,
+        childId: relation.childId,
+        parentName: names.get(relation.parentId) ?? relation.parentId,
+        childName: names.get(relation.childId) ?? relation.childId,
+    };
+}
+
+function toLocalizedFeatureRef(id: string, names: ReadonlyMap<string, string>): LocalizedFeatureRef {
+    return { id, name: names.get(id) ?? id };
 }
 
 function defaultStateBadgeClass(state: string | null): string {

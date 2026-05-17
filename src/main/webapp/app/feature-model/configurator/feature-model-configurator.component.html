@@ -90,6 +90,88 @@
                         }
                     </div>
                 </div>
+
+                @if (localizedViolations().length > 0) {
+                    <div class="card border-danger mt-2" data-testid="violations-panel">
+                        <div class="card-header text-bg-danger">
+                            <strong>Violations ({{ localizedViolations().length }})</strong>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @for (violation of localizedViolations(); track violation.code + '-' + $index) {
+                                <li class="list-group-item" data-testid="violation-item">
+                                    <div class="d-flex gap-2 align-items-baseline">
+                                        <code class="text-danger" data-testid="violation-code">{{ violation.code }}</code>
+                                        <span data-testid="violation-message">{{ violation.message }}</span>
+                                    </div>
+                                    @if (violation.features.length > 0) {
+                                        <div class="small text-muted mt-1">
+                                            Affects:
+                                            @for (feature of violation.features; track feature.id) {
+                                                <span class="me-2">
+                                                    <strong>{{ feature.name }}</strong>
+                                                    <code class="ms-1">{{ feature.id }}</code>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    @if (violation.relation; as relation) {
+                                        <div class="small text-muted mt-1" data-testid="violation-relation">
+                                            Relation: <strong>{{ relation.parentName }}</strong>
+                                            <code>{{ relation.parentId }}</code> → <strong>{{ relation.childName }}</strong>
+                                            <code>{{ relation.childId }}</code>
+                                        </div>
+                                    }
+                                    @if (violation.suggestion) {
+                                        <div class="mt-2" data-testid="violation-suggestion">
+                                            <span class="badge text-bg-primary">Suggestion</span>
+                                            <span class="ms-2">{{ violation.suggestion }}</span>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (localizedWarnings().length > 0) {
+                    <div class="card border-warning mt-2" data-testid="warnings-panel">
+                        <div class="card-header text-bg-warning">
+                            <strong>Warnings ({{ localizedWarnings().length }})</strong>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
+                                <li class="list-group-item" data-testid="warning-item">
+                                    <div class="d-flex gap-2 align-items-baseline">
+                                        <code class="text-warning-emphasis" data-testid="warning-code">{{ warning.code }}</code>
+                                        <span>{{ warning.message }}</span>
+                                    </div>
+                                    @if (warning.features.length > 0) {
+                                        <div class="small text-muted mt-1">
+                                            Affects:
+                                            @for (feature of warning.features; track feature.id) {
+                                                <span class="me-2">
+                                                    <strong>{{ feature.name }}</strong>
+                                                    <code class="ms-1">{{ feature.id }}</code>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    @if (warning.constraintId) {
+                                        <div class="small text-muted mt-1">
+                                            Constraint: <code>{{ warning.constraintId }}</code>
+                                        </div>
+                                    }
+                                    @if (warning.suggestion) {
+                                        <div class="mt-2">
+                                            <span class="badge text-bg-secondary">Suggestion</span>
+                                            <span class="ms-2">{{ warning.suggestion }}</span>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
             }
         </section>
 
@@ -193,6 +275,40 @@
                             Root and group nodes are structural and cannot be toggled. Their selection follows the modules
                             beneath them.
                         </p>
+                    }
+
+                    @if (selectedFeatureViolations().length > 0) {
+                        <section class="details-section" data-testid="details-violations">
+                            <h3 class="h6 text-danger">Violations on this feature</h3>
+                            <ul class="mb-0 ps-3">
+                                @for (violation of selectedFeatureViolations(); track violation.code + '-' + $index) {
+                                    <li class="mb-1">
+                                        <code class="text-danger">{{ violation.code }}</code>
+                                        <span class="ms-1">{{ violation.message }}</span>
+                                        @if (violation.suggestion) {
+                                            <div class="text-muted small">{{ violation.suggestion }}</div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    @if (selectedFeatureWarnings().length > 0) {
+                        <section class="details-section" data-testid="details-warnings">
+                            <h3 class="h6 text-warning-emphasis">Warnings on this feature</h3>
+                            <ul class="mb-0 ps-3">
+                                @for (warning of selectedFeatureWarnings(); track warning.code + '-' + $index) {
+                                    <li class="mb-1">
+                                        <code class="text-warning-emphasis">{{ warning.code }}</code>
+                                        <span class="ms-1">{{ warning.message }}</span>
+                                        @if (warning.suggestion) {
+                                            <div class="text-muted small">{{ warning.suggestion }}</div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
                     }
 
                     @if (node.feature.description) {

@@ -338,4 +338,92 @@ describe('FeatureModelConfiguratorComponent', () => {
             expect(rootEl(fixture).querySelector('[data-testid="validation-loading"]')).toBeNull();
         });
     });
+
+    describe('violations and warnings panel', () => {
+        function disableProgrammingAndFlushViolation(): void {
+            loadModelAndValidate(fixture, httpMock);
+            fixture.componentInstance.onToggleSelection('programming');
+            flushValidation(httpMock, {
+                valid: false,
+                normalizedSelection: [],
+                violations: [
+                    {
+                        code: 'MANDATORY_FEATURE_MISSING',
+                        message: 'Programming is mandatory under Exercise System.',
+                        featureIds: ['programming'],
+                        relation: { parentId: 'exercise-system', childId: 'programming' },
+                        suggestion: 'Enable Programming.',
+                    },
+                ],
+                warnings: [],
+            });
+            fixture.detectChanges();
+        }
+
+        it('renders the MANDATORY_FEATURE_MISSING violation with code, message, ids, relation, and suggestion', () => {
+            disableProgrammingAndFlushViolation();
+
+            const panel = rootEl(fixture).querySelector('[data-testid="violations-panel"]');
+            expect(panel).not.toBeNull();
+            const code = panel?.querySelector('[data-testid="violation-code"]');
+            expect(code?.textContent).toBe('MANDATORY_FEATURE_MISSING');
+            const message = panel?.querySelector('[data-testid="violation-message"]');
+            expect(message?.textContent).toContain('mandatory under Exercise System');
+            const relation = panel?.querySelector('[data-testid="violation-relation"]');
+            expect(relation?.textContent).toContain('Exercise System');
+            expect(relation?.textContent).toContain('Programming');
+            const suggestion = panel?.querySelector('[data-testid="violation-suggestion"]');
+            expect(suggestion?.textContent).toContain('Enable Programming.');
+        });
+
+        it('passes violation ids to the diagram so the programming node receives the violation modifier', () => {
+            disableProgrammingAndFlushViolation();
+
+            const programmingNode = rootEl(fixture).querySelector('.diagram-node[data-feature-id="programming"]');
+            expect(programmingNode?.classList.contains('diagram-node--violation')).toBe(true);
+        });
+
+        it('shows the violation on the focused feature inside the details panel', () => {
+            disableProgrammingAndFlushViolation();
+
+            fixture.componentInstance.onSelectFeature('programming');
+            fixture.detectChanges();
+            const detailsViolations = rootEl(fixture).querySelector('[data-testid="details-violations"]');
+            expect(detailsViolations?.textContent).toContain('MANDATORY_FEATURE_MISSING');
+            expect(detailsViolations?.textContent).toContain('Enable Programming.');
+        });
+
+        it('renders the warnings panel and applies the warning modifier to listed feature nodes', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            fixture.componentInstance.onToggleSelection('iris');
+            flushValidation(httpMock, {
+                valid: true,
+                normalizedSelection: [],
+                violations: [],
+                warnings: [
+                    {
+                        code: 'UNSUPPORTED_EXPRESSION_CONSTRAINT',
+                        message: 'Iris is gated by an unsupported expression.',
+                        featureIds: ['iris'],
+                        constraintId: 'iris-expression',
+                        suggestion: 'Review constraint manually.',
+                    },
+                ],
+            });
+            fixture.detectChanges();
+
+            const warningsPanel = rootEl(fixture).querySelector('[data-testid="warnings-panel"]');
+            expect(warningsPanel).not.toBeNull();
+            expect(warningsPanel?.textContent).toContain('UNSUPPORTED_EXPRESSION_CONSTRAINT');
+            const irisNode = rootEl(fixture).querySelector('.diagram-node[data-feature-id="iris"]');
+            expect(irisNode?.classList.contains('diagram-node--warning')).toBe(true);
+        });
+
+        it('does not render the violations panel when the result is valid', () => {
+            loadModelAndValidate(fixture, httpMock);
+            expect(rootEl(fixture).querySelector('[data-testid="violations-panel"]')).toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="warnings-panel"]')).toBeNull();
+        });
+    });
 });
