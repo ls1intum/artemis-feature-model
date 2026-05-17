@@ -43,8 +43,27 @@
     background: var(--bs-body-bg);
 }
 
+.search-control {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 18rem;
+    flex: 1 1 18rem;
+}
+
+.match-count {
+    font-size: 0.85rem;
+}
+
 .toolbar-actions {
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.validation-panel {
+    display: flex;
+    flex-direction: column;
     gap: 0.5rem;
 }
 

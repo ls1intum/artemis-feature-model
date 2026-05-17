@@ -1,8 +1,15 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { collectAncestorIds, collectExpandableNodeIds, countTreeNodes, findNodeById } from '../core/feature-model-tree.utils';
+import {
+    collectAncestorIds,
+    collectExpandableNodeIds,
+    countTreeNodes,
+    filterTreeByQuery,
+    findNodeById,
+} from '../core/feature-model-tree.utils';
 import {
     Feature,
     FeatureModelResponse,
@@ -50,7 +57,7 @@ interface LocalizedWarning {
 @Component({
     selector: 'fm-feature-model-configurator',
     standalone: true,
-    imports: [FeatureModelDiagramComponent],
+    imports: [FormsModule, FeatureModelDiagramComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-configurator.component.html',
     styleUrl: './feature-model-configurator.component.scss',
@@ -65,6 +72,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly selectedFeatureIds = signal<ReadonlySet<string>>(new Set<string>());
     readonly selectedFeatureId = signal<string | undefined>(undefined);
+    readonly searchQuery = signal<string>('');
     readonly validationResult = signal<ValidationResult | undefined>(undefined);
     readonly validationLoading = signal<boolean>(false);
     readonly validationErrorMessage = signal<string | undefined>(undefined);
@@ -102,7 +110,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly selectedCount = computed(() => this.selectedFeatureIds().size);
     readonly selectableCount = computed(() => this.selectableFeatureIds().size);
 
-    readonly matchedIds = computed<ReadonlySet<string>>(() => new Set<string>());
+    readonly filterResult = computed(() => filterTreeByQuery(this.tree(), this.searchQuery()));
+    readonly matchedIds = computed<ReadonlySet<string>>(() => this.filterResult().matchedIds);
+    readonly matchCount = computed(() => this.matchedIds().size);
+    readonly hasActiveSearch = computed(() => this.searchQuery().trim().length > 0);
 
     readonly expandableIds = computed(() => collectExpandableNodeIds(this.tree()));
 
@@ -117,6 +128,9 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => {
         const combined = new Set(this.userExpandedIds());
         for (const id of this.forcedExpandedIds()) {
+            combined.add(id);
+        }
+        for (const id of this.filterResult().ancestorIds) {
             combined.add(id);
         }
         return combined;
@@ -304,6 +318,22 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     }
 
     /**
+     * Updates the search query and shifts focus to a matched feature if the previously focused
+     * feature is no longer in the filtered tree. Keeps the focus untouched when the search matches
+     * nothing so the user can still see the details of whatever they were last looking at.
+     *
+     * @param value Raw value from the search input.
+     */
+    onSearchInput(value: string): void {
+        this.searchQuery.set(value);
+        this.realignSelectionToMatches();
+    }
+
+    onClearSearch(): void {
+        this.searchQuery.set('');
+    }
+
+    /**
      * Installs the loaded model into the component state and primes the configurator: the user
      * selection is seeded from `defaultSelectedFeatureIds`, only the root branch is expanded so
      * the diagram does not overwhelm on first paint, the root focuses the details panel, and an
@@ -321,6 +351,26 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.selectedFeatureId.set(rootId);
         this.selectedFeatureIds.set(new Set<string>(response.defaultSelectedFeatureIds));
         this.runValidation();
+    }
+
+    /**
+     * Shifts the focused feature onto the first matched id if the previously focused feature has
+     * been filtered out, so the details panel always points at a node the user can still see. When
+     * the search is empty or there are no matches, the focus is left where it was.
+     */
+    private realignSelectionToMatches(): void {
+        const filtered = this.filterResult().tree;
+        if (!filtered) {
+            return;
+        }
+        const selectedId = this.selectedFeatureId();
+        if (selectedId && findNodeById(filtered, selectedId)) {
+            return;
+        }
+        const firstMatch = this.matchedIds().values().next().value;
+        if (firstMatch) {
+            this.selectedFeatureId.set(firstMatch);
+        }
     }
 
     /**

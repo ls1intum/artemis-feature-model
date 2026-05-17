@@ -426,4 +426,66 @@ describe('FeatureModelConfiguratorComponent', () => {
             expect(rootEl(fixture).querySelector('[data-testid="warnings-panel"]')).toBeNull();
         });
     });
+
+    describe('search and expansion', () => {
+        function typeSearch(value: string): void {
+            const input = rootEl(fixture).querySelector('[data-testid="search-input"]') as HTMLInputElement;
+            input.value = value;
+            input.dispatchEvent(new Event('input'));
+            fixture.detectChanges();
+        }
+
+        it('filters and highlights the diagram by feature name', () => {
+            loadModelAndValidate(fixture, httpMock);
+            typeSearch('lecture');
+
+            const match = rootEl(fixture).querySelector('[data-testid="match-count"]');
+            expect(match?.textContent?.trim()).toBe('1 match');
+
+            const lectureNode = rootEl(fixture).querySelector('.diagram-node[data-feature-id="lecture"]');
+            expect(lectureNode?.classList.contains('diagram-node--match')).toBe(true);
+            expect(rootEl(fixture).querySelector('.diagram-node[data-feature-id="iris"]')).toBeNull();
+        });
+
+        it('filters the diagram by feature id case-insensitively', () => {
+            loadModelAndValidate(fixture, httpMock);
+            typeSearch('FILE-UPLOAD');
+
+            const fileUpload = rootEl(fixture).querySelector('.diagram-node[data-feature-id="file-upload"]');
+            expect(fileUpload?.classList.contains('diagram-node--match')).toBe(true);
+        });
+
+        it('clears the search and restores the full diagram', () => {
+            loadModelAndValidate(fixture, httpMock);
+            typeSearch('iris');
+            const clearButton = rootEl(fixture).querySelector('[data-testid="clear-search"]') as HTMLButtonElement;
+            clearButton.click();
+            fixture.detectChanges();
+
+            expect(rootEl(fixture).querySelector('[data-testid="match-count"]')).toBeNull();
+            expect(fixture.componentInstance.searchQuery()).toBe('');
+        });
+
+        it('expand all renders every diagram node, and collapse all returns to the root branch', () => {
+            loadModelAndValidate(fixture, httpMock);
+
+            (rootEl(fixture).querySelector('[data-testid="expand-all"]') as HTMLButtonElement).click();
+            fixture.detectChanges();
+            const allNodes = rootEl(fixture).querySelectorAll('.diagram-node');
+            expect(allNodes).toHaveLength(24);
+
+            (rootEl(fixture).querySelector('[data-testid="collapse-all"]') as HTMLButtonElement).click();
+            fixture.detectChanges();
+            const collapsed = rootEl(fixture).querySelectorAll('.diagram-node');
+            // Root + 5 collapsed group children
+            expect(collapsed).toHaveLength(6);
+        });
+
+        it('does not render a view-mode toggle or list view', () => {
+            loadModelAndValidate(fixture, httpMock);
+            expect(rootEl(fixture).querySelector('[data-testid="view-list"]')).toBeNull();
+            expect(rootEl(fixture).querySelector('[data-testid="view-diagram"]')).toBeNull();
+            expect(rootEl(fixture).querySelector('fm-feature-model-tree-node')).toBeNull();
+        });
+    });
 });

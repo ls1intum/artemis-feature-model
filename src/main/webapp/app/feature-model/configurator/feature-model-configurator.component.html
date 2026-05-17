@@ -30,6 +30,29 @@
         </div>
     } @else if (response()) {
         <div class="toolbar">
+            <div class="search-control">
+                <label for="configurator-search" class="visually-hidden">Search features by name or id</label>
+                <input
+                    id="configurator-search"
+                    type="search"
+                    class="form-control form-control-sm"
+                    placeholder="Search by name or id"
+                    autocomplete="off"
+                    [value]="searchQuery()"
+                    (input)="onSearchInput($any($event.target).value)"
+                    data-testid="search-input"
+                />
+                @if (hasActiveSearch()) {
+                    <button type="button" class="btn btn-sm btn-link" (click)="onClearSearch()" data-testid="clear-search">
+                        Clear
+                    </button>
+                }
+            </div>
+            @if (hasActiveSearch()) {
+                <span class="match-count text-muted" data-testid="match-count">
+                    {{ matchCount() }} match{{ matchCount() === 1 ? '' : 'es' }}
+                </span>
+            }
             <div class="ms-auto toolbar-actions">
                 <button
                     type="button"
