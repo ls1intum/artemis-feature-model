@@ -81,3 +81,35 @@ export interface ModelWarning {
     featureIds: string[];
     constraintId: string | null;
 }
+
+export interface ValidationRequest {
+    selectedFeatureIds: string[];
+}
+
+export interface ValidationResult {
+    valid: boolean;
+    normalizedSelection: string[];
+    violations: ValidationViolation[];
+    warnings: ValidationWarning[];
+}
+
+export interface ValidationViolation {
+    code: string;
+    message: string;
+    featureIds: string[];
+    relation: ValidationRelation | null;
+    suggestion: string | null;
+}
+
+export interface ValidationWarning {
+    code: string;
+    message: string;
+    featureIds: string[];
+    constraintId: string | null;
+    suggestion: string | null;
+}
+
+export interface ValidationRelation {
+    parentId: string;
+    childId: string;
+}
