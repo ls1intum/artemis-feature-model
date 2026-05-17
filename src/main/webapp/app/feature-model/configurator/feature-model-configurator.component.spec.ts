@@ -109,4 +109,110 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(error).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="loading-state"]')).toBeNull();
     });
+
+    it('removes a selectable module id when its toggle is invoked', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(true);
+        fixture.componentInstance.onToggleSelection('lecture');
+        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
+    });
+
+    it('adds a non-default selectable id when toggled on', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
+        fixture.componentInstance.onToggleSelection('iris');
+        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
+    });
+
+    it('allows toggling mandatory modules off so invalid states can be demonstrated', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(true);
+        fixture.componentInstance.onToggleSelection('programming');
+        expect(fixture.componentInstance.selectedFeatureIds().has('programming')).toBe(false);
+    });
+
+    it('ignores toggle requests for structural root and group ids', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const before = fixture.componentInstance.selectedFeatureIds();
+        fixture.componentInstance.onToggleSelection('artemis');
+        fixture.componentInstance.onToggleSelection('teaching-and-content');
+        const after = fixture.componentInstance.selectedFeatureIds();
+        expect(after.size).toBe(before.size);
+        expect(after.has('artemis')).toBe(false);
+        expect(after.has('teaching-and-content')).toBe(false);
+    });
+
+    it('restores the default selection when reset is clicked', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        fixture.componentInstance.onToggleSelection('programming');
+        fixture.componentInstance.onToggleSelection('iris');
+        fixture.detectChanges();
+        expect(fixture.componentInstance.changedFromDefault()).toBe(true);
+
+        const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
+        resetButton.click();
+        fixture.detectChanges();
+
+        const defaults = fixture.componentInstance.defaultSelectedFeatureIds();
+        const current = fixture.componentInstance.selectedFeatureIds();
+        expect(current.size).toBe(defaults.size);
+        for (const id of defaults) {
+            expect(current.has(id)).toBe(true);
+        }
+        expect(fixture.componentInstance.changedFromDefault()).toBe(false);
+    });
+
+    it('disables reset when the selection equals the defaults', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        const resetButton = rootEl(fixture).querySelector('[data-testid="reset-defaults"]') as HTMLButtonElement;
+        expect(resetButton.disabled).toBe(true);
+    });
+
+    it('renders an enable toggle for selectable features and updates the selected set when clicked', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        fixture.componentInstance.onSelectFeature('lecture');
+        fixture.detectChanges();
+
+        const toggle = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
+        expect(toggle).not.toBeNull();
+        expect(toggle.checked).toBe(true);
+
+        toggle.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
+        const refreshed = rootEl(fixture).querySelector('[data-testid="details-toggle"]') as HTMLInputElement;
+        expect(refreshed.checked).toBe(false);
+    });
+
+    it('shows a structural message instead of a toggle for the root feature', () => {
+        fixture.detectChanges();
+        expectModelRequest(httpMock).flush(buildMvpFeatureModelResponse());
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.selectedFeatureId()).toBe('artemis');
+        expect(rootEl(fixture).querySelector('[data-testid="details-toggle"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="structural-message"]')).not.toBeNull();
+    });
 });

@@ -98,6 +98,20 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedFeature()?.defaultState ?? null));
     readonly relationBadgeClass = computed(() => relationBadgeClass(this.selectedIncomingRelation()?.relationType));
 
+    readonly changedFromDefault = computed(() => {
+        const current = this.selectedFeatureIds();
+        const defaults = this.defaultSelectedFeatureIds();
+        if (current.size !== defaults.size) {
+            return true;
+        }
+        for (const id of current) {
+            if (!defaults.has(id)) {
+                return true;
+            }
+        }
+        return false;
+    });
+
     ngOnInit(): void {
         this.featureModelService
             .loadFeatureModel()
@@ -110,6 +124,35 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     onSelectFeature(id: string): void {
         this.selectedFeatureId.set(id);
+    }
+
+    /**
+     * Flips the membership of `id` in `selectedFeatureIds`, but only when the feature is selectable.
+     * Root and group nodes are structural and must never enter or leave the user selection set;
+     * those cases are dropped silently.
+     *
+     * @param id Feature id to toggle in the user selection set.
+     */
+    onToggleSelection(id: string): void {
+        if (!this.selectableFeatureIds().has(id)) {
+            return;
+        }
+        const next = new Set(this.selectedFeatureIds());
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
+        }
+        this.selectedFeatureIds.set(next);
+    }
+
+    /**
+     * Restores `selectedFeatureIds` to the backend-provided defaults. Focus, expansion, and any
+     * search state are intentionally left untouched so the user does not lose their current
+     * inspection context.
+     */
+    onResetSelection(): void {
+        this.selectedFeatureIds.set(new Set<string>(this.defaultSelectedFeatureIds()));
     }
 
     /**
