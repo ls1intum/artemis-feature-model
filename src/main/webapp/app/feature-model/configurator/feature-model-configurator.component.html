@@ -1,0 +1,147 @@
+<section class="feature-model-configurator">
+    <header class="configurator-header">
+        <div class="configurator-title">
+            @if (model(); as meta) {
+                <h1 class="h4 mb-0">{{ meta.name }}</h1>
+                <small class="text-muted">
+                    Configurator · model id <code>{{ meta.id }}</code> · version <code>{{ meta.version }}</code>
+                </small>
+            } @else {
+                <h1 class="h4 mb-0">Feature Model Configurator</h1>
+            }
+        </div>
+        @if (response()) {
+            <ul class="configurator-stats list-unstyled mb-0">
+                <li><strong>{{ featureCount() }}</strong> features</li>
+                <li><strong>{{ selectableCount() }}</strong> selectable</li>
+                <li><strong data-testid="selected-count">{{ selectedCount() }}</strong> selected</li>
+            </ul>
+        }
+    </header>
+
+    @if (loading()) {
+        <div class="alert alert-info" role="status" data-testid="loading-state">
+            Loading feature model…
+        </div>
+    } @else if (errorMessage(); as error) {
+        <div class="alert alert-danger" role="alert" data-testid="error-state">
+            <strong>Could not load the feature model.</strong>
+            <div>{{ error }}</div>
+        </div>
+    } @else if (response()) {
+        <div class="toolbar">
+            <div class="ms-auto toolbar-actions">
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onExpandAll()"
+                    [disabled]="allExpanded()"
+                    data-testid="expand-all"
+                >
+                    Expand all
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onCollapseAll()"
+                    data-testid="collapse-all"
+                >
+                    Collapse all
+                </button>
+            </div>
+        </div>
+
+        <div class="configurator-layout">
+            <aside class="diagram-panel" aria-label="Feature configurator diagram">
+                @if (tree(); as root) {
+                    <fm-feature-model-diagram
+                        [tree]="root"
+                        [matchedIds]="matchedIds()"
+                        [expandedIds]="effectiveExpandedIds()"
+                        [selectedId]="selectedFeatureId()"
+                        [selectedFeatureIds]="selectedFeatureIds()"
+                        [toggleableIds]="selectableFeatureIds()"
+                        [configurationMode]="true"
+                        (selectFeature)="onSelectFeature($event)"
+                        (toggleExpand)="onToggleExpand($event)"
+                    />
+                }
+            </aside>
+
+            <section class="details-panel" aria-label="Selected feature details" data-testid="details-panel">
+                @if (selectedNode(); as node) {
+                    <header class="details-header">
+                        <h2 class="h5 mb-1" data-testid="details-name">{{ node.feature.name }}</h2>
+                        <code class="text-muted" data-testid="details-id">{{ node.feature.id }}</code>
+                    </header>
+
+                    <dl class="details-grid mb-0">
+                        <dt>Kind</dt>
+                        <dd><span class="badge text-bg-secondary">{{ node.feature.kind }}</span></dd>
+
+                        <dt>Selectable</dt>
+                        <dd>
+                            @if (node.feature.selectable) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">Structural</span>
+                            }
+                        </dd>
+
+                        @if (node.feature.defaultState) {
+                            <dt>Default state</dt>
+                            <dd><span class="badge {{ defaultStateBadgeClass() }}">{{ node.feature.defaultState }}</span></dd>
+                        }
+
+                        <dt>Currently selected</dt>
+                        <dd>
+                            @if (isSelectedFeatureEnabled()) {
+                                <span class="badge text-bg-success" data-testid="selected-state">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border" data-testid="selected-state">No</span>
+                            }
+                        </dd>
+
+                        <dt>Default-selected</dt>
+                        <dd>
+                            @if (isSelectedFeatureDefaultSelected()) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">No</span>
+                            }
+                        </dd>
+
+                        @if (selectedIncomingRelation(); as relation) {
+                            <dt>Parent</dt>
+                            <dd><code>{{ relation.parentId }}</code></dd>
+
+                            <dt>Relation</dt>
+                            <dd>
+                                <span class="badge {{ relationBadgeClass() }}">{{ relation.relationType }}</span>
+                                @if (relation.groupType) {
+                                    <small class="ms-1 text-muted">group type: {{ relation.groupType }}</small>
+                                }
+                            </dd>
+                        }
+                    </dl>
+
+                    @if (!isSelectedFeatureToggleable()) {
+                        <p class="text-muted mt-3 mb-0" data-testid="structural-message">
+                            Root and group nodes are structural and cannot be toggled. Their selection follows the modules
+                            beneath them.
+                        </p>
+                    }
+
+                    @if (node.feature.description) {
+                        <section class="details-section">
+                            <h3 class="h6">Description</h3>
+                            <p class="mb-0">{{ node.feature.description }}</p>
+                        </section>
+                    }
+                } @else {
+                    <p class="text-muted mb-0">Select a feature in the diagram to see its details.</p>
+                }
+            </section>
+        </div>
+    }
+</section>
