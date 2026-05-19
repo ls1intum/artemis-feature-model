@@ -312,6 +312,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.userExpandedIds.set(new Set(this.expandableIds()));
     }
 
+    /**
+     * Collapses every branch except the root. The root id is kept in `userExpandedIds` so the
+     * top-level groups remain visible after collapse — otherwise the diagram would shrink to a
+     * single root box and the user would lose all orientation.
+     */
     onCollapseAll(): void {
         const rootId = this.tree()?.feature.id;
         this.userExpandedIds.set(rootId ? new Set<string>([rootId]) : new Set<string>());
@@ -418,6 +423,14 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     }
 }
 
+/**
+ * Decorates a server-side `ValidationViolation` with human-readable feature names so the template
+ * can render names alongside ids without performing lookups itself.
+ *
+ * @param violation Wire-format violation from the validation endpoint.
+ * @param names Lookup of feature id to feature name, derived from the loaded model.
+ * @returns View-model violation with `LocalizedFeatureRef`s and a localized relation.
+ */
 function localizeViolation(violation: ValidationViolation, names: ReadonlyMap<string, string>): LocalizedViolation {
     return {
         code: violation.code,
@@ -428,6 +441,14 @@ function localizeViolation(violation: ValidationViolation, names: ReadonlyMap<st
     };
 }
 
+/**
+ * Decorates a server-side `ValidationWarning` with human-readable feature names so the template
+ * can render names alongside ids without performing lookups itself.
+ *
+ * @param warning Wire-format warning from the validation endpoint.
+ * @param names Lookup of feature id to feature name, derived from the loaded model.
+ * @returns View-model warning with `LocalizedFeatureRef`s.
+ */
 function localizeWarning(warning: ValidationWarning, names: ReadonlyMap<string, string>): LocalizedWarning {
     return {
         code: warning.code,
@@ -438,6 +459,15 @@ function localizeWarning(warning: ValidationWarning, names: ReadonlyMap<string, 
     };
 }
 
+/**
+ * Resolves the parent and child names for a validation relation so the violation list can show
+ * both readable names and stable ids. Falls back to the id itself when a name is missing, which
+ * keeps stale or out-of-tree references from breaking the panel.
+ *
+ * @param relation Wire-format relation, or `null` when the violation has no relation context.
+ * @param names Lookup of feature id to feature name, derived from the loaded model.
+ * @returns Localized relation, or `null` when `relation` is `null`.
+ */
 function localizeRelation(relation: ValidationRelation | null, names: ReadonlyMap<string, string>): LocalizedRelation | null {
     if (!relation) {
         return null;
