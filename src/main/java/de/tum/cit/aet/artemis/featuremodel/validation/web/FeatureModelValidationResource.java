@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.validation.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +14,8 @@ import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValida
 @RestController
 @RequestMapping("/api/feature-model")
 public class FeatureModelValidationResource {
+
+    private static final Logger log = LoggerFactory.getLogger(FeatureModelValidationResource.class);
 
     private final FeatureModelValidationService featureModelValidationService;
 
@@ -34,6 +38,11 @@ public class FeatureModelValidationResource {
      */
     @PostMapping("/validate")
     public ValidationResultDTO validateSelection(@RequestBody ValidationRequest request) {
-        return featureModelValidationService.validateSelection(request);
+        log.debug("REST request to validate a feature selection with {} submitted feature ids.", request.selectedFeatureIds().size());
+
+        ValidationResultDTO result = featureModelValidationService.validateSelection(request);
+        log.info("REST response for feature selection validation: valid={}, normalizedSelectionSize={}, violations={}, warnings={}.", result.valid(),
+                result.normalizedSelection().size(), result.violations().size(), result.warnings().size());
+        return result;
     }
 }

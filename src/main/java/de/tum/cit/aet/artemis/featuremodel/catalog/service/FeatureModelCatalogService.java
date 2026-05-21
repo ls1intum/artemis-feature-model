@@ -7,6 +7,8 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
@@ -25,6 +27,8 @@ import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTre
 
 @Service
 public class FeatureModelCatalogService {
+
+    private static final Logger log = LoggerFactory.getLogger(FeatureModelCatalogService.class);
 
     private final FeatureModelStore featureModelStore;
 
@@ -56,6 +60,7 @@ public class FeatureModelCatalogService {
     public FeatureModel loadActiveModel() {
         FeatureModel model = featureModelStore.loadActiveModel();
         integrityService.validate(model);
+        log.debug("Loaded and validated active feature model '{}' with {} features.", model.model().name(), model.features().size());
         return model;
     }
 
@@ -68,6 +73,8 @@ public class FeatureModelCatalogService {
      */
     public FeatureModelResponse getActiveFeatureModelResponse() {
         FeatureModel model = loadActiveModel();
+        log.debug("Building active feature model transfer response for model '{}'.", model.model().name());
+
         FeatureTreeNodeDTO tree = treeService.buildTree(model);
         List<FeatureDTO> features = featureDTOs(model);
         List<RelationDTO> relations = relationDTOs(model);
@@ -76,6 +83,8 @@ public class FeatureModelCatalogService {
         List<ModelWarningDTO> warnings = modelWarnings(model);
 
         ModelMetadataDTO modelMetadata = ModelMetadataDTO.fromDomain(model.model());
+        log.info("Built active feature model transfer response for '{}' with {} features, {} relations, {} constraints, {} default selections, and {} warnings.",
+                model.model().name(), features.size(), relations.size(), constraints.size(), defaultSelectedFeatureIds.size(), warnings.size());
         return new FeatureModelResponse(modelMetadata, features, relations, constraints, tree, defaultSelectedFeatureIds, warnings);
     }
 

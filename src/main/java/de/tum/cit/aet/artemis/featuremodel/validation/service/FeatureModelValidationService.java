@@ -9,6 +9,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
@@ -27,6 +29,8 @@ import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTre
 
 @Service
 public class FeatureModelValidationService {
+
+    private static final Logger log = LoggerFactory.getLogger(FeatureModelValidationService.class);
 
     private final FeatureModelCatalogService catalogService;
 
@@ -65,12 +69,16 @@ public class FeatureModelValidationService {
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException if the supplied model is structurally invalid.
      */
     public ValidationResultDTO validateSelection(FeatureModel model, ValidationRequest request) {
+        log.debug("Validating feature selection with {} submitted feature ids against model '{}'.", request.selectedFeatureIds().size(), model.model().name());
+
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
         NormalizedSelection normalizedSelection = normalizeSelection(model, request, featuresById);
         Set<String> selectedKnownIds = Set.copyOf(normalizedSelection.selectedFeatureIds());
 
         List<ValidationViolationDTO> violations = validationViolations(model, request, featuresById, selectedKnownIds);
         List<ValidationWarningDTO> warnings = expressionWarnings(model);
+        log.info("Validated feature selection for model '{}': valid={}, submitted={}, normalized={}, violations={}, warnings={}.", model.model().name(),
+                violations.isEmpty(), request.selectedFeatureIds().size(), normalizedSelection.selectedFeatureIds().size(), violations.size(), warnings.size());
         return new ValidationResultDTO(violations.isEmpty(), normalizedSelection.selectedFeatureIds(), violations, warnings);
     }
 
