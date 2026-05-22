@@ -17,6 +17,13 @@ repositories {
     mavenCentral()
 }
 
+def nodeModulesDir = layout.projectDirectory.dir('node_modules')
+def frontendOutputDir = layout.buildDirectory.dir('webapp/browser')
+def frontendResourcesDir = layout.buildDirectory.dir('generated/frontendResources')
+def skipFrontendBuild = providers.gradleProperty('skipFrontendBuild')
+        .map { it.isBlank() || it.toBoolean() }
+        .getOrElse(false)
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -33,4 +40,54 @@ tasks.register('syncFeatureModelResource', Copy) {
     group = 'build setup'
     from "$projectDir/devdocs/mvp/common/functional-feature-model.json"
     into "$projectDir/src/main/resources/feature-model"
+}
+
+tasks.register('npmCi', Exec) {
+    description = 'Installs frontend dependencies from package-lock.json.'
+    group = 'frontend'
+    onlyIf { !skipFrontendBuild }
+    commandLine 'npm', 'ci'
+    inputs.files 'package.json', 'package-lock.json'
+    outputs.dir nodeModulesDir
+}
+
+tasks.register('buildFrontend', Exec) {
+    description = 'Builds the Angular frontend for production.'
+    group = 'frontend'
+    onlyIf { !skipFrontendBuild }
+    dependsOn tasks.named('npmCi')
+    commandLine 'npm', 'run', 'build:prod'
+    inputs.files 'package.json', 'package-lock.json', 'angular.json', 'tsconfig.json', 'tsconfig.app.json'
+    inputs.dir 'src/main/webapp'
+    outputs.dir frontendOutputDir
+}
+
+tasks.register('verifyFrontendBuildOutput') {
+    description = 'Verifies that the Angular production build output exists.'
+    group = 'frontend'
+    if (!skipFrontendBuild) {
+        dependsOn tasks.named('buildFrontend')
+    }
+    inputs.dir frontendOutputDir
+    doLast {
+        def indexFile = frontendOutputDir.get().file('index.html').asFile
+        if (!indexFile.exists()) {
+            throw new GradleException('Angular production build output is missing. Run npm run build:prod or remove -PskipFrontendBuild.')
+        }
+    }
+}
+
+tasks.register('copyFrontendResources', Copy) {
+    description = 'Copies Angular production assets into Spring Boot static resources for bootJar.'
+    group = 'frontend'
+    dependsOn tasks.named('verifyFrontendBuildOutput')
+    from frontendOutputDir
+    into frontendResourcesDir.map { it.dir('static') }
+}
+
+tasks.named('bootJar') {
+    dependsOn tasks.named('copyFrontendResources')
+    from(frontendResourcesDir) {
+        into 'BOOT-INF/classes'
+    }
 }
