@@ -71,6 +71,7 @@ src/test/java/...           Server tests
 ./gradlew test              # run server unit tests
 ./gradlew test --rerun-tasks # force server unit tests to execute again
 ./gradlew bootRun           # start the server on http://localhost:8080
+./gradlew bootJar           # build the Angular app and package one runnable jar
 ```
 
 Gradle may report `:test UP-TO-DATE` when inputs have not changed. In that
@@ -87,6 +88,30 @@ npm run test                # run Angular unit tests (Vitest + jsdom)
 ```
 
 The dev server proxies `/api/*` to the server on port 8080.
+
+## Deployment build
+
+The Spring Boot jar can serve the Angular production build from its static
+resources. Running `./gradlew bootJar` installs frontend dependencies, runs the
+Angular production build, and packages the generated `build/webapp/browser`
+files into the jar.
+
+For CI or Docker builds that already created `build/webapp/browser`, use:
+
+```bash
+./gradlew bootJar -PskipFrontendBuild=true
+```
+
+Build the local Docker image with:
+
+```bash
+docker build -t artemis-feature-model .
+docker run --rm -p 8080:8080 artemis-feature-model
+```
+
+The repository CI workflow runs frontend tests, the frontend production build,
+backend tests, and the Spring Boot jar build on every branch. It does not
+deploy directly.
 
 ## Routes
 

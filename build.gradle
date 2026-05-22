@@ -21,7 +21,7 @@ def nodeModulesDir = layout.projectDirectory.dir('node_modules')
 def frontendOutputDir = layout.buildDirectory.dir('webapp/browser')
 def frontendResourcesDir = layout.buildDirectory.dir('generated/frontendResources')
 def skipFrontendBuild = providers.gradleProperty('skipFrontendBuild')
-        .map { it.toBoolean() }
+        .map { it.isBlank() || it.toBoolean() }
         .getOrElse(false)
 
 dependencies {
@@ -45,6 +45,7 @@ tasks.register('syncFeatureModelResource', Copy) {
 tasks.register('npmCi', Exec) {
     description = 'Installs frontend dependencies from package-lock.json.'
     group = 'frontend'
+    onlyIf { !skipFrontendBuild }
     commandLine 'npm', 'ci'
     inputs.files 'package.json', 'package-lock.json'
     outputs.dir nodeModulesDir
@@ -53,6 +54,7 @@ tasks.register('npmCi', Exec) {
 tasks.register('buildFrontend', Exec) {
     description = 'Builds the Angular frontend for production.'
     group = 'frontend'
+    onlyIf { !skipFrontendBuild }
     dependsOn tasks.named('npmCi')
     commandLine 'npm', 'run', 'build:prod'
     inputs.files 'package.json', 'package-lock.json', 'angular.json', 'tsconfig.json', 'tsconfig.app.json'
