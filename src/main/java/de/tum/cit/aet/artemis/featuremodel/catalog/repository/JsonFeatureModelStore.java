@@ -3,6 +3,8 @@ package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Repository;
@@ -13,6 +15,8 @@ import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class JsonFeatureModelStore implements FeatureModelStore {
+
+    private static final Logger log = LoggerFactory.getLogger(JsonFeatureModelStore.class);
 
     static final String ACTIVE_MODEL_RESOURCE = "classpath:feature-model/functional-feature-model.json";
 
@@ -43,10 +47,12 @@ public class JsonFeatureModelStore implements FeatureModelStore {
     public FeatureModel loadActiveModel() {
         FeatureModel cachedModel = activeModel;
         if (cachedModel != null) {
+            log.debug("Returning cached active feature model from {}.", ACTIVE_MODEL_RESOURCE);
             return cachedModel;
         }
         synchronized (this) {
             if (activeModel == null) {
+                log.debug("Active feature model cache is empty, loading {}.", ACTIVE_MODEL_RESOURCE);
                 activeModel = readActiveModel();
             }
             return activeModel;
@@ -62,9 +68,13 @@ public class JsonFeatureModelStore implements FeatureModelStore {
     private FeatureModel readActiveModel() {
         Resource resource = resourceLoader.getResource(ACTIVE_MODEL_RESOURCE);
         try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, FeatureModel.class);
+            FeatureModel model = objectMapper.readValue(inputStream, FeatureModel.class);
+            log.info("Loaded active feature model '{}' with {} features, {} relations, and {} constraints from {}.",
+                    model.model().name(), model.features().size(), model.relations().size(), model.constraints().size(), ACTIVE_MODEL_RESOURCE);
+            return model;
         }
         catch (IOException e) {
+            log.error("Could not load active feature model from {}.", ACTIVE_MODEL_RESOURCE, e);
             throw new FeatureModelLoadException("Could not load active feature model from " + ACTIVE_MODEL_RESOURCE + ".", e);
         }
     }

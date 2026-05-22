@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,6 +12,8 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogSe
 @RestController
 @RequestMapping("/api/feature-model")
 public class FeatureModelResource {
+
+    private static final Logger log = LoggerFactory.getLogger(FeatureModelResource.class);
 
     private final FeatureModelCatalogService featureModelCatalogService;
 
@@ -31,6 +35,11 @@ public class FeatureModelResource {
      */
     @GetMapping
     public FeatureModelResponse getActiveFeatureModel() {
-        return featureModelCatalogService.getActiveFeatureModelResponse();
+        log.debug("REST request to get the active feature model.");
+
+        FeatureModelResponse response = featureModelCatalogService.getActiveFeatureModelResponse();
+        log.info("REST response for active feature model contains {} features, {} relations, {} constraints, and {} warnings.",
+                response.features().size(), response.relations().size(), response.constraints().size(), response.warnings().size());
+        return response;
     }
 }
