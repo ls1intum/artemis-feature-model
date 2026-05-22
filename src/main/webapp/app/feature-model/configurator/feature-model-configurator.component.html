@@ -1,0 +1,349 @@
+<section class="feature-model-configurator">
+    <header class="configurator-header">
+        <div class="configurator-title">
+            @if (model(); as meta) {
+                <h1 class="h4 mb-0">{{ meta.name }}</h1>
+                <small class="text-muted">
+                    Configurator · model id <code>{{ meta.id }}</code> · version <code>{{ meta.version }}</code>
+                </small>
+            } @else {
+                <h1 class="h4 mb-0">Feature Model Configurator</h1>
+            }
+        </div>
+        @if (response()) {
+            <ul class="configurator-stats list-unstyled mb-0">
+                <li><strong>{{ featureCount() }}</strong> features</li>
+                <li><strong>{{ selectableCount() }}</strong> selectable</li>
+                <li><strong data-testid="selected-count">{{ selectedCount() }}</strong> selected</li>
+            </ul>
+        }
+    </header>
+
+    @if (loading()) {
+        <div class="alert alert-info" role="status" data-testid="loading-state">
+            Loading feature model…
+        </div>
+    } @else if (errorMessage(); as error) {
+        <div class="alert alert-danger" role="alert" data-testid="error-state">
+            <strong>Could not load the feature model.</strong>
+            <div>{{ error }}</div>
+        </div>
+    } @else if (response()) {
+        <div class="toolbar">
+            <div class="search-control">
+                <label for="configurator-search" class="visually-hidden">Search features by name or id</label>
+                <input
+                    id="configurator-search"
+                    type="search"
+                    class="form-control form-control-sm"
+                    placeholder="Search by name or id"
+                    autocomplete="off"
+                    [value]="searchQuery()"
+                    (input)="onSearchInput($any($event.target).value)"
+                    data-testid="search-input"
+                />
+                @if (hasActiveSearch()) {
+                    <button type="button" class="btn btn-sm btn-link" (click)="onClearSearch()" data-testid="clear-search">
+                        Clear
+                    </button>
+                }
+            </div>
+            @if (hasActiveSearch()) {
+                <span class="match-count text-muted" data-testid="match-count">
+                    {{ matchCount() }} match{{ matchCount() === 1 ? '' : 'es' }}
+                </span>
+            }
+            <div class="ms-auto toolbar-actions">
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onExpandAll()"
+                    [disabled]="allExpanded()"
+                    data-testid="expand-all"
+                >
+                    Expand all
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="onCollapseAll()"
+                    data-testid="collapse-all"
+                >
+                    Collapse all
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    (click)="onResetSelection()"
+                    [disabled]="!changedFromDefault()"
+                    data-testid="reset-defaults"
+                >
+                    Reset to defaults
+                </button>
+            </div>
+        </div>
+
+        <section class="validation-panel" aria-label="Validation status" data-testid="validation-panel">
+            @if (validationErrorMessage(); as message) {
+                <div class="alert alert-danger mb-0" role="alert" data-testid="validation-error">
+                    <strong>Validation failed.</strong>
+                    <div>{{ message }}</div>
+                </div>
+            } @else if (validationLoading() && !hasValidationResult()) {
+                <div class="alert alert-info mb-0" role="status" data-testid="validation-loading">
+                    Validating selection…
+                </div>
+            } @else if (hasValidationResult()) {
+                <div
+                    class="validation-status"
+                    [class.alert]="true"
+                    [class.alert-success]="isValid()"
+                    [class.alert-danger]="!isValid()"
+                    role="status"
+                    data-testid="validation-status"
+                >
+                    <div class="d-flex align-items-center gap-2">
+                        @if (isValid()) {
+                            <strong data-testid="validation-status-label">Configuration is valid.</strong>
+                        } @else {
+                            <strong data-testid="validation-status-label">Configuration is invalid.</strong>
+                        }
+                        @if (validationLoading()) {
+                            <small class="text-muted" data-testid="validation-revalidating">Revalidating…</small>
+                        }
+                    </div>
+                </div>
+
+                @if (localizedViolations().length > 0) {
+                    <div class="card border-danger mt-2" data-testid="violations-panel">
+                        <div class="card-header text-bg-danger">
+                            <strong>Violations ({{ localizedViolations().length }})</strong>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @for (violation of localizedViolations(); track violation.code + '-' + $index) {
+                                <li class="list-group-item" data-testid="violation-item">
+                                    <div class="d-flex gap-2 align-items-baseline">
+                                        <code class="text-danger" data-testid="violation-code">{{ violation.code }}</code>
+                                        <span data-testid="violation-message">{{ violation.message }}</span>
+                                    </div>
+                                    @if (violation.features.length > 0) {
+                                        <div class="small text-muted mt-1">
+                                            Affects:
+                                            @for (feature of violation.features; track feature.id) {
+                                                <span class="me-2">
+                                                    <strong>{{ feature.name }}</strong>
+                                                    <code class="ms-1">{{ feature.id }}</code>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    @if (violation.relation; as relation) {
+                                        <div class="small text-muted mt-1" data-testid="violation-relation">
+                                            Relation: <strong>{{ relation.parentName }}</strong>
+                                            <code>{{ relation.parentId }}</code> → <strong>{{ relation.childName }}</strong>
+                                            <code>{{ relation.childId }}</code>
+                                        </div>
+                                    }
+                                    @if (violation.suggestion) {
+                                        <div class="mt-2" data-testid="violation-suggestion">
+                                            <span class="badge text-bg-primary">Suggestion</span>
+                                            <span class="ms-2">{{ violation.suggestion }}</span>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (localizedWarnings().length > 0) {
+                    <div class="card border-warning mt-2" data-testid="warnings-panel">
+                        <div class="card-header text-bg-warning">
+                            <strong>Warnings ({{ localizedWarnings().length }})</strong>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
+                                <li class="list-group-item" data-testid="warning-item">
+                                    <div class="d-flex gap-2 align-items-baseline">
+                                        <code class="text-warning-emphasis" data-testid="warning-code">{{ warning.code }}</code>
+                                        <span>{{ warning.message }}</span>
+                                    </div>
+                                    @if (warning.features.length > 0) {
+                                        <div class="small text-muted mt-1">
+                                            Affects:
+                                            @for (feature of warning.features; track feature.id) {
+                                                <span class="me-2">
+                                                    <strong>{{ feature.name }}</strong>
+                                                    <code class="ms-1">{{ feature.id }}</code>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    @if (warning.constraintId) {
+                                        <div class="small text-muted mt-1">
+                                            Constraint: <code>{{ warning.constraintId }}</code>
+                                        </div>
+                                    }
+                                    @if (warning.suggestion) {
+                                        <div class="mt-2">
+                                            <span class="badge text-bg-secondary">Suggestion</span>
+                                            <span class="ms-2">{{ warning.suggestion }}</span>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            }
+        </section>
+
+        <div class="configurator-layout">
+            <aside class="diagram-panel" aria-label="Feature configurator diagram">
+                @if (tree(); as root) {
+                    <fm-feature-model-diagram
+                        [tree]="root"
+                        [matchedIds]="matchedIds()"
+                        [expandedIds]="effectiveExpandedIds()"
+                        [selectedId]="selectedFeatureId()"
+                        [selectedFeatureIds]="selectedFeatureIds()"
+                        [violationIds]="violationIds()"
+                        [warningIds]="warningIds()"
+                        [toggleableIds]="selectableFeatureIds()"
+                        [configurationMode]="true"
+                        (selectFeature)="onSelectFeature($event)"
+                        (toggleExpand)="onToggleExpand($event)"
+                        (toggleSelection)="onToggleSelection($event)"
+                    />
+                }
+            </aside>
+
+            <section class="details-panel" aria-label="Selected feature details" data-testid="details-panel">
+                @if (selectedNode(); as node) {
+                    <header class="details-header">
+                        <h2 class="h5 mb-1" data-testid="details-name">{{ node.feature.name }}</h2>
+                        <code class="text-muted" data-testid="details-id">{{ node.feature.id }}</code>
+                    </header>
+
+                    <dl class="details-grid mb-0">
+                        <dt>Kind</dt>
+                        <dd><span class="badge text-bg-secondary">{{ node.feature.kind }}</span></dd>
+
+                        <dt>Selectable</dt>
+                        <dd>
+                            @if (node.feature.selectable) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">Structural</span>
+                            }
+                        </dd>
+
+                        @if (node.feature.defaultState) {
+                            <dt>Default state</dt>
+                            <dd><span class="badge {{ defaultStateBadgeClass() }}">{{ node.feature.defaultState }}</span></dd>
+                        }
+
+                        <dt>Currently selected</dt>
+                        <dd>
+                            @if (isSelectedFeatureEnabled()) {
+                                <span class="badge text-bg-success" data-testid="selected-state">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border" data-testid="selected-state">No</span>
+                            }
+                        </dd>
+
+                        <dt>Default-selected</dt>
+                        <dd>
+                            @if (isSelectedFeatureDefaultSelected()) {
+                                <span class="badge text-bg-success">Yes</span>
+                            } @else {
+                                <span class="badge text-bg-light border">No</span>
+                            }
+                        </dd>
+
+                        @if (selectedIncomingRelation(); as relation) {
+                            <dt>Parent</dt>
+                            <dd><code>{{ relation.parentId }}</code></dd>
+
+                            <dt>Relation</dt>
+                            <dd>
+                                <span class="badge {{ relationBadgeClass() }}">{{ relation.relationType }}</span>
+                                @if (relation.groupType) {
+                                    <small class="ms-1 text-muted">group type: {{ relation.groupType }}</small>
+                                }
+                            </dd>
+                        }
+                    </dl>
+
+                    @if (isSelectedFeatureToggleable()) {
+                        <section class="details-section">
+                            <h3 class="h6">Configuration</h3>
+                            <div class="form-check form-switch">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    [id]="'details-toggle-' + node.feature.id"
+                                    [checked]="isSelectedFeatureEnabled()"
+                                    (change)="onToggleSelection(node.feature.id)"
+                                    data-testid="details-toggle"
+                                />
+                                <label class="form-check-label" [for]="'details-toggle-' + node.feature.id">
+                                    Enable {{ node.feature.name }}
+                                </label>
+                            </div>
+                        </section>
+                    } @else {
+                        <p class="text-muted mt-3 mb-0" data-testid="structural-message">
+                            Root and group nodes are structural and cannot be toggled. Their selection follows the modules
+                            beneath them.
+                        </p>
+                    }
+
+                    @if (selectedFeatureViolations().length > 0) {
+                        <section class="details-section" data-testid="details-violations">
+                            <h3 class="h6 text-danger">Violations on this feature</h3>
+                            <ul class="mb-0 ps-3">
+                                @for (violation of selectedFeatureViolations(); track violation.code + '-' + $index) {
+                                    <li class="mb-1">
+                                        <code class="text-danger">{{ violation.code }}</code>
+                                        <span class="ms-1">{{ violation.message }}</span>
+                                        @if (violation.suggestion) {
+                                            <div class="text-muted small">{{ violation.suggestion }}</div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    @if (selectedFeatureWarnings().length > 0) {
+                        <section class="details-section" data-testid="details-warnings">
+                            <h3 class="h6 text-warning-emphasis">Warnings on this feature</h3>
+                            <ul class="mb-0 ps-3">
+                                @for (warning of selectedFeatureWarnings(); track warning.code + '-' + $index) {
+                                    <li class="mb-1">
+                                        <code class="text-warning-emphasis">{{ warning.code }}</code>
+                                        <span class="ms-1">{{ warning.message }}</span>
+                                        @if (warning.suggestion) {
+                                            <div class="text-muted small">{{ warning.suggestion }}</div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+
+                    @if (node.feature.description) {
+                        <section class="details-section">
+                            <h3 class="h6">Description</h3>
+                            <p class="mb-0">{{ node.feature.description }}</p>
+                        </section>
+                    }
+                } @else {
+                    <p class="text-muted mb-0">Select a feature in the diagram to see its details.</p>
+                }
+            </section>
+        </div>
+    }
+</section>

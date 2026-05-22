@@ -6,8 +6,10 @@ aware exploration and configuration tool.
 
 ## Status
 
-This repository has completed Phase 4 of the MVP: the Angular feature-model
-explorer now loads the server API and renders the model interactively.
+This repository has completed Phase 5 of the MVP: the Angular feature-model
+configurator now loads defaults from the server, lets the user toggle
+selectable modules in a tree diagram, and revalidates the selection on every
+change.
 
 Current server capabilities:
 
@@ -25,19 +27,33 @@ Current explorer capabilities:
 
 - `/feature-model/explorer` loads `GET /api/feature-model` through a shared
   `FeatureModelService` and renders the 24-node feature tree with kind,
-  relation, and default-state badges.
+  relation, and default-state badges. A list view and a left-to-right SVG
+  diagram view share expansion state.
 - Branches can be expanded and collapsed individually, or in bulk via
   Expand all and Collapse all.
 - A search box filters branches by feature id or name (case-insensitive) and
   preserves ancestor paths so matches stay in context.
 - Selecting a feature opens a details panel that surfaces description,
-  parent relation, default-selected status, and source metadata (config
-  key, Spring profile, frontend constant, backend condition class, and
-  evidence entries) when present.
+  parent relation, default-selected status, and source metadata.
 - Loading, error, empty-search, and model-warning states are handled.
 
-The configurator page is still a placeholder; its interactive selection and
-validation behavior is planned for Phase 5.
+Current configurator capabilities:
+
+- `/feature-model/configurator` renders the model as a tree diagram only —
+  there is no list/outline view or view-mode toggle.
+- Selection is seeded from `defaultSelectedFeatureIds` and initial validation
+  runs as soon as the model loads.
+- Clicking a selectable module node in the diagram or flipping the switch in
+  the details panel toggles its selection; root and group nodes remain
+  structural and focus-only.
+- `POST /api/feature-model/validate` is called immediately after every toggle
+  and a request-token guards against stale responses.
+- Valid/invalid status, the full violation list (code, message, affected
+  features, relation, suggestion), the full warning list, and inline diagram
+  overlays for violated/warned features are surfaced together.
+- Reset to defaults restores the server-derived defaults and revalidates.
+- Search by feature id or name highlights and auto-expands matches in the
+  diagram. Expand all / Collapse all also work in configurator mode.
 
 ## Prerequisites
 
@@ -117,8 +133,9 @@ deploy directly.
 
 - `/` redirects to `/feature-model/explorer`
 - `/feature-model/explorer` — read-only feature model overview
-- `/feature-model/configurator` — interactive configurator (Phase 5)
+- `/feature-model/configurator` — interactive diagram-only configurator with
+  immediate validation
 
-The explorer is implemented. The configurator remains a placeholder page;
-Phase 5 will connect it to `POST /api/feature-model/validate` without
-restructuring the app shell.
+Both routes are implemented. The configurator represents the feature model
+only as a tree diagram; it does not provide a list/outline view or a
+view-mode toggle.

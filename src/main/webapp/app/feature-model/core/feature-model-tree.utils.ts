@@ -95,6 +95,41 @@ function collectAllInto(node: FeatureTreeNode, ids: string[]): void {
 }
 
 /**
+ * Collects the ids of every ancestor (excluding the targets themselves) of any node whose id is in
+ * `targetIds`. Useful for forcing a branch open in the diagram so a flagged feature is visible to
+ * the user — e.g., auto-expanding parents of a feature that has a validation violation.
+ *
+ * @param root Tree root, or `null` when no tree is loaded.
+ * @param targetIds Feature ids whose ancestor chain should be returned.
+ * @returns Set of ancestor ids; empty when `root` is `null` or none of the targets exist.
+ */
+export function collectAncestorIds(root: FeatureTreeNode | null, targetIds: ReadonlySet<string>): Set<string> {
+    const ancestors = new Set<string>();
+    if (!root || targetIds.size === 0) {
+        return ancestors;
+    }
+    collectAncestorsInto(root, targetIds, [], ancestors);
+    return ancestors;
+}
+
+function collectAncestorsInto(
+    node: FeatureTreeNode,
+    targetIds: ReadonlySet<string>,
+    parentChain: string[],
+    ancestors: Set<string>,
+): void {
+    if (targetIds.has(node.feature.id)) {
+        for (const ancestorId of parentChain) {
+            ancestors.add(ancestorId);
+        }
+    }
+    const nextChain = [...parentChain, node.feature.id];
+    for (const child of node.children) {
+        collectAncestorsInto(child, targetIds, nextChain, ancestors);
+    }
+}
+
+/**
  * Filters the tree to branches that match `rawQuery` (case-insensitive, trimmed) and keeps the
  * ancestors of each match so the user can see where matches live in the hierarchy. Returns the
  * original tree reference unchanged when the trimmed query is empty.

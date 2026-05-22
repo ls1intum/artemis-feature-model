@@ -75,19 +75,91 @@
     fill: var(--bs-secondary-bg);
 }
 
+// Precedence order (lowest to highest specificity below):
+// match < focused-selected < configured-selected < warning < violation
+// Later rules override earlier ones via the cascade.
+.diagram-node--match .diagram-node__box {
+    stroke: var(--bs-info);
+    stroke-width: 2;
+}
+
 .diagram-node--selected .diagram-node__box {
     fill: var(--bs-primary-bg-subtle);
     stroke: var(--bs-primary);
     stroke-width: 2;
 }
 
-.diagram-node--match .diagram-node__box {
-    stroke: var(--bs-info);
+.diagram-node--configured-selected .diagram-node__box {
+    fill: var(--bs-success-bg-subtle);
+    stroke: var(--bs-success);
     stroke-width: 2;
+}
+
+.diagram-node--configured-selected.diagram-node--selected .diagram-node__box {
+    fill: var(--bs-success-bg-subtle);
+    stroke: var(--bs-primary);
+    stroke-width: 2.25;
+}
+
+.diagram-node--warning .diagram-node__box {
+    fill: var(--bs-warning-bg-subtle);
+    stroke: var(--bs-warning);
+    stroke-width: 2;
+}
+
+.diagram-node--violation .diagram-node__box {
+    fill: var(--bs-danger-bg-subtle);
+    stroke: var(--bs-danger);
+    stroke-width: 2.25;
+}
+
+.diagram-node--toggleable .diagram-node__box {
+    cursor: pointer;
 }
 
 .diagram-node--collapsed .diagram-node__box {
     stroke-dasharray: 4 3;
+}
+
+.diagram-node__indicator {
+    pointer-events: none;
+    user-select: none;
+}
+
+.diagram-node__indicator circle {
+    stroke-width: 1;
+}
+
+.diagram-node__indicator text {
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.diagram-node__indicator--selected circle {
+    fill: var(--bs-success);
+    stroke: var(--bs-success);
+}
+
+.diagram-node__indicator--selected text {
+    fill: var(--bs-body-bg);
+}
+
+.diagram-node__indicator--violation circle {
+    fill: var(--bs-danger);
+    stroke: var(--bs-danger);
+}
+
+.diagram-node__indicator--violation text {
+    fill: var(--bs-body-bg);
+}
+
+.diagram-node__indicator--warning circle {
+    fill: var(--bs-warning);
+    stroke: var(--bs-warning);
+}
+
+.diagram-node__indicator--warning text {
+    fill: var(--bs-emphasis-color);
 }
 
 .diagram-toggle {
