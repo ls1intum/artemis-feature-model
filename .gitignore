@@ -56,3 +56,5 @@ gradle-app.setting
 
 #Claude
 .claude
+.mcp.json
+.codegraph
