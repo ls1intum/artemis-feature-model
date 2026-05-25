@@ -3,7 +3,9 @@
   "model": {
     "id": "artemis-functional-feature-tree",
     "name": "Artemis Functional Feature Tree",
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "status": "published",
+    "sourceCommitSha": null
   },
   "features": [
     {
@@ -12,7 +14,20 @@
       "kind": "root",
       "selectable": false,
       "description": "Root of the normalized Artemis functional module tree.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "teaching-and-content",
@@ -20,7 +35,20 @@
       "kind": "group",
       "selectable": false,
       "description": "Visual domain group for teaching content and course-facing communication capabilities.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "lecture",
@@ -37,6 +65,30 @@
           "LectureResource.java:77",
           "application-core.yml:20-21"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.lecture.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -54,6 +106,30 @@
           "TutorialGroupResource.java:75",
           "application-core.yml:32-33"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.tutorialgroup.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -69,6 +145,22 @@
           "CourseService.java:53",
           "Constants.java:383-453"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -85,6 +177,22 @@
           "CourseNotificationService.java:38",
           "Constants.java:383-453"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -93,7 +201,20 @@
       "kind": "group",
       "selectable": false,
       "description": "Visual domain group for common exercise infrastructure and concrete exercise types.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "exercise-common",
@@ -109,6 +230,22 @@
           "SubmissionResource.java:52",
           "ExerciseService.java:90"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -125,6 +262,22 @@
           "ProgrammingExerciseRepository.java:45",
           "Constants.java:383-453"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -141,6 +294,22 @@
           "QuizService.java:32",
           "QuizExerciseRepository.java:30"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -159,6 +328,30 @@
           "TextExerciseResource.java:69",
           "application-core.yml:14-15"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.text.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -177,6 +370,30 @@
           "ModelingExerciseResource.java:80",
           "application-core.yml:16-17"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.modeling.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -195,6 +412,30 @@
           "FileUploadExerciseResource.java:84",
           "application-core.yml:18-19"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.file-upload.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -203,7 +444,20 @@
       "kind": "group",
       "selectable": false,
       "description": "Visual domain group for exam workflows, plagiarism detection, and assessment assistance.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "exam",
@@ -220,6 +474,30 @@
           "ExamResource.java:126",
           "application-core.yml:10-11"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.exam.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -237,6 +515,30 @@
           "PlagiarismResource.java:43",
           "application-core.yml:12-13"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.plagiarism.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -254,6 +556,22 @@
           "AthenaModuleService.java:37,40,44",
           "application-artemis.yml:84-87"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -262,7 +580,20 @@
       "kind": "group",
       "selectable": false,
       "description": "Visual domain group for competency, tutoring, and AI-assisted capabilities.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "atlas",
@@ -280,6 +611,30 @@
           "CompetencyResource.java:60",
           "application-core.yml:2-5"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.atlas.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -298,6 +653,30 @@
           "application-core.yml:8-9",
           "application-artemis.yml:121-123"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.iris.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -316,6 +695,30 @@
           "application-core.yml:6-7",
           "application-artemis.yml:91,136"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.hyperion.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -324,7 +727,20 @@
       "kind": "group",
       "selectable": false,
       "description": "Visual domain group for optional LMS and IDE integrations.",
-      "defaultState": "not_applicable"
+      "defaultState": "not_applicable",
+      "category": "derived",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     },
     {
       "id": "lti",
@@ -341,6 +757,30 @@
           "LtiResource.java:56",
           "application-core.yml:34-35"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.lti.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     },
     {
@@ -359,6 +799,30 @@
           "TheiaConfiguration.java:13,16",
           "application.yml:138-140"
         ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application.yml",
+          "path": "artemis.theia.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
       }
     }
   ],

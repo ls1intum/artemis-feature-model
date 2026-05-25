@@ -1,6 +1,7 @@
 import {
     DefaultState,
     Feature,
+    FeatureCategory,
     FeatureKind,
     FeatureModelResponse,
     FeatureSource,
@@ -18,6 +19,7 @@ interface FeatureSpec {
     selectable: boolean;
     defaultState: DefaultState;
     description?: string;
+    category?: FeatureCategory;
     configKey?: string;
     springProfile?: string;
     frontendConstant?: string;
@@ -143,7 +145,13 @@ export function buildMvpFeatureModelResponse(overrides: Partial<FeatureModelResp
         .map((feature) => feature.id);
 
     return {
-        model: { id: 'artemis-functional-feature-tree', name: 'Artemis Functional Feature Tree', version: '0.1.0' },
+        model: {
+            id: 'artemis-functional-feature-tree',
+            name: 'Artemis Functional Feature Tree',
+            version: '0.1.0',
+            status: 'published',
+            sourceCommitSha: null,
+        },
         features,
         relations,
         constraints: [],
@@ -164,6 +172,16 @@ function toFeature(spec: FeatureSpec): Feature {
         description: spec.description ?? null,
         defaultState: spec.defaultState,
         source,
+        category: spec.category ?? (spec.selectable ? 'functional' : 'derived'),
+        visibleTo: [],
+        configurableBy: spec.selectable ? ['teacher', 'maintainer'] : [],
+        requiresCapabilities: [],
+        artifactMappings: [],
+        extraction: {
+            method: 'manual-curation',
+            confidence: 'high',
+            status: 'manually_confirmed',
+        },
     };
 }
 

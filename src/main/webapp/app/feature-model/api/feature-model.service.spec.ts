@@ -8,7 +8,13 @@ import { FeatureModelService } from './feature-model.service';
 
 function makeResponse(): FeatureModelResponse {
     return {
-        model: { id: 'artemis-functional-feature-tree', name: 'Artemis Functional Feature Tree', version: '0.1.0' },
+        model: {
+            id: 'artemis-functional-feature-tree',
+            name: 'Artemis Functional Feature Tree',
+            version: '0.1.0',
+            status: 'published',
+            sourceCommitSha: null,
+        },
         features: [],
         relations: [],
         constraints: [],
@@ -21,6 +27,12 @@ function makeResponse(): FeatureModelResponse {
                 description: null,
                 defaultState: 'not_applicable',
                 source: null,
+                category: 'derived',
+                visibleTo: [],
+                configurableBy: [],
+                requiresCapabilities: [],
+                artifactMappings: [],
+                extraction: null,
             },
             incomingRelation: null,
             children: [],

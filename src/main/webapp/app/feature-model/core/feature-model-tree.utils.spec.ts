@@ -19,6 +19,12 @@ function makeFeature(id: string, name: string): Feature {
         description: null,
         defaultState: 'enabled',
         source: null,
+        category: 'functional',
+        visibleTo: [],
+        configurableBy: ['teacher', 'maintainer'],
+        requiresCapabilities: [],
+        artifactMappings: [],
+        extraction: null,
     };
 }
 
