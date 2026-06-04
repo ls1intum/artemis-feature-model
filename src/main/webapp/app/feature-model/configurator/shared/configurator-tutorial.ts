@@ -28,7 +28,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
         title: 'Review before handoff',
         summary: 'Use the review page to check selected features, warnings, and validation results.',
         details: [
-            'Artifact generation is still a later-phase placeholder in Phase 2.',
+            'Artifact generation is still a later-phase placeholder.',
             'The advanced tree remains available when you need raw model-level control.',
         ],
     },
