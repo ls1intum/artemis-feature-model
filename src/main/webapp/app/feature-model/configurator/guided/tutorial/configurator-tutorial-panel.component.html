@@ -7,7 +7,15 @@
                 <p>{{ step.summary }}</p>
             </header>
             @if (step.imageSrc) {
-                <img class="tutorial-panel__image" [src]="step.imageSrc" alt="" aria-hidden="true" />
+                <div class="tutorial-panel__image-frame">
+                    <img
+                        class="tutorial-panel__image"
+                        [class.tutorial-panel__image--wide]="step.imageLayout === 'wide'"
+                        [src]="step.imageSrc"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                </div>
             }
 
             <ul class="tutorial-panel__details">

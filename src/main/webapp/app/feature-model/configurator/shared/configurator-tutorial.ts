@@ -6,6 +6,7 @@ export interface ConfiguratorTutorialStep {
     summary: string;
     details: string[];
     imageSrc?: string;
+    imageLayout?: 'standard' | 'wide';
 }
 
 export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
@@ -17,6 +18,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'You can still adjust the selection in later steps.',
         ],
         imageSrc: 'content/img/tutorial/templates.png',
+        imageLayout: 'wide',
     },
     {
         title: 'Decide on features',
@@ -35,6 +37,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'The advanced tree remains available when you need raw model-level control.',
         ],
         imageSrc: 'content/img/tutorial/review.png',
+        imageLayout: 'wide',
     },
 ];
 

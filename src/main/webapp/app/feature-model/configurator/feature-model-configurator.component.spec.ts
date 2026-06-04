@@ -264,6 +264,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(tutorialImage).not.toBeNull();
         expect(tutorialImage.getAttribute('src')).toBe('content/img/tutorial/templates.png');
         expect(tutorialImage.getAttribute('src')).not.toContain('src/main/webapp');
+        expect(tutorialImage.classList.contains('tutorial-panel__image--wide')).toBe(true);
         expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBeNull();
 
         clickByTestId(fixture, 'tutorial-skip');

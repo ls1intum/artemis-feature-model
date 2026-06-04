@@ -16,7 +16,9 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    width: min(36rem, 100%);
+    width: min(76rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.5rem;
     background: var(--bs-body-bg);
@@ -42,13 +44,25 @@
     font-size: 1.25rem;
 }
 
-.tutorial-panel__image {
-    width: 100%;
-    max-height: 16rem;
+.tutorial-panel__image-frame {
+    flex-shrink: 0;
+    overflow: auto;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.375rem;
-    object-fit: contain;
     background: var(--bs-tertiary-bg);
+}
+
+.tutorial-panel__image {
+    display: block;
+    width: 100%;
+    max-height: 16rem;
+    object-fit: contain;
+}
+
+.tutorial-panel__image--wide {
+    width: max(100%, min(160rem, 2543px));
+    max-width: none;
+    max-height: none;
 }
 
 .tutorial-panel p,
