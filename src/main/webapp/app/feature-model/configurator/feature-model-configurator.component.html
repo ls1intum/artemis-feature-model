@@ -1,20 +1,26 @@
-<section class="guided-configurator">
+<section class="feature-model-configurator">
     <header class="configurator-header">
         <div>
+            <h1>Artemis Guided Configurator</h1>
             @if (model(); as meta) {
-                <h1>{{ meta.name }}</h1>
-                <small>Guided Configurator · model <code>{{ meta.id }}</code> · version <code>{{ meta.version }}</code></small>
+                <small>Configure <strong>{{ meta.name }}</strong> · model <code>{{ meta.id }}</code> · version <code>{{ meta.version }}</code></small>
             } @else {
-                <h1>Guided Configurator</h1>
+                <small>Use-case oriented feature configuration</small>
             }
         </div>
         <div class="header-actions">
             @if (response()) {
                 <span class="selection-count"><strong data-testid="selected-count">{{ selectedCount() }}</strong> selected</span>
             }
-            <a class="btn btn-outline-secondary btn-sm" routerLink="/feature-model/explorer" data-testid="advanced-explorer-link">
-                Advanced tree
-            </a>
+            @if (screen() === 'tree') {
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onCloseTree()" data-testid="advanced-tree-button">
+                    Back to guide
+                </button>
+            } @else {
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onOpenTree()" data-testid="advanced-tree-button">
+                    Advanced tree
+                </button>
+            }
         </div>
     </header>
 
@@ -26,304 +32,57 @@
             <div>{{ error }}</div>
         </div>
     } @else if (workflow()) {
-        <section class="progress-panel" aria-label="Configurator progress">
-            <div class="progress" role="progressbar" [attr.aria-valuenow]="progressPercent()" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar" [style.width.%]="progressPercent()"></div>
-            </div>
-            <nav class="step-nav" aria-label="Guided steps">
-                <button type="button" class="step-pill" [class.step-pill--active]="screen() === 'templates'" (click)="onReturnToTemplates()">
-                    Templates
-                </button>
-                @for (step of decisionSteps(); track step.id; let index = $index) {
-                    <button
-                        type="button"
-                        class="step-pill"
-                        [class.step-pill--active]="screen() === 'workflow' && activeStepIndex() === index"
-                        (click)="onJumpToStep(index)"
-                    >
-                        {{ step.title }}
-                    </button>
-                }
-                <button type="button" class="step-pill" [class.step-pill--active]="screen() === 'review'" (click)="onOpenReview()">Review</button>
-            </nav>
-        </section>
-
-        @if (screen() === 'templates') {
-            <section class="template-screen" aria-label="Use-case templates">
-                <div class="section-heading">
-                    <h2>Choose a starting point</h2>
-                    @if (selectedTemplate(); as template) {
-                        <p>{{ template.description }}</p>
-                    }
-                </div>
-
-                <div class="template-grid">
-                    @for (template of templates(); track template.id) {
-                        <button
-                            type="button"
-                            class="template-card"
-                            [class.template-card--active]="selectedTemplateId() === template.id"
-                            (click)="onSelectTemplate(template.id)"
-                            [attr.data-testid]="'template-card-' + template.id"
-                        >
-                            <span class="template-card__title">{{ template.label }}</span>
-                            <span class="template-card__description">{{ template.description }}</span>
-                            <span class="template-card__meta">{{ template.selectedFeatureIds.length || 'Default' }} initial features</span>
-                        </button>
-                    }
-                </div>
-
-                @if (selectedTemplate(); as template) {
-                    <aside class="template-impact" data-testid="template-impact">
-                        <h3>{{ template.label }}</h3>
-                        @if (template.consequences.length > 0) {
-                            <ul>
-                                @for (consequence of template.consequences; track consequence) {
-                                    <li>{{ consequence }}</li>
-                                }
-                            </ul>
-                        }
-                        @if (template.warnings.length > 0) {
-                            <div class="warning-list">
-                                @for (warning of template.warnings; track warning) {
-                                    <p>{{ warning }}</p>
-                                }
-                            </div>
-                        }
-                    </aside>
-                }
-
-                <div class="flow-actions">
-                    <button type="button" class="btn btn-primary" (click)="onStartWorkflow()" data-testid="start-workflow">Start decisions</button>
-                </div>
-            </section>
-        } @else if (screen() === 'workflow') {
-            @if (activeStep(); as step) {
-                <section class="decision-screen">
-                    <main class="decision-main">
-                        <div class="section-heading">
-                            <h2>{{ step.title }}</h2>
-                            <p>{{ step.description }}</p>
-                        </div>
-
-                        @for (decision of step.decisions; track decision.id) {
-                            <section class="decision-block" [attr.data-testid]="'decision-' + decision.id">
-                                <header>
-                                    <h3>{{ decision.question }}</h3>
-                                    <p>{{ decision.description }}</p>
-                                </header>
-                                <div class="option-grid">
-                                    @for (option of decision.options; track option.id) {
-                                        <button
-                                            type="button"
-                                            class="option-card"
-                                            [class.option-card--selected]="isOptionSelected(decision, option)"
-                                            [class.option-card--requires-profile]="option.requiresCapabilities.length > 0"
-                                            (click)="onToggleDecisionOption(decision, option)"
-                                            (focus)="onFocusOption(option.id)"
-                                            [attr.data-testid]="'option-card-' + option.id"
-                                        >
-                                            <span class="option-card__topline">
-                                                <span class="option-card__title">{{ option.label }}</span>
-                                                @if (isOptionSelected(decision, option)) {
-                                                    <span class="badge text-bg-success">Selected</span>
-                                                } @else if (option.requiresCapabilities.length > 0) {
-                                                    <span class="badge text-bg-warning">Profile needed</span>
-                                                }
-                                            </span>
-                                            <span class="option-card__description">{{ option.description }}</span>
-                                            @if (optionFeatureNames(option).length > 0) {
-                                                <span class="feature-chip-row">
-                                                    @for (name of optionFeatureNames(option); track name) {
-                                                        <span class="feature-chip">{{ name }}</span>
-                                                    }
-                                                </span>
-                                            }
-                                            @if (option.requiresCapabilities.length > 0) {
-                                                <span class="option-card__availability" data-testid="option-unavailable-reason">
-                                                    {{ optionAvailabilityText(option) }}
-                                                </span>
-                                            }
-                                        </button>
-                                    }
-                                </div>
-                            </section>
-                        }
-                    </main>
-
-                    <aside class="impact-panel" aria-label="Impact panel" data-testid="impact-panel">
-                        @if (impactOption(); as option) {
-                            <h3>{{ option.label }}</h3>
-                            <dl>
-                                <dt>Availability</dt>
-                                <dd>{{ optionAvailabilityText(option) }}</dd>
-
-                                <dt>Functional impact</dt>
-                                <dd>
-                                    @if (option.consequences.length > 0) {
-                                        <ul>
-                                            @for (item of option.consequences; track item) {
-                                                <li>{{ item }}</li>
-                                            }
-                                        </ul>
-                                    } @else {
-                                        No additional functional impact.
-                                    }
-                                </dd>
-
-                                <dt>Technical impact</dt>
-                                <dd>
-                                    @if (option.requiresCapabilities.length > 0) {
-                                        Requires {{ option.requiresCapabilities.join(', ') }}.
-                                    } @else {
-                                        No extra deployment capability is modeled for this option.
-                                    }
-                                </dd>
-
-                                <dt>Artifact impact</dt>
-                                <dd>
-                                    @if (option.artifactImpacts.length > 0) {
-                                        <ul>
-                                            @for (item of option.artifactImpacts; track item) {
-                                                <li>{{ item }}</li>
-                                            }
-                                        </ul>
-                                    } @else {
-                                        No artifact change is listed for this option.
-                                    }
-                                </dd>
-                            </dl>
-
-                            @if (option.warnings.length > 0) {
-                                <div class="warning-list">
-                                    @for (warning of option.warnings; track warning) {
-                                        <p>{{ warning }}</p>
-                                    }
-                                </div>
-                            }
-                        }
-
-                        <section class="validation-panel" aria-label="Validation status" data-testid="validation-panel">
-                            @if (validationErrorMessage(); as message) {
-                                <div class="alert alert-danger mb-0" role="alert" data-testid="validation-error">
-                                    <strong>Validation failed.</strong>
-                                    <div>{{ message }}</div>
-                                </div>
-                            } @else if (validationLoading() && !hasValidationResult()) {
-                                <div class="alert alert-info mb-0" role="status" data-testid="validation-loading">Validating selection...</div>
-                            } @else if (hasValidationResult()) {
-                                <div class="validation-status" [class.validation-status--valid]="isValid()" [class.validation-status--invalid]="!isValid()" data-testid="validation-status">
-                                    <strong data-testid="validation-status-label">{{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}</strong>
-                                    @if (validationLoading()) {
-                                        <small>Revalidating...</small>
-                                    }
-                                </div>
-                            }
-                        </section>
-                    </aside>
-                </section>
-
-                <div class="flow-actions">
-                    <button type="button" class="btn btn-outline-secondary" (click)="onPreviousStep()" data-testid="previous-step">Back</button>
-                    <button type="button" class="btn btn-primary" (click)="onNextStep()" data-testid="next-step">
-                        {{ activeStepIndex() >= decisionSteps().length - 1 ? 'Review' : 'Next' }}
-                    </button>
-                </div>
-            }
+        @if (screen() === 'tree') {
+            <fm-configurator-tree
+                [tree]="tree()"
+                [selectedFeatureIds]="selectedFeatureIds()"
+                [selectableFeatureIds]="selectableFeatureIds()"
+                [violationIds]="violationIds()"
+                [warningIds]="warningIds()"
+                [localizedViolations]="localizedViolations()"
+                [localizedWarnings]="localizedWarnings()"
+                [validationLoading]="validationLoading()"
+                [validationErrorMessage]="validationErrorMessage()"
+                [hasValidationResult]="hasValidationResult()"
+                [isValid]="isValid()"
+                (selectionChange)="onReplaceSelection($event)"
+                (closeTree)="onCloseTree()"
+            />
         } @else {
-            <section class="review-screen" aria-label="Final review" data-testid="review-screen">
-                <div class="section-heading">
-                    <h2>Review configuration</h2>
-                    <p>Active profile: Placeholder profile for Phase 2</p>
-                </div>
-
-                <div class="review-layout">
-                    <main>
-                        <section class="review-section" data-testid="selected-features-summary">
-                            <h3>Selected functional features</h3>
-                            @if (reviewGroups().length > 0) {
-                                @for (group of reviewGroups(); track group.id) {
-                                    <div class="review-group">
-                                        <h4>{{ group.title }}</h4>
-                                        <div class="feature-chip-row">
-                                            @for (feature of group.features; track feature.id) {
-                                                <span class="feature-chip">{{ feature.name }}</span>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            } @else {
-                                <p class="muted">No guided review groups contain selected features.</p>
-                            }
-                        </section>
-
-                        <section class="review-section" data-testid="decision-change-summary">
-                            <h3>Changed from template</h3>
-                            @if (changedDecisionSummaries().length > 0) {
-                                <ul>
-                                    @for (change of changedDecisionSummaries(); track change.decisionId) {
-                                        <li>
-                                            <strong>{{ change.question }}</strong>
-                                            <span>{{ change.selectedOptions.length > 0 ? change.selectedOptions.join(', ') : 'No option selected' }}</span>
-                                        </li>
-                                    }
-                                </ul>
-                            } @else {
-                                <p class="muted">No guided decisions differ from the selected template.</p>
-                            }
-                        </section>
-                    </main>
-
-                    <aside>
-                        <section class="review-section" data-testid="warning-summary">
-                            <h3>Warnings and availability</h3>
-                            @if (workflowWarnings().length > 0 || localizedWarnings().length > 0) {
-                                <ul>
-                                    @for (warning of workflowWarnings(); track warning) {
-                                        <li>{{ warning }}</li>
-                                    }
-                                    @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                        <li>{{ warning.message }}</li>
-                                    }
-                                </ul>
-                            } @else {
-                                <p class="muted">No guided warnings are active.</p>
-                            }
-                        </section>
-
-                        <section class="review-section" data-testid="validation-summary">
-                            <h3>Validation result</h3>
-                            @if (validationErrorMessage(); as message) {
-                                <p class="text-danger">{{ message }}</p>
-                            } @else if (hasValidationResult()) {
-                                <p [class.text-success]="isValid()" [class.text-danger]="!isValid()">
-                                    {{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}
-                                </p>
-                                @if (localizedViolations().length > 0) {
-                                    <ul>
-                                        @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                            <li>{{ violation.message }}</li>
-                                        }
-                                    </ul>
-                                }
-                            } @else {
-                                <p class="muted">Validation has not completed yet.</p>
-                            }
-                        </section>
-
-                        <section class="review-section" data-testid="artifact-next-step">
-                            <h3>Next step</h3>
-                            <p>Artifact generation is reserved for the next phase. This review is the handoff point for generating configuration overlays later.</p>
-                            <button type="button" class="btn btn-secondary w-100" disabled>Generate artifacts later</button>
-                        </section>
-                    </aside>
-                </div>
-
-                <div class="flow-actions">
-                    <button type="button" class="btn btn-outline-secondary" (click)="onBackToWorkflow()" data-testid="back-to-workflow">Back to decisions</button>
-                    <a class="btn btn-outline-secondary" routerLink="/feature-model/explorer">Inspect tree</a>
-                </div>
-            </section>
+            <fm-guided-configurator-workflow
+                [screen]="screen()"
+                [model]="model()"
+                [selectedCount]="selectedCount()"
+                [templates]="templates()"
+                [selectedTemplate]="selectedTemplate()"
+                [selectedTemplateId]="selectedTemplateId()"
+                [decisionSteps]="decisionSteps()"
+                [activeStepIndex]="activeStepIndex()"
+                [progressPercent]="progressPercent()"
+                [selectedDecisionOptionIds]="selectedDecisionOptionIds()"
+                [focusedOption]="focusedOption()"
+                [featureNamesById]="featureNamesById()"
+                [changedDecisionSummaries]="changedDecisionSummaries()"
+                [reviewGroups]="reviewGroups()"
+                [workflowWarnings]="workflowWarnings()"
+                [localizedViolations]="localizedViolations()"
+                [localizedWarnings]="localizedWarnings()"
+                [validationLoading]="validationLoading()"
+                [validationErrorMessage]="validationErrorMessage()"
+                [hasValidationResult]="hasValidationResult()"
+                [isValid]="isValid()"
+                (selectTemplate)="onSelectTemplate($event)"
+                (startWorkflow)="onStartWorkflow()"
+                (returnToTemplates)="onReturnToTemplates()"
+                (previousStep)="onPreviousStep()"
+                (nextStep)="onNextStep()"
+                (openReview)="onOpenReview()"
+                (backToWorkflow)="onBackToWorkflow()"
+                (jumpToStep)="onJumpToStep($event)"
+                (focusOption)="onFocusOption($event)"
+                (toggleDecisionOption)="onToggleDecisionOption($event)"
+                (openTree)="onOpenTree()"
+            />
         }
     }
 </section>

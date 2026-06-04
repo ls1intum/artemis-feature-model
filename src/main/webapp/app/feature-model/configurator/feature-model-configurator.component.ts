@@ -1,69 +1,35 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import {
-    Feature,
-    FeatureModelResponse,
-    ValidationRelation,
-    ValidationResult,
-    ValidationViolation,
-    ValidationWarning,
-} from '../core/feature-model.types';
+import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
 import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
+import { GuidedConfiguratorWorkflowComponent } from './guided/guided-configurator-workflow.component';
+import {
+    applyOptionSelection,
+    cloneDecisionOptionMap,
+    localizeViolation,
+    localizeWarning,
+    removeOptionSelection,
+    sameStringSet,
+} from './shared/configurator-selection.utils';
+import {
+    ConfiguratorScreen,
+    DecisionChangeSummary,
+    DecisionOptionToggle,
+    ReviewGroupSummary,
+} from './shared/configurator-view.types';
+import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
 
-type ConfiguratorScreen = 'templates' | 'workflow' | 'review';
-
-interface LocalizedFeatureRef {
-    id: string;
-    name: string;
-}
-
-interface LocalizedRelation {
-    parentId: string;
-    childId: string;
-    parentName: string;
-    childName: string;
-}
-
-interface LocalizedViolation {
-    code: string;
-    message: string;
-    features: LocalizedFeatureRef[];
-    relation: LocalizedRelation | null;
-    suggestion: string | null;
-}
-
-interface LocalizedWarning {
-    code: string;
-    message: string;
-    features: LocalizedFeatureRef[];
-    constraintId: string | null;
-    suggestion: string | null;
-}
-
-interface ReviewGroupSummary {
-    id: string;
-    title: string;
-    features: Feature[];
-}
-
-interface DecisionChangeSummary {
-    decisionId: string;
-    question: string;
-    selectedOptions: string[];
-}
-
 @Component({
     selector: 'fm-feature-model-configurator',
     standalone: true,
-    imports: [RouterLink],
+    imports: [GuidedConfiguratorWorkflowComponent, ConfiguratorTreeComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-configurator.component.html',
     styleUrl: './feature-model-configurator.component.scss',
@@ -78,10 +44,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly workflow = signal<GuidedWorkflow | undefined>(undefined);
     readonly screen = signal<ConfiguratorScreen>('templates');
+    readonly previousGuidedScreen = signal<ConfiguratorScreen>('templates');
     readonly activeStepIndex = signal<number>(0);
     readonly selectedTemplateId = signal<string | undefined>(undefined);
     readonly selectedFeatureIds = signal<ReadonlySet<string>>(new Set<string>());
-    readonly templateBaselineFeatureIds = signal<ReadonlySet<string>>(new Set<string>());
     readonly selectedDecisionOptionIds = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
     readonly templateDecisionOptionIds = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
     readonly focusedOptionId = signal<string | undefined>(undefined);
@@ -91,12 +57,12 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     private validationToken = 0;
 
     readonly model = computed(() => this.response()?.model);
+    readonly tree = computed(() => this.response()?.tree ?? null);
     readonly templates = computed(() => this.workflow()?.useCaseTemplates ?? []);
     readonly selectedTemplate = computed<UseCaseTemplate | undefined>(() => {
         const id = this.selectedTemplateId();
         return this.templates().find((template) => template.id === id);
     });
-
     readonly stepsById = computed<ReadonlyMap<string, GuidedWorkflowStep>>(() => {
         const map = new Map<string, GuidedWorkflowStep>();
         for (const step of this.workflow()?.steps ?? []) {
@@ -104,7 +70,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return map;
     });
-
     readonly decisionSteps = computed<GuidedWorkflowStep[]>(() => {
         const workflow = this.workflow();
         const template = this.selectedTemplate();
@@ -115,14 +80,12 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const steps = ids.map((id) => this.stepsById().get(id)).filter((step): step is GuidedWorkflowStep => Boolean(step));
         return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
     });
-
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
     readonly progressPercent = computed(() => {
         const stepCount = this.decisionSteps().length + 2;
-        const current = this.screen() === 'templates' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
+        const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
         return Math.round((current / stepCount) * 100);
     });
-
     readonly selectedCount = computed(() => this.selectedFeatureIds().size);
     readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
         const map = new Map<string, string>();
@@ -147,13 +110,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return ids;
     });
-
-    readonly selectedFunctionalFeatures = computed<Feature[]>(() => {
-        const selected = this.selectedFeatureIds();
-        return (this.response()?.features ?? []).filter((feature) => selected.has(feature.id) && feature.category === 'functional');
-    });
-
-    readonly impactOption = computed<GuidedDecisionOption | undefined>(() => {
+    readonly focusedOption = computed<GuidedDecisionOption | undefined>(() => {
         const focused = this.focusedOptionId();
         const currentStep = this.activeStep();
         if (!currentStep) {
@@ -162,7 +119,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const allOptions = currentStep.decisions.flatMap((decision) => decision.options);
         return allOptions.find((option) => option.id === focused) ?? allOptions.find((option) => this.isOptionSelectedById(option.id)) ?? allOptions[0];
     });
-
     readonly changedDecisionSummaries = computed<DecisionChangeSummary[]>(() => {
         const summaries: DecisionChangeSummary[] = [];
         for (const step of this.decisionSteps()) {
@@ -180,7 +136,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return summaries;
     });
-
     readonly reviewGroups = computed<ReviewGroupSummary[]>(() => {
         const selected = this.selectedFeatureIds();
         const features = this.featuresById();
@@ -196,7 +151,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             }))
             .filter((group) => group.features.length > 0);
     });
-
     readonly workflowWarnings = computed<string[]>(() => {
         const warnings = new Set<string>();
         for (const warning of this.selectedTemplate()?.warnings ?? []) {
@@ -212,19 +166,33 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return [...warnings];
     });
-
     readonly hasValidationResult = computed(() => this.validationResult() !== undefined);
     readonly isValid = computed(() => this.validationResult()?.valid ?? false);
     readonly violations = computed(() => this.validationResult()?.violations ?? []);
     readonly warnings = computed(() => this.validationResult()?.warnings ?? []);
-    readonly localizedViolations = computed<LocalizedViolation[]>(() => {
-        const names = this.featureNamesById();
-        return this.violations().map((violation) => localizeViolation(violation, names));
+    readonly violationIds = computed<ReadonlySet<string>>(() => {
+        const ids = new Set<string>();
+        for (const violation of this.violations()) {
+            for (const id of violation.featureIds) {
+                ids.add(id);
+            }
+            if (violation.relation && violation.featureIds.length === 0) {
+                ids.add(violation.relation.childId);
+            }
+        }
+        return ids;
     });
-    readonly localizedWarnings = computed<LocalizedWarning[]>(() => {
-        const names = this.featureNamesById();
-        return this.warnings().map((warning) => localizeWarning(warning, names));
+    readonly warningIds = computed<ReadonlySet<string>>(() => {
+        const ids = new Set<string>();
+        for (const warning of this.warnings()) {
+            for (const id of warning.featureIds) {
+                ids.add(id);
+            }
+        }
+        return ids;
     });
+    readonly localizedViolations = computed(() => this.violations().map((violation) => localizeViolation(violation, this.featureNamesById())));
+    readonly localizedWarnings = computed(() => this.warnings().map((warning) => localizeWarning(warning, this.featureNamesById())));
 
     ngOnInit(): void {
         forkJoin({
@@ -247,7 +215,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const optionIdsByDecision = this.inferSelectedDecisionOptions(selected);
         this.selectedTemplateId.set(template.id);
         this.selectedFeatureIds.set(selected);
-        this.templateBaselineFeatureIds.set(new Set(selected));
         this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
         this.templateDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
         this.activeStepIndex.set(0);
@@ -257,17 +224,19 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     onStartWorkflow(): void {
         this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
         this.activeStepIndex.set(0);
         this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
     }
 
     onReturnToTemplates(): void {
         this.screen.set('templates');
+        this.previousGuidedScreen.set('templates');
     }
 
     onPreviousStep(): void {
         if (this.activeStepIndex() === 0) {
-            this.screen.set('templates');
+            this.onReturnToTemplates();
             return;
         }
         this.activeStepIndex.update((value) => value - 1);
@@ -276,7 +245,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     onNextStep(): void {
         if (this.activeStepIndex() >= this.decisionSteps().length - 1) {
-            this.screen.set('review');
+            this.onOpenReview();
             return;
         }
         this.activeStepIndex.update((value) => value + 1);
@@ -285,10 +254,12 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     onOpenReview(): void {
         this.screen.set('review');
+        this.previousGuidedScreen.set('review');
     }
 
     onBackToWorkflow(): void {
         this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
         if (this.activeStepIndex() >= this.decisionSteps().length) {
             this.activeStepIndex.set(Math.max(this.decisionSteps().length - 1, 0));
         }
@@ -296,15 +267,29 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     onJumpToStep(index: number): void {
         this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
         this.activeStepIndex.set(index);
         this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
+    }
+
+    onOpenTree(): void {
+        if (this.screen() !== 'tree') {
+            this.previousGuidedScreen.set(this.screen());
+        }
+        this.screen.set('tree');
+    }
+
+    onCloseTree(): void {
+        const previous = this.previousGuidedScreen();
+        this.screen.set(previous === 'tree' ? 'templates' : previous);
     }
 
     onFocusOption(optionId: string): void {
         this.focusedOptionId.set(optionId);
     }
 
-    onToggleDecisionOption(decision: GuidedDecision, option: GuidedDecisionOption): void {
+    onToggleDecisionOption(change: DecisionOptionToggle): void {
+        const { decision, option } = change;
         this.focusedOptionId.set(option.id);
         const optionIdsByDecision = cloneDecisionOptionMap(this.selectedDecisionOptionIds());
         const currentOptionIds = new Set(optionIdsByDecision.get(decision.id) ?? []);
@@ -334,20 +319,13 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
-    isOptionSelected(decision: GuidedDecision, option: GuidedDecisionOption): boolean {
-        return this.selectedDecisionOptionIds().get(decision.id)?.has(option.id) ?? false;
-    }
-
-    optionFeatureNames(option: GuidedDecisionOption): string[] {
-        const names = this.featureNamesById();
-        return option.selects.map((id) => names.get(id) ?? id);
-    }
-
-    optionAvailabilityText(option: GuidedDecisionOption): string {
-        if (option.requiresCapabilities.length > 0) {
-            return `Needs profile capability: ${option.requiresCapabilities.join(', ')}`;
-        }
-        return 'Available in the guided MVP';
+    onReplaceSelection(nextSelection: ReadonlySet<string>): void {
+        const selected = new Set(nextSelection);
+        const inferred = this.inferSelectedDecisionOptions(selected);
+        this.selectedFeatureIds.set(selected);
+        this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(inferred));
+        this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(inferred));
+        this.runValidation();
     }
 
     private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
@@ -408,8 +386,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     private firstOptionIdForCurrentFlow(optionIdsByDecision: ReadonlyMap<string, ReadonlySet<string>>): string | undefined {
         for (const step of this.decisionSteps()) {
             for (const decision of step.decisions) {
-                const selectedIds = optionIdsByDecision.get(decision.id);
-                const selectedId = selectedIds?.values().next().value;
+                const selectedId = optionIdsByDecision.get(decision.id)?.values().next().value;
                 if (selectedId) {
                     return selectedId;
                 }
@@ -427,8 +404,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             return undefined;
         }
         for (const decision of step.decisions) {
-            const selectedIds = this.selectedDecisionOptionIds().get(decision.id);
-            const selectedId = selectedIds?.values().next().value;
+            const selectedId = this.selectedDecisionOptionIds().get(decision.id)?.values().next().value;
             if (selectedId) {
                 return selectedId;
             }
@@ -479,75 +455,4 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.errorMessage.set(message && message.length > 0 ? message : DEFAULT_ERROR_MESSAGE);
         this.loading.set(false);
     }
-}
-
-function applyOptionSelection(selection: Set<string>, option: GuidedDecisionOption): void {
-    for (const id of option.selects) {
-        selection.add(id);
-    }
-    for (const id of option.deselects) {
-        selection.delete(id);
-    }
-}
-
-function removeOptionSelection(selection: Set<string>, option: GuidedDecisionOption): void {
-    for (const id of option.selects) {
-        selection.delete(id);
-    }
-}
-
-function cloneDecisionOptionMap(source: ReadonlyMap<string, ReadonlySet<string>>): Map<string, Set<string>> {
-    const clone = new Map<string, Set<string>>();
-    for (const [decisionId, optionIds] of source) {
-        clone.set(decisionId, new Set(optionIds));
-    }
-    return clone;
-}
-
-function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
-    if (left.size !== right.size) {
-        return false;
-    }
-    for (const value of left) {
-        if (!right.has(value)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-function localizeViolation(violation: ValidationViolation, names: ReadonlyMap<string, string>): LocalizedViolation {
-    return {
-        code: violation.code,
-        message: violation.message,
-        features: violation.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
-        relation: localizeRelation(violation.relation, names),
-        suggestion: violation.suggestion,
-    };
-}
-
-function localizeWarning(warning: ValidationWarning, names: ReadonlyMap<string, string>): LocalizedWarning {
-    return {
-        code: warning.code,
-        message: warning.message,
-        features: warning.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
-        constraintId: warning.constraintId,
-        suggestion: warning.suggestion,
-    };
-}
-
-function localizeRelation(relation: ValidationRelation | null, names: ReadonlyMap<string, string>): LocalizedRelation | null {
-    if (!relation) {
-        return null;
-    }
-    return {
-        parentId: relation.parentId,
-        childId: relation.childId,
-        parentName: names.get(relation.parentId) ?? relation.parentId,
-        childName: names.get(relation.childId) ?? relation.childId,
-    };
-}
-
-function toLocalizedFeatureRef(id: string, names: ReadonlyMap<string, string>): LocalizedFeatureRef {
-    return { id, name: names.get(id) ?? id };
 }

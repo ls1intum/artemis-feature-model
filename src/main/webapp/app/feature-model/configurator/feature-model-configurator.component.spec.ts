@@ -93,9 +93,11 @@ describe('FeatureModelConfiguratorComponent', () => {
         flushInitialLoads(fixture, httpMock);
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('h1')?.textContent).toBe('Artemis Functional Feature Tree');
+        expect(rootEl(fixture).querySelector('h1')?.textContent).toBe('Artemis Guided Configurator');
+        expect(rootEl(fixture).textContent).toContain('Artemis Functional Feature Tree');
         expect(rootEl(fixture).querySelector('[data-testid="template-card-minimal-teaching-setup"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="advanced-explorer-link"]')?.getAttribute('href')).toBe('/feature-model/explorer');
+        expect(rootEl(fixture).querySelector('[data-testid="advanced-tree-button"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="advanced-explorer-link"]')).toBeNull();
     });
 
     it('renders an error panel when either guided load request fails', () => {
@@ -207,5 +209,26 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="warning-summary"]')?.textContent).toContain('AI options are only usable');
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
         expect(rootEl(fixture).querySelector('[data-testid="artifact-next-step"]')?.textContent).toContain('reserved for the next phase');
+    });
+
+    it('opens an in-configurator tree view that reflects and updates the current selection', () => {
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'advanced-tree-button');
+        expect(rootEl(fixture).querySelector('[data-testid="configurator-tree-screen"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="advanced-explorer-link"]')).toBeNull();
+
+        clickByTestId(fixture, 'tree-expand-all');
+        const lectureNode = rootEl(fixture).querySelector('.diagram-node[data-feature-id="lecture"]');
+        expect(lectureNode?.classList.contains('diagram-node--configured-selected')).toBe(true);
+
+        (lectureNode as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        fixture.detectChanges();
+        const requestBody = flushValidation(httpMock, validResult());
+        fixture.detectChanges();
+
+        expect(requestBody.selectedFeatureIds).not.toContain('lecture');
+        expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
     });
 });
