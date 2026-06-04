@@ -191,6 +191,60 @@
                                 <small>Revalidating...</small>
                             }
                         </div>
+                        @if (localizedViolations().length > 0) {
+                            <section class="validation-detail validation-detail--danger" data-testid="guided-violations-panel">
+                                <h4>Violations</h4>
+                                <ul>
+                                    @for (violation of localizedViolations(); track violation.code + '-' + $index) {
+                                        <li data-testid="guided-violation-item">
+                                            <div>
+                                                <code>{{ violation.code }}</code>
+                                                <span>{{ violation.message }}</span>
+                                            </div>
+                                            @if (violation.features.length > 0) {
+                                                <p>
+                                                    Affects
+                                                    @for (feature of violation.features; track feature.id) {
+                                                        <strong>{{ feature.name }}</strong>
+                                                        <code>{{ feature.id }}</code>
+                                                    }
+                                                </p>
+                                            }
+                                            @if (violation.suggestion) {
+                                                <p>{{ violation.suggestion }}</p>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                        @if (localizedWarnings().length > 0) {
+                            <section class="validation-detail validation-detail--warning" data-testid="guided-warnings-panel">
+                                <h4>Warnings</h4>
+                                <ul>
+                                    @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
+                                        <li data-testid="guided-warning-item">
+                                            <div>
+                                                <code>{{ warning.code }}</code>
+                                                <span>{{ warning.message }}</span>
+                                            </div>
+                                            @if (warning.features.length > 0) {
+                                                <p>
+                                                    Affects
+                                                    @for (feature of warning.features; track feature.id) {
+                                                        <strong>{{ feature.name }}</strong>
+                                                        <code>{{ feature.id }}</code>
+                                                    }
+                                                </p>
+                                            }
+                                            @if (warning.suggestion) {
+                                                <p>{{ warning.suggestion }}</p>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
                     }
                 </section>
             </aside>

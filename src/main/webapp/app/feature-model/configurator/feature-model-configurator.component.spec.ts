@@ -93,7 +93,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         flushInitialLoads(fixture, httpMock);
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('h1')?.textContent).toBe('Artemis Guided Configurator');
+        expect(rootEl(fixture).querySelector('h1')?.textContent).toBe('Artemis Configurator');
         expect(rootEl(fixture).textContent).toContain('Artemis Functional Feature Tree');
         expect(rootEl(fixture).querySelector('[data-testid="template-card-minimal-teaching-setup"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="advanced-tree-button"]')).not.toBeNull();
@@ -193,6 +193,10 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-status-label"]')?.textContent).toBe('Configuration is invalid.');
+        const violationsPanel = rootEl(fixture).querySelector('[data-testid="guided-violations-panel"]');
+        expect(violationsPanel?.textContent).toContain('MANDATORY_FEATURE_MISSING');
+        expect(violationsPanel?.textContent).toContain('Programming is mandatory under Exercise System.');
+        expect(violationsPanel?.textContent).toContain('Enable Programming.');
     });
 
     it('summarizes selected features, warnings, validation, and artifact handoff on the review page', () => {

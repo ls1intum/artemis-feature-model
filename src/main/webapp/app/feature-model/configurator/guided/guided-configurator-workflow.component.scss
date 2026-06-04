@@ -211,6 +211,51 @@
     color: var(--bs-danger-text-emphasis);
 }
 
+.validation-detail {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+}
+
+.validation-detail h4 {
+    font-size: 0.9rem;
+    margin: 0 0 0.5rem;
+}
+
+.validation-detail ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.validation-detail li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.validation-detail div,
+.validation-detail p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0;
+}
+
+.validation-detail--danger {
+    border-color: var(--bs-danger-border-subtle);
+    background: var(--bs-danger-bg-subtle);
+}
+
+.validation-detail--warning {
+    border-color: var(--bs-warning-border-subtle);
+    background: var(--bs-warning-bg-subtle);
+}
+
 .review-layout main,
 .review-layout aside {
     display: flex;
