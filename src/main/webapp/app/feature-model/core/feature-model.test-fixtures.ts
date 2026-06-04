@@ -11,6 +11,7 @@ import {
     Relation,
     RelationType,
 } from './feature-model.types';
+import { GuidedWorkflow } from './guided-workflow.types';
 
 interface FeatureSpec {
     id: string;
@@ -160,6 +161,154 @@ export function buildMvpFeatureModelResponse(overrides: Partial<FeatureModelResp
         warnings: [],
         ...overrides,
     };
+}
+
+export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = {}): GuidedWorkflow {
+    const workflow: GuidedWorkflow = {
+        workflow: {
+            id: 'artemis-guided-configuration',
+            name: 'Artemis Guided Configuration Workflow',
+            version: '0.1.0',
+            featureModelId: 'artemis-functional-feature-tree',
+            featureModelVersion: '0.1.0',
+            defaultTemplateId: 'custom-configuration',
+        },
+        useCaseTemplates: [
+            {
+                id: 'minimal-teaching-setup',
+                label: 'Minimal teaching setup',
+                description: 'Starts with the common course workflow, communication, and core exercise infrastructure.',
+                selectedFeatureIds: ['course-workflow', 'communication', 'exercise-common', 'programming', 'quiz'],
+                deselectedFeatureIds: ['athena', 'iris', 'hyperion', 'lti', 'theia'],
+                recommendedStepIds: ['teaching-content', 'exercise-types', 'ai-and-integrations'],
+                consequences: ['Leaves optional AI and integration features disabled until explicitly selected.'],
+                warnings: [],
+            },
+            {
+                id: 'ai-enabled-course',
+                label: 'AI-enabled course',
+                description: 'Starts with the standard course setup plus AI decisions.',
+                selectedFeatureIds: ['course-workflow', 'communication', 'exercise-common', 'programming', 'quiz', 'text', 'atlas', 'iris'],
+                deselectedFeatureIds: ['lti'],
+                recommendedStepIds: ['exercise-types', 'ai-and-integrations'],
+                consequences: ['Introduces external service and secret-reference requirements for later deployment profile validation.'],
+                warnings: ['AI options are only usable when the selected deployment profile provides the required services.'],
+            },
+            {
+                id: 'custom-configuration',
+                label: 'Custom configuration',
+                description: 'Starts from the feature model defaults and lets the user review every guided decision.',
+                selectedFeatureIds: [],
+                deselectedFeatureIds: [],
+                recommendedStepIds: ['teaching-content', 'exercise-types', 'ai-and-integrations'],
+                consequences: ['Uses the current model defaults as the initial selection.'],
+                warnings: [],
+            },
+        ],
+        steps: [
+            {
+                id: 'teaching-content',
+                title: 'Teaching Content',
+                order: 1,
+                description: 'Configure lecture material, tutorial group, course workflow, and communication features.',
+                decisions: [
+                    {
+                        id: 'teaching-content-baseline',
+                        question: 'Which teaching content capabilities should be available?',
+                        description: 'Select the course-facing content and communication features that teachers normally use.',
+                        selectionMode: 'multiple',
+                        reviewGroupId: 'teaching-content',
+                        options: [
+                            {
+                                id: 'enable-lecture-materials',
+                                label: 'Enable lecture materials',
+                                description: 'Allow teachers to manage lectures and lecture units.',
+                                selects: ['lecture'],
+                                deselects: [],
+                                requiresCapabilities: [],
+                                consequences: ['Enables lecture management and material workflows.'],
+                                artifactImpacts: ['Sets artemis.lecture.enabled = true in the generated external configuration overlay.'],
+                                warnings: [],
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'exercise-types',
+                title: 'Exercise Types',
+                order: 2,
+                description: 'Choose the exercise types that should be available in the course setup.',
+                decisions: [
+                    {
+                        id: 'exercise-type-selection',
+                        question: 'Which exercise types should teachers be able to use?',
+                        description: 'Exercise choices map directly to functional feature ids.',
+                        selectionMode: 'multiple',
+                        reviewGroupId: 'exercise-types',
+                        options: [
+                            {
+                                id: 'enable-programming-and-quiz',
+                                label: 'Programming and quiz exercises',
+                                description: 'Keep the default programming and quiz exercise baseline enabled.',
+                                selects: ['exercise-common', 'programming', 'quiz'],
+                                deselects: [],
+                                requiresCapabilities: [],
+                                consequences: ['Keeps common exercise infrastructure, programming exercises, and quiz exercises available.'],
+                                artifactImpacts: [],
+                                warnings: ['Programming exercises still need CI and VCS capabilities in the deployment profile.'],
+                            },
+                            {
+                                id: 'enable-written-exercise-types',
+                                label: 'Written exercise types',
+                                description: 'Enable text, modeling, and file upload exercises.',
+                                selects: ['text', 'modeling', 'file-upload'],
+                                deselects: [],
+                                requiresCapabilities: [],
+                                consequences: ['Allows teachers to create text, modeling, and file upload assignments.'],
+                                artifactImpacts: ['Sets artemis.text.enabled = true in the generated external configuration overlay.'],
+                                warnings: [],
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'ai-and-integrations',
+                title: 'AI and Integrations',
+                order: 3,
+                description: 'Configure adaptive learning, AI tutoring, LTI, and online IDE integration features.',
+                decisions: [
+                    {
+                        id: 'ai-feature-selection',
+                        question: 'Which AI and adaptive learning features should be enabled?',
+                        description: 'AI features explain both functional consequences and later deployment profile requirements.',
+                        selectionMode: 'multiple',
+                        reviewGroupId: 'ai-and-adaptive-learning',
+                        options: [
+                            {
+                                id: 'enable-iris',
+                                label: 'Enable Iris AI Tutor',
+                                description: 'Enable AI tutoring support through Iris.',
+                                selects: ['iris'],
+                                deselects: [],
+                                requiresCapabilities: ['pyris-service', 'pyris-secret'],
+                                consequences: ['Enables AI tutoring functionality.', 'Requires Pyris service and a configured secret reference.'],
+                                artifactImpacts: ['Sets artemis.iris.enabled = true in the generated external configuration overlay.'],
+                                warnings: ['Only available when the active deployment profile provides AI tutoring support.'],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+        finalReviewGroups: [
+            { id: 'teaching-content', title: 'Teaching Content', order: 1, featureIds: ['lecture', 'course-workflow', 'communication'] },
+            { id: 'exercise-types', title: 'Exercise Types', order: 2, featureIds: ['exercise-common', 'programming', 'quiz', 'text', 'modeling', 'file-upload'] },
+            { id: 'ai-and-adaptive-learning', title: 'AI and Adaptive Learning', order: 3, featureIds: ['iris'] },
+        ],
+    };
+    return { ...workflow, ...overrides };
 }
 
 function toFeature(spec: FeatureSpec): Feature {

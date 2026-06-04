@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FeatureModelResponse } from '../core/feature-model.types';
+import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { FeatureModelService } from './feature-model.service';
 
 function makeResponse(): FeatureModelResponse {
@@ -39,6 +40,22 @@ function makeResponse(): FeatureModelResponse {
         },
         defaultSelectedFeatureIds: [],
         warnings: [],
+    };
+}
+
+function makeGuidedWorkflow(): GuidedWorkflow {
+    return {
+        workflow: {
+            id: 'artemis-guided-configuration',
+            name: 'Artemis Guided Configuration Workflow',
+            version: '0.1.0',
+            featureModelId: 'artemis-functional-feature-tree',
+            featureModelVersion: '0.1.0',
+            defaultTemplateId: 'custom-configuration',
+        },
+        useCaseTemplates: [],
+        steps: [],
+        finalReviewGroups: [],
     };
 }
 
@@ -87,5 +104,19 @@ describe('FeatureModelService', () => {
         const request = httpMock.expectOne('/api/feature-model');
         request.flush('Internal error', { status: 500, statusText: 'Server Error' });
         expect(observedError?.status).toBe(500);
+    });
+
+    it('issues a GET request to /api/feature-model/guided-workflow', () => {
+        const workflow = makeGuidedWorkflow();
+        let received: GuidedWorkflow | undefined;
+
+        service.loadGuidedWorkflow().subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/guided-workflow');
+        expect(request.request.method).toBe('GET');
+        request.flush(workflow);
+        expect(received).toEqual(workflow);
     });
 });

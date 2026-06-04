@@ -8,7 +8,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">
-            <a class="navbar-brand" routerLink="/feature-model/explorer">Artemis Feature Model</a>
+            <a class="navbar-brand" routerLink="/feature-model/configurator">Artemis Feature Model</a>
             <ul class="navbar-nav me-auto">
                 <li class="nav-item">
                     <a class="nav-link" routerLink="/feature-model/explorer" routerLinkActive="active">Explorer</a>
