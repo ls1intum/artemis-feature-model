@@ -9,6 +9,12 @@ export type FeatureKind = 'root' | 'group' | 'module' | 'feature' | (string & {}
 export type DefaultState = 'enabled' | 'disabled' | 'not_applicable' | (string & {});
 export type RelationType = 'mandatory' | 'optional' | 'group' | (string & {});
 export type GroupType = 'and' | 'or' | 'alternative' | (string & {});
+export type ModelStatus = 'draft' | 'published' | 'archived' | (string & {});
+export type FeatureCategory = 'functional' | 'technical' | 'capability' | 'derived' | (string & {});
+export type FeatureRole = 'teacher' | 'deployment-admin' | 'maintainer' | (string & {});
+export type ExtractionConfidence = 'high' | 'medium' | 'low' | (string & {});
+export type ExtractionStatus = 'extracted' | 'manually_confirmed' | 'needs_review' | 'rejected' | (string & {});
+export type ArtifactMappingValue = boolean | string | number | Record<string, unknown> | unknown[] | null;
 
 export interface FeatureModelResponse {
     model: ModelMetadata;
@@ -24,6 +30,8 @@ export interface ModelMetadata {
     id: string;
     name: string;
     version: string;
+    status: ModelStatus | null;
+    sourceCommitSha: string | null;
 }
 
 export interface Feature {
@@ -34,6 +42,26 @@ export interface Feature {
     description: string | null;
     defaultState: DefaultState | null;
     source: FeatureSource | null;
+    category: FeatureCategory;
+    visibleTo: FeatureRole[];
+    configurableBy: FeatureRole[];
+    requiresCapabilities: string[];
+    artifactMappings: ArtifactMapping[];
+    extraction: ExtractionMetadata | null;
+}
+
+export interface ArtifactMapping {
+    target: string;
+    path: string;
+    valueWhenSelected: ArtifactMappingValue;
+    valueWhenDeselected: ArtifactMappingValue;
+    valueFromProfile: string | null;
+}
+
+export interface ExtractionMetadata {
+    method: string;
+    confidence: ExtractionConfidence;
+    status: ExtractionStatus;
 }
 
 export interface FeatureSource {

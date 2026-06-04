@@ -156,6 +156,22 @@ describe('FeatureModelConfiguratorComponent', () => {
             expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
         });
 
+        it('does not filter selectable features by role or capability metadata', () => {
+            const response = buildMvpFeatureModelResponse();
+            const responseWithRestrictedMetadata: FeatureModelResponse = {
+                ...response,
+                features: response.features.map((feature) =>
+                    feature.id === 'iris' ? { ...feature, configurableBy: [], requiresCapabilities: ['llm-provider'] } : feature,
+                ),
+            };
+            loadModelAndValidate(fixture, httpMock, responseWithRestrictedMetadata);
+
+            expect(fixture.componentInstance.selectableFeatureIds().has('iris')).toBe(true);
+            fixture.componentInstance.onToggleSelection('iris');
+            flushValidation(httpMock, { valid: true, normalizedSelection: [], violations: [], warnings: [] });
+            expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
+        });
+
         it('allows toggling mandatory modules off so invalid states can be demonstrated', () => {
             loadModelAndValidate(fixture, httpMock);
 

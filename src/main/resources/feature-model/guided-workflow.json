@@ -1,0 +1,608 @@
+{
+  "$schema": "guided-workflow.schema.json",
+  "workflow": {
+    "id": "artemis-guided-configuration",
+    "name": "Artemis Guided Configuration Workflow",
+    "version": "0.1.0",
+    "featureModelId": "artemis-functional-feature-tree",
+    "featureModelVersion": "0.1.0",
+    "defaultTemplateId": "custom-configuration"
+  },
+  "useCaseTemplates": [
+    {
+      "id": "minimal-teaching-setup",
+      "label": "Minimal teaching setup",
+      "description": "Starts with the common course workflow, communication, and core exercise infrastructure.",
+      "selectedFeatureIds": [
+        "course-workflow",
+        "communication",
+        "exercise-common",
+        "programming",
+        "quiz"
+      ],
+      "deselectedFeatureIds": [
+        "athena",
+        "iris",
+        "hyperion",
+        "lti",
+        "theia"
+      ],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "teaching-content",
+        "exercise-types",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Keeps the deployment close to the default teaching and exercise setup.",
+        "Leaves optional AI and integration features disabled until explicitly selected."
+      ],
+      "warnings": []
+    },
+    {
+      "id": "programming-course",
+      "label": "Programming course",
+      "description": "Emphasizes programming exercises, common exercise infrastructure, and optional online IDE support.",
+      "selectedFeatureIds": [
+        "course-workflow",
+        "communication",
+        "exercise-common",
+        "programming",
+        "quiz",
+        "text",
+        "file-upload"
+      ],
+      "deselectedFeatureIds": [
+        "athena",
+        "iris",
+        "hyperion",
+        "lti"
+      ],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "exercise-types",
+        "ai-and-integrations",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Keeps programming exercises enabled for code-based assignments.",
+        "Leaves Theia as an explicit follow-up decision because it depends on deployment support."
+      ],
+      "warnings": [
+        "Programming exercise execution still depends on CI and VCS infrastructure outside this functional model."
+      ]
+    },
+    {
+      "id": "exam-focused-course",
+      "label": "Exam-focused course",
+      "description": "Starts with exam and plagiarism support for assessment-heavy courses.",
+      "selectedFeatureIds": [
+        "course-workflow",
+        "communication",
+        "exercise-common",
+        "programming",
+        "quiz",
+        "exam",
+        "plagiarism"
+      ],
+      "deselectedFeatureIds": [
+        "athena",
+        "iris",
+        "hyperion",
+        "lti",
+        "theia"
+      ],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "exercise-types",
+        "assessment-and-integrity",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Enables exam workflows and plagiarism checks.",
+        "Keeps AI assistance disabled by default for assessment-sensitive setups."
+      ],
+      "warnings": []
+    },
+    {
+      "id": "course-with-lecture-materials",
+      "label": "Course with lecture materials",
+      "description": "Starts with lecture and tutorial group support for material-centered teaching.",
+      "selectedFeatureIds": [
+        "lecture",
+        "tutorialgroup",
+        "course-workflow",
+        "communication",
+        "exercise-common",
+        "quiz",
+        "text"
+      ],
+      "deselectedFeatureIds": [
+        "athena",
+        "iris",
+        "hyperion",
+        "lti",
+        "theia"
+      ],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "teaching-content",
+        "exercise-types",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Highlights lecture management and tutorial groups.",
+        "Keeps basic exercise support available for assignments around lecture content."
+      ],
+      "warnings": []
+    },
+    {
+      "id": "ai-enabled-course",
+      "label": "AI-enabled course",
+      "description": "Starts with the standard course setup plus Iris, Athena, Atlas, and Hyperion decisions.",
+      "selectedFeatureIds": [
+        "course-workflow",
+        "communication",
+        "exercise-common",
+        "programming",
+        "quiz",
+        "text",
+        "atlas",
+        "iris",
+        "athena",
+        "hyperion"
+      ],
+      "deselectedFeatureIds": [
+        "lti"
+      ],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "exercise-types",
+        "assessment-and-integrity",
+        "ai-and-integrations",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Enables AI and adaptive learning features that can enrich feedback and tutoring.",
+        "Introduces external service and secret-reference requirements for later deployment profile validation."
+      ],
+      "warnings": [
+        "AI options are only usable when the selected deployment profile provides the required services."
+      ]
+    },
+    {
+      "id": "custom-configuration",
+      "label": "Custom configuration",
+      "description": "Starts from the feature model defaults and lets the user review every guided decision.",
+      "selectedFeatureIds": [],
+      "deselectedFeatureIds": [],
+      "recommendedStepIds": [
+        "configuration-goal",
+        "teaching-content",
+        "exercise-types",
+        "assessment-and-integrity",
+        "ai-and-integrations",
+        "review-and-consequences",
+        "artifact-generation"
+      ],
+      "consequences": [
+        "Uses the current model defaults as the initial selection.",
+        "Keeps all guided decisions visible for detailed review."
+      ],
+      "warnings": []
+    }
+  ],
+  "steps": [
+    {
+      "id": "configuration-goal",
+      "title": "Configuration Goal",
+      "order": 1,
+      "description": "Choose the starting goal for the configuration.",
+      "decisions": []
+    },
+    {
+      "id": "teaching-content",
+      "title": "Teaching Content",
+      "order": 2,
+      "description": "Configure lecture material, tutorial group, course workflow, and communication features.",
+      "decisions": [
+        {
+          "id": "teaching-content-baseline",
+          "question": "Which teaching content capabilities should be available?",
+          "description": "Select the course-facing content and communication features that teachers normally use.",
+          "selectionMode": "multiple",
+          "reviewGroupId": "teaching-content",
+          "options": [
+            {
+              "id": "enable-lecture-materials",
+              "label": "Enable lecture materials",
+              "description": "Allow teachers to manage lectures and lecture units.",
+              "selects": [
+                "lecture"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Enables lecture management and material workflows."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.lecture.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            },
+            {
+              "id": "enable-tutorial-groups",
+              "label": "Enable tutorial groups",
+              "description": "Allow teachers to manage tutorial groups and related course organization.",
+              "selects": [
+                "tutorialgroup"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Enables tutorial group administration for courses."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.tutorialgroup.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            },
+            {
+              "id": "keep-core-course-workflow",
+              "label": "Keep core course workflow",
+              "description": "Keep the mandatory course workflow and communication baseline selected.",
+              "selects": [
+                "course-workflow",
+                "communication"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Keeps course creation, access, overview, communication, and notifications available."
+              ],
+              "artifactImpacts": [],
+              "warnings": [
+                "These features are modeled as mandatory baseline capabilities."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exercise-types",
+      "title": "Exercise Types",
+      "order": 3,
+      "description": "Choose the exercise types that should be available in the course setup.",
+      "decisions": [
+        {
+          "id": "exercise-type-selection",
+          "question": "Which exercise types should teachers be able to use?",
+          "description": "Exercise choices map directly to functional feature ids and future configuration overlay entries.",
+          "selectionMode": "multiple",
+          "reviewGroupId": "exercise-types",
+          "options": [
+            {
+              "id": "enable-programming-and-quiz",
+              "label": "Programming and quiz exercises",
+              "description": "Keep the default programming and quiz exercise baseline enabled.",
+              "selects": [
+                "exercise-common",
+                "programming",
+                "quiz"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Keeps common exercise infrastructure, programming exercises, and quiz exercises available."
+              ],
+              "artifactImpacts": [],
+              "warnings": [
+                "Programming exercises still need CI and VCS capabilities in the deployment profile."
+              ]
+            },
+            {
+              "id": "enable-written-exercise-types",
+              "label": "Written exercise types",
+              "description": "Enable text, modeling, and file upload exercises.",
+              "selects": [
+                "text",
+                "modeling",
+                "file-upload"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Allows teachers to create text, modeling, and file upload assignments."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.text.enabled = true in the generated external configuration overlay.",
+                "Sets artemis.modeling.enabled = true in the generated external configuration overlay.",
+                "Sets artemis.file-upload.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assessment-and-integrity",
+      "title": "Assessment and Integrity",
+      "order": 4,
+      "description": "Configure exam, plagiarism, and assessment-adjacent AI support.",
+      "decisions": [
+        {
+          "id": "assessment-integrity-selection",
+          "question": "Which assessment and integrity capabilities are needed?",
+          "description": "These choices affect exam workflows, plagiarism checks, and optional Athena support.",
+          "selectionMode": "multiple",
+          "reviewGroupId": "assessment-and-integrity",
+          "options": [
+            {
+              "id": "enable-exams",
+              "label": "Enable exams",
+              "description": "Allow exam creation and exam-specific workflows.",
+              "selects": [
+                "exam"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Enables exam workflows for assessment-heavy courses."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.exam.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            },
+            {
+              "id": "enable-plagiarism",
+              "label": "Enable plagiarism checks",
+              "description": "Allow plagiarism detection and related integrity workflows.",
+              "selects": [
+                "plagiarism"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Enables plagiarism checks for supported exercise types."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.plagiarism.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            },
+            {
+              "id": "enable-athena",
+              "label": "Enable Athena",
+              "description": "Enable Athena-backed assessment assistance where supported.",
+              "selects": [
+                "athena"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "athena-service",
+                "athena-secret"
+              ],
+              "consequences": [
+                "Enables Athena integration for assessment assistance.",
+                "Requires an Athena service endpoint and secret reference in the active deployment profile."
+              ],
+              "artifactImpacts": [
+                "Activates the athena Spring profile or equivalent generated overlay entry when artifact generation is implemented."
+              ],
+              "warnings": [
+                "Only available when the active deployment profile provides Athena support."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ai-and-integrations",
+      "title": "AI and Integrations",
+      "order": 5,
+      "description": "Configure adaptive learning, AI tutoring, LTI, and online IDE integration features.",
+      "decisions": [
+        {
+          "id": "ai-feature-selection",
+          "question": "Which AI and adaptive learning features should be enabled?",
+          "description": "AI features explain both functional consequences and later deployment profile requirements.",
+          "selectionMode": "multiple",
+          "reviewGroupId": "ai-and-adaptive-learning",
+          "options": [
+            {
+              "id": "enable-atlas",
+              "label": "Enable Atlas",
+              "description": "Enable adaptive learning functionality.",
+              "selects": [
+                "atlas"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [],
+              "consequences": [
+                "Enables adaptive learning support."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.atlas.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": []
+            },
+            {
+              "id": "enable-iris",
+              "label": "Enable Iris AI Tutor",
+              "description": "Enable AI tutoring support through Iris.",
+              "selects": [
+                "iris"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "pyris-service",
+                "pyris-secret"
+              ],
+              "consequences": [
+                "Enables AI tutoring functionality.",
+                "Requires Pyris service and a configured secret reference."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.iris.enabled = true in the generated external configuration overlay.",
+                "Adds Pyris URL and secret-reference mappings when a deployment profile provides them."
+              ],
+              "warnings": [
+                "Only available when the active deployment profile provides AI tutoring support."
+              ]
+            },
+            {
+              "id": "enable-hyperion",
+              "label": "Enable Hyperion",
+              "description": "Enable Hyperion functionality for future AI-supported workflows.",
+              "selects": [
+                "hyperion"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "hyperion-service"
+              ],
+              "consequences": [
+                "Enables Hyperion support."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.hyperion.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": [
+                "Only available when the active deployment profile provides Hyperion support."
+              ]
+            }
+          ]
+        },
+        {
+          "id": "integration-feature-selection",
+          "question": "Which platform integrations should be enabled?",
+          "description": "Integration choices connect Artemis to external learning tools or IDE services.",
+          "selectionMode": "multiple",
+          "reviewGroupId": "integrations",
+          "options": [
+            {
+              "id": "enable-lti",
+              "label": "Enable LTI",
+              "description": "Enable LTI platform integration.",
+              "selects": [
+                "lti"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "lti-platform-registration"
+              ],
+              "consequences": [
+                "Allows Artemis to integrate with LTI-capable learning platforms."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.lti.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": [
+                "LTI requires external platform registration data before deployment."
+              ]
+            },
+            {
+              "id": "enable-theia",
+              "label": "Enable Theia",
+              "description": "Enable online IDE support through Theia.",
+              "selects": [
+                "theia"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "theia-service"
+              ],
+              "consequences": [
+                "Enables online IDE support for programming workflows."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.theia.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": [
+                "Only available when online IDE infrastructure is provided by the deployment profile."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "review-and-consequences",
+      "title": "Review and Consequences",
+      "order": 6,
+      "description": "Summarize selected features, unavailable capabilities, warnings, and consequences.",
+      "decisions": []
+    },
+    {
+      "id": "artifact-generation",
+      "title": "Artifact Generation",
+      "order": 7,
+      "description": "Prepare the later artifact-generation handoff from a validated configuration.",
+      "decisions": []
+    }
+  ],
+  "finalReviewGroups": [
+    {
+      "id": "teaching-content",
+      "title": "Teaching Content",
+      "order": 1,
+      "featureIds": [
+        "lecture",
+        "tutorialgroup",
+        "course-workflow",
+        "communication"
+      ]
+    },
+    {
+      "id": "exercise-types",
+      "title": "Exercise Types",
+      "order": 2,
+      "featureIds": [
+        "exercise-common",
+        "programming",
+        "quiz",
+        "text",
+        "modeling",
+        "file-upload"
+      ]
+    },
+    {
+      "id": "assessment-and-integrity",
+      "title": "Assessment and Integrity",
+      "order": 3,
+      "featureIds": [
+        "exam",
+        "plagiarism",
+        "athena"
+      ]
+    },
+    {
+      "id": "ai-and-adaptive-learning",
+      "title": "AI and Adaptive Learning",
+      "order": 4,
+      "featureIds": [
+        "atlas",
+        "iris",
+        "hyperion"
+      ]
+    },
+    {
+      "id": "integrations",
+      "title": "Platform Integrations",
+      "order": 5,
+      "featureIds": [
+        "lti",
+        "theia"
+      ]
+    }
+  ]
+}
