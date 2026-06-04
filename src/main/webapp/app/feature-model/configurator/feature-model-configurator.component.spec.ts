@@ -12,6 +12,8 @@ import { FeatureModelConfiguratorComponent } from './feature-model-configurator.
 const MODEL_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_URL = '/api/feature-model/guided-workflow';
 const VALIDATE_URL = '/api/feature-model/validate';
+const TUTORIAL_SEEN_KEY =
+    'artemis.configurator.tutorial.seen:artemis-guided-configuration:0.1.0:artemis-functional-feature-tree:0.1.0';
 
 function setup(): {
     fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
@@ -74,19 +76,26 @@ function clickByTestId(fixture: ComponentFixture<FeatureModelConfiguratorCompone
     fixture.detectChanges();
 }
 
+function markTutorialSeen(): void {
+    window.localStorage.setItem(TUTORIAL_SEEN_KEY, 'true');
+}
+
 describe('FeatureModelConfiguratorComponent', () => {
     let fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
     let httpMock: HttpTestingController;
 
     beforeEach(() => {
+        window.localStorage.clear();
         ({ fixture, httpMock } = setup());
     });
 
     afterEach(() => {
         httpMock.verify();
+        window.localStorage.clear();
     });
 
     it('loads the feature model and guided workflow before rendering templates', () => {
+        markTutorialSeen();
         fixture.detectChanges();
         expect(rootEl(fixture).querySelector('[data-testid="loading-state"]')?.textContent).toContain('Loading guided configurator');
 
@@ -97,10 +106,12 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).textContent).toContain('Artemis Functional Feature Tree');
         expect(rootEl(fixture).querySelector('[data-testid="template-card-minimal-teaching-setup"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="advanced-tree-button"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="advanced-explorer-link"]')).toBeNull();
     });
 
     it('renders an error panel when either guided load request fails', () => {
+        markTutorialSeen();
         fixture.detectChanges();
         httpMock.expectOne(MODEL_URL).flush(buildMvpFeatureModelResponse());
         httpMock.expectOne(GUIDED_WORKFLOW_URL).flush('Boom', { status: 500, statusText: 'Server Error' });
@@ -110,6 +121,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('preselects the expected features when a use-case template is chosen', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
 
         clickByTestId(fixture, 'template-card-minimal-teaching-setup');
@@ -123,6 +135,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('selects and deselects mapped features through decision options and validates each change', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'template-card-minimal-teaching-setup');
         flushValidation(httpMock, validResult());
@@ -144,6 +157,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('shows consequence and artifact text for the active decision option', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
@@ -159,6 +173,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('shows readable availability reasons for options that require profile capabilities', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
@@ -170,6 +185,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('renders validation feedback after selection changes', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(1);
@@ -200,6 +216,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('summarizes selected features, warnings, validation, and artifact handoff on the review page', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'template-card-ai-enabled-course');
         flushValidation(httpMock, validResult());
@@ -216,6 +233,7 @@ describe('FeatureModelConfiguratorComponent', () => {
     });
 
     it('opens an in-configurator tree view that reflects and updates the current selection', () => {
+        markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.detectChanges();
 
@@ -234,5 +252,69 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         expect(requestBody.selectedFeatureIds).not.toContain('lecture');
         expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
+    });
+
+    it('opens the tutorial automatically on the first visit and persists skip state', () => {
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+        expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBeNull();
+
+        clickByTestId(fixture, 'tutorial-skip');
+
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).toBeNull();
+        expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe('true');
+    });
+
+    it('does not auto-open the tutorial when the versioned seen key exists', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).toBeNull();
+    });
+
+    it('opens the tutorial from the guided help button and navigates steps', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'tutorial-help-button');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-back"]')).toBeNull();
+
+        clickByTestId(fixture, 'tutorial-next');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Decide on features');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-back"]')).not.toBeNull();
+
+        clickByTestId(fixture, 'tutorial-back');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+    });
+
+    it('finishes the tutorial and writes the versioned seen key', () => {
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'tutorial-next');
+        clickByTestId(fixture, 'tutorial-next');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Review before handoff');
+        clickByTestId(fixture, 'tutorial-finish');
+
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).toBeNull();
+        expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe('true');
+    });
+
+    it('hides the guided tutorial help button in advanced tree mode', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).not.toBeNull();
+        clickByTestId(fixture, 'advanced-tree-button');
+
+        expect(rootEl(fixture).querySelector('[data-testid="configurator-tree-screen"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
     });
 });

@@ -17,6 +17,16 @@
                     Back to guide
                 </button>
             } @else {
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm tutorial-help-button"
+                    aria-label="Open guided configurator tutorial"
+                    title="Open guided configurator tutorial"
+                    (click)="onOpenTutorial()"
+                    data-testid="tutorial-help-button"
+                >
+                    ?
+                </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onOpenTree()" data-testid="advanced-tree-button">
                     Advanced tree
                 </button>
@@ -84,5 +94,16 @@
                 (openTree)="onOpenTree()"
             />
         }
+    }
+
+    @if (tutorialOpen()) {
+        <fm-configurator-tutorial-panel
+            [steps]="tutorialSteps"
+            [stepIndex]="tutorialStepIndex()"
+            (previous)="onPreviousTutorialStep()"
+            (next)="onNextTutorialStep()"
+            (skip)="onSkipTutorial()"
+            (finish)="onFinishTutorial()"
+        />
     }
 </section>

@@ -7,6 +7,7 @@ import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
 import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
 import { GuidedConfiguratorWorkflowComponent } from './guided/guided-configurator-workflow.component';
+import { ConfiguratorTutorialPanelComponent } from './guided/tutorial/configurator-tutorial-panel.component';
 import {
     applyOptionSelection,
     cloneDecisionOptionMap,
@@ -21,6 +22,10 @@ import {
     DecisionOptionToggle,
     ReviewGroupSummary,
 } from './shared/configurator-view.types';
+import {
+    CONFIGURATOR_TUTORIAL_STEPS,
+    buildConfiguratorTutorialSeenKey,
+} from './shared/configurator-tutorial';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
@@ -29,7 +34,7 @@ const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selecti
 @Component({
     selector: 'fm-feature-model-configurator',
     standalone: true,
-    imports: [GuidedConfiguratorWorkflowComponent, ConfiguratorTreeComponent],
+    imports: [GuidedConfiguratorWorkflowComponent, ConfiguratorTreeComponent, ConfiguratorTutorialPanelComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-configurator.component.html',
     styleUrl: './feature-model-configurator.component.scss',
@@ -54,6 +59,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly validationResult = signal<ValidationResult | undefined>(undefined);
     readonly validationLoading = signal<boolean>(false);
     readonly validationErrorMessage = signal<string | undefined>(undefined);
+    readonly tutorialOpen = signal<boolean>(false);
+    readonly tutorialStepIndex = signal<number>(0);
+    readonly tutorialSeenKey = signal<string | undefined>(undefined);
+    readonly tutorialSteps = CONFIGURATOR_TUTORIAL_STEPS;
     private validationToken = 0;
 
     readonly model = computed(() => this.response()?.model);
@@ -284,6 +293,29 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.screen.set(previous === 'tree' ? 'templates' : previous);
     }
 
+    onOpenTutorial(): void {
+        this.tutorialStepIndex.set(0);
+        this.tutorialOpen.set(true);
+    }
+
+    onPreviousTutorialStep(): void {
+        this.tutorialStepIndex.update((value) => Math.max(value - 1, 0));
+    }
+
+    onNextTutorialStep(): void {
+        this.tutorialStepIndex.update((value) => Math.min(value + 1, this.tutorialSteps.length - 1));
+    }
+
+    onSkipTutorial(): void {
+        this.markTutorialSeen();
+        this.tutorialOpen.set(false);
+    }
+
+    onFinishTutorial(): void {
+        this.markTutorialSeen();
+        this.tutorialOpen.set(false);
+    }
+
     onFocusOption(optionId: string): void {
         this.focusedOptionId.set(optionId);
     }
@@ -334,6 +366,14 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.errorMessage.set(undefined);
         this.loading.set(false);
         this.onSelectTemplate(workflow.workflow.defaultTemplateId);
+        this.initializeTutorialState(response, workflow);
+    }
+
+    private initializeTutorialState(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
+        const key = buildConfiguratorTutorialSeenKey(response.model, workflow.workflow);
+        this.tutorialSeenKey.set(key);
+        this.tutorialStepIndex.set(0);
+        this.tutorialOpen.set(!this.isTutorialSeen(key));
     }
 
     private initialSelectionForTemplate(template: UseCaseTemplate): ReadonlySet<string> {
@@ -448,6 +488,45 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.validationLoading.set(false);
                 },
             });
+    }
+
+    private markTutorialSeen(): void {
+        const key = this.tutorialSeenKey();
+        if (!key) {
+            return;
+        }
+        const storage = this.tutorialStorage();
+        if (!storage) {
+            return;
+        }
+        try {
+            storage.setItem(key, 'true');
+        } catch {
+            // Browser storage can be disabled; the tutorial remains usable without persistence.
+        }
+    }
+
+    private isTutorialSeen(key: string): boolean {
+        const storage = this.tutorialStorage();
+        if (!storage) {
+            return false;
+        }
+        try {
+            return storage.getItem(key) === 'true';
+        } catch {
+            return false;
+        }
+    }
+
+    private tutorialStorage(): Storage | undefined {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+        try {
+            return window.localStorage;
+        } catch {
+            return undefined;
+        }
     }
 
     private handleError(error: Error): void {
