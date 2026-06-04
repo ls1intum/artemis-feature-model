@@ -5,6 +5,7 @@ export interface ConfiguratorTutorialStep {
     title: string;
     summary: string;
     details: string[];
+    imageSrc?: string;
 }
 
 export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
@@ -15,6 +16,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'Templates preselect a coherent set of Artemis features.',
             'You can still adjust the selection in later steps.',
         ],
+        imageSrc: 'content/img/tutorial/templates.png',
     },
     {
         title: 'Decide on features',
@@ -23,6 +25,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'Each option explains functional impact, technical impact, artifact impact, and warnings.',
             'Validation runs after changes so invalid combinations are visible immediately.',
         ],
+        imageSrc: 'content/img/tutorial/feature.png',
     },
     {
         title: 'Review before handoff',
@@ -31,6 +34,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'Artifact generation is still a later-phase placeholder.',
             'The advanced tree remains available when you need raw model-level control.',
         ],
+        imageSrc: 'content/img/tutorial/review.png',
     },
 ];
 

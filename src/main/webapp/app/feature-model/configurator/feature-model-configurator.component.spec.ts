@@ -260,6 +260,10 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+        const tutorialImage = rootEl(fixture).querySelector('.tutorial-panel__image') as HTMLImageElement;
+        expect(tutorialImage).not.toBeNull();
+        expect(tutorialImage.getAttribute('src')).toBe('content/img/tutorial/templates.png');
+        expect(tutorialImage.getAttribute('src')).not.toContain('src/main/webapp');
         expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBeNull();
 
         clickByTestId(fixture, 'tutorial-skip');

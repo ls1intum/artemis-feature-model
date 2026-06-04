@@ -6,6 +6,9 @@
                 <h2 id="tutorial-title">{{ step.title }}</h2>
                 <p>{{ step.summary }}</p>
             </header>
+            @if (step.imageSrc) {
+                <img class="tutorial-panel__image" [src]="step.imageSrc" alt="" aria-hidden="true" />
+            }
 
             <ul class="tutorial-panel__details">
                 @for (detail of step.details; track detail) {

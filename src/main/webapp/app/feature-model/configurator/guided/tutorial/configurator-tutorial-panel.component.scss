@@ -42,6 +42,15 @@
     font-size: 1.25rem;
 }
 
+.tutorial-panel__image {
+    width: 100%;
+    max-height: 16rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    object-fit: contain;
+    background: var(--bs-tertiary-bg);
+}
+
 .tutorial-panel p,
 .tutorial-panel__details {
     margin: 0;
