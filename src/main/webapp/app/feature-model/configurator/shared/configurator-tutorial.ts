@@ -11,6 +11,14 @@ export interface ConfiguratorTutorialStep {
 
 export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
     {
+        title: 'Configurator Tutorial',
+        summary: 'Welcome to the Artemis Configurator. This short tutorial introduces the main workflow before you start choosing features.',
+        details: [
+            'You will learn how to pick a template, adjust features, review the result, and inspect the live tree view.',
+            'Click Next to start the tutorial.',
+        ],
+    },
+    {
         title: 'Choose a template',
         summary: 'Start from a teaching use case instead of building a configuration from scratch.',
         details: [
@@ -37,6 +45,16 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
             'The advanced tree remains available when you need raw model-level control.',
         ],
         imageSrc: 'content/img/tutorial/review.png',
+        imageLayout: 'wide',
+    },
+    {
+        title: 'Use the live tree view',
+        summary: 'Switch to the tree view whenever you want direct model-level control.',
+        details: [
+            'The tree view reflects your current feature selections in real time.',
+            'You can also select or deselect features directly from the tree.',
+        ],
+        imageSrc: 'content/img/tutorial/tree.png',
         imageLayout: 'wide',
     },
 ];

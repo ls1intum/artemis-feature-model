@@ -259,12 +259,9 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
-        const tutorialImage = rootEl(fixture).querySelector('.tutorial-panel__image') as HTMLImageElement;
-        expect(tutorialImage).not.toBeNull();
-        expect(tutorialImage.getAttribute('src')).toBe('content/img/tutorial/templates.png');
-        expect(tutorialImage.getAttribute('src')).not.toContain('src/main/webapp');
-        expect(tutorialImage.classList.contains('tutorial-panel__image--wide')).toBe(true);
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Configurator Tutorial');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('1 of 5');
+        expect(rootEl(fixture).querySelector('.tutorial-panel__image')).toBeNull();
         expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBeNull();
 
         clickByTestId(fixture, 'tutorial-skip');
@@ -287,8 +284,17 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         clickByTestId(fixture, 'tutorial-help-button');
-        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Configurator Tutorial');
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-back"]')).toBeNull();
+
+        clickByTestId(fixture, 'tutorial-next');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Choose a template');
+        const tutorialImage = rootEl(fixture).querySelector('.tutorial-panel__image') as HTMLImageElement;
+        expect(tutorialImage).not.toBeNull();
+        expect(tutorialImage.getAttribute('src')).toBe('content/img/tutorial/templates.png');
+        expect(tutorialImage.getAttribute('src')).not.toContain('src/main/webapp');
+        expect(tutorialImage.classList.contains('tutorial-panel__image--wide')).toBe(true);
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-back"]')).not.toBeNull();
 
         clickByTestId(fixture, 'tutorial-next');
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Decide on features');
@@ -304,7 +310,13 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         clickByTestId(fixture, 'tutorial-next');
         clickByTestId(fixture, 'tutorial-next');
-        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Review before handoff');
+        clickByTestId(fixture, 'tutorial-next');
+        clickByTestId(fixture, 'tutorial-next');
+        expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')?.textContent).toContain('Use the live tree view');
+        const treeImage = rootEl(fixture).querySelector('.tutorial-panel__image') as HTMLImageElement;
+        expect(treeImage).not.toBeNull();
+        expect(treeImage.getAttribute('src')).toBe('content/img/tutorial/tree.png');
+        expect(treeImage.classList.contains('tutorial-panel__image--wide')).toBe(true);
         clickByTestId(fixture, 'tutorial-finish');
 
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-panel"]')).toBeNull();
