@@ -7,6 +7,7 @@ import {
     findNodeById,
 } from '../../core/feature-model-tree.utils';
 import { Feature, FeatureTreeNode, IncomingRelation } from '../../core/feature-model.types';
+import { GuidedDecisionOption } from '../../core/guided-workflow.types';
 import { FeatureModelDiagramComponent } from '../../explorer/feature-model-diagram.component';
 import { LocalizedViolation, LocalizedWarning } from '../shared/configurator-view.types';
 
@@ -26,6 +27,7 @@ export class ConfiguratorTreeComponent {
     readonly warningIds = input.required<ReadonlySet<string>>();
     readonly localizedViolations = input.required<LocalizedViolation[]>();
     readonly localizedWarnings = input.required<LocalizedWarning[]>();
+    readonly guidedOptions = input.required<GuidedDecisionOption[]>();
     readonly validationLoading = input.required<boolean>();
     readonly validationErrorMessage = input<string | undefined>(undefined);
     readonly hasValidationResult = input.required<boolean>();
@@ -91,6 +93,31 @@ export class ConfiguratorTreeComponent {
     readonly isSelectedFeatureEnabled = computed(() => {
         const id = this.selectedFeatureId();
         return Boolean(id && this.selectedFeatureIds().has(id));
+    });
+    readonly relatedGuidedOptions = computed<GuidedDecisionOption[]>(() => {
+        const id = this.selectedFeatureId();
+        if (!id) {
+            return [];
+        }
+        return this.guidedOptions().filter((option) => option.selects.includes(id) || option.deselects.includes(id));
+    });
+    readonly relatedCapabilityRequirements = computed<string[]>(() => {
+        const requirements = new Set<string>(this.selectedFeature()?.requiresCapabilities ?? []);
+        for (const option of this.relatedGuidedOptions()) {
+            for (const capability of option.requiresCapabilities) {
+                requirements.add(capability);
+            }
+        }
+        return [...requirements];
+    });
+    readonly relatedArtifactImpacts = computed<string[]>(() => {
+        const impacts = new Set<string>();
+        for (const option of this.relatedGuidedOptions()) {
+            for (const impact of option.artifactImpacts) {
+                impacts.add(impact);
+            }
+        }
+        return [...impacts];
     });
 
     onSelectFeature(id: string): void {

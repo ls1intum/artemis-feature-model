@@ -59,6 +59,9 @@ export interface GuidedDecisionOption {
     requiresCapabilities: string[];
     consequences: string[];
     artifactImpacts: string[];
+    enabledOutcome: string[];
+    recommendedWhen: string[];
+    thingsToKnow: string[];
     warnings: string[];
 }
 

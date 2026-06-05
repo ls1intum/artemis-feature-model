@@ -30,6 +30,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Dock
   guided decision cards, immediate validation, detailed violation and warning
   feedback, review summaries, a first-run tutorial, and an in-configurator
   tree view.
+- The regular guided workflow should use user-facing outcome, recommendation,
+  availability, and things-to-know text. Keep technical capability ids and
+  artifact mappings in the advanced tree view.
 - Custom configuration starts from backend-derived `defaultSelectedFeatureIds`;
   default-on guided options should be reflected as selected in the UI.
 - The in-configurator tree reflects guided selections in real time and can

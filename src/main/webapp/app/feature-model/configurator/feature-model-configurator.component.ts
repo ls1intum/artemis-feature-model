@@ -87,6 +87,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return this.decisionStepsForTemplate(template);
     });
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
+    readonly guidedOptions = computed<GuidedDecisionOption[]>(() => this.decisionSteps().flatMap((step) => step.decisions.flatMap((decision) => decision.options)));
     readonly progressPercent = computed(() => {
         const stepCount = this.decisionSteps().length + 2;
         const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;

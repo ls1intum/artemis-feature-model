@@ -127,45 +127,60 @@
             <aside class="impact-panel" aria-label="Impact panel" data-testid="impact-panel">
                 @if (focusedOption(); as option) {
                     <h3>{{ option.label }}</h3>
-                    <dl>
-                        <dt>Availability</dt>
-                        <dd>{{ optionAvailabilityText(option) }}</dd>
+                    <section class="impact-section">
+                        <h4>Availability</h4>
+                        <p>{{ optionAvailabilityText(option) }}</p>
+                    </section>
 
-                        <dt>Functional impact</dt>
-                        <dd>
-                            @if (option.consequences.length > 0) {
-                                <ul>
-                                    @for (item of option.consequences; track item) {
-                                        <li>{{ item }}</li>
-                                    }
-                                </ul>
-                            } @else {
-                                No additional functional impact.
-                            }
-                        </dd>
+                    <section class="impact-section">
+                        <h4>What this enables</h4>
+                        @if (option.enabledOutcome.length > 0) {
+                            <ul>
+                                @for (item of option.enabledOutcome; track item) {
+                                    <li>{{ item }}</li>
+                                }
+                            </ul>
+                        } @else {
+                            <p>No additional user-facing outcome is listed for this option.</p>
+                        }
+                    </section>
 
-                        <dt>Technical impact</dt>
-                        <dd>
-                            @if (option.requiresCapabilities.length > 0) {
-                                Requires {{ option.requiresCapabilities.join(', ') }}.
-                            } @else {
-                                No extra deployment capability is modeled for this option.
-                            }
-                        </dd>
+                    <section class="impact-section">
+                        <h4>Recommended when</h4>
+                        @if (option.recommendedWhen.length > 0) {
+                            <ul>
+                                @for (item of option.recommendedWhen; track item) {
+                                    <li>{{ item }}</li>
+                                }
+                            </ul>
+                        } @else {
+                            <p>No recommendation is listed for this option.</p>
+                        }
+                    </section>
 
-                        <dt>Artifact impact</dt>
-                        <dd>
-                            @if (option.artifactImpacts.length > 0) {
-                                <ul>
-                                    @for (item of option.artifactImpacts; track item) {
-                                        <li>{{ item }}</li>
-                                    }
-                                </ul>
-                            } @else {
-                                No artifact change is listed for this option.
-                            }
-                        </dd>
-                    </dl>
+                    <section class="impact-section">
+                        <h4>Things to know</h4>
+                        @if (option.thingsToKnow.length > 0) {
+                            <ul>
+                                @for (item of option.thingsToKnow; track item) {
+                                    <li>{{ item }}</li>
+                                }
+                            </ul>
+                        } @else {
+                            <p>No additional notes are listed for this option.</p>
+                        }
+                    </section>
+
+                    @if (optionFeatureNames(option).length > 0) {
+                        <section class="impact-section">
+                            <h4>Included features</h4>
+                            <span class="feature-chip-row">
+                                @for (name of optionFeatureNames(option); track name) {
+                                    <span class="feature-chip">{{ name }}</span>
+                                }
+                            </span>
+                        </section>
+                    }
 
                     @if (option.warnings.length > 0) {
                         <div class="warning-list">
