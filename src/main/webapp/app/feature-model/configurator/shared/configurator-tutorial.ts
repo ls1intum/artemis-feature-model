@@ -59,6 +59,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
     },
 ];
 
+/** Builds a versioned localStorage key so changed models or workflows can show the tutorial again. */
 export function buildConfiguratorTutorialSeenKey(model: ModelMetadata, workflow: GuidedWorkflowMetadata): string {
     return ['artemis.configurator.tutorial.seen', workflow.id, workflow.version, model.id, model.version].join(':');
 }

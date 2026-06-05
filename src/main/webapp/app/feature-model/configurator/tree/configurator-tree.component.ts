@@ -43,6 +43,7 @@ export class ConfiguratorTreeComponent {
 
     constructor() {
         effect(() => {
+            // Prime selection and expansion once per loaded tree, without overriding later user navigation.
             const root = this.tree();
             if (!root || this.primedRootId === root.feature.id) {
                 return;
@@ -66,10 +67,12 @@ export class ConfiguratorTreeComponent {
         const expanded = this.userExpandedIds();
         return expandable.every((id) => expanded.has(id));
     });
+    /** Keeps validation-related branches visible even if the user has not manually expanded them. */
     readonly forcedExpandedIds = computed<ReadonlySet<string>>(() => {
         const flagged = new Set<string>([...this.violationIds(), ...this.warningIds()]);
         return collectAncestorIds(this.tree(), flagged);
     });
+    /** Merges manual expansion, search expansion, and validation expansion into the tree's rendered state. */
     readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => {
         const combined = new Set(this.userExpandedIds());
         for (const id of this.forcedExpandedIds()) {
@@ -94,6 +97,7 @@ export class ConfiguratorTreeComponent {
         const id = this.selectedFeatureId();
         return Boolean(id && this.selectedFeatureIds().has(id));
     });
+    /** Finds guided choices that can explain why the selected feature is on or off. */
     readonly relatedGuidedOptions = computed<GuidedDecisionOption[]>(() => {
         const id = this.selectedFeatureId();
         if (!id) {
@@ -101,6 +105,7 @@ export class ConfiguratorTreeComponent {
         }
         return this.guidedOptions().filter((option) => option.selects.includes(id) || option.deselects.includes(id));
     });
+    /** Shows technical prerequisites from both the raw feature and any related guided options. */
     readonly relatedCapabilityRequirements = computed<string[]>(() => {
         const requirements = new Set<string>(this.selectedFeature()?.requiresCapabilities ?? []);
         for (const option of this.relatedGuidedOptions()) {
@@ -110,6 +115,7 @@ export class ConfiguratorTreeComponent {
         }
         return [...requirements];
     });
+    /** Shows artifact impact metadata only in the advanced tree view. */
     readonly relatedArtifactImpacts = computed<string[]>(() => {
         const impacts = new Set<string>();
         for (const option of this.relatedGuidedOptions()) {
@@ -124,6 +130,7 @@ export class ConfiguratorTreeComponent {
         this.selectedFeatureId.set(id);
     }
 
+    /** Emits a complete replacement set because selection ownership stays in the parent configurator. */
     onToggleSelection(id: string): void {
         if (!this.selectableFeatureIds().has(id)) {
             return;
@@ -156,6 +163,7 @@ export class ConfiguratorTreeComponent {
         this.userExpandedIds.set(rootId ? new Set<string>([rootId]) : new Set<string>());
     }
 
+    /** Updates the filter and moves focus if the current selected node is no longer visible. */
     onSearchInput(value: string): void {
         this.searchQuery.set(value);
         this.realignSelectionToMatches();
@@ -165,6 +173,7 @@ export class ConfiguratorTreeComponent {
         this.searchQuery.set('');
     }
 
+    /** Keeps the detail panel attached to a visible match while the tree is filtered. */
     private realignSelectionToMatches(): void {
         const filtered = this.filterResult().tree;
         if (!filtered) {
