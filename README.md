@@ -6,10 +6,10 @@ aware exploration and configuration tool.
 
 ## Status
 
-This repository has completed Phase 5 of the MVP: the Angular feature-model
-configurator now loads defaults from the server, lets the user toggle
-selectable modules in a tree diagram, and revalidates the selection on every
-change.
+This repository has completed the guided Configurator MVP: the Angular
+configurator now combines use-case templates, guided feature decisions, review
+summaries, immediate validation feedback, an in-configurator tree view, and a
+first-run tutorial.
 
 Current server capabilities:
 
@@ -17,7 +17,12 @@ Current server capabilities:
   relations, source constraints, the derived tree, server-derived default
   selected feature ids, and model warnings.
 - `POST /api/feature-model/validate` validates submitted feature selections.
+- `GET /api/feature-model/guided-workflow` returns the guided workflow
+  metadata, use-case templates, decision steps, decision options, and review
+  groups used by the Configurator.
 - The server loads the runtime classpath JSON through `FeatureModelStore`.
+- The guided workflow is loaded from the runtime classpath JSON through the
+  selection service boundary.
 - Model integrity checks, tree derivation, default selection derivation,
   mandatory hierarchy validation, unknown selected id reporting, and synthetic
   `requires`, `excludes`, and unsupported `expression` constraint handling are
@@ -39,21 +44,26 @@ Current explorer capabilities:
 
 Current configurator capabilities:
 
-- `/feature-model/configurator` renders the model as a tree diagram only —
-  there is no list/outline view or view-mode toggle.
-- Selection is seeded from `defaultSelectedFeatureIds` and initial validation
-  runs as soon as the model loads.
-- Clicking a selectable module node in the diagram or flipping the switch in
-  the details panel toggles its selection; root and group nodes remain
-  structural and focus-only.
-- `POST /api/feature-model/validate` is called immediately after every toggle
-  and a request-token guards against stale responses.
-- Valid/invalid status, the full violation list (code, message, affected
-  features, relation, suggestion), the full warning list, and inline diagram
-  overlays for violated/warned features are surfaced together.
-- Reset to defaults restores the server-derived defaults and revalidates.
-- Search by feature id or name highlights and auto-expands matches in the
-  diagram. Expand all / Collapse all also work in configurator mode.
+- `/feature-model/configurator` loads the feature model and guided workflow
+  from the server.
+- Use-case templates seed the selection. Custom configuration starts from the
+  server-derived `defaultSelectedFeatureIds`, and default-on guided options are
+  reflected as selected in the UI.
+- Guided decision screens show option cards, selected-state badges, mapped
+  feature chips, functional consequences, technical capability notes, artifact
+  impact text, and warnings.
+- `POST /api/feature-model/validate` is called after selection changes and a
+  request token guards against stale responses.
+- Valid/invalid status, detailed violations, detailed warnings, affected
+  features, and suggestions are shown in the guided workflow.
+- The review screen summarizes selected features, warnings, validation status,
+  changed guided decisions, and the later artifact-generation handoff.
+- The advanced tree stays inside the Configurator, reflects the current guided
+  selection in real time, and can directly update the selection.
+- A first-run tutorial explains the Configurator, templates, feature selection,
+  review, and tree view. Tutorial state is stored in browser `localStorage`
+  using workflow and model version keys; the help button appears only in the
+  guided workflow, not in tree mode.
 
 ## Prerequisites
 
@@ -133,9 +143,9 @@ deploy directly.
 
 - `/` redirects to `/feature-model/explorer`
 - `/feature-model/explorer` — read-only feature model overview
-- `/feature-model/configurator` — interactive diagram-only configurator with
-  immediate validation
+- `/feature-model/configurator` — guided configurator with templates,
+  workflow decisions, review, tutorial, and in-configurator tree view
 
-Both routes are implemented. The configurator represents the feature model
-only as a tree diagram; it does not provide a list/outline view or a
-view-mode toggle.
+Both routes are implemented. The configurator provides a guided workflow for
+ordinary configuration and a tree view for direct model-level inspection and
+selection.

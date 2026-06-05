@@ -19,6 +19,24 @@ Do not assume the main Artemis repository is available locally. This repository 
 
 This MVP does not use a database, Liquibase, authentication, authorization, Docker, Helm, or the Artemis runtime.
 
+## Current Project State
+
+- The backend exposes `GET /api/feature-model`,
+  `POST /api/feature-model/validate`, and
+  `GET /api/feature-model/guided-workflow`.
+- The Explorer route is read-only and supports tree/list inspection,
+  filtering, expansion controls, and feature details.
+- The Configurator route is a guided workflow. It supports use-case templates,
+  guided decision cards, immediate validation, detailed violation and warning
+  feedback, review summaries, a first-run tutorial, and an in-configurator
+  tree view.
+- Custom configuration starts from backend-derived `defaultSelectedFeatureIds`;
+  default-on guided options should be reflected as selected in the UI.
+- The in-configurator tree reflects guided selections in real time and can
+  directly update the selection.
+- Artifact generation is still a later-phase placeholder. Do not add
+  export/download behavior unless a plan explicitly asks for it.
+
 ## Build and Development Commands
 
 Run commands from the repository root:
@@ -72,6 +90,10 @@ Client areas:
 - `src/main/webapp/app/feature-model/api` is for Angular API services.
 - `src/main/webapp/app/feature-model/explorer` is for the read-only explorer route.
 - `src/main/webapp/app/feature-model/configurator` is for the interactive configurator route.
+  - `guided/` contains the guided workflow UI.
+  - `guided/tutorial/` contains the tutorial panel UI.
+  - `tree/` contains the in-configurator tree view.
+  - `shared/` contains configurator-local types and selection helpers.
 - `src/main/webapp/app/feature-model/validation` is for validation status and violation UI.
 
 ## Source Model Rules
@@ -231,6 +253,8 @@ This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilit
 - Public MVP API routes live under `/api/feature-model`.
 - `GET /api/feature-model` returns the loaded model, derived tree, default selected feature ids, and warnings.
 - `POST /api/feature-model/validate` validates a submitted selection.
+- `GET /api/feature-model/guided-workflow` returns the guided workflow
+  metadata, templates, steps, decision options, and review groups.
 - Store abstraction belongs in `catalog.repository`.
 - JSON-backed loading belongs in `catalog.repository`.
 - API DTOs belong in the owning module's `dto` package.
