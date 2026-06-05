@@ -80,14 +80,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return map;
     });
     readonly decisionSteps = computed<GuidedWorkflowStep[]>(() => {
-        const workflow = this.workflow();
         const template = this.selectedTemplate();
-        if (!workflow || !template) {
+        if (!template) {
             return [];
         }
-        const ids = template.recommendedStepIds.length > 0 ? template.recommendedStepIds : workflow.steps.map((step) => step.id);
-        const steps = ids.map((id) => this.stepsById().get(id)).filter((step): step is GuidedWorkflowStep => Boolean(step));
-        return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
+        return this.decisionStepsForTemplate(template);
     });
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
     readonly progressPercent = computed(() => {
@@ -221,7 +218,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             return;
         }
         const selected = this.initialSelectionForTemplate(template);
-        const optionIdsByDecision = this.inferSelectedDecisionOptions(selected);
+        const optionIdsByDecision = this.inferSelectedDecisionOptions(selected, this.decisionStepsForTemplate(template));
         this.selectedTemplateId.set(template.id);
         this.selectedFeatureIds.set(selected);
         this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
@@ -389,9 +386,22 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return selected;
     }
 
-    private inferSelectedDecisionOptions(selectedFeatureIds: ReadonlySet<string>): ReadonlyMap<string, ReadonlySet<string>> {
+    private decisionStepsForTemplate(template: UseCaseTemplate): GuidedWorkflowStep[] {
+        const workflow = this.workflow();
+        if (!workflow) {
+            return [];
+        }
+        const ids = template.recommendedStepIds.length > 0 ? template.recommendedStepIds : workflow.steps.map((step) => step.id);
+        const steps = ids.map((id) => this.stepsById().get(id)).filter((step): step is GuidedWorkflowStep => Boolean(step));
+        return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
+    }
+
+    private inferSelectedDecisionOptions(
+        selectedFeatureIds: ReadonlySet<string>,
+        steps: readonly GuidedWorkflowStep[] = this.decisionSteps(),
+    ): ReadonlyMap<string, ReadonlySet<string>> {
         const map = new Map<string, ReadonlySet<string>>();
-        for (const step of this.decisionSteps()) {
+        for (const step of steps) {
             for (const decision of step.decisions) {
                 const selectedOptions = new Set<string>();
                 for (const option of decision.options) {

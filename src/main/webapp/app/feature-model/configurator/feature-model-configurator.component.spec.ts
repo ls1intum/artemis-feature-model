@@ -134,6 +134,29 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="selected-count"]')?.textContent?.trim()).toBe('5');
     });
 
+    it('marks default-on guided options as selected for the custom configuration template', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="selected-count"]')?.textContent?.trim()).toBe('13');
+
+        clickByTestId(fixture, 'start-workflow');
+        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-lecture-materials"]')?.classList).toContain(
+            'option-card--selected',
+        );
+
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-programming-and-quiz"]')?.classList).toContain(
+            'option-card--selected',
+        );
+        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-written-exercise-types"]')?.classList).toContain(
+            'option-card--selected',
+        );
+    });
+
     it('selects and deselects mapped features through decision options and validates each change', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
