@@ -50,8 +50,8 @@ Current configurator capabilities:
   server-derived `defaultSelectedFeatureIds`, and default-on guided options are
   reflected as selected in the UI.
 - Guided decision screens show option cards, selected-state badges, mapped
-  feature chips, functional consequences, technical capability notes, artifact
-  impact text, and warnings.
+  feature chips, availability text, user-facing outcomes, recommendations,
+  things-to-know notes, and warnings.
 - `POST /api/feature-model/validate` is called after selection changes and a
   request token guards against stale responses.
 - Valid/invalid status, detailed violations, detailed warnings, affected
@@ -59,7 +59,8 @@ Current configurator capabilities:
 - The review screen summarizes selected features, warnings, validation status,
   changed guided decisions, and the later artifact-generation handoff.
 - The advanced tree stays inside the Configurator, reflects the current guided
-  selection in real time, and can directly update the selection.
+  selection in real time, can directly update the selection, and surfaces
+  technical capability details plus artifact mappings for advanced users.
 - A first-run tutorial explains the Configurator, templates, feature selection,
   review, and tree view. Tutorial state is stored in browser `localStorage`
   using workflow and model version keys; the help button appears only in the

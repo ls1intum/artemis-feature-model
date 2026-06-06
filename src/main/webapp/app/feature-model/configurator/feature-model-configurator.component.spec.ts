@@ -179,7 +179,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(deselectedBody.selectedFeatureIds).not.toContain('file-upload');
     });
 
-    it('shows consequence and artifact text for the active decision option', () => {
+    it('shows regular-user guidance for the active decision option', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
@@ -191,8 +191,13 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         const impact = rootEl(fixture).querySelector('[data-testid="impact-panel"]');
-        expect(impact?.textContent).toContain('Requires Pyris service');
-        expect(impact?.textContent).toContain('artemis.iris.enabled');
+        expect(impact?.textContent).toContain('What this enables');
+        expect(impact?.textContent).toContain('Students and instructors can receive AI tutoring support.');
+        expect(impact?.textContent).toContain('Recommended when');
+        expect(impact?.textContent).toContain('Things to know');
+        expect(impact?.textContent).toContain('Requires administrator setup');
+        expect(impact?.textContent).not.toContain('pyris-service');
+        expect(impact?.textContent).not.toContain('artemis.iris.enabled');
     });
 
     it('shows readable availability reasons for options that require profile capabilities', () => {
@@ -203,8 +208,9 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         const reason = rootEl(fixture).querySelector('[data-testid="option-unavailable-reason"]');
-        expect(reason?.textContent).toContain('pyris-service');
-        expect(reason?.textContent).toContain('pyris-secret');
+        expect(reason?.textContent).toContain('Requires administrator setup');
+        expect(reason?.textContent).not.toContain('pyris-service');
+        expect(reason?.textContent).not.toContain('pyris-secret');
     });
 
     it('renders validation feedback after selection changes', () => {
@@ -270,6 +276,9 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         (lectureNode as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         fixture.detectChanges();
+        const artifactImpact = rootEl(fixture).querySelector('[data-testid="tree-artifact-impact"]');
+        expect(artifactImpact?.textContent).toContain('artemis.lecture.enabled');
+        expect(rootEl(fixture).querySelector('[data-testid="tree-technical-impact"]')?.textContent).toContain('No additional deployment capability');
         const requestBody = flushValidation(httpMock, validResult());
         fixture.detectChanges();
 

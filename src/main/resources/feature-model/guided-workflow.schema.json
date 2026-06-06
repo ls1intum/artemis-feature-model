@@ -216,6 +216,9 @@
         "requiresCapabilities",
         "consequences",
         "artifactImpacts",
+        "enabledOutcome",
+        "recommendedWhen",
+        "thingsToKnow",
         "warnings"
       ],
       "additionalProperties": false,
@@ -244,6 +247,15 @@
           "$ref": "#/$defs/textList"
         },
         "artifactImpacts": {
+          "$ref": "#/$defs/textList"
+        },
+        "enabledOutcome": {
+          "$ref": "#/$defs/textList"
+        },
+        "recommendedWhen": {
+          "$ref": "#/$defs/textList"
+        },
+        "thingsToKnow": {
           "$ref": "#/$defs/textList"
         },
         "warnings": {

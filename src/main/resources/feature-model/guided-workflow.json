@@ -233,7 +233,19 @@
               "artifactImpacts": [
                 "Sets artemis.lecture.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can publish lecture material, organize lecture units, and connect course content with exercises.",
+                "Students get one place to follow lecture-related learning resources."
+              ],
+              "recommendedWhen": [
+                "Your course uses slides, recordings, linked resources, or lecture units alongside exercises.",
+                "You want course material to stay connected to learning goals and assessments."
+              ],
+              "thingsToKnow": [
+                "Lecture material can be enabled without adding AI or external integration features.",
+                "This is useful for material-centered courses even when exercises stay simple."
+              ]
             },
             {
               "id": "enable-tutorial-groups",
@@ -250,7 +262,19 @@
               "artifactImpacts": [
                 "Sets artemis.tutorialgroup.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can organize tutorial groups, assign responsible tutors, and track attendance-related course organization.",
+                "Students can be managed in smaller teaching groups."
+              ],
+              "recommendedWhen": [
+                "Your course uses exercise groups, lab groups, tutorials, or recurring small-group sessions.",
+                "Tutors need clear responsibility for a subset of students."
+              ],
+              "thingsToKnow": [
+                "This option supports course organization and does not change exercise assessment behavior.",
+                "It is most useful for larger courses with multiple tutors or sessions."
+              ]
             },
             {
               "id": "keep-core-course-workflow",
@@ -268,6 +292,18 @@
               "artifactImpacts": [],
               "warnings": [
                 "These features are modeled as mandatory baseline capabilities."
+              ],
+              "enabledOutcome": [
+                "Instructors can create and manage courses, participants can access course spaces, and communication remains available.",
+                "Students receive the baseline course experience needed for the rest of Artemis."
+              ],
+              "recommendedWhen": [
+                "Almost every Artemis course needs the standard course workflow and communication baseline.",
+                "You want a normal course setup with announcements, access control, and course overview support."
+              ],
+              "thingsToKnow": [
+                "These capabilities are treated as baseline functionality in the current model.",
+                "Disabling them can make most other course features unusable."
               ]
             }
           ]
@@ -304,6 +340,18 @@
               "artifactImpacts": [],
               "warnings": [
                 "Programming exercises still need CI and VCS capabilities in the deployment profile."
+              ],
+              "enabledOutcome": [
+                "Instructors can run programming exercises with individual feedback and quiz exercises with multiple question modes.",
+                "Students can practice, submit, and receive feedback through the core exercise workflow."
+              ],
+              "recommendedWhen": [
+                "Your course includes code-based assignments, automatically assessed tasks, or quizzes during lectures and exams.",
+                "You want a strong default exercise setup for interactive learning."
+              ],
+              "thingsToKnow": [
+                "Programming exercises usually require version control and continuous integration to be prepared by administrators.",
+                "Quiz exercises work well for practice, live sessions, and exam-style checks."
               ]
             },
             {
@@ -325,7 +373,19 @@
                 "Sets artemis.modeling.enabled = true in the generated external configuration overlay.",
                 "Sets artemis.file-upload.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can use text, modeling, and file upload exercises for written, diagram-based, or flexible submission tasks.",
+                "Students can submit answers beyond source code and quizzes."
+              ],
+              "recommendedWhen": [
+                "Your course needs essays, explanations, UML or other modeling tasks, PDFs, images, or other file submissions.",
+                "Manual or semi-automatic assessment is part of the teaching concept."
+              ],
+              "thingsToKnow": [
+                "These exercise types are especially useful for conceptual understanding and open-ended assignments.",
+                "Assessment workflows may rely more on tutors and grading criteria than fully automatic tests."
+              ]
             }
           ]
         }
@@ -359,7 +419,19 @@
               "artifactImpacts": [
                 "Sets artemis.exam.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can create online exams with exam-specific workflows, variants, test runs, and student reviews.",
+                "Courses can separate high-stakes assessment from ordinary practice exercises."
+              ],
+              "recommendedWhen": [
+                "Your course runs online exams or needs a dedicated exam mode.",
+                "You want structured assessment workflows with preparation and review phases."
+              ],
+              "thingsToKnow": [
+                "Exam mode is designed for assessment-heavy scenarios and should be planned carefully.",
+                "Courses without formal online exams may not need this option."
+              ]
             },
             {
               "id": "enable-plagiarism",
@@ -376,7 +448,19 @@
               "artifactImpacts": [
                 "Sets artemis.plagiarism.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can use plagiarism checks for supported exercise types and follow up on identified cases.",
+                "Assessment workflows gain additional support for academic integrity."
+              ],
+              "recommendedWhen": [
+                "Your course has graded programming, text, or modeling submissions where originality matters.",
+                "You need structured support for reviewing potential plagiarism cases."
+              ],
+              "thingsToKnow": [
+                "Plagiarism checks support reviewers; they do not replace human judgment.",
+                "Students may need clear communication about plagiarism policies."
+              ]
             },
             {
               "id": "enable-athena",
@@ -399,6 +483,18 @@
               ],
               "warnings": [
                 "Only available when the active deployment profile provides Athena support."
+              ],
+              "enabledOutcome": [
+                "Instructors can use Athena-backed assessment assistance for supported exercise types.",
+                "Feedback workflows can become more scalable for text, modeling, or programming assessments."
+              ],
+              "recommendedWhen": [
+                "Your course has many submissions and wants AI-supported assessment assistance.",
+                "You want to explore semi-automatic feedback suggestions while keeping instructors in control."
+              ],
+              "thingsToKnow": [
+                "Athena support requires administrator setup before it is useful in a course.",
+                "AI-assisted assessment should be introduced with clear review and quality expectations."
               ]
             }
           ]
@@ -433,7 +529,19 @@
               "artifactImpacts": [
                 "Sets artemis.atlas.enabled = true in the generated external configuration overlay."
               ],
-              "warnings": []
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors and students can work with competencies, learning goals, adaptive learning, and learning analytics.",
+                "Students can monitor progress and receive guidance through learning paths."
+              ],
+              "recommendedWhen": [
+                "Your course is organized around competencies, learning goals, or adaptive learning activities.",
+                "You want stronger insight into student progress and learning outcomes."
+              ],
+              "thingsToKnow": [
+                "Atlas is most valuable when competencies and course material are maintained intentionally.",
+                "It can be enabled without turning on AI tutoring features."
+              ]
             },
             {
               "id": "enable-iris",
@@ -457,6 +565,18 @@
               ],
               "warnings": [
                 "Only available when the active deployment profile provides AI tutoring support."
+              ],
+              "enabledOutcome": [
+                "Students and instructors can receive AI tutoring support for questions, learning progress, and next-step guidance.",
+                "The course can offer more immediate support outside direct instructor or tutor availability."
+              ],
+              "recommendedWhen": [
+                "Your course wants AI-assisted help for students or instructors.",
+                "You expect many recurring questions around exercises, lectures, or learning progress."
+              ],
+              "thingsToKnow": [
+                "Iris requires administrator setup before users can benefit from it.",
+                "AI tutoring should complement, not replace, course staff and official feedback."
               ]
             },
             {
@@ -478,6 +598,18 @@
               ],
               "warnings": [
                 "Only available when the active deployment profile provides Hyperion support."
+              ],
+              "enabledOutcome": [
+                "Instructors can use AI-supported workflows for creating and improving exercises.",
+                "Course teams can get assistance with consistency and quality checks during exercise preparation."
+              ],
+              "recommendedWhen": [
+                "Your course team wants AI assistance while authoring exercises.",
+                "Exercise quality, consistency, or drafting effort is a recurring concern."
+              ],
+              "thingsToKnow": [
+                "Hyperion requires administrator setup for AI services.",
+                "Generated or suggested content should still be reviewed by instructors."
               ]
             }
           ]
@@ -508,6 +640,18 @@
               ],
               "warnings": [
                 "LTI requires external platform registration data before deployment."
+              ],
+              "enabledOutcome": [
+                "Artemis can be integrated with external learning platforms that support LTI.",
+                "Students and instructors can access Artemis activities from another learning management system."
+              ],
+              "recommendedWhen": [
+                "Your institution uses another LMS as the main course entry point.",
+                "You want Artemis to fit into an existing platform ecosystem."
+              ],
+              "thingsToKnow": [
+                "LTI setup requires administrator coordination with the external learning platform.",
+                "Courses that use Artemis directly may not need this integration."
               ]
             },
             {
@@ -529,6 +673,18 @@
               ],
               "warnings": [
                 "Only available when online IDE infrastructure is provided by the deployment profile."
+              ],
+              "enabledOutcome": [
+                "Students can work on programming exercises in an online IDE without local setup.",
+                "Instructors can offer a smoother start for programming tasks."
+              ],
+              "recommendedWhen": [
+                "Your course includes programming exercises and wants to reduce local setup friction.",
+                "Students use diverse devices or may not have a prepared development environment."
+              ],
+              "thingsToKnow": [
+                "Online IDE support requires administrator-provided infrastructure.",
+                "Students may still choose a local IDE when the course allows it."
               ]
             }
           ]

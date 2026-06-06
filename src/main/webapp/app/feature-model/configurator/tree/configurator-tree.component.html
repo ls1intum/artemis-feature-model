@@ -127,6 +127,43 @@
                 } @else {
                     <p class="muted">Root and group nodes are structural. Their selection follows the modules beneath them.</p>
                 }
+
+                <section class="details-section" data-testid="tree-technical-impact">
+                    <h4>Technical impact</h4>
+                    @if (relatedCapabilityRequirements().length > 0) {
+                        <ul>
+                            @for (capability of relatedCapabilityRequirements(); track capability) {
+                                <li><code>{{ capability }}</code></li>
+                            }
+                        </ul>
+                    } @else {
+                        <p class="muted">No additional deployment capability requirement is modeled for this feature.</p>
+                    }
+                </section>
+
+                <section class="details-section" data-testid="tree-artifact-impact">
+                    <h4>Artifact impact</h4>
+                    @if (relatedArtifactImpacts().length > 0) {
+                        <ul>
+                            @for (impact of relatedArtifactImpacts(); track impact) {
+                                <li>{{ impact }}</li>
+                            }
+                        </ul>
+                    }
+                    @if (node.feature.artifactMappings.length > 0) {
+                        <ul>
+                            @for (mapping of node.feature.artifactMappings; track mapping.target + '-' + mapping.path) {
+                                <li>
+                                    <code>{{ mapping.target }}</code>
+                                    <span>{{ mapping.path }}</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    @if (relatedArtifactImpacts().length === 0 && node.feature.artifactMappings.length === 0) {
+                        <p class="muted">No artifact mapping is listed for this feature.</p>
+                    }
+                </section>
             }
         </section>
     </div>

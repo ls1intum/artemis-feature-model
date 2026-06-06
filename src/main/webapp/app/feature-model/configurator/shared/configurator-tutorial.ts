@@ -32,7 +32,7 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
         title: 'Decide on features',
         summary: 'Move through guided decisions and select the capabilities your course needs.',
         details: [
-            'Each option explains functional impact, technical impact, artifact impact, and warnings.',
+            'Each option explains what it enables, when it is useful, and what course teams should know.',
             'Validation runs after changes so invalid combinations are visible immediately.',
         ],
         imageSrc: 'content/img/tutorial/feature.png',
@@ -52,13 +52,14 @@ export const CONFIGURATOR_TUTORIAL_STEPS: ConfiguratorTutorialStep[] = [
         summary: 'Switch to the tree view whenever you want direct model-level control.',
         details: [
             'The tree view reflects your current feature selections in real time.',
-            'You can also select or deselect features directly from the tree.',
+            'You can also select or deselect features directly from the tree and inspect technical or artifact details.',
         ],
         imageSrc: 'content/img/tutorial/tree.png',
         imageLayout: 'wide',
     },
 ];
 
+/** Builds a versioned localStorage key so changed models or workflows can show the tutorial again. */
 export function buildConfiguratorTutorialSeenKey(model: ModelMetadata, workflow: GuidedWorkflowMetadata): string {
     return ['artemis.configurator.tutorial.seen', workflow.id, workflow.version, model.id, model.version].join(':');
 }

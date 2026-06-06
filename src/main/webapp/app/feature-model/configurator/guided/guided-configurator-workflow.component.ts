@@ -69,9 +69,10 @@ export class GuidedConfiguratorWorkflowComponent {
         return option.selects.map((id) => names.get(id) ?? id);
     }
 
+    /** Converts technical capability metadata into a regular-user availability message. */
     optionAvailabilityText(option: GuidedDecisionOption): string {
         if (option.requiresCapabilities.length > 0) {
-            return `Needs profile capability: ${option.requiresCapabilities.join(', ')}`;
+            return 'Requires administrator setup before course users can rely on it.';
         }
         return 'Available in the guided MVP';
     }

@@ -87,6 +87,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return this.decisionStepsForTemplate(template);
     });
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
+    readonly guidedOptions = computed<GuidedDecisionOption[]>(() => this.decisionSteps().flatMap((step) => step.decisions.flatMap((decision) => decision.options)));
     readonly progressPercent = computed(() => {
         const stepCount = this.decisionSteps().length + 2;
         const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
@@ -125,6 +126,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const allOptions = currentStep.decisions.flatMap((decision) => decision.options);
         return allOptions.find((option) => option.id === focused) ?? allOptions.find((option) => this.isOptionSelectedById(option.id)) ?? allOptions[0];
     });
+    /** Compares the current guided answers with the template baseline for the review page. */
     readonly changedDecisionSummaries = computed<DecisionChangeSummary[]>(() => {
         const summaries: DecisionChangeSummary[] = [];
         for (const step of this.decisionSteps()) {
@@ -157,6 +159,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             }))
             .filter((group) => group.features.length > 0);
     });
+    /** Combines template-level warnings with warnings introduced by the currently selected guided options. */
     readonly workflowWarnings = computed<string[]>(() => {
         const warnings = new Set<string>();
         for (const warning of this.selectedTemplate()?.warnings ?? []) {
@@ -176,6 +179,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly isValid = computed(() => this.validationResult()?.valid ?? false);
     readonly violations = computed(() => this.validationResult()?.violations ?? []);
     readonly warnings = computed(() => this.validationResult()?.warnings ?? []);
+    /** Extracts feature ids from validation violations so the tree can highlight affected nodes. */
     readonly violationIds = computed<ReadonlySet<string>>(() => {
         const ids = new Set<string>();
         for (const violation of this.violations()) {
@@ -188,6 +192,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return ids;
     });
+    /** Extracts feature ids from validation warnings so the tree can highlight affected nodes. */
     readonly warningIds = computed<ReadonlySet<string>>(() => {
         const ids = new Set<string>();
         for (const warning of this.warnings()) {
@@ -212,6 +217,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             });
     }
 
+    /** Applies a template and infers which guided options should appear selected from that baseline. */
     onSelectTemplate(templateId: string): void {
         const template = this.templates().find((candidate) => candidate.id === templateId);
         if (!template) {
@@ -317,6 +323,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.focusedOptionId.set(optionId);
     }
 
+    /** Keeps guided option state and raw feature selection in sync when the user changes an answer. */
     onToggleDecisionOption(change: DecisionOptionToggle): void {
         const { decision, option } = change;
         this.focusedOptionId.set(option.id);
@@ -348,6 +355,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
+    /** Rebuilds guided answers after the advanced tree edits the underlying feature selection directly. */
     onReplaceSelection(nextSelection: ReadonlySet<string>): void {
         const selected = new Set(nextSelection);
         const inferred = this.inferSelectedDecisionOptions(selected);
@@ -366,6 +374,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.initializeTutorialState(response, workflow);
     }
 
+    /** Opens the tutorial once per model/workflow version by using a versioned browser-storage key. */
     private initializeTutorialState(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
         const key = buildConfiguratorTutorialSeenKey(response.model, workflow.workflow);
         this.tutorialSeenKey.set(key);
@@ -373,6 +382,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.tutorialOpen.set(!this.isTutorialSeen(key));
     }
 
+    /** Creates the starting feature set for a template while respecting model defaults and selectable nodes. */
     private initialSelectionForTemplate(template: UseCaseTemplate): ReadonlySet<string> {
         const selected = template.selectedFeatureIds.length > 0 ? new Set<string>(template.selectedFeatureIds) : new Set<string>(this.response()?.defaultSelectedFeatureIds ?? []);
         for (const id of template.deselectedFeatureIds) {
@@ -386,6 +396,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return selected;
     }
 
+    /** Resolves the workflow steps that should be shown for a template, sorted by authored order. */
     private decisionStepsForTemplate(template: UseCaseTemplate): GuidedWorkflowStep[] {
         const workflow = this.workflow();
         if (!workflow) {
@@ -396,6 +407,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
     }
 
+    /** Infers guided option checkmarks from feature ids, used for template defaults and tree-driven edits. */
     private inferSelectedDecisionOptions(
         selectedFeatureIds: ReadonlySet<string>,
         steps: readonly GuidedWorkflowStep[] = this.decisionSteps(),
@@ -417,6 +429,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return map;
     }
 
+    /** Returns the selected option objects so downstream summaries can read warnings and capability metadata. */
     private selectedOptions(): GuidedDecisionOption[] {
         const selected = this.selectedDecisionOptionIds();
         const options: GuidedDecisionOption[] = [];
@@ -433,6 +446,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return options;
     }
 
+    /** Chooses a sensible focused option after a full-flow selection change. */
     private firstOptionIdForCurrentFlow(optionIdsByDecision: ReadonlyMap<string, ReadonlySet<string>>): string | undefined {
         for (const step of this.decisionSteps()) {
             for (const decision of step.decisions) {
@@ -448,6 +462,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return undefined;
     }
 
+    /** Chooses the selected option, or first available option, for the active guided step. */
     private firstOptionIdForCurrentStep(): string | undefined {
         const step = this.activeStep();
         if (!step) {
@@ -474,6 +489,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return false;
     }
 
+    /** Validates the current selection and ignores stale responses from superseded validation requests. */
     private runValidation(): void {
         const token = ++this.validationToken;
         this.validationLoading.set(true);
@@ -528,6 +544,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
     }
 
+    /** Safely accesses localStorage for browsers that block storage or for non-browser render contexts. */
     private tutorialStorage(): Storage | undefined {
         if (typeof window === 'undefined') {
             return undefined;

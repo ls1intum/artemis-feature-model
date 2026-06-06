@@ -157,20 +157,26 @@
     top: 1rem;
 }
 
-.impact-panel dl {
-    display: grid;
+.impact-panel {
+    display: flex;
+    flex-direction: column;
     gap: 0.65rem;
-    margin: 0;
 }
 
-.impact-panel dt {
+.impact-section {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.impact-section h4 {
     color: var(--bs-secondary-color);
     font-size: 0.78rem;
     font-weight: 700;
+    margin: 0;
     text-transform: uppercase;
 }
 
-.impact-panel dd {
+.impact-section p {
     margin: 0;
 }
 

@@ -30,6 +30,7 @@ class GuidedWorkflowResourceTest {
                 .andExpect(jsonPath("$.workflow.id").value("artemis-guided-configuration"))
                 .andExpect(jsonPath("$.workflow.defaultTemplateId").value("custom-configuration")).andExpect(jsonPath("$.useCaseTemplates", hasSize(6)))
                 .andExpect(jsonPath("$.useCaseTemplates[0].label").value("Minimal teaching setup"))
+                .andExpect(jsonPath("$.steps[4].decisions[0].options[1].enabledOutcome[0]").value(containsString("AI tutoring support")))
                 .andExpect(jsonPath("$.steps[4].decisions[0].options[1].artifactImpacts[0]")
                         .value(containsString("artemis.iris.enabled")));
     }
