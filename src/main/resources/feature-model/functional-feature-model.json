@@ -253,7 +253,7 @@
       "name": "Programming",
       "kind": "module",
       "selectable": true,
-      "description": "Mandatory core exercise type; CI/VCS providers and Theia are optional layers, but Programming itself has no module switch.",
+      "description": "Mandatory core exercise type; CI/VCS providers and EduIDE are optional layers, but Programming itself has no module switch.",
       "defaultState": "enabled",
       "source": {
         "evidence": [
@@ -785,10 +785,10 @@
     },
     {
       "id": "theia",
-      "name": "Theia",
+      "name": "EduIDE",
       "kind": "module",
       "selectable": true,
-      "description": "Optional external online IDE integration for Programming, controlled by artemis.theia.enabled and Theia portal/images configuration.",
+      "description": "Optional external online IDE integration for Programming, controlled by artemis.theia.enabled and EduIDE portal/images configuration.",
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.theia.enabled",
