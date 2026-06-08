@@ -61,6 +61,7 @@
       ],
       "recommendedStepIds": [
         "configuration-goal",
+        "teaching-content",
         "exercise-types",
         "ai-and-integrations",
         "review-and-consequences",
@@ -96,6 +97,7 @@
       ],
       "recommendedStepIds": [
         "configuration-goal",
+        "teaching-content",
         "exercise-types",
         "assessment-and-integrity",
         "review-and-consequences",
@@ -117,8 +119,8 @@
         "course-workflow",
         "communication",
         "exercise-common",
-        "quiz",
-        "text"
+        "programming",
+        "quiz"
       ],
       "deselectedFeatureIds": [
         "athena",
@@ -161,6 +163,7 @@
       ],
       "recommendedStepIds": [
         "configuration-goal",
+        "teaching-content",
         "exercise-types",
         "assessment-and-integrity",
         "ai-and-integrations",
