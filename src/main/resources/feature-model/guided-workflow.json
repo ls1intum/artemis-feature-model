@@ -69,7 +69,7 @@
       ],
       "consequences": [
         "Keeps programming exercises enabled for code-based assignments.",
-        "Leaves Theia as an explicit follow-up decision because it depends on deployment support."
+        "Leaves EduIDE as an explicit follow-up decision because it depends on deployment support."
       ],
       "warnings": [
         "Programming exercise execution still depends on CI and VCS infrastructure outside this functional model."
@@ -659,8 +659,8 @@
             },
             {
               "id": "enable-theia",
-              "label": "Enable Theia",
-              "description": "Enable online IDE support through Theia.",
+              "label": "Enable EduIDE",
+              "description": "Enable online IDE support through EduIDE.",
               "selects": [
                 "theia"
               ],
@@ -669,16 +669,16 @@
                 "theia-service"
               ],
               "consequences": [
-                "Enables online IDE support for programming workflows."
+                "Enables EduIDE support for programming workflows."
               ],
               "artifactImpacts": [
                 "Sets artemis.theia.enabled = true in the generated external configuration overlay."
               ],
               "warnings": [
-                "Only available when online IDE infrastructure is provided by the deployment profile."
+                "Only available when EduIDE infrastructure is provided by the deployment profile."
               ],
               "enabledOutcome": [
-                "Students can work on programming exercises in an online IDE without local setup.",
+                "Students can work on programming exercises in EduIDE without local setup.",
                 "Instructors can offer a smoother start for programming tasks."
               ],
               "recommendedWhen": [
@@ -686,7 +686,7 @@
                 "Students use diverse devices or may not have a prepared development environment."
               ],
               "thingsToKnow": [
-                "Online IDE support requires administrator-provided infrastructure.",
+                "EduIDE support requires administrator-provided infrastructure.",
                 "Students may still choose a local IDE when the course allows it."
               ]
             }

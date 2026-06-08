@@ -102,7 +102,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
     { id: 'hyperion', name: 'Hyperion', kind: 'module', selectable: true, defaultState: 'disabled', configKey: 'artemis.hyperion.enabled' },
     { id: 'platform-integrations', name: 'Platform Integrations', kind: 'group', selectable: false, defaultState: 'not_applicable' },
     { id: 'lti', name: 'LTI', kind: 'module', selectable: true, defaultState: 'disabled', configKey: 'artemis.lti.enabled' },
-    { id: 'theia', name: 'Theia', kind: 'module', selectable: true, defaultState: 'disabled', configKey: 'artemis.theia.enabled' },
+    { id: 'theia', name: 'EduIDE', kind: 'module', selectable: true, defaultState: 'disabled', configKey: 'artemis.theia.enabled' },
 ];
 
 const RELATION_SPECS: RelationSpec[] = [
