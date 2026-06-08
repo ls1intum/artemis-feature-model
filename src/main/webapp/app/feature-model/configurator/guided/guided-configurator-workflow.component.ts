@@ -74,7 +74,7 @@ export class GuidedConfiguratorWorkflowComponent {
         if (option.requiresCapabilities.length > 0) {
             return 'Requires administrator setup before course users can rely on it.';
         }
-        return 'Available in the guided MVP';
+        return 'Available';
     }
 
     trackFeature(_: number, feature: Feature): string {

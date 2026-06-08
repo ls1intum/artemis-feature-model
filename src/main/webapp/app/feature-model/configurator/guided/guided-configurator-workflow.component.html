@@ -306,7 +306,7 @@
                         <ul>
                             @for (change of changedDecisionSummaries(); track change.decisionId) {
                                 <li>
-                                    <strong>{{ change.question }}</strong>
+                                    <strong>{{ change.question }} </strong>
                                     <span>{{ change.selectedOptions.length > 0 ? change.selectedOptions.join(', ') : 'No option selected' }}</span>
                                 </li>
                             }
