@@ -6,6 +6,7 @@ import { FeatureModelService } from '../api/feature-model.service';
 import { collectExpandableNodeIds, countTreeNodes, filterTreeByQuery, findNodeById } from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
+import { FeatureModelSnapshotsComponent } from './feature-model-snapshots.component';
 import { FeatureModelTreeNodeComponent } from './feature-model-tree-node.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
@@ -15,7 +16,7 @@ export type ExplorerViewMode = 'list' | 'diagram';
 @Component({
     selector: 'fm-feature-model-explorer',
     standalone: true,
-    imports: [FormsModule, FeatureModelTreeNodeComponent, FeatureModelDiagramComponent],
+    imports: [FormsModule, FeatureModelTreeNodeComponent, FeatureModelDiagramComponent, FeatureModelSnapshotsComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-explorer.component.html',
     styleUrl: './feature-model-explorer.component.scss',

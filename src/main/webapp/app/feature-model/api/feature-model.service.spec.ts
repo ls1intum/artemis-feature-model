@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
+import { SnapshotSummary } from '../core/snapshot.types';
 import { FeatureModelService } from './feature-model.service';
 
 function makeResponse(): FeatureModelResponse {
@@ -118,5 +119,31 @@ describe('FeatureModelService', () => {
         expect(request.request.method).toBe('GET');
         request.flush(workflow);
         expect(received).toEqual(workflow);
+    });
+
+    it('issues a GET request to /api/feature-model/snapshots', () => {
+        const snapshots: SnapshotSummary[] = [
+            {
+                snapshotId: 'develop-latest',
+                modelId: 'artemis-feature-model',
+                version: '1.0.0',
+                status: 'development',
+                sourceRepo: 'ls1intum/Artemis',
+                sourceRef: 'develop',
+                sourceCommit: 'abc123',
+                extractorVersion: 'feature-model-extractor@0.2.0',
+                active: true,
+            },
+        ];
+        let received: SnapshotSummary[] | undefined;
+
+        service.loadSnapshots().subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/snapshots');
+        expect(request.request.method).toBe('GET');
+        request.flush(snapshots);
+        expect(received).toEqual(snapshots);
     });
 });

@@ -4,9 +4,11 @@ import { Observable } from 'rxjs';
 
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
+import { SnapshotSummary } from '../core/snapshot.types';
 
 const FEATURE_MODEL_RESOURCE_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_RESOURCE_URL = '/api/feature-model/guided-workflow';
+const SNAPSHOTS_RESOURCE_URL = '/api/feature-model/snapshots';
 
 @Injectable({ providedIn: 'root' })
 export class FeatureModelService {
@@ -30,5 +32,15 @@ export class FeatureModelService {
      */
     loadGuidedWorkflow(): Observable<GuidedWorkflow> {
         return this.http.get<GuidedWorkflow>(GUIDED_WORKFLOW_RESOURCE_URL);
+    }
+
+    /**
+     * Issues `GET /api/feature-model/snapshots` and returns the imported local snapshots and their
+     * metadata for the advanced Explorer view.
+     *
+     * @returns Observable that emits the imported snapshot summaries once and completes.
+     */
+    loadSnapshots(): Observable<SnapshotSummary[]> {
+        return this.http.get<SnapshotSummary[]>(SNAPSHOTS_RESOURCE_URL);
     }
 }
