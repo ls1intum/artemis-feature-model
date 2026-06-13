@@ -3,8 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { FeatureModelResponse } from '../core/feature-model.types';
+import { GuidedWorkflow } from '../core/guided-workflow.types';
 
 const FEATURE_MODEL_RESOURCE_URL = '/api/feature-model';
+const GUIDED_WORKFLOW_RESOURCE_URL = '/api/feature-model/guided-workflow';
 
 @Injectable({ providedIn: 'root' })
 export class FeatureModelService {
@@ -18,5 +20,15 @@ export class FeatureModelService {
      */
     loadFeatureModel(): Observable<FeatureModelResponse> {
         return this.http.get<FeatureModelResponse>(FEATURE_MODEL_RESOURCE_URL);
+    }
+
+    /**
+     * Issues `GET /api/feature-model/guided-workflow` and returns the parsed workflow used by
+     * the guided Configurator.
+     *
+     * @returns Observable that emits the guided workflow response once and completes.
+     */
+    loadGuidedWorkflow(): Observable<GuidedWorkflow> {
+        return this.http.get<GuidedWorkflow>(GUIDED_WORKFLOW_RESOURCE_URL);
     }
 }

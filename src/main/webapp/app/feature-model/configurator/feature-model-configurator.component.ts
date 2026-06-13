@@ -1,63 +1,40 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import {
-    collectAncestorIds,
-    collectExpandableNodeIds,
-    countTreeNodes,
-    filterTreeByQuery,
-    findNodeById,
-} from '../core/feature-model-tree.utils';
-import {
-    Feature,
-    FeatureModelResponse,
-    FeatureTreeNode,
-    IncomingRelation,
-    ValidationRelation,
-    ValidationResult,
-    ValidationViolation,
-    ValidationWarning,
-} from '../core/feature-model.types';
-import { FeatureModelDiagramComponent } from '../explorer/feature-model-diagram.component';
+import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
+import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
 import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
+import { GuidedConfiguratorWorkflowComponent } from './guided/guided-configurator-workflow.component';
+import { ConfiguratorTutorialPanelComponent } from './guided/tutorial/configurator-tutorial-panel.component';
+import {
+    applyOptionSelection,
+    cloneDecisionOptionMap,
+    localizeViolation,
+    localizeWarning,
+    removeOptionSelection,
+    sameStringSet,
+} from './shared/configurator-selection.utils';
+import {
+    ConfiguratorScreen,
+    DecisionChangeSummary,
+    DecisionOptionToggle,
+    ReviewGroupSummary,
+} from './shared/configurator-view.types';
+import {
+    CONFIGURATOR_TUTORIAL_STEPS,
+    buildConfiguratorTutorialSeenKey,
+} from './shared/configurator-tutorial';
+import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
-const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
+const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
-
-interface LocalizedFeatureRef {
-    id: string;
-    name: string;
-}
-
-interface LocalizedRelation {
-    parentId: string;
-    childId: string;
-    parentName: string;
-    childName: string;
-}
-
-interface LocalizedViolation {
-    code: string;
-    message: string;
-    features: LocalizedFeatureRef[];
-    relation: LocalizedRelation | null;
-    suggestion: string | null;
-}
-
-interface LocalizedWarning {
-    code: string;
-    message: string;
-    features: LocalizedFeatureRef[];
-    constraintId: string | null;
-    suggestion: string | null;
-}
 
 @Component({
     selector: 'fm-feature-model-configurator',
     standalone: true,
-    imports: [FormsModule, FeatureModelDiagramComponent],
+    imports: [GuidedConfiguratorWorkflowComponent, ConfiguratorTreeComponent, ConfiguratorTutorialPanelComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './feature-model-configurator.component.html',
     styleUrl: './feature-model-configurator.component.scss',
@@ -70,146 +47,152 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly loading = signal<boolean>(true);
     readonly errorMessage = signal<string | undefined>(undefined);
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
+    readonly workflow = signal<GuidedWorkflow | undefined>(undefined);
+    readonly screen = signal<ConfiguratorScreen>('templates');
+    readonly previousGuidedScreen = signal<ConfiguratorScreen>('templates');
+    readonly activeStepIndex = signal<number>(0);
+    readonly selectedTemplateId = signal<string | undefined>(undefined);
     readonly selectedFeatureIds = signal<ReadonlySet<string>>(new Set<string>());
-    readonly selectedFeatureId = signal<string | undefined>(undefined);
-    readonly searchQuery = signal<string>('');
+    readonly selectedDecisionOptionIds = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
+    readonly templateDecisionOptionIds = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
+    readonly focusedOptionId = signal<string | undefined>(undefined);
     readonly validationResult = signal<ValidationResult | undefined>(undefined);
     readonly validationLoading = signal<boolean>(false);
     readonly validationErrorMessage = signal<string | undefined>(undefined);
-    private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
+    readonly tutorialOpen = signal<boolean>(false);
+    readonly tutorialStepIndex = signal<number>(0);
+    readonly tutorialSeenKey = signal<string | undefined>(undefined);
+    readonly tutorialSteps = CONFIGURATOR_TUTORIAL_STEPS;
     private validationToken = 0;
 
     readonly model = computed(() => this.response()?.model);
-    readonly tree = computed<FeatureTreeNode | null>(() => this.response()?.tree ?? null);
-    readonly featureCount = computed(() => countTreeNodes(this.tree()));
-
-    readonly defaultSelectedFeatureIds = computed<ReadonlySet<string>>(
-        () => new Set(this.response()?.defaultSelectedFeatureIds ?? []),
-    );
-
+    readonly tree = computed(() => this.response()?.tree ?? null);
+    readonly templates = computed(() => this.workflow()?.useCaseTemplates ?? []);
+    readonly selectedTemplate = computed<UseCaseTemplate | undefined>(() => {
+        const id = this.selectedTemplateId();
+        return this.templates().find((template) => template.id === id);
+    });
+    readonly stepsById = computed<ReadonlyMap<string, GuidedWorkflowStep>>(() => {
+        const map = new Map<string, GuidedWorkflowStep>();
+        for (const step of this.workflow()?.steps ?? []) {
+            map.set(step.id, step);
+        }
+        return map;
+    });
+    readonly decisionSteps = computed<GuidedWorkflowStep[]>(() => {
+        const template = this.selectedTemplate();
+        if (!template) {
+            return [];
+        }
+        return this.decisionStepsForTemplate(template);
+    });
+    readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
+    readonly guidedOptions = computed<GuidedDecisionOption[]>(() => this.decisionSteps().flatMap((step) => step.decisions.flatMap((decision) => decision.options)));
+    readonly progressPercent = computed(() => {
+        const stepCount = this.decisionSteps().length + 2;
+        const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
+        return Math.round((current / stepCount) * 100);
+    });
+    readonly selectedCount = computed(() => this.selectedFeatureIds().size);
+    readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
+        const map = new Map<string, string>();
+        for (const feature of this.response()?.features ?? []) {
+            map.set(feature.id, feature.name);
+        }
+        return map;
+    });
+    readonly featuresById = computed<ReadonlyMap<string, Feature>>(() => {
+        const map = new Map<string, Feature>();
+        for (const feature of this.response()?.features ?? []) {
+            map.set(feature.id, feature);
+        }
+        return map;
+    });
     readonly selectableFeatureIds = computed<ReadonlySet<string>>(() => {
-        const features = this.response()?.features ?? [];
         const ids = new Set<string>();
-        for (const feature of features) {
+        for (const feature of this.response()?.features ?? []) {
             if (feature.selectable) {
                 ids.add(feature.id);
             }
         }
         return ids;
     });
-
-    readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
-        const features = this.response()?.features ?? [];
-        const map = new Map<string, string>();
-        for (const feature of features) {
-            map.set(feature.id, feature.name);
+    readonly focusedOption = computed<GuidedDecisionOption | undefined>(() => {
+        const focused = this.focusedOptionId();
+        const currentStep = this.activeStep();
+        if (!currentStep) {
+            return undefined;
         }
-        return map;
+        const allOptions = currentStep.decisions.flatMap((decision) => decision.options);
+        return allOptions.find((option) => option.id === focused) ?? allOptions.find((option) => this.isOptionSelectedById(option.id)) ?? allOptions[0];
     });
-
-    readonly selectedCount = computed(() => this.selectedFeatureIds().size);
-    readonly selectableCount = computed(() => this.selectableFeatureIds().size);
-
-    readonly filterResult = computed(() => filterTreeByQuery(this.tree(), this.searchQuery()));
-    readonly matchedIds = computed<ReadonlySet<string>>(() => this.filterResult().matchedIds);
-    readonly matchCount = computed(() => this.matchedIds().size);
-    readonly hasActiveSearch = computed(() => this.searchQuery().trim().length > 0);
-
-    readonly expandableIds = computed(() => collectExpandableNodeIds(this.tree()));
-
-    readonly forcedExpandedIds = computed<ReadonlySet<string>>(() => {
-        const flagged = new Set<string>([...this.violationIds(), ...this.warningIds()]);
-        if (flagged.size === 0) {
-            return new Set<string>();
-        }
-        return collectAncestorIds(this.tree(), flagged);
-    });
-
-    readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => {
-        const combined = new Set(this.userExpandedIds());
-        for (const id of this.forcedExpandedIds()) {
-            combined.add(id);
-        }
-        for (const id of this.filterResult().ancestorIds) {
-            combined.add(id);
-        }
-        return combined;
-    });
-
-    readonly allExpanded = computed(() => {
-        const expandable = this.expandableIds();
-        if (expandable.length === 0) {
-            return false;
-        }
-        const expanded = this.userExpandedIds();
-        for (const id of expandable) {
-            if (!expanded.has(id)) {
-                return false;
+    /** Compares the current guided answers with the template baseline for the review page. */
+    readonly changedDecisionSummaries = computed<DecisionChangeSummary[]>(() => {
+        const summaries: DecisionChangeSummary[] = [];
+        for (const step of this.decisionSteps()) {
+            for (const decision of step.decisions) {
+                const current = this.selectedDecisionOptionIds().get(decision.id) ?? new Set<string>();
+                const baseline = this.templateDecisionOptionIds().get(decision.id) ?? new Set<string>();
+                if (!sameStringSet(current, baseline)) {
+                    summaries.push({
+                        decisionId: decision.id,
+                        question: decision.question,
+                        selectedOptions: decision.options.filter((option) => current.has(option.id)).map((option) => option.label),
+                    });
+                }
             }
         }
-        return true;
+        return summaries;
     });
-
-    readonly selectedNode = computed<FeatureTreeNode | null>(() => {
-        const id = this.selectedFeatureId();
-        if (!id) {
-            return null;
+    readonly reviewGroups = computed<ReviewGroupSummary[]>(() => {
+        const selected = this.selectedFeatureIds();
+        const features = this.featuresById();
+        return [...(this.workflow()?.finalReviewGroups ?? [])]
+            .sort((left, right) => left.order - right.order)
+            .map((group) => ({
+                id: group.id,
+                title: group.title,
+                features: group.featureIds
+                    .map((id) => features.get(id))
+                    .filter((feature): feature is Feature => feature !== undefined)
+                    .filter((feature) => selected.has(feature.id)),
+            }))
+            .filter((group) => group.features.length > 0);
+    });
+    /** Combines template-level warnings with warnings introduced by the currently selected guided options. */
+    readonly workflowWarnings = computed<string[]>(() => {
+        const warnings = new Set<string>();
+        for (const warning of this.selectedTemplate()?.warnings ?? []) {
+            warnings.add(warning);
         }
-        return findNodeById(this.tree(), id);
-    });
-
-    readonly selectedFeature = computed<Feature | null>(() => this.selectedNode()?.feature ?? null);
-    readonly selectedIncomingRelation = computed<IncomingRelation | null>(() => this.selectedNode()?.incomingRelation ?? null);
-
-    readonly isSelectedFeatureToggleable = computed(() => {
-        const feature = this.selectedFeature();
-        return Boolean(feature?.selectable);
-    });
-
-    readonly isSelectedFeatureEnabled = computed(() => {
-        const id = this.selectedFeatureId();
-        return Boolean(id && this.selectedFeatureIds().has(id));
-    });
-
-    readonly isSelectedFeatureDefaultSelected = computed(() => {
-        const id = this.selectedFeatureId();
-        return Boolean(id && this.defaultSelectedFeatureIds().has(id));
-    });
-
-    readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedFeature()?.defaultState ?? null));
-    readonly relationBadgeClass = computed(() => relationBadgeClass(this.selectedIncomingRelation()?.relationType));
-
-    readonly changedFromDefault = computed(() => {
-        const current = this.selectedFeatureIds();
-        const defaults = this.defaultSelectedFeatureIds();
-        if (current.size !== defaults.size) {
-            return true;
-        }
-        for (const id of current) {
-            if (!defaults.has(id)) {
-                return true;
+        for (const option of this.selectedOptions()) {
+            for (const capability of option.requiresCapabilities) {
+                warnings.add(`Requires deployment capability: ${capability}.`);
+            }
+            for (const warning of option.warnings) {
+                warnings.add(warning);
             }
         }
-        return false;
+        return [...warnings];
     });
-
     readonly hasValidationResult = computed(() => this.validationResult() !== undefined);
     readonly isValid = computed(() => this.validationResult()?.valid ?? false);
     readonly violations = computed(() => this.validationResult()?.violations ?? []);
     readonly warnings = computed(() => this.validationResult()?.warnings ?? []);
+    /** Extracts feature ids from validation violations so the tree can highlight affected nodes. */
     readonly violationIds = computed<ReadonlySet<string>>(() => {
         const ids = new Set<string>();
         for (const violation of this.violations()) {
             for (const id of violation.featureIds) {
                 ids.add(id);
             }
-            const relation = violation.relation;
-            if (relation && violation.featureIds.length === 0) {
-                ids.add(relation.childId);
+            if (violation.relation && violation.featureIds.length === 0) {
+                ids.add(violation.relation.childId);
             }
         }
         return ids;
     });
+    /** Extracts feature ids from validation warnings so the tree can highlight affected nodes. */
     readonly warningIds = computed<ReadonlySet<string>>(() => {
         const ids = new Set<string>();
         for (const warning of this.warnings()) {
@@ -219,171 +202,294 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return ids;
     });
-
-    readonly localizedViolations = computed<LocalizedViolation[]>(() => {
-        const names = this.featureNamesById();
-        return this.violations().map((violation) => localizeViolation(violation, names));
-    });
-
-    readonly localizedWarnings = computed<LocalizedWarning[]>(() => {
-        const names = this.featureNamesById();
-        return this.warnings().map((warning) => localizeWarning(warning, names));
-    });
-
-    readonly selectedFeatureViolations = computed<LocalizedViolation[]>(() => {
-        const id = this.selectedFeatureId();
-        if (!id) {
-            return [];
-        }
-        return this.localizedViolations().filter((violation) => violation.features.some((feature) => feature.id === id));
-    });
-
-    readonly selectedFeatureWarnings = computed<LocalizedWarning[]>(() => {
-        const id = this.selectedFeatureId();
-        if (!id) {
-            return [];
-        }
-        return this.localizedWarnings().filter((warning) => warning.features.some((feature) => feature.id === id));
-    });
+    readonly localizedViolations = computed(() => this.violations().map((violation) => localizeViolation(violation, this.featureNamesById())));
+    readonly localizedWarnings = computed(() => this.warnings().map((warning) => localizeWarning(warning, this.featureNamesById())));
 
     ngOnInit(): void {
-        this.featureModelService
-            .loadFeatureModel()
+        forkJoin({
+            featureModel: this.featureModelService.loadFeatureModel(),
+            guidedWorkflow: this.featureModelService.loadGuidedWorkflow(),
+        })
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
-                next: (response) => this.handleLoaded(response),
+                next: ({ featureModel, guidedWorkflow }) => this.handleLoaded(featureModel, guidedWorkflow),
                 error: (error: Error) => this.handleError(error),
             });
     }
 
-    onSelectFeature(id: string): void {
-        this.selectedFeatureId.set(id);
-    }
-
-    /**
-     * Flips the membership of `id` in `selectedFeatureIds`, but only when the feature is selectable.
-     * Root and group nodes are structural and must never enter or leave the user selection set;
-     * those cases are dropped silently. A validation roundtrip is started immediately after the
-     * local update so the user always sees the server's verdict for the current selection.
-     *
-     * @param id Feature id to toggle in the user selection set.
-     */
-    onToggleSelection(id: string): void {
-        if (!this.selectableFeatureIds().has(id)) {
+    /** Applies a template and infers which guided options should appear selected from that baseline. */
+    onSelectTemplate(templateId: string): void {
+        const template = this.templates().find((candidate) => candidate.id === templateId);
+        if (!template) {
             return;
         }
-        const next = new Set(this.selectedFeatureIds());
-        if (next.has(id)) {
-            next.delete(id);
-        } else {
-            next.add(id);
-        }
-        this.selectedFeatureIds.set(next);
+        const selected = this.initialSelectionForTemplate(template);
+        const optionIdsByDecision = this.inferSelectedDecisionOptions(selected, this.decisionStepsForTemplate(template));
+        this.selectedTemplateId.set(template.id);
+        this.selectedFeatureIds.set(selected);
+        this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
+        this.templateDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
+        this.activeStepIndex.set(0);
+        this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(optionIdsByDecision));
         this.runValidation();
     }
 
-    /**
-     * Restores `selectedFeatureIds` to the backend-provided defaults and re-runs validation. Focus,
-     * expansion, and any search state are intentionally left untouched so the user does not lose
-     * their current inspection context.
-     */
-    onResetSelection(): void {
-        this.selectedFeatureIds.set(new Set<string>(this.defaultSelectedFeatureIds()));
+    onStartWorkflow(): void {
+        this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
+        this.activeStepIndex.set(0);
+        this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
+    }
+
+    onReturnToTemplates(): void {
+        this.screen.set('templates');
+        this.previousGuidedScreen.set('templates');
+    }
+
+    onPreviousStep(): void {
+        if (this.activeStepIndex() === 0) {
+            this.onReturnToTemplates();
+            return;
+        }
+        this.activeStepIndex.update((value) => value - 1);
+        this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
+    }
+
+    onNextStep(): void {
+        if (this.activeStepIndex() >= this.decisionSteps().length - 1) {
+            this.onOpenReview();
+            return;
+        }
+        this.activeStepIndex.update((value) => value + 1);
+        this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
+    }
+
+    onOpenReview(): void {
+        this.screen.set('review');
+        this.previousGuidedScreen.set('review');
+    }
+
+    onBackToWorkflow(): void {
+        this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
+        if (this.activeStepIndex() >= this.decisionSteps().length) {
+            this.activeStepIndex.set(Math.max(this.decisionSteps().length - 1, 0));
+        }
+    }
+
+    onJumpToStep(index: number): void {
+        this.screen.set('workflow');
+        this.previousGuidedScreen.set('workflow');
+        this.activeStepIndex.set(index);
+        this.focusedOptionId.set(this.firstOptionIdForCurrentStep());
+    }
+
+    onOpenTree(): void {
+        if (this.screen() !== 'tree') {
+            this.previousGuidedScreen.set(this.screen());
+        }
+        this.screen.set('tree');
+    }
+
+    onCloseTree(): void {
+        const previous = this.previousGuidedScreen();
+        this.screen.set(previous === 'tree' ? 'templates' : previous);
+    }
+
+    onOpenTutorial(): void {
+        this.tutorialStepIndex.set(0);
+        this.tutorialOpen.set(true);
+    }
+
+    onPreviousTutorialStep(): void {
+        this.tutorialStepIndex.update((value) => Math.max(value - 1, 0));
+    }
+
+    onNextTutorialStep(): void {
+        this.tutorialStepIndex.update((value) => Math.min(value + 1, this.tutorialSteps.length - 1));
+    }
+
+    onSkipTutorial(): void {
+        this.markTutorialSeen();
+        this.tutorialOpen.set(false);
+    }
+
+    onFinishTutorial(): void {
+        this.markTutorialSeen();
+        this.tutorialOpen.set(false);
+    }
+
+    onFocusOption(optionId: string): void {
+        this.focusedOptionId.set(optionId);
+    }
+
+    /** Keeps guided option state and raw feature selection in sync when the user changes an answer. */
+    onToggleDecisionOption(change: DecisionOptionToggle): void {
+        const { decision, option } = change;
+        this.focusedOptionId.set(option.id);
+        const optionIdsByDecision = cloneDecisionOptionMap(this.selectedDecisionOptionIds());
+        const currentOptionIds = new Set(optionIdsByDecision.get(decision.id) ?? []);
+        const nextSelection = new Set(this.selectedFeatureIds());
+        const isSelected = currentOptionIds.has(option.id);
+
+        if (isSelected) {
+            currentOptionIds.delete(option.id);
+            removeOptionSelection(nextSelection, option);
+        } else {
+            if (decision.selectionMode === 'single') {
+                for (const previousOptionId of currentOptionIds) {
+                    const previousOption = decision.options.find((candidate) => candidate.id === previousOptionId);
+                    if (previousOption) {
+                        removeOptionSelection(nextSelection, previousOption);
+                    }
+                }
+                currentOptionIds.clear();
+            }
+            currentOptionIds.add(option.id);
+            applyOptionSelection(nextSelection, option);
+        }
+
+        optionIdsByDecision.set(decision.id, currentOptionIds);
+        this.selectedDecisionOptionIds.set(optionIdsByDecision);
+        this.selectedFeatureIds.set(nextSelection);
         this.runValidation();
     }
 
-    /**
-     * Toggles the expand/collapse state of a single branch by flipping membership of `id` in
-     * `userExpandedIds`.
-     *
-     * @param id Feature id whose subtree should be expanded if collapsed, or collapsed if expanded.
-     */
-    onToggleExpand(id: string): void {
-        const next = new Set(this.userExpandedIds());
-        if (next.has(id)) {
-            next.delete(id);
-        } else {
-            next.add(id);
-        }
-        this.userExpandedIds.set(next);
+    /** Rebuilds guided answers after the advanced tree edits the underlying feature selection directly. */
+    onReplaceSelection(nextSelection: ReadonlySet<string>): void {
+        const selected = new Set(nextSelection);
+        const inferred = this.inferSelectedDecisionOptions(selected);
+        this.selectedFeatureIds.set(selected);
+        this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(inferred));
+        this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(inferred));
+        this.runValidation();
     }
 
-    onExpandAll(): void {
-        this.userExpandedIds.set(new Set(this.expandableIds()));
-    }
-
-    /**
-     * Collapses every branch except the root. The root id is kept in `userExpandedIds` so the
-     * top-level groups remain visible after collapse — otherwise the diagram would shrink to a
-     * single root box and the user would lose all orientation.
-     */
-    onCollapseAll(): void {
-        const rootId = this.tree()?.feature.id;
-        this.userExpandedIds.set(rootId ? new Set<string>([rootId]) : new Set<string>());
-    }
-
-    /**
-     * Updates the search query and shifts focus to a matched feature if the previously focused
-     * feature is no longer in the filtered tree. Keeps the focus untouched when the search matches
-     * nothing so the user can still see the details of whatever they were last looking at.
-     *
-     * @param value Raw value from the search input.
-     */
-    onSearchInput(value: string): void {
-        this.searchQuery.set(value);
-        this.realignSelectionToMatches();
-    }
-
-    onClearSearch(): void {
-        this.searchQuery.set('');
-    }
-
-    /**
-     * Installs the loaded model into the component state and primes the configurator: the user
-     * selection is seeded from `defaultSelectedFeatureIds`, only the root branch is expanded so
-     * the diagram does not overwhelm on first paint, the root focuses the details panel, and an
-     * initial validation roundtrip is kicked off so the validity status reflects the defaults
-     * before the user touches anything.
-     *
-     * @param response Successful payload from `GET /api/feature-model`.
-     */
-    private handleLoaded(response: FeatureModelResponse): void {
+    private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
         this.response.set(response);
+        this.workflow.set(workflow);
         this.errorMessage.set(undefined);
         this.loading.set(false);
-        const rootId = response.tree.feature.id;
-        this.userExpandedIds.set(new Set<string>([rootId]));
-        this.selectedFeatureId.set(rootId);
-        this.selectedFeatureIds.set(new Set<string>(response.defaultSelectedFeatureIds));
-        this.runValidation();
+        this.onSelectTemplate(workflow.workflow.defaultTemplateId);
+        this.initializeTutorialState(response, workflow);
     }
 
-    /**
-     * Shifts the focused feature onto the first matched id if the previously focused feature has
-     * been filtered out, so the details panel always points at a node the user can still see. When
-     * the search is empty or there are no matches, the focus is left where it was.
-     */
-    private realignSelectionToMatches(): void {
-        const filtered = this.filterResult().tree;
-        if (!filtered) {
-            return;
-        }
-        const selectedId = this.selectedFeatureId();
-        if (selectedId && findNodeById(filtered, selectedId)) {
-            return;
-        }
-        const firstMatch = this.matchedIds().values().next().value;
-        if (firstMatch) {
-            this.selectedFeatureId.set(firstMatch);
-        }
+    /** Opens the tutorial once per model/workflow version by using a versioned browser-storage key. */
+    private initializeTutorialState(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
+        const key = buildConfiguratorTutorialSeenKey(response.model, workflow.workflow);
+        this.tutorialSeenKey.set(key);
+        this.tutorialStepIndex.set(0);
+        this.tutorialOpen.set(!this.isTutorialSeen(key));
     }
 
-    /**
-     * Issues a validation request for the current selection and updates the validation signals
-     * with the result. A monotonic token guards against stale responses: if the user toggles
-     * quickly enough to start a second request before the first one resolves, the earlier
-     * response is dropped so the latest selection's verdict is what the user sees.
-     */
+    /** Creates the starting feature set for a template while respecting model defaults and selectable nodes. */
+    private initialSelectionForTemplate(template: UseCaseTemplate): ReadonlySet<string> {
+        const selected = template.selectedFeatureIds.length > 0 ? new Set<string>(template.selectedFeatureIds) : new Set<string>(this.response()?.defaultSelectedFeatureIds ?? []);
+        for (const id of template.deselectedFeatureIds) {
+            selected.delete(id);
+        }
+        for (const id of [...selected]) {
+            if (!this.selectableFeatureIds().has(id)) {
+                selected.delete(id);
+            }
+        }
+        return selected;
+    }
+
+    /** Resolves the workflow steps that should be shown for a template, sorted by authored order. */
+    private decisionStepsForTemplate(template: UseCaseTemplate): GuidedWorkflowStep[] {
+        const workflow = this.workflow();
+        if (!workflow) {
+            return [];
+        }
+        const ids = template.recommendedStepIds.length > 0 ? template.recommendedStepIds : workflow.steps.map((step) => step.id);
+        const steps = ids.map((id) => this.stepsById().get(id)).filter((step): step is GuidedWorkflowStep => Boolean(step));
+        return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
+    }
+
+    /** Infers guided option checkmarks from feature ids, used for template defaults and tree-driven edits. */
+    private inferSelectedDecisionOptions(
+        selectedFeatureIds: ReadonlySet<string>,
+        steps: readonly GuidedWorkflowStep[] = this.decisionSteps(),
+    ): ReadonlyMap<string, ReadonlySet<string>> {
+        const map = new Map<string, ReadonlySet<string>>();
+        for (const step of steps) {
+            for (const decision of step.decisions) {
+                const selectedOptions = new Set<string>();
+                for (const option of decision.options) {
+                    const selectsMatch = option.selects.length > 0 && option.selects.every((featureId) => selectedFeatureIds.has(featureId));
+                    const deselectsMatch = option.deselects.every((featureId) => !selectedFeatureIds.has(featureId));
+                    if (selectsMatch && deselectsMatch) {
+                        selectedOptions.add(option.id);
+                    }
+                }
+                map.set(decision.id, selectedOptions);
+            }
+        }
+        return map;
+    }
+
+    /** Returns the selected option objects so downstream summaries can read warnings and capability metadata. */
+    private selectedOptions(): GuidedDecisionOption[] {
+        const selected = this.selectedDecisionOptionIds();
+        const options: GuidedDecisionOption[] = [];
+        for (const step of this.decisionSteps()) {
+            for (const decision of step.decisions) {
+                const selectedIds = selected.get(decision.id) ?? new Set<string>();
+                for (const option of decision.options) {
+                    if (selectedIds.has(option.id)) {
+                        options.push(option);
+                    }
+                }
+            }
+        }
+        return options;
+    }
+
+    /** Chooses a sensible focused option after a full-flow selection change. */
+    private firstOptionIdForCurrentFlow(optionIdsByDecision: ReadonlyMap<string, ReadonlySet<string>>): string | undefined {
+        for (const step of this.decisionSteps()) {
+            for (const decision of step.decisions) {
+                const selectedId = optionIdsByDecision.get(decision.id)?.values().next().value;
+                if (selectedId) {
+                    return selectedId;
+                }
+                if (decision.options[0]) {
+                    return decision.options[0].id;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    /** Chooses the selected option, or first available option, for the active guided step. */
+    private firstOptionIdForCurrentStep(): string | undefined {
+        const step = this.activeStep();
+        if (!step) {
+            return undefined;
+        }
+        for (const decision of step.decisions) {
+            const selectedId = this.selectedDecisionOptionIds().get(decision.id)?.values().next().value;
+            if (selectedId) {
+                return selectedId;
+            }
+            if (decision.options[0]) {
+                return decision.options[0].id;
+            }
+        }
+        return undefined;
+    }
+
+    private isOptionSelectedById(optionId: string): boolean {
+        for (const optionIds of this.selectedDecisionOptionIds().values()) {
+            if (optionIds.has(optionId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Validates the current selection and ignores stale responses from superseded validation requests. */
     private runValidation(): void {
         const token = ++this.validationToken;
         this.validationLoading.set(true);
@@ -410,102 +516,49 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             });
     }
 
-    /**
-     * Surfaces the API failure to the user by storing the error message (or a generic fallback when
-     * the error has no usable message) and clearing the loading flag so the error panel renders.
-     *
-     * @param error Error emitted by the `FeatureModelService` observable.
-     */
+    private markTutorialSeen(): void {
+        const key = this.tutorialSeenKey();
+        if (!key) {
+            return;
+        }
+        const storage = this.tutorialStorage();
+        if (!storage) {
+            return;
+        }
+        try {
+            storage.setItem(key, 'true');
+        } catch {
+            // Browser storage can be disabled; the tutorial remains usable without persistence.
+        }
+    }
+
+    private isTutorialSeen(key: string): boolean {
+        const storage = this.tutorialStorage();
+        if (!storage) {
+            return false;
+        }
+        try {
+            return storage.getItem(key) === 'true';
+        } catch {
+            return false;
+        }
+    }
+
+    /** Safely accesses localStorage for browsers that block storage or for non-browser render contexts. */
+    private tutorialStorage(): Storage | undefined {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+        try {
+            return window.localStorage;
+        } catch {
+            return undefined;
+        }
+    }
+
     private handleError(error: Error): void {
         const message = error?.message?.trim();
         this.errorMessage.set(message && message.length > 0 ? message : DEFAULT_ERROR_MESSAGE);
         this.loading.set(false);
-    }
-}
-
-/**
- * Decorates a server-side `ValidationViolation` with human-readable feature names so the template
- * can render names alongside ids without performing lookups itself.
- *
- * @param violation Wire-format violation from the validation endpoint.
- * @param names Lookup of feature id to feature name, derived from the loaded model.
- * @returns View-model violation with `LocalizedFeatureRef`s and a localized relation.
- */
-function localizeViolation(violation: ValidationViolation, names: ReadonlyMap<string, string>): LocalizedViolation {
-    return {
-        code: violation.code,
-        message: violation.message,
-        features: violation.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
-        relation: localizeRelation(violation.relation, names),
-        suggestion: violation.suggestion,
-    };
-}
-
-/**
- * Decorates a server-side `ValidationWarning` with human-readable feature names so the template
- * can render names alongside ids without performing lookups itself.
- *
- * @param warning Wire-format warning from the validation endpoint.
- * @param names Lookup of feature id to feature name, derived from the loaded model.
- * @returns View-model warning with `LocalizedFeatureRef`s.
- */
-function localizeWarning(warning: ValidationWarning, names: ReadonlyMap<string, string>): LocalizedWarning {
-    return {
-        code: warning.code,
-        message: warning.message,
-        features: warning.featureIds.map((id) => toLocalizedFeatureRef(id, names)),
-        constraintId: warning.constraintId,
-        suggestion: warning.suggestion,
-    };
-}
-
-/**
- * Resolves the parent and child names for a validation relation so the violation list can show
- * both readable names and stable ids. Falls back to the id itself when a name is missing, which
- * keeps stale or out-of-tree references from breaking the panel.
- *
- * @param relation Wire-format relation, or `null` when the violation has no relation context.
- * @param names Lookup of feature id to feature name, derived from the loaded model.
- * @returns Localized relation, or `null` when `relation` is `null`.
- */
-function localizeRelation(relation: ValidationRelation | null, names: ReadonlyMap<string, string>): LocalizedRelation | null {
-    if (!relation) {
-        return null;
-    }
-    return {
-        parentId: relation.parentId,
-        childId: relation.childId,
-        parentName: names.get(relation.parentId) ?? relation.parentId,
-        childName: names.get(relation.childId) ?? relation.childId,
-    };
-}
-
-function toLocalizedFeatureRef(id: string, names: ReadonlyMap<string, string>): LocalizedFeatureRef {
-    return { id, name: names.get(id) ?? id };
-}
-
-function defaultStateBadgeClass(state: string | null): string {
-    switch (state) {
-        case 'enabled':
-            return 'text-bg-success';
-        case 'disabled':
-            return 'text-bg-light border';
-        case 'not_applicable':
-            return 'text-bg-secondary';
-        default:
-            return 'text-bg-light border';
-    }
-}
-
-function relationBadgeClass(relationType: string | undefined): string {
-    switch (relationType) {
-        case 'mandatory':
-            return 'text-bg-primary';
-        case 'optional':
-            return 'text-bg-warning';
-        case 'group':
-            return 'text-bg-info';
-        default:
-            return 'text-bg-light border';
     }
 }

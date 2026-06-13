@@ -4,7 +4,7 @@ export const APP_ROUTES: Routes = [
     {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'feature-model/explorer',
+        redirectTo: 'feature-model/configurator',
     },
     {
         path: 'feature-model/explorer',

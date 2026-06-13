@@ -1,0 +1,192 @@
+<section class="tree-configurator" data-testid="configurator-tree-screen">
+    <header class="tree-header">
+        <div>
+            <h2>Advanced configuration tree</h2>
+            <p>Current selection is shared with the guided workflow.</p>
+        </div>
+<!--        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeTree.emit()" data-testid="back-to-guided">-->
+<!--            Back to guide-->
+<!--        </button>-->
+    </header>
+
+    <div class="toolbar">
+        <div class="search-control">
+            <label for="configurator-tree-search" class="visually-hidden">Search features by name or id</label>
+            <input
+                id="configurator-tree-search"
+                type="search"
+                class="form-control form-control-sm"
+                placeholder="Search by name or id"
+                autocomplete="off"
+                [value]="searchQuery()"
+                (input)="onSearchInput($any($event.target).value)"
+                data-testid="tree-search-input"
+            />
+            @if (hasActiveSearch()) {
+                <button type="button" class="btn btn-sm btn-link" (click)="onClearSearch()" data-testid="tree-clear-search">Clear</button>
+            }
+        </div>
+        @if (hasActiveSearch()) {
+            <span class="match-count text-muted" data-testid="tree-match-count">
+                {{ matchCount() }} match{{ matchCount() === 1 ? '' : 'es' }}
+            </span>
+        }
+        <div class="toolbar-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onExpandAll()" [disabled]="allExpanded()" data-testid="tree-expand-all">
+                Expand all
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onCollapseAll()" data-testid="tree-collapse-all">
+                Collapse all
+            </button>
+        </div>
+    </div>
+
+    <section class="validation-panel" aria-label="Validation status" data-testid="tree-validation-panel">
+        @if (validationErrorMessage(); as message) {
+            <div class="alert alert-danger mb-0" role="alert" data-testid="tree-validation-error">
+                <strong>Validation failed.</strong>
+                <div>{{ message }}</div>
+            </div>
+        } @else if (validationLoading() && !hasValidationResult()) {
+            <div class="alert alert-info mb-0" role="status" data-testid="tree-validation-loading">Validating selection...</div>
+        } @else if (hasValidationResult()) {
+            <div class="validation-status" [class.validation-status--valid]="isValid()" [class.validation-status--invalid]="!isValid()" data-testid="tree-validation-status">
+                <strong>{{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}</strong>
+                @if (validationLoading()) {
+                    <small>Revalidating...</small>
+                }
+            </div>
+        }
+    </section>
+
+    <div class="tree-layout">
+        <aside class="diagram-panel" aria-label="Configurator tree diagram">
+            @if (filterResult().tree; as root) {
+                <fm-feature-model-diagram
+                    [tree]="root"
+                    [matchedIds]="matchedIds()"
+                    [expandedIds]="effectiveExpandedIds()"
+                    [selectedId]="selectedFeatureId()"
+                    [selectedFeatureIds]="selectedFeatureIds()"
+                    [violationIds]="violationIds()"
+                    [warningIds]="warningIds()"
+                    [toggleableIds]="selectableFeatureIds()"
+                    [configurationMode]="true"
+                    (selectFeature)="onSelectFeature($event)"
+                    (toggleExpand)="onToggleExpand($event)"
+                    (toggleSelection)="onToggleSelection($event)"
+                />
+            }
+        </aside>
+
+        <section class="details-panel" aria-label="Selected feature details" data-testid="tree-details-panel">
+            @if (selectedNode(); as node) {
+                <header class="details-header">
+                    <h3 data-testid="tree-details-name">{{ node.feature.name }}</h3>
+                    <code class="text-muted">{{ node.feature.id }}</code>
+                </header>
+
+                <dl class="details-grid">
+                    <dt>Kind</dt>
+                    <dd><span class="badge text-bg-secondary">{{ node.feature.kind }}</span></dd>
+
+                    <dt>Currently selected</dt>
+                    <dd>
+                        @if (isSelectedFeatureEnabled()) {
+                            <span class="badge text-bg-success" data-testid="tree-selected-state">Yes</span>
+                        } @else {
+                            <span class="badge text-bg-light border" data-testid="tree-selected-state">No</span>
+                        }
+                    </dd>
+
+                    @if (selectedIncomingRelation(); as relation) {
+                        <dt>Parent</dt>
+                        <dd><code>{{ relation.parentId }}</code></dd>
+
+                        <dt>Relation</dt>
+                        <dd><span class="badge text-bg-info">{{ relation.relationType }}</span></dd>
+                    }
+                </dl>
+
+                @if (isSelectedFeatureToggleable()) {
+                    <section class="details-section">
+                        <h4>Configuration</h4>
+                        <div class="form-check form-switch">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                                [id]="'tree-toggle-' + node.feature.id"
+                                [checked]="isSelectedFeatureEnabled()"
+                                (change)="onToggleSelection(node.feature.id)"
+                                data-testid="tree-details-toggle"
+                            />
+                            <label class="form-check-label" [for]="'tree-toggle-' + node.feature.id">Enable {{ node.feature.name }}</label>
+                        </div>
+                    </section>
+                } @else {
+                    <p class="muted">Root and group nodes are structural. Their selection follows the modules beneath them.</p>
+                }
+
+                <section class="details-section" data-testid="tree-technical-impact">
+                    <h4>Technical impact</h4>
+                    @if (relatedCapabilityRequirements().length > 0) {
+                        <ul>
+                            @for (capability of relatedCapabilityRequirements(); track capability) {
+                                <li><code>{{ capability }}</code></li>
+                            }
+                        </ul>
+                    } @else {
+                        <p class="muted">No additional deployment capability requirement is modeled for this feature.</p>
+                    }
+                </section>
+
+                <section class="details-section" data-testid="tree-artifact-impact">
+                    <h4>Artifact impact</h4>
+                    @if (relatedArtifactImpacts().length > 0) {
+                        <ul>
+                            @for (impact of relatedArtifactImpacts(); track impact) {
+                                <li>{{ impact }}</li>
+                            }
+                        </ul>
+                    }
+                    @if (node.feature.artifactMappings.length > 0) {
+                        <ul>
+                            @for (mapping of node.feature.artifactMappings; track mapping.target + '-' + mapping.path) {
+                                <li>
+                                    <code>{{ mapping.target }} </code>
+                                    <span>{{ mapping.path }}</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    @if (relatedArtifactImpacts().length === 0 && node.feature.artifactMappings.length === 0) {
+                        <p class="muted">No artifact mapping is listed for this feature.</p>
+                    }
+                </section>
+            }
+        </section>
+    </div>
+
+    @if (localizedViolations().length > 0) {
+        <section class="message-list message-list--danger" data-testid="tree-violations-panel">
+            <h3>Violations</h3>
+            <ul>
+                @for (violation of localizedViolations(); track violation.code + '-' + $index) {
+                    <li>{{ violation.message }}</li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (localizedWarnings().length > 0) {
+        <section class="message-list message-list--warning" data-testid="tree-warnings-panel">
+            <h3>Warnings</h3>
+            <ul>
+                @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
+                    <li>{{ warning.message }}</li>
+                }
+            </ul>
+        </section>
+    }
+</section>

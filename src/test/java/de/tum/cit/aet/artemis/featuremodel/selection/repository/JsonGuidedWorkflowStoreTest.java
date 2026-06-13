@@ -45,6 +45,9 @@ class JsonGuidedWorkflowStoreTest {
         assertThat(irisOption.selects()).containsExactly("iris");
         assertThat(irisOption.requiresCapabilities()).containsExactly("pyris-service", "pyris-secret");
         assertThat(irisOption.artifactImpacts()).anyMatch(impact -> impact.contains("artemis.iris.enabled"));
+        assertThat(irisOption.enabledOutcome()).anyMatch(outcome -> outcome.contains("AI tutoring support"));
+        assertThat(irisOption.recommendedWhen()).anyMatch(recommendation -> recommendation.contains("AI-assisted help"));
+        assertThat(irisOption.thingsToKnow()).anyMatch(note -> note.contains("administrator setup"));
     }
 
     @Test

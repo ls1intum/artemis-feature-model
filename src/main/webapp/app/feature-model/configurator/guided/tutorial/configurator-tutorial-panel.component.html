@@ -1,0 +1,50 @@
+<div class="tutorial-backdrop" data-testid="tutorial-panel">
+    <section class="tutorial-panel" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+        @if (currentStep(); as step) {
+            <header class="tutorial-panel__header">
+                <span class="tutorial-panel__step">{{ stepLabel() }}</span>
+                <h2 id="tutorial-title">{{ step.title }}</h2>
+                <p>{{ step.summary }}</p>
+            </header>
+            @if (step.imageSrc) {
+                <div class="tutorial-panel__image-frame">
+                    <img
+                        class="tutorial-panel__image"
+                        [class.tutorial-panel__image--wide]="step.imageLayout === 'wide'"
+                        [src]="step.imageSrc"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                </div>
+            }
+
+            <ul class="tutorial-panel__details">
+                @for (detail of step.details; track detail) {
+                    <li>{{ detail }}</li>
+                }
+            </ul>
+
+            <footer class="tutorial-panel__actions">
+                <button type="button" class="btn btn-link" (click)="skip.emit()" data-testid="tutorial-skip">
+                    Skip tutorial
+                </button>
+                <div class="tutorial-panel__step-actions">
+                    @if (!isFirstStep()) {
+                        <button type="button" class="btn btn-outline-secondary" (click)="previous.emit()" data-testid="tutorial-back">
+                            Back
+                        </button>
+                    }
+                    @if (isLastStep()) {
+                        <button type="button" class="btn btn-primary" (click)="finish.emit()" data-testid="tutorial-finish">
+                            Start configuring
+                        </button>
+                    } @else {
+                        <button type="button" class="btn btn-primary" (click)="next.emit()" data-testid="tutorial-next">
+                            Next
+                        </button>
+                    }
+                </div>
+            </footer>
+        }
+    </section>
+</div>
