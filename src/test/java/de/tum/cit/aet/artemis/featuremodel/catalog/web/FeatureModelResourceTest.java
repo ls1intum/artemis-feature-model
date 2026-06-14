@@ -18,15 +18,19 @@ import tools.jackson.databind.ObjectMapper;
 
 class FeatureModelResourceTest {
 
-    private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new FeatureModelResource(catalogService())).build();
+    private final FeatureModelCatalogService catalogService = catalogService();
+
+    private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new FeatureModelResource(catalogService)).build();
 
     @Test
     void returnsActiveFeatureModelContract() throws Exception {
+        var model = catalogService.loadActiveModel();
+
         mockMvc.perform(get("/api/feature-model")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.model.name").value("Artemis Functional Feature Tree"))
                 .andExpect(jsonPath("$.model.status").value("published"))
                 .andExpect(jsonPath("$.model.sourceCommitSha").doesNotExist())
-                .andExpect(jsonPath("$.features.length()").value(24))
+                .andExpect(jsonPath("$.features.length()").value(model.features().size()))
                 .andExpect(jsonPath("$.features[?(@.id == 'artemis')].category", hasItem("derived")))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].category", hasItem("functional")))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].visibleTo[0]", hasItem("teacher")))
@@ -34,7 +38,7 @@ class FeatureModelResourceTest {
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].requiresCapabilities.length()", hasItem(0)))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].artifactMappings[0].path", hasItem("artemis.text.enabled")))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].extraction.status", hasItem("manually_confirmed")))
-                .andExpect(jsonPath("$.relations.length()").value(23))
+                .andExpect(jsonPath("$.relations.length()").value(model.relations().size()))
                 .andExpect(jsonPath("$.constraints.length()").value(0))
                 .andExpect(jsonPath("$.tree.feature.id").value("artemis"))
                 .andExpect(jsonPath("$.tree.feature.category").value("derived"))
