@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Subject, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FeatureModelService } from '../api/feature-model.service';
@@ -7,15 +7,16 @@ import { buildMvpFeatureModelResponse } from '../core/feature-model.test-fixture
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { FeatureModelExplorerComponent } from './feature-model-explorer.component';
 
-function createServiceStub(): { service: { loadFeatureModel: ReturnType<typeof vi.fn> }; subject: Subject<FeatureModelResponse> } {
+function createServiceStub(): { service: { loadFeatureModel: ReturnType<typeof vi.fn>; loadSnapshots: ReturnType<typeof vi.fn> }; subject: Subject<FeatureModelResponse> } {
     const subject = new Subject<FeatureModelResponse>();
     const service = {
         loadFeatureModel: vi.fn(() => subject.asObservable()),
+        loadSnapshots: vi.fn(() => of([])),
     };
     return { service, subject };
 }
 
-function configureComponent(serviceStub: { loadFeatureModel: ReturnType<typeof vi.fn> }): ComponentFixture<FeatureModelExplorerComponent> {
+function configureComponent(serviceStub: { loadFeatureModel: ReturnType<typeof vi.fn>; loadSnapshots: ReturnType<typeof vi.fn> }): ComponentFixture<FeatureModelExplorerComponent> {
     TestBed.configureTestingModule({
         imports: [FeatureModelExplorerComponent],
         providers: [{ provide: FeatureModelService, useValue: serviceStub }],
@@ -234,6 +235,7 @@ describe('FeatureModelExplorerComponent', () => {
     it('shows an error message when the API call fails', () => {
         const failingService = {
             loadFeatureModel: vi.fn(() => throwError(() => new Error('boom'))),
+            loadSnapshots: vi.fn(() => of([])),
         };
         TestBed.resetTestingModule();
         TestBed.configureTestingModule({

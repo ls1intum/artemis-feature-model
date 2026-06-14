@@ -58,3 +58,6 @@ gradle-app.setting
 .claude
 .mcp.json
 .codegraph
+
+# Local runtime feature model snapshot data
+/data/

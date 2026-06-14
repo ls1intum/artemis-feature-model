@@ -26,8 +26,32 @@ class GuidedWorkflowIntegrityServiceTest {
                 .hasMessageContaining("unknown feature 'missing-feature'");
     }
 
+    @Test
+    void rejectsWorkflowTargetingADifferentModelId() {
+        GuidedWorkflowMetadata mismatchedMetadata = new GuidedWorkflowMetadata("test-guided-workflow", "Test Guided Workflow", "0.0.1", "other-model", "0.0.1",
+                "custom");
+        GuidedWorkflow workflow = new GuidedWorkflow(mismatchedMetadata, List.of(validTemplate()), List.of(step()), List.of(reviewGroup()));
+
+        assertThatThrownBy(() -> service.validate(workflow, TestFeatureModels.baseModel())).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasMessageContaining("feature model id 'other-model'");
+    }
+
+    @Test
+    void rejectsWorkflowTargetingADifferentModelVersion() {
+        GuidedWorkflowMetadata mismatchedMetadata = new GuidedWorkflowMetadata("test-guided-workflow", "Test Guided Workflow", "0.0.1", "test-model", "9.9.9",
+                "custom");
+        GuidedWorkflow workflow = new GuidedWorkflow(mismatchedMetadata, List.of(validTemplate()), List.of(step()), List.of(reviewGroup()));
+
+        assertThatThrownBy(() -> service.validate(workflow, TestFeatureModels.baseModel())).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasMessageContaining("feature model version '9.9.9'");
+    }
+
     private GuidedWorkflowMetadata metadata() {
         return new GuidedWorkflowMetadata("test-guided-workflow", "Test Guided Workflow", "0.0.1", "test-model", "0.0.1", "custom");
+    }
+
+    private UseCaseTemplate validTemplate() {
+        return new UseCaseTemplate("custom", "Custom", "Synthetic custom template.", List.of("programming"), List.of(), List.of("review"), List.of(), List.of());
     }
 
     private UseCaseTemplate templateWithUnknownFeature() {

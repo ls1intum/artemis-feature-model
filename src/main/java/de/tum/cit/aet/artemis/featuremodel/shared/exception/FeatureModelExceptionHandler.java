@@ -39,4 +39,16 @@ public class FeatureModelExceptionHandler {
         Map<String, String> body = Map.of("code", "FEATURE_MODEL_LOAD_FAILED", "message", exception.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
+
+    /**
+     * Converts snapshot management exceptions to JSON error responses using the status the exception carries.
+     *
+     * @param exception snapshot exception.
+     * @return response entity with stable error code and message.
+     */
+    @ExceptionHandler(SnapshotException.class)
+    public ResponseEntity<Map<String, String>> handleSnapshotException(SnapshotException exception) {
+        log.warn("Snapshot exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
+        return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
+    }
 }

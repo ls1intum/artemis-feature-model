@@ -29,12 +29,16 @@ public class GuidedWorkflowIntegrityService {
 
     private static final String CODE_UNKNOWN_FEATURE = "UNKNOWN_GUIDED_WORKFLOW_FEATURE";
 
+    private static final String CODE_MODEL_ID_MISMATCH = "GUIDED_WORKFLOW_MODEL_ID_MISMATCH";
+
+    private static final String CODE_MODEL_VERSION_MISMATCH = "GUIDED_WORKFLOW_MODEL_VERSION_MISMATCH";
+
     /**
      * Validates a guided workflow against the active feature model.
      *
      * @param workflow guided workflow to validate.
      * @param featureModel feature model whose ids may be referenced by the workflow.
-     * @throws FeatureModelIntegrityException if the workflow contains duplicate ids or references unknown model concepts.
+     * @throws FeatureModelIntegrityException if the workflow targets a different model, contains duplicate ids, or references unknown model concepts.
      */
     public void validate(GuidedWorkflow workflow, FeatureModel featureModel) {
         Set<String> featureIds = featureIds(featureModel);
@@ -42,10 +46,34 @@ public class GuidedWorkflowIntegrityService {
         Set<String> reviewGroupIds = uniqueReviewGroupIds(workflow.finalReviewGroups());
         Set<String> templateIds = uniqueTemplateIds(workflow.useCaseTemplates());
 
+        validateModelMatch(workflow, featureModel);
         validateDefaultTemplate(workflow, templateIds);
         validateTemplateReferences(workflow.useCaseTemplates(), stepIds, featureIds);
         validateStepReferences(workflow.steps(), reviewGroupIds, featureIds);
         validateReviewGroupReferences(workflow.finalReviewGroups(), featureIds);
+    }
+
+    /**
+     * Checks that the workflow targets the active feature model. The id and version are only compared when both the
+     * workflow and the model declare them, so synthetic models without lifecycle metadata are not rejected.
+     *
+     * @param workflow guided workflow to validate.
+     * @param featureModel active feature model.
+     * @throws FeatureModelIntegrityException if the workflow targets a different feature model id or version.
+     */
+    private void validateModelMatch(GuidedWorkflow workflow, FeatureModel featureModel) {
+        String workflowModelId = workflow.workflow().featureModelId();
+        String modelId = featureModel.model().id();
+        if (workflowModelId != null && modelId != null && !workflowModelId.equals(modelId)) {
+            throw new FeatureModelIntegrityException(CODE_MODEL_ID_MISMATCH,
+                    "Guided workflow targets feature model id '" + workflowModelId + "' but the active model id is '" + modelId + "'.");
+        }
+        String workflowModelVersion = workflow.workflow().featureModelVersion();
+        String modelVersion = featureModel.model().version();
+        if (workflowModelVersion != null && modelVersion != null && !workflowModelVersion.equals(modelVersion)) {
+            throw new FeatureModelIntegrityException(CODE_MODEL_VERSION_MISMATCH,
+                    "Guided workflow targets feature model version '" + workflowModelVersion + "' but the active model version is '" + modelVersion + "'.");
+        }
     }
 
     /**
