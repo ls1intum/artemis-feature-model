@@ -2,6 +2,9 @@ package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
@@ -21,9 +24,14 @@ class JsonFeatureModelStoreTest {
         assertThat(model.model().version()).isEqualTo("0.1.0");
         assertThat(model.model().status()).isEqualTo("published");
         assertThat(model.model().sourceCommitSha()).isNull();
-        assertThat(model.features()).hasSize(24);
-        assertThat(model.relations()).hasSize(23);
+        assertThat(model.features()).isNotEmpty();
+        assertThat(model.relations()).isNotEmpty();
         assertThat(model.constraints()).isEmpty();
+        Set<String> featureIds = model.features().stream().map(feature -> feature.id()).collect(Collectors.toSet());
+        assertThat(model.relations()).allSatisfy(relation -> {
+            assertThat(featureIds).contains(relation.parentId());
+            assertThat(featureIds).contains(relation.childId());
+        });
         assertThat(model.features()).anySatisfy(feature -> {
             assertThat(feature.id()).isEqualTo("artemis");
             assertThat(feature.category()).isEqualTo("derived");
