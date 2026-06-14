@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
+import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
 import {
@@ -34,6 +35,10 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly featureNamesById = input.required<ReadonlyMap<string, string>>();
     readonly changedDecisionSummaries = input.required<DecisionChangeSummary[]>();
     readonly reviewGroups = input.required<ReviewGroupSummary[]>();
+    readonly activeProfile = input<DeploymentProfileSummary | undefined>(undefined);
+    readonly optionAvailabilityById = input.required<ReadonlyMap<string, OptionAvailability>>();
+    readonly profileDependentFeatures = input.required<FeatureAvailability[]>();
+    readonly reconciliationNote = input<string | undefined>(undefined);
     readonly workflowWarnings = input.required<string[]>();
     readonly localizedViolations = input.required<LocalizedViolation[]>();
     readonly localizedWarnings = input.required<LocalizedWarning[]>();
@@ -57,6 +62,9 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 
     onToggleDecisionOption(decision: GuidedDecision, option: GuidedDecisionOption): void {
+        if (!this.isOptionAvailable(option)) {
+            return;
+        }
         this.toggleDecisionOption.emit({ decision, option });
     }
 
@@ -64,15 +72,24 @@ export class GuidedConfiguratorWorkflowComponent {
         return this.selectedDecisionOptionIds().get(decision.id)?.has(option.id) ?? false;
     }
 
+    /** True unless the active profile marks the option unavailable; unknown options default to available. */
+    isOptionAvailable(option: GuidedDecisionOption): boolean {
+        return this.optionAvailabilityById().get(option.id)?.available ?? true;
+    }
+
     optionFeatureNames(option: GuidedDecisionOption): string[] {
         const names = this.featureNamesById();
         return option.selects.map((id) => names.get(id) ?? id);
     }
 
-    /** Converts technical capability metadata into a regular-user availability message. */
+    /** Builds the regular-user availability message for an option without exposing raw capability ids. */
     optionAvailabilityText(option: GuidedDecisionOption): string {
+        const availability = this.optionAvailabilityById().get(option.id);
+        if (availability && !availability.available) {
+            return availability.teacherReason ?? 'Not available in the current deployment profile.';
+        }
         if (option.requiresCapabilities.length > 0) {
-            return 'Requires administrator setup before course users can rely on it.';
+            return 'Supported by the current deployment profile.';
         }
         return 'Available';
     }

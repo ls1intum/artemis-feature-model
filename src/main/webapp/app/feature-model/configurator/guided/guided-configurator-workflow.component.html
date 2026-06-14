@@ -91,7 +91,9 @@
                                     type="button"
                                     class="option-card"
                                     [class.option-card--selected]="isOptionSelected(decision, option)"
-                                    [class.option-card--requires-profile]="option.requiresCapabilities.length > 0"
+                                    [class.option-card--requires-profile]="option.requiresCapabilities.length > 0 && isOptionAvailable(option)"
+                                    [class.option-card--unavailable]="!isOptionAvailable(option)"
+                                    [disabled]="!isOptionAvailable(option)"
                                     (click)="onToggleDecisionOption(decision, option)"
                                     (focus)="focusOption.emit(option.id)"
                                     [attr.data-testid]="'option-card-' + option.id"
@@ -100,8 +102,10 @@
                                         <span class="option-card__title">{{ option.label }}</span>
                                         @if (isOptionSelected(decision, option)) {
                                             <span class="badge text-bg-success">Selected</span>
+                                        } @else if (!isOptionAvailable(option)) {
+                                            <span class="badge text-bg-secondary">Unavailable</span>
                                         } @else if (option.requiresCapabilities.length > 0) {
-                                            <span class="badge text-bg-warning">Profile needed</span>
+                                            <span class="badge text-bg-info">Profile-backed</span>
                                         }
                                     </span>
                                     <span class="option-card__description">{{ option.description }}</span>
@@ -112,8 +116,12 @@
                                             }
                                         </span>
                                     }
-                                    @if (option.requiresCapabilities.length > 0) {
-                                        <span class="option-card__availability" data-testid="option-unavailable-reason">
+                                    @if (!isOptionAvailable(option)) {
+                                        <span class="option-card__availability option-card__availability--unavailable" data-testid="option-unavailable-reason">
+                                            {{ optionAvailabilityText(option) }}
+                                        </span>
+                                    } @else if (option.requiresCapabilities.length > 0) {
+                                        <span class="option-card__availability" data-testid="option-availability-note">
                                             {{ optionAvailabilityText(option) }}
                                         </span>
                                     }
@@ -277,8 +285,16 @@
     <section class="review-screen" aria-label="Final review" data-testid="review-screen">
         <div class="section-heading">
             <h2>Review configuration</h2>
-            <p>Active profile: Placeholder profile for mvp</p>
+            @if (activeProfile(); as profile) {
+                <p data-testid="review-active-profile">Active deployment profile: <strong>{{ profile.name }}</strong></p>
+            } @else {
+                <p>Active deployment profile: not loaded.</p>
+            }
         </div>
+
+        @if (reconciliationNote(); as note) {
+            <div class="alert alert-warning" role="alert" data-testid="profile-reconciliation-note">{{ note }}</div>
+        }
 
         <div class="review-layout">
             <main>
@@ -331,6 +347,29 @@
                         </ul>
                     } @else {
                         <p class="muted">No guided warnings are active.</p>
+                    }
+                </section>
+
+                <section class="review-section" data-testid="profile-dependent-features">
+                    <h3>Profile-dependent features</h3>
+                    @if (profileDependentFeatures().length > 0) {
+                        <ul class="profile-feature-list">
+                            @for (feature of profileDependentFeatures(); track feature.featureId) {
+                                <li [class.profile-feature--unavailable]="!feature.available" data-testid="profile-dependent-feature">
+                                    <span class="profile-feature__name">{{ feature.featureName }}</span>
+                                    @if (feature.available) {
+                                        <span class="badge text-bg-success">Available</span>
+                                    } @else {
+                                        <span class="badge text-bg-secondary">Unavailable</span>
+                                        @if (feature.teacherReason) {
+                                            <span class="profile-feature__reason">{{ feature.teacherReason }}</span>
+                                        }
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    } @else {
+                        <p class="muted">No features depend on the active deployment profile.</p>
                     }
                 </section>
 

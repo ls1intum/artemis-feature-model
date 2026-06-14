@@ -4,13 +4,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
+import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse, buildWorkflowAvailabilityFixture } from '../core/feature-model.test-fixtures';
+import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { FeatureModelConfiguratorComponent } from './feature-model-configurator.component';
 
 const MODEL_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_URL = '/api/feature-model/guided-workflow';
+const PROFILE_AVAILABILITY_URL = '/api/feature-model/profile-availability';
 const VALIDATE_URL = '/api/feature-model/validate';
 const TUTORIAL_SEEN_KEY =
     'artemis.configurator.tutorial.seen:artemis-guided-configuration:0.1.0:artemis-functional-feature-tree:0.1.0';
@@ -46,6 +48,7 @@ function flushInitialLoads(
     httpMock: HttpTestingController,
     response: FeatureModelResponse = buildMvpFeatureModelResponse(),
     workflow: GuidedWorkflow = buildGuidedWorkflowFixture(),
+    availability: WorkflowAvailability = buildWorkflowAvailabilityFixture(),
 ): ValidationRequest {
     fixture.detectChanges();
 
@@ -56,6 +59,10 @@ function flushInitialLoads(
     const workflowRequest = httpMock.expectOne(GUIDED_WORKFLOW_URL);
     expect(workflowRequest.request.method).toBe('GET');
     workflowRequest.flush(workflow);
+
+    const availabilityRequest = httpMock.expectOne(PROFILE_AVAILABILITY_URL);
+    expect(availabilityRequest.request.method).toBe('GET');
+    availabilityRequest.flush(availability);
 
     fixture.detectChanges();
     return flushValidation(httpMock, validResult(response.defaultSelectedFeatureIds));
@@ -110,10 +117,11 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="advanced-explorer-link"]')).toBeNull();
     });
 
-    it('renders an error panel when either guided load request fails', () => {
+    it('renders an error panel when any initial load request fails', () => {
         markTutorialSeen();
         fixture.detectChanges();
         httpMock.expectOne(MODEL_URL).flush(buildMvpFeatureModelResponse());
+        httpMock.expectOne(PROFILE_AVAILABILITY_URL).flush(buildWorkflowAvailabilityFixture());
         httpMock.expectOne(GUIDED_WORKFLOW_URL).flush('Boom', { status: 500, statusText: 'Server Error' });
         fixture.detectChanges();
 
@@ -181,7 +189,8 @@ describe('FeatureModelConfiguratorComponent', () => {
 
     it('shows regular-user guidance for the active decision option', () => {
         markTutorialSeen();
-        flushInitialLoads(fixture, httpMock);
+        // Load the AI-enabled profile so Iris is available and its guidance can be inspected.
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture({ aiEnabled: true }));
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
         fixture.detectChanges();
@@ -195,22 +204,41 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(impact?.textContent).toContain('Students and instructors can receive AI tutoring support.');
         expect(impact?.textContent).toContain('Recommended when');
         expect(impact?.textContent).toContain('Things to know');
-        expect(impact?.textContent).toContain('Requires administrator setup');
         expect(impact?.textContent).not.toContain('pyris-service');
         expect(impact?.textContent).not.toContain('artemis.iris.enabled');
     });
 
-    it('shows readable availability reasons for options that require profile capabilities', () => {
+    it('disables options with a readable reason when the active profile lacks their capabilities', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
         fixture.detectChanges();
 
+        const irisCard = rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement;
+        expect(irisCard.disabled).toBe(true);
+        expect(irisCard.classList).toContain('option-card--unavailable');
+
         const reason = rootEl(fixture).querySelector('[data-testid="option-unavailable-reason"]');
-        expect(reason?.textContent).toContain('Requires administrator setup');
+        expect(reason?.textContent).toContain('not available in the current deployment profile');
         expect(reason?.textContent).not.toContain('pyris-service');
         expect(reason?.textContent).not.toContain('pyris-secret');
+    });
+
+    it('prevents selecting an unavailable option through the guided card', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(2);
+        fixture.detectChanges();
+
+        const irisCard = rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement;
+        irisCard.click();
+        fixture.detectChanges();
+
+        // No validation request is issued because the disabled option cannot change the selection.
+        httpMock.expectNone(VALIDATE_URL);
+        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
     });
 
     it('renders validation feedback after selection changes', () => {
@@ -244,7 +272,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(violationsPanel?.textContent).toContain('Enable Programming.');
     });
 
-    it('summarizes selected features, warnings, validation, and artifact handoff on the review page', () => {
+    it('shows the active profile and profile-dependent features on the review page', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'template-card-ai-enabled-course');
@@ -255,10 +283,59 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         const review = rootEl(fixture).querySelector('[data-testid="review-screen"]');
         expect(review).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="selected-features-summary"]')?.textContent).toContain('Iris');
-        expect(rootEl(fixture).querySelector('[data-testid="warning-summary"]')?.textContent).toContain('AI options are only usable');
+        expect(rootEl(fixture).querySelector('[data-testid="review-active-profile"]')?.textContent).toContain('Default Teacher Deployment Profile');
+
+        // Iris is profile-dependent and unavailable under the default profile, so it is reported but not selected.
+        const profileDependent = rootEl(fixture).querySelector('[data-testid="profile-dependent-features"]');
+        expect(profileDependent?.textContent).toContain('Iris');
+        expect(profileDependent?.textContent).toContain('Unavailable');
+        expect(rootEl(fixture).querySelector('[data-testid="selected-features-summary"]')?.textContent).not.toContain('Iris');
+
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
         expect(rootEl(fixture).querySelector('[data-testid="artifact-next-step"]')?.textContent).toContain('reserved for the next phase');
+    });
+
+    it('switches profile, enabling AI options and reconciling the selection', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        // Default profile disables Iris.
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(2);
+        fixture.detectChanges();
+        expect((rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement).disabled).toBe(true);
+
+        // Switch to the AI-enabled profile through the header selector.
+        const select = rootEl(fixture).querySelector('[data-testid="profile-select"]') as HTMLSelectElement;
+        select.value = 'ai-enabled-profile';
+        select.dispatchEvent(new Event('change'));
+        const availabilityRequest = httpMock.expectOne((request) => request.url === PROFILE_AVAILABILITY_URL && request.params.get('profileId') === 'ai-enabled-profile');
+        expect(availabilityRequest.request.method).toBe('GET');
+        availabilityRequest.flush(buildWorkflowAvailabilityFixture({ aiEnabled: true }));
+        fixture.detectChanges();
+
+        expect((rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('shows exact missing capability ids in the advanced tree debug view', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'advanced-tree-button');
+        clickByTestId(fixture, 'tree-expand-all');
+        const irisNode = rootEl(fixture).querySelector('.diagram-node[data-feature-id="iris"]');
+        (irisNode as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        // Toggling the unavailable Iris node reconciles it back out and revalidates the unchanged selection.
+        flushValidation(httpMock, validResult());
+        fixture.detectChanges();
+
+        const profileAvailability = rootEl(fixture).querySelector('[data-testid="tree-profile-availability"]');
+        expect(profileAvailability?.textContent).toContain('Unavailable');
+        const missing = rootEl(fixture).querySelector('[data-testid="tree-missing-capabilities"]');
+        expect(missing?.textContent).toContain('pyris-service');
+        expect(missing?.textContent).toContain('pyris-secret');
     });
 
     it('opens an in-configurator tree view that reflects and updates the current selection', () => {

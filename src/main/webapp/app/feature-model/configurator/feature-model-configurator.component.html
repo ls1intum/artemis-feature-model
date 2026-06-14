@@ -9,6 +9,22 @@
             }
         </div>
         <div class="header-actions">
+            @if (availableProfiles().length > 0) {
+                <div class="profile-selector" data-testid="profile-selector">
+                    <label for="deployment-profile-select">Deployment profile</label>
+                    <select
+                        id="deployment-profile-select"
+                        class="form-select form-select-sm"
+                        [value]="activeProfileId()"
+                        (change)="onSelectProfile($any($event.target).value)"
+                        data-testid="profile-select"
+                    >
+                        @for (profile of availableProfiles(); track profile.id) {
+                            <option [value]="profile.id">{{ profile.name }}</option>
+                        }
+                    </select>
+                </div>
+            }
             @if (response()) {
                 <span class="selection-count"><strong data-testid="selected-count">{{ selectedCount() }}</strong> selected</span>
             }
@@ -52,6 +68,8 @@
                 [localizedViolations]="localizedViolations()"
                 [localizedWarnings]="localizedWarnings()"
                 [guidedOptions]="guidedOptions()"
+                [featureAvailabilityById]="featureAvailabilityById()"
+                [activeProfile]="activeProfile()"
                 [validationLoading]="validationLoading()"
                 [validationErrorMessage]="validationErrorMessage()"
                 [hasValidationResult]="hasValidationResult()"
@@ -75,6 +93,10 @@
                 [featureNamesById]="featureNamesById()"
                 [changedDecisionSummaries]="changedDecisionSummaries()"
                 [reviewGroups]="reviewGroups()"
+                [activeProfile]="activeProfile()"
+                [optionAvailabilityById]="optionAvailabilityById()"
+                [profileDependentFeatures]="profileDependentFeatures()"
+                [reconciliationNote]="profileReconciliationNote()"
                 [workflowWarnings]="workflowWarnings()"
                 [localizedViolations]="localizedViolations()"
                 [localizedWarnings]="localizedWarnings()"

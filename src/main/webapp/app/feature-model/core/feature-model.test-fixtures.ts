@@ -1,3 +1,4 @@
+import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from './deployment-profile.types';
 import {
     DefaultState,
     Feature,
@@ -11,7 +12,7 @@ import {
     Relation,
     RelationType,
 } from './feature-model.types';
-import { GuidedWorkflow } from './guided-workflow.types';
+import { GuidedDecisionOption, GuidedWorkflow } from './guided-workflow.types';
 
 interface FeatureSpec {
     id: string;
@@ -321,6 +322,88 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
         ],
     };
     return { ...workflow, ...overrides };
+}
+
+const AI_PROFILE_CAPABILITIES = ['pyris-service', 'pyris-secret', 'hyperion-service', 'athena-service', 'athena-secret'];
+
+const DEFAULT_TEACHER_PROFILE_SUMMARY: DeploymentProfileSummary = {
+    id: 'default-teacher-profile',
+    name: 'Default Teacher Deployment Profile',
+    version: '1.0.0',
+    status: 'published',
+    defaultProfile: true,
+};
+
+const AI_ENABLED_PROFILE_SUMMARY: DeploymentProfileSummary = {
+    id: 'ai-enabled-profile',
+    name: 'AI-enabled Artemis Deployment Profile',
+    version: '1.0.0',
+    status: 'published',
+    defaultProfile: false,
+};
+
+/**
+ * Builds profile-aware availability derived from the model and guided workflow fixtures, mirroring the backend
+ * CapabilityResolutionService. When `aiEnabled` is true the AI capabilities are provided so Iris-style options become
+ * available; otherwise the default teacher profile provides none of them.
+ */
+export function buildWorkflowAvailabilityFixture(options: { aiEnabled?: boolean } = {}): WorkflowAvailability {
+    const aiEnabled = options.aiEnabled ?? false;
+    const provided = aiEnabled ? [...AI_PROFILE_CAPABILITIES] : [];
+    const allOptions = buildGuidedWorkflowFixture().steps.flatMap((step) => step.decisions.flatMap((decision) => decision.options));
+
+    const optionAvailability: OptionAvailability[] = allOptions.map((option) => availabilityForOption(option, provided));
+    const requiredByFeature = aggregateRequiredCapabilitiesByFeature(allOptions);
+    const featureAvailability: FeatureAvailability[] = buildMvpFeatureModelResponse().features.map((feature) =>
+        availabilityForFeature(feature, requiredByFeature.get(feature.id) ?? [], provided),
+    );
+
+    return {
+        activeProfile: aiEnabled ? AI_ENABLED_PROFILE_SUMMARY : DEFAULT_TEACHER_PROFILE_SUMMARY,
+        availableProfiles: [AI_ENABLED_PROFILE_SUMMARY, DEFAULT_TEACHER_PROFILE_SUMMARY],
+        options: optionAvailability,
+        features: featureAvailability,
+    };
+}
+
+function availabilityForOption(option: GuidedDecisionOption, provided: string[]): OptionAvailability {
+    const missing = option.requiresCapabilities.filter((capability) => !provided.includes(capability));
+    const available = missing.length === 0;
+    return {
+        optionId: option.id,
+        available,
+        requiredCapabilities: [...option.requiresCapabilities],
+        missingCapabilities: missing,
+        teacherReason: available ? null : 'This option is not available in the current deployment profile.',
+    };
+}
+
+function aggregateRequiredCapabilitiesByFeature(allOptions: GuidedDecisionOption[]): Map<string, string[]> {
+    const requiredByFeature = new Map<string, string[]>();
+    for (const option of allOptions) {
+        if (option.requiresCapabilities.length === 0) {
+            continue;
+        }
+        for (const featureId of option.selects) {
+            const existing = requiredByFeature.get(featureId) ?? [];
+            requiredByFeature.set(featureId, [...new Set([...existing, ...option.requiresCapabilities])]);
+        }
+    }
+    return requiredByFeature;
+}
+
+function availabilityForFeature(feature: Feature, required: string[], provided: string[]): FeatureAvailability {
+    const missing = required.filter((capability) => !provided.includes(capability));
+    const available = missing.length === 0;
+    return {
+        featureId: feature.id,
+        featureName: feature.name,
+        available,
+        profileDependent: required.length > 0,
+        requiredCapabilities: required,
+        missingCapabilities: missing,
+        teacherReason: available ? null : `${feature.name} is not available in the current deployment profile.`,
+    };
 }
 
 function toFeature(spec: FeatureSpec): Feature {

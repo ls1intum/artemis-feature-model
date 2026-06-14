@@ -141,6 +141,32 @@
                     }
                 </section>
 
+                <section class="details-section" data-testid="tree-profile-availability">
+                    <h4>Deployment profile availability</h4>
+                    @if (selectedFeatureAvailability(); as availability) {
+                        <p>
+                            @if (activeProfile(); as profile) {
+                                <span class="text-muted">Profile <code>{{ profile.id }}</code>: </span>
+                            }
+                            @if (availability.available) {
+                                <span class="badge text-bg-success" data-testid="tree-availability-state">Available</span>
+                            } @else {
+                                <span class="badge text-bg-secondary" data-testid="tree-availability-state">Unavailable</span>
+                            }
+                        </p>
+                        @if (availability.missingCapabilities.length > 0) {
+                            <p class="text-muted">Missing capabilities:</p>
+                            <ul data-testid="tree-missing-capabilities">
+                                @for (capability of availability.missingCapabilities; track capability) {
+                                    <li><code>{{ capability }}</code></li>
+                                }
+                            </ul>
+                        }
+                    } @else {
+                        <p class="muted">No profile availability is computed for this node.</p>
+                    }
+                </section>
+
                 <section class="details-section" data-testid="tree-artifact-impact">
                     <h4>Artifact impact</h4>
                     @if (relatedArtifactImpacts().length > 0) {

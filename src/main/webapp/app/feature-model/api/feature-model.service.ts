@@ -2,12 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { SnapshotSummary } from '../core/snapshot.types';
 
 const FEATURE_MODEL_RESOURCE_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_RESOURCE_URL = '/api/feature-model/guided-workflow';
+const PROFILE_AVAILABILITY_RESOURCE_URL = '/api/feature-model/profile-availability';
 const SNAPSHOTS_RESOURCE_URL = '/api/feature-model/snapshots';
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +34,19 @@ export class FeatureModelService {
      */
     loadGuidedWorkflow(): Observable<GuidedWorkflow> {
         return this.http.get<GuidedWorkflow>(GUIDED_WORKFLOW_RESOURCE_URL);
+    }
+
+    /**
+     * Issues `GET /api/feature-model/profile-availability` and returns profile-aware availability of the active
+     * guided workflow and feature model. Resolves against the requested profile, or the default profile when no id
+     * is given.
+     *
+     * @param profileId Optional profile id to resolve availability against.
+     * @returns Observable that emits the workflow availability once and completes.
+     */
+    loadWorkflowAvailability(profileId?: string): Observable<WorkflowAvailability> {
+        const options = profileId ? { params: { profileId } } : {};
+        return this.http.get<WorkflowAvailability>(PROFILE_AVAILABILITY_RESOURCE_URL, options);
     }
 
     /**

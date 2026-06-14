@@ -6,6 +6,7 @@ import {
     filterTreeByQuery,
     findNodeById,
 } from '../../core/feature-model-tree.utils';
+import { DeploymentProfileSummary, FeatureAvailability } from '../../core/deployment-profile.types';
 import { Feature, FeatureTreeNode, IncomingRelation } from '../../core/feature-model.types';
 import { GuidedDecisionOption } from '../../core/guided-workflow.types';
 import { FeatureModelDiagramComponent } from '../../explorer/feature-model-diagram.component';
@@ -28,6 +29,8 @@ export class ConfiguratorTreeComponent {
     readonly localizedViolations = input.required<LocalizedViolation[]>();
     readonly localizedWarnings = input.required<LocalizedWarning[]>();
     readonly guidedOptions = input.required<GuidedDecisionOption[]>();
+    readonly featureAvailabilityById = input.required<ReadonlyMap<string, FeatureAvailability>>();
+    readonly activeProfile = input<DeploymentProfileSummary | undefined>(undefined);
     readonly validationLoading = input.required<boolean>();
     readonly validationErrorMessage = input<string | undefined>(undefined);
     readonly hasValidationResult = input.required<boolean>();
@@ -114,6 +117,11 @@ export class ConfiguratorTreeComponent {
             }
         }
         return [...requirements];
+    });
+    /** Profile-aware availability of the selected feature, for the advanced debug view. */
+    readonly selectedFeatureAvailability = computed<FeatureAvailability | undefined>(() => {
+        const id = this.selectedFeatureId();
+        return id ? this.featureAvailabilityById().get(id) : undefined;
     });
     /** Shows artifact impact metadata only in the advanced tree view. */
     readonly relatedArtifactImpacts = computed<string[]>(() => {

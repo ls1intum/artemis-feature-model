@@ -87,6 +87,22 @@
     border-style: dashed;
 }
 
+.option-card--unavailable,
+.option-card:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    background: var(--bs-secondary-bg);
+}
+
+.option-card--unavailable:hover {
+    border-color: var(--bs-border-color);
+    box-shadow: none;
+}
+
+.option-card__availability--unavailable {
+    color: var(--bs-danger-text-emphasis);
+}
+
 .template-card__title,
 .option-card__title {
     font-weight: 700;
@@ -277,6 +293,32 @@
     margin-bottom: 0.5rem;
     font-size: 0.9rem;
     color: var(--bs-secondary-color);
+}
+
+.profile-feature-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.profile-feature-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.profile-feature__name {
+    font-weight: 600;
+}
+
+.profile-feature__reason {
+    flex-basis: 100%;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
 }
 
 .flow-actions {
