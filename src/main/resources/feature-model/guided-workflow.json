@@ -25,7 +25,8 @@
         "iris",
         "hyperion",
         "lti",
-        "theia"
+        "theia",
+        "sharing"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -57,7 +58,8 @@
         "athena",
         "iris",
         "hyperion",
-        "lti"
+        "lti",
+        "sharing"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -93,7 +95,8 @@
         "iris",
         "hyperion",
         "lti",
-        "theia"
+        "theia",
+        "sharing"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -127,7 +130,8 @@
         "iris",
         "hyperion",
         "lti",
-        "theia"
+        "theia",
+        "sharing"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -159,7 +163,8 @@
         "hyperion"
       ],
       "deselectedFeatureIds": [
-        "lti"
+        "lti",
+        "sharing"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -374,7 +379,7 @@
               "artifactImpacts": [
                 "Sets artemis.text.enabled = true in the generated external configuration overlay.",
                 "Sets artemis.modeling.enabled = true in the generated external configuration overlay.",
-                "Sets artemis.file-upload.enabled = true in the generated external configuration overlay."
+                "Sets artemis.fileupload.enabled = true in the generated external configuration overlay."
               ],
               "warnings": [],
               "enabledOutcome": [
@@ -482,7 +487,7 @@
                 "Requires an Athena service endpoint and secret reference in the active deployment profile."
               ],
               "artifactImpacts": [
-                "Activates the athena Spring profile or equivalent generated overlay entry when artifact generation is implemented."
+                "Sets artemis.athena.enabled = true in the generated external configuration overlay."
               ],
               "warnings": [
                 "Only available when the active deployment profile provides Athena support."
@@ -508,7 +513,7 @@
       "id": "ai-and-integrations",
       "title": "AI and Integrations",
       "order": 5,
-      "description": "Configure adaptive learning, AI tutoring, LTI, and online IDE integration features.",
+      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, and sharing integration features.",
       "decisions": [
         {
           "id": "ai-feature-selection",
@@ -620,7 +625,7 @@
         {
           "id": "integration-feature-selection",
           "question": "Which platform integrations should be enabled?",
-          "description": "Integration choices connect Artemis to external learning tools or IDE services.",
+          "description": "Integration choices connect Artemis to external learning tools, IDE services, or exercise sharing platforms.",
           "selectionMode": "multiple",
           "reviewGroupId": "integrations",
           "options": [
@@ -688,6 +693,40 @@
               "thingsToKnow": [
                 "EduIDE support requires administrator-provided infrastructure.",
                 "Students may still choose a local IDE when the course allows it."
+              ]
+            },
+            {
+              "id": "enable-sharing",
+              "label": "Enable Sharing Platform",
+              "description": "Enable programming exercise import and export through the external Sharing Platform.",
+              "selects": [
+                "sharing"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "sharing-platform-registration",
+                "sharing-secret"
+              ],
+              "consequences": [
+                "Allows instructors to exchange programming exercises with the external Sharing Platform."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.sharing.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": [
+                "Sharing requires administrator-provided platform connection data and a shared secret."
+              ],
+              "enabledOutcome": [
+                "Instructors can import shared programming exercises and export their own exercises to a connected Sharing Platform.",
+                "Course teams can reuse exercises across Artemis installations when the external platform is configured."
+              ],
+              "recommendedWhen": [
+                "Your course team collaborates with other Artemis installations or wants to reuse shared programming exercises.",
+                "Administrators can provide the Sharing Platform URL and shared secret."
+              ],
+              "thingsToKnow": [
+                "Sharing focuses on programming exercise exchange, not general course content synchronization.",
+                "The integration is useful only when a compatible external Sharing Platform is available."
               ]
             }
           ]
@@ -760,7 +799,8 @@
       "order": 5,
       "featureIds": [
         "lti",
-        "theia"
+        "theia",
+        "sharing"
       ]
     }
   ]

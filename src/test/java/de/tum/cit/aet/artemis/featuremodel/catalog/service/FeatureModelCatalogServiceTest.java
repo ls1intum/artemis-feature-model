@@ -27,13 +27,14 @@ class FeatureModelCatalogServiceTest {
 
     @Test
     void activeModelResponseContainsSourceModelAndDerivedData() {
+        var model = service.loadActiveModel();
         var response = service.getActiveFeatureModelResponse();
 
         assertThat(response.model().name()).isEqualTo("Artemis Functional Feature Tree");
         assertThat(response.model().status()).isEqualTo("published");
         assertThat(response.model().sourceCommitSha()).isNull();
-        assertThat(response.features()).hasSize(24);
-        assertThat(response.relations()).hasSize(23);
+        assertThat(response.features()).hasSameSizeAs(model.features());
+        assertThat(response.relations()).hasSameSizeAs(model.relations());
         assertThat(response.constraints()).isEmpty();
         assertThat(response.tree().feature().id()).isEqualTo("artemis");
         assertThat(response.tree().feature().category()).isEqualTo("derived");

@@ -17,11 +17,12 @@ class FeatureModelTreeServiceTest {
 
     @Test
     void buildsSingleRootTreeContainingAllFeatures() {
-        FeatureTreeNodeDTO tree = service.buildTree(store.loadActiveModel());
+        var model = store.loadActiveModel();
+        FeatureTreeNodeDTO tree = service.buildTree(model);
 
         assertThat(tree.feature().id()).isEqualTo("artemis");
         assertThat(tree.incomingRelation()).isNull();
-        assertThat(countNodes(tree)).isEqualTo(24);
+        assertThat(countNodes(tree)).isEqualTo(model.features().size());
     }
 
     @Test
