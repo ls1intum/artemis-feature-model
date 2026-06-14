@@ -404,7 +404,7 @@
       "description": "Optional exercise module with a module switch and MODULE_FEATURE_FILEUPLOAD; ordinary core deployments enable it by default.",
       "defaultState": "enabled",
       "source": {
-        "configKey": "artemis.file-upload.enabled",
+        "configKey": "artemis.fileupload.enabled",
         "frontendConstant": "MODULE_FEATURE_FILEUPLOAD",
         "backendConditionClass": "FileUploadEnabled",
         "evidence": [
@@ -426,7 +426,7 @@
       "artifactMappings": [
         {
           "target": "application-core.yml",
-          "path": "artemis.file-upload.enabled",
+          "path": "artemis.fileupload.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
@@ -546,15 +546,18 @@
       "name": "Athena",
       "kind": "module",
       "selectable": true,
-      "description": "Optional assessment support integration activated by the athena Spring profile and external Athena URL/secret, not a required core module.",
+      "description": "Optional assessment support integration controlled by artemis.athena.enabled and external Athena URL/secret, not a required core module.",
       "defaultState": "disabled",
       "source": {
-        "springProfile": "athena",
+        "configKey": "artemis.athena.enabled",
+        "frontendConstant": "MODULE_FEATURE_ATHENA",
+        "backendConditionClass": "AthenaEnabled",
         "evidence": [
-          "Constants.java:320",
-          "AthenaResource.java:49",
-          "AthenaModuleService.java:37,40,44",
-          "application-artemis.yml:84-87"
+          "Constants.java:438-440,537-540",
+          "AthenaEnabled.java:13,23",
+          "AthenaResource.java:50",
+          "AthenaModuleService.java:35,38",
+          "application-core.yml:36-37"
         ]
       },
       "category": "functional",
@@ -567,7 +570,15 @@
         "maintainer"
       ],
       "requiresCapabilities": [],
-      "artifactMappings": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.athena.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
       "extraction": {
         "method": "manual-curation",
         "confidence": "high",
@@ -726,7 +737,7 @@
       "name": "Platform Integrations",
       "kind": "group",
       "selectable": false,
-      "description": "Visual domain group for optional LMS and IDE integrations.",
+      "description": "Visual domain group for optional LMS, IDE, and exercise sharing integrations.",
       "defaultState": "not_applicable",
       "category": "derived",
       "visibleTo": [
@@ -814,6 +825,50 @@
         {
           "target": "application.yml",
           "path": "artemis.theia.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
+    },
+    {
+      "id": "sharing",
+      "name": "Sharing Platform",
+      "kind": "module",
+      "selectable": true,
+      "description": "Optional integration for importing and exporting programming exercises through the external Sharing Platform.",
+      "defaultState": "disabled",
+      "source": {
+        "configKey": "artemis.sharing.enabled",
+        "frontendConstant": "MODULE_FEATURE_SHARING",
+        "backendConditionClass": "SharingEnabled",
+        "evidence": [
+          "Constants.java:428-430,527-530",
+          "SharingEnabled.java:13,23",
+          "ExerciseSharingResource.java:45-55",
+          "programming-exercise-management.route.ts:62-72",
+          "application-core.yml:22-30"
+        ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.sharing.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
@@ -969,6 +1024,12 @@
       "childId": "theia",
       "relationType": "optional",
       "order": 2
+    },
+    {
+      "parentId": "platform-integrations",
+      "childId": "sharing",
+      "relationType": "optional",
+      "order": 3
     }
   ],
   "constraints": []
