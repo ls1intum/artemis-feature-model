@@ -16,9 +16,10 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileExc
  * Read-only service over the deployment profile repository.
  *
  * <p>
- * The prototype has no authentication or per-user profile selection, so the default profile is a fixed prototype
- * assumption: {@code default-teacher-profile} when present, otherwise the first profile by id. The default profile is
- * what the guided Configurator resolves availability against when no explicit profile is chosen.
+ * The prototype has no authentication or per-user profile selection. Teachers configure only functional features, so a
+ * single bundled deployment context is used: {@code default-artemis-profile} when present, otherwise the first profile
+ * by id. The default profile is what the guided Configurator resolves availability against; the regular UI never asks
+ * the user to choose a profile.
  */
 @Service
 public class DeploymentProfileService {
@@ -26,7 +27,7 @@ public class DeploymentProfileService {
     private static final Logger log = LoggerFactory.getLogger(DeploymentProfileService.class);
 
     /** Fixed prototype default profile id, used when present among the loaded profiles. */
-    static final String DEFAULT_PROFILE_ID = "default-teacher-profile";
+    static final String DEFAULT_PROFILE_ID = "default-artemis-profile";
 
     private final DeploymentProfileRepository repository;
 

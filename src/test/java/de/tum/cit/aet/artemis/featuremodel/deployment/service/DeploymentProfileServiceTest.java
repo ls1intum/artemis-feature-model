@@ -23,22 +23,21 @@ class DeploymentProfileServiceTest {
     Path dataRoot;
 
     @Test
-    void listProfilesFlagsTheDefaultProfile() {
+    void listProfilesFlagsTheSingleBundledProfileAsDefault() {
         List<DeploymentProfileSummaryDTO> summaries = service().listProfiles();
 
-        assertThat(summaries).filteredOn(summary -> summary.id().equals("default-teacher-profile")).singleElement()
+        assertThat(summaries).filteredOn(summary -> summary.id().equals("default-artemis-profile")).singleElement()
                 .satisfies(summary -> assertThat(summary.defaultProfile()).isTrue());
-        assertThat(summaries).filteredOn(summary -> summary.id().equals("ai-enabled-profile")).singleElement()
-                .satisfies(summary -> assertThat(summary.defaultProfile()).isFalse());
     }
 
     @Test
     void getProfileDetailReturnsCapabilitiesAndParameters() {
-        DeploymentProfileDetailDTO detail = service().getProfileDetail("ai-enabled-profile");
+        DeploymentProfileDetailDTO detail = service().getProfileDetail("default-artemis-profile");
 
-        assertThat(detail.providedCapabilities()).contains("pyris-service", "pyris-secret", "hyperion-service", "athena-service");
+        assertThat(detail.providedCapabilities()).contains("pyris-service", "pyris-secret", "hyperion-service", "athena-service",
+                "lti-platform-registration", "theia-service", "sharing-platform-registration");
         assertThat(detail.parameters()).containsKey("pyris.url");
-        assertThat(detail.defaultProfile()).isFalse();
+        assertThat(detail.defaultProfile()).isTrue();
     }
 
     @Test
@@ -52,8 +51,8 @@ class DeploymentProfileServiceTest {
         DeploymentProfileService service = service();
         List<DeploymentProfile> profiles = service.loadProfiles();
 
-        assertThat(service.resolveProfileOrDefault(profiles, null).id()).isEqualTo("default-teacher-profile");
-        assertThat(service.resolveProfileOrDefault(profiles, "ai-enabled-profile").id()).isEqualTo("ai-enabled-profile");
+        assertThat(service.resolveProfileOrDefault(profiles, null).id()).isEqualTo("default-artemis-profile");
+        assertThat(service.resolveProfileOrDefault(profiles, "default-artemis-profile").id()).isEqualTo("default-artemis-profile");
     }
 
     private DeploymentProfileService service() {

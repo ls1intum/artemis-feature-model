@@ -36,17 +36,15 @@ class DeploymentProfileResourceTest {
     }
 
     @Test
-    void listsProfilesSortedByIdAndFlagsTheDefault() throws Exception {
-        // Profiles are sorted by id, so ai-enabled-profile precedes default-teacher-profile.
-        mockMvc.perform(get("/api/deployment-profiles")).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value("ai-enabled-profile"))
-                .andExpect(jsonPath("$[0].defaultProfile").value(false)).andExpect(jsonPath("$[1].id").value("default-teacher-profile"))
-                .andExpect(jsonPath("$[1].defaultProfile").value(true));
+    void listsTheSingleBundledProfileFlaggedAsDefault() throws Exception {
+        mockMvc.perform(get("/api/deployment-profiles")).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value("default-artemis-profile"))
+                .andExpect(jsonPath("$[0].defaultProfile").value(true));
     }
 
     @Test
     void returnsProfileDetailWithCapabilities() throws Exception {
-        mockMvc.perform(get("/api/deployment-profiles/ai-enabled-profile")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value("ai-enabled-profile")).andExpect(jsonPath("$.providedCapabilities", hasItem("pyris-service")))
+        mockMvc.perform(get("/api/deployment-profiles/default-artemis-profile")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("default-artemis-profile")).andExpect(jsonPath("$.providedCapabilities", hasItem("pyris-service")))
                 .andExpect(jsonPath("$.parameters['pyris.url']").exists());
     }
 

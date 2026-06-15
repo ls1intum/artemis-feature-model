@@ -50,7 +50,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly workflow = signal<GuidedWorkflow | undefined>(undefined);
     readonly availability = signal<WorkflowAvailability | undefined>(undefined);
-    readonly activeProfileId = signal<string | undefined>(undefined);
     readonly profileReconciliationNote = signal<string | undefined>(undefined);
     readonly screen = signal<ConfiguratorScreen>('templates');
     readonly previousGuidedScreen = signal<ConfiguratorScreen>('templates');
@@ -122,7 +121,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return ids;
     });
     readonly activeProfile = computed<DeploymentProfileSummary | undefined>(() => this.availability()?.activeProfile);
-    readonly availableProfiles = computed<DeploymentProfileSummary[]>(() => this.availability()?.availableProfiles ?? []);
     readonly optionAvailabilityById = computed<ReadonlyMap<string, OptionAvailability>>(() => {
         const map = new Map<string, OptionAvailability>();
         for (const option of this.availability()?.options ?? []) {
@@ -137,9 +135,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return map;
     });
-    /** Profile-dependent features for the review page, ordered with unavailable ones first. */
+    /** Selected features that need deployment setup, surfaced as a neutral review note (unavailable ones first). */
     readonly profileDependentFeatures = computed<FeatureAvailability[]>(() => {
-        const dependent = (this.availability()?.features ?? []).filter((feature) => feature.profileDependent);
+        const selected = this.selectedFeatureIds();
+        const dependent = (this.availability()?.features ?? []).filter((feature) => feature.profileDependent && selected.has(feature.featureId));
         return [...dependent].sort((left, right) => Number(left.available) - Number(right.available));
     });
     readonly focusedOption = computed<GuidedDecisionOption | undefined>(() => {
@@ -403,56 +402,21 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
-    /** Loads availability for the chosen profile and reconciles the current selection with what it supports. */
-    onSelectProfile(profileId: string): void {
-        if (profileId === this.activeProfileId()) {
-            return;
-        }
-        this.activeProfileId.set(profileId);
-        this.featureModelService
-            .loadWorkflowAvailability(profileId)
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe({
-                next: (availability) => {
-                    this.availability.set(availability);
-                    this.reconcileSelectionWithAvailability();
-                },
-                error: (error: Error) => this.handleError(error),
-            });
-    }
-
     private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow, availability: WorkflowAvailability): void {
         this.response.set(response);
         this.workflow.set(workflow);
         this.availability.set(availability);
-        this.activeProfileId.set(availability.activeProfile.id);
         this.errorMessage.set(undefined);
         this.loading.set(false);
         this.onSelectTemplate(workflow.workflow.defaultTemplateId);
         this.initializeTutorialState(response, workflow);
     }
 
-    /** Drops features the active profile no longer supports and re-derives guided answers, noting what changed. */
-    private reconcileSelectionWithAvailability(): void {
-        const { selection, removed } = this.withoutUnavailableFeatures(this.selectedFeatureIds());
-        if (removed.length === 0) {
-            this.profileReconciliationNote.set(undefined);
-            return;
-        }
-        const inferred = this.inferSelectedDecisionOptions(selection);
-        this.selectedFeatureIds.set(selection);
-        this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(inferred));
-        this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(inferred));
-        const profileName = this.activeProfile()?.name ?? 'the selected profile';
-        this.profileReconciliationNote.set(
-            `${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} not available in ${profileName} and ${
-                removed.length === 1 ? 'was' : 'were'
-            } removed from the selection.`,
-        );
-        this.runValidation();
-    }
-
-    /** Removes features the active profile marks unavailable, returning the kept selection and removed display names. */
+    /**
+     * Removes features the active deployment context marks unavailable, returning the kept selection and removed display
+     * names. With the bundled prototype profile every capability is provided, so this only filters when a maintainer
+     * local override restricts capabilities.
+     */
     private withoutUnavailableFeatures(selection: ReadonlySet<string>): { selection: Set<string>; removed: string[] } {
         const availabilityById = this.featureAvailabilityById();
         const kept = new Set<string>();

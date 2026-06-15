@@ -324,33 +324,24 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
     return { ...workflow, ...overrides };
 }
 
-const AI_PROFILE_CAPABILITIES = ['pyris-service', 'pyris-secret', 'hyperion-service', 'athena-service', 'athena-secret'];
-
-const DEFAULT_TEACHER_PROFILE_SUMMARY: DeploymentProfileSummary = {
-    id: 'default-teacher-profile',
-    name: 'Default Teacher Deployment Profile',
+const DEFAULT_ARTEMIS_PROFILE_SUMMARY: DeploymentProfileSummary = {
+    id: 'default-artemis-profile',
+    name: 'Default Artemis Deployment Context',
     version: '1.0.0',
     status: 'published',
     defaultProfile: true,
 };
 
-const AI_ENABLED_PROFILE_SUMMARY: DeploymentProfileSummary = {
-    id: 'ai-enabled-profile',
-    name: 'AI-enabled Artemis Deployment Profile',
-    version: '1.0.0',
-    status: 'published',
-    defaultProfile: false,
-};
-
 /**
  * Builds profile-aware availability derived from the model and guided workflow fixtures, mirroring the backend
- * CapabilityResolutionService. When `aiEnabled` is true the AI capabilities are provided so Iris-style options become
- * available; otherwise the default teacher profile provides none of them.
+ * CapabilityResolutionService and the single bundled deployment context. By default every referenced capability is
+ * provided, so all guided options are available. Pass `providedCapabilities` to simulate a maintainer local override
+ * that restricts capabilities (used to exercise the latent gating and advanced debug surfaces).
  */
-export function buildWorkflowAvailabilityFixture(options: { aiEnabled?: boolean } = {}): WorkflowAvailability {
-    const aiEnabled = options.aiEnabled ?? false;
-    const provided = aiEnabled ? [...AI_PROFILE_CAPABILITIES] : [];
+export function buildWorkflowAvailabilityFixture(options: { providedCapabilities?: string[] } = {}): WorkflowAvailability {
     const allOptions = buildGuidedWorkflowFixture().steps.flatMap((step) => step.decisions.flatMap((decision) => decision.options));
+    const allReferencedCapabilities = [...new Set(allOptions.flatMap((option) => option.requiresCapabilities))];
+    const provided = options.providedCapabilities ?? allReferencedCapabilities;
 
     const optionAvailability: OptionAvailability[] = allOptions.map((option) => availabilityForOption(option, provided));
     const requiredByFeature = aggregateRequiredCapabilitiesByFeature(allOptions);
@@ -359,8 +350,8 @@ export function buildWorkflowAvailabilityFixture(options: { aiEnabled?: boolean 
     );
 
     return {
-        activeProfile: aiEnabled ? AI_ENABLED_PROFILE_SUMMARY : DEFAULT_TEACHER_PROFILE_SUMMARY,
-        availableProfiles: [AI_ENABLED_PROFILE_SUMMARY, DEFAULT_TEACHER_PROFILE_SUMMARY],
+        activeProfile: DEFAULT_ARTEMIS_PROFILE_SUMMARY,
+        availableProfiles: [DEFAULT_ARTEMIS_PROFILE_SUMMARY],
         options: optionAvailability,
         features: featureAvailability,
     };

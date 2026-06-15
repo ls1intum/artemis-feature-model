@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
-import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
+import { FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
 import {
@@ -35,7 +35,6 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly featureNamesById = input.required<ReadonlyMap<string, string>>();
     readonly changedDecisionSummaries = input.required<DecisionChangeSummary[]>();
     readonly reviewGroups = input.required<ReviewGroupSummary[]>();
-    readonly activeProfile = input<DeploymentProfileSummary | undefined>(undefined);
     readonly optionAvailabilityById = input.required<ReadonlyMap<string, OptionAvailability>>();
     readonly profileDependentFeatures = input.required<FeatureAvailability[]>();
     readonly reconciliationNote = input<string | undefined>(undefined);
@@ -86,10 +85,10 @@ export class GuidedConfiguratorWorkflowComponent {
     optionAvailabilityText(option: GuidedDecisionOption): string {
         const availability = this.optionAvailabilityById().get(option.id);
         if (availability && !availability.available) {
-            return availability.teacherReason ?? 'Not available in the current deployment profile.';
+            return availability.teacherReason ?? 'Not available in the current deployment context.';
         }
         if (option.requiresCapabilities.length > 0) {
-            return 'Supported by the current deployment profile.';
+            return 'Requires deployment setup before it works in a real Artemis instance.';
         }
         return 'Available';
     }

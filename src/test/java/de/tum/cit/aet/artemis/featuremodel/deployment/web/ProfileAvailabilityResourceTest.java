@@ -53,17 +53,17 @@ class ProfileAvailabilityResourceTest {
     }
 
     @Test
-    void resolvesAgainstDefaultProfileWhenNoProfileIdGiven() throws Exception {
+    void resolvesAgainstTheBundledDefaultProfileWhenNoProfileIdGiven() throws Exception {
         mockMvc.perform(get("/api/feature-model/profile-availability")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.activeProfile.id").value("default-teacher-profile"))
-                .andExpect(jsonPath("$.options[?(@.optionId=='enable-iris')].available", hasItem(false)))
-                .andExpect(jsonPath("$.availableProfiles[?(@.id=='ai-enabled-profile')].id", hasItem("ai-enabled-profile")));
+                .andExpect(jsonPath("$.activeProfile.id").value("default-artemis-profile"))
+                .andExpect(jsonPath("$.options[?(@.optionId=='enable-iris')].available", hasItem(true)))
+                .andExpect(jsonPath("$.availableProfiles[?(@.id=='default-artemis-profile')].id", hasItem("default-artemis-profile")));
     }
 
     @Test
-    void resolvesAgainstRequestedProfile() throws Exception {
-        mockMvc.perform(get("/api/feature-model/profile-availability").param("profileId", "ai-enabled-profile")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.activeProfile.id").value("ai-enabled-profile"))
+    void resolvesAgainstAnExplicitlyRequestedProfile() throws Exception {
+        mockMvc.perform(get("/api/feature-model/profile-availability").param("profileId", "default-artemis-profile")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeProfile.id").value("default-artemis-profile"))
                 .andExpect(jsonPath("$.options[?(@.optionId=='enable-iris')].available", hasItem(true)));
     }
 

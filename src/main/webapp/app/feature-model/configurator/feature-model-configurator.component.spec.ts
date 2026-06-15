@@ -189,8 +189,7 @@ describe('FeatureModelConfiguratorComponent', () => {
 
     it('shows regular-user guidance for the active decision option', () => {
         markTutorialSeen();
-        // Load the AI-enabled profile so Iris is available and its guidance can be inspected.
-        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture({ aiEnabled: true }));
+        flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
         fixture.detectChanges();
@@ -208,9 +207,37 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(impact?.textContent).not.toContain('artemis.iris.enabled');
     });
 
-    it('disables options with a readable reason when the active profile lacks their capabilities', () => {
+    it('does not render a deployment profile selector in the regular UI', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="profile-select"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="profile-selector"]')).toBeNull();
+    });
+
+    it('keeps capability-dependent options selectable under the bundled deployment context', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(2);
+        fixture.detectChanges();
+
+        const irisCard = rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement;
+        expect(irisCard.disabled).toBe(false);
+        // A capability-dependent but available option carries a neutral "requires setup" note, not a blocking reason.
+        expect(rootEl(fixture).querySelector('[data-testid="option-unavailable-reason"]')).toBeNull();
+
+        clickByTestId(fixture, 'option-card-enable-iris');
+        const body = flushValidation(httpMock, validResult());
+        expect(body.selectedFeatureIds).toContain('iris');
+        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(true);
+    });
+
+    it('still gates options when a maintainer override restricts capabilities', () => {
+        markTutorialSeen();
+        // Simulate a local override profile that provides none of the AI/integration capabilities.
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture({ providedCapabilities: [] }));
         clickByTestId(fixture, 'start-workflow');
         fixture.componentInstance.onJumpToStep(2);
         fixture.detectChanges();
@@ -220,25 +247,9 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(irisCard.classList).toContain('option-card--unavailable');
 
         const reason = rootEl(fixture).querySelector('[data-testid="option-unavailable-reason"]');
-        expect(reason?.textContent).toContain('not available in the current deployment profile');
+        expect(reason?.textContent).toContain('not available in the current deployment');
         expect(reason?.textContent).not.toContain('pyris-service');
         expect(reason?.textContent).not.toContain('pyris-secret');
-    });
-
-    it('prevents selecting an unavailable option through the guided card', () => {
-        markTutorialSeen();
-        flushInitialLoads(fixture, httpMock);
-        clickByTestId(fixture, 'start-workflow');
-        fixture.componentInstance.onJumpToStep(2);
-        fixture.detectChanges();
-
-        const irisCard = rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement;
-        irisCard.click();
-        fixture.detectChanges();
-
-        // No validation request is issued because the disabled option cannot change the selection.
-        httpMock.expectNone(VALIDATE_URL);
-        expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
     });
 
     it('renders validation feedback after selection changes', () => {
@@ -272,7 +283,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(violationsPanel?.textContent).toContain('Enable Programming.');
     });
 
-    it('shows the active profile and profile-dependent features on the review page', () => {
+    it('shows a neutral deployment context note and the features that need setup on the review page', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'template-card-ai-enabled-course');
@@ -283,44 +294,24 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         const review = rootEl(fixture).querySelector('[data-testid="review-screen"]');
         expect(review).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="review-active-profile"]')?.textContent).toContain('Default Teacher Deployment Profile');
+        // The deployment context is informational, never presented as a user-selectable profile.
+        const context = rootEl(fixture).querySelector('[data-testid="review-deployment-context"]');
+        expect(context?.textContent).toContain('Deployment context loaded');
+        expect(context?.textContent).not.toContain('Default Artemis Deployment Context');
 
-        // Iris is profile-dependent and unavailable under the default profile, so it is reported but not selected.
+        // Iris is selectable under the bundled context and listed as needing deployment setup.
+        expect(rootEl(fixture).querySelector('[data-testid="selected-features-summary"]')?.textContent).toContain('Iris');
         const profileDependent = rootEl(fixture).querySelector('[data-testid="profile-dependent-features"]');
         expect(profileDependent?.textContent).toContain('Iris');
-        expect(profileDependent?.textContent).toContain('Unavailable');
-        expect(rootEl(fixture).querySelector('[data-testid="selected-features-summary"]')?.textContent).not.toContain('Iris');
+        expect(profileDependent?.textContent).toContain('need');
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
         expect(rootEl(fixture).querySelector('[data-testid="artifact-next-step"]')?.textContent).toContain('reserved for the next phase');
     });
 
-    it('switches profile, enabling AI options and reconciling the selection', () => {
+    it('shows exact missing capability ids in the advanced tree debug view under a restricted override', () => {
         markTutorialSeen();
-        flushInitialLoads(fixture, httpMock);
-        fixture.detectChanges();
-
-        // Default profile disables Iris.
-        clickByTestId(fixture, 'start-workflow');
-        fixture.componentInstance.onJumpToStep(2);
-        fixture.detectChanges();
-        expect((rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement).disabled).toBe(true);
-
-        // Switch to the AI-enabled profile through the header selector.
-        const select = rootEl(fixture).querySelector('[data-testid="profile-select"]') as HTMLSelectElement;
-        select.value = 'ai-enabled-profile';
-        select.dispatchEvent(new Event('change'));
-        const availabilityRequest = httpMock.expectOne((request) => request.url === PROFILE_AVAILABILITY_URL && request.params.get('profileId') === 'ai-enabled-profile');
-        expect(availabilityRequest.request.method).toBe('GET');
-        availabilityRequest.flush(buildWorkflowAvailabilityFixture({ aiEnabled: true }));
-        fixture.detectChanges();
-
-        expect((rootEl(fixture).querySelector('[data-testid="option-card-enable-iris"]') as HTMLButtonElement).disabled).toBe(false);
-    });
-
-    it('shows exact missing capability ids in the advanced tree debug view', () => {
-        markTutorialSeen();
-        flushInitialLoads(fixture, httpMock);
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture({ providedCapabilities: [] }));
         fixture.detectChanges();
 
         clickByTestId(fixture, 'advanced-tree-button');

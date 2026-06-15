@@ -105,7 +105,7 @@
                                         } @else if (!isOptionAvailable(option)) {
                                             <span class="badge text-bg-secondary">Unavailable</span>
                                         } @else if (option.requiresCapabilities.length > 0) {
-                                            <span class="badge text-bg-info">Profile-backed</span>
+                                            <span class="badge text-bg-light border">Requires setup</span>
                                         }
                                     </span>
                                     <span class="option-card__description">{{ option.description }}</span>
@@ -285,11 +285,7 @@
     <section class="review-screen" aria-label="Final review" data-testid="review-screen">
         <div class="section-heading">
             <h2>Review configuration</h2>
-            @if (activeProfile(); as profile) {
-                <p data-testid="review-active-profile">Active deployment profile: <strong>{{ profile.name }}</strong></p>
-            } @else {
-                <p>Active deployment profile: not loaded.</p>
-            }
+            <p data-testid="review-deployment-context">Deployment context loaded. You only choose functional features; technical setup is handled separately.</p>
         </div>
 
         @if (reconciliationNote(); as note) {
@@ -351,25 +347,21 @@
                 </section>
 
                 <section class="review-section" data-testid="profile-dependent-features">
-                    <h3>Profile-dependent features</h3>
+                    <h3>Needs deployment setup</h3>
                     @if (profileDependentFeatures().length > 0) {
+                        <p class="muted">These selected features need technical setup before they work in a real Artemis instance.</p>
                         <ul class="profile-feature-list">
                             @for (feature of profileDependentFeatures(); track feature.featureId) {
                                 <li [class.profile-feature--unavailable]="!feature.available" data-testid="profile-dependent-feature">
                                     <span class="profile-feature__name">{{ feature.featureName }}</span>
-                                    @if (feature.available) {
-                                        <span class="badge text-bg-success">Available</span>
-                                    } @else {
-                                        <span class="badge text-bg-secondary">Unavailable</span>
-                                        @if (feature.teacherReason) {
-                                            <span class="profile-feature__reason">{{ feature.teacherReason }}</span>
-                                        }
+                                    @if (!feature.available && feature.teacherReason) {
+                                        <span class="profile-feature__reason">{{ feature.teacherReason }}</span>
                                     }
                                 </li>
                             }
                         </ul>
                     } @else {
-                        <p class="muted">No features depend on the active deployment profile.</p>
+                        <p class="muted">No selected features need extra deployment setup.</p>
                     }
                 </section>
 

@@ -2,8 +2,9 @@ package de.tum.cit.aet.artemis.featuremodel.deployment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,75 +30,67 @@ class CapabilityResolutionServiceTest {
     Path dataRoot;
 
     @Test
-    void defaultProfileDisablesCapabilityGatedOptions() {
+    void bundledProfileMakesEveryGuidedOptionAvailable() {
         WorkflowAvailabilityDTO availability = service().resolveAvailability(null);
 
-        assertThat(availability.activeProfile().id()).isEqualTo("default-teacher-profile");
+        assertThat(availability.activeProfile().id()).isEqualTo("default-artemis-profile");
         assertThat(availability.activeProfile().defaultProfile()).isTrue();
+
+        // The single bundled deployment context provides every capability, so the teacher is never blocked.
+        for (String optionId : new String[] { "enable-iris", "enable-hyperion", "enable-athena", "enable-lti", "enable-theia", "enable-sharing" }) {
+            OptionAvailabilityDTO option = option(availability, optionId);
+            assertThat(option.available()).as("option %s is available", optionId).isTrue();
+            assertThat(option.missingCapabilities()).as("option %s has no missing capabilities", optionId).isEmpty();
+            assertThat(option.teacherReason()).as("available option %s has no reason", optionId).isNull();
+        }
+    }
+
+    @Test
+    void baselineOptionsHaveNoCapabilityRequirement() {
+        OptionAvailabilityDTO lecture = option(service().resolveAvailability(null), "enable-lecture-materials");
+
+        assertThat(lecture.available()).isTrue();
+        assertThat(lecture.requiredCapabilities()).isEmpty();
+    }
+
+    @Test
+    void profileDependentFeaturesAreAvailableButStillFlaggedDependent() {
+        FeatureAvailabilityDTO iris = feature(service().resolveAvailability(null), "iris");
+
+        assertThat(iris.available()).isTrue();
+        assertThat(iris.profileDependent()).isTrue();
+        assertThat(iris.requiredCapabilities()).contains("pyris-service", "pyris-secret");
+        assertThat(iris.missingCapabilities()).isEmpty();
+    }
+
+    @Test
+    void availabilityListsTheActiveProfile() {
+        WorkflowAvailabilityDTO availability = service().resolveAvailability(null);
+
+        assertThat(availability.availableProfiles()).extracting(profile -> profile.id()).contains("default-artemis-profile");
+    }
+
+    @Test
+    void localOverrideWithFewerCapabilitiesStillGatesOptions() throws IOException {
+        // A maintainer local override that drops AI capabilities should still gate the dependent options and features.
+        writeLocalProfile("{ \"id\": \"default-artemis-profile\", \"name\": \"Restricted\", \"providedCapabilities\": [\"default-database\"] }");
+
+        WorkflowAvailabilityDTO availability = service().resolveAvailability(null);
 
         OptionAvailabilityDTO iris = option(availability, "enable-iris");
         assertThat(iris.available()).isFalse();
         assertThat(iris.missingCapabilities()).contains("pyris-service", "pyris-secret");
-        assertThat(option(availability, "enable-hyperion").available()).isFalse();
-        assertThat(option(availability, "enable-athena").available()).isFalse();
-        assertThat(option(availability, "enable-lti").available()).isFalse();
-        assertThat(option(availability, "enable-theia").available()).isFalse();
-        assertThat(option(availability, "enable-sharing").available()).isFalse();
-    }
-
-    @Test
-    void baselineOptionsStayAvailableUnderDefaultProfile() {
-        WorkflowAvailabilityDTO availability = service().resolveAvailability(null);
-
-        OptionAvailabilityDTO lecture = option(availability, "enable-lecture-materials");
-        assertThat(lecture.available()).isTrue();
-        assertThat(lecture.teacherReason()).isNull();
-        assertThat(lecture.missingCapabilities()).isEmpty();
-    }
-
-    @Test
-    void aiEnabledProfileEnablesAiOptionsButNotIntegrationOptions() {
-        WorkflowAvailabilityDTO availability = service().resolveAvailability("ai-enabled-profile");
-
-        assertThat(availability.activeProfile().id()).isEqualTo("ai-enabled-profile");
-        assertThat(option(availability, "enable-iris").available()).isTrue();
-        assertThat(option(availability, "enable-iris").missingCapabilities()).isEmpty();
-        assertThat(option(availability, "enable-hyperion").available()).isTrue();
-        assertThat(option(availability, "enable-athena").available()).isTrue();
-        // LTI, EduIDE, and Sharing need external infrastructure neither bootstrap profile provides.
-        assertThat(option(availability, "enable-lti").available()).isFalse();
-        assertThat(option(availability, "enable-theia").available()).isFalse();
-    }
-
-    @Test
-    void teacherReasonNeverExposesRawCapabilityIds() {
-        OptionAvailabilityDTO iris = option(service().resolveAvailability(null), "enable-iris");
-
         assertThat(iris.teacherReason()).isNotNull().doesNotContain("pyris").doesNotContain("capability");
+
+        FeatureAvailabilityDTO irisFeature = feature(availability, "iris");
+        assertThat(irisFeature.available()).isFalse();
+        assertThat(irisFeature.teacherReason()).contains("Iris").doesNotContain("pyris");
     }
 
-    @Test
-    void featureAvailabilityReflectsProfileForProfileDependentFeatures() {
-        WorkflowAvailabilityDTO defaultAvailability = service().resolveAvailability(null);
-        FeatureAvailabilityDTO irisDefault = feature(defaultAvailability, "iris");
-        assertThat(irisDefault.available()).isFalse();
-        assertThat(irisDefault.profileDependent()).isTrue();
-        assertThat(irisDefault.missingCapabilities()).contains("pyris-service", "pyris-secret");
-        assertThat(irisDefault.teacherReason()).contains("Iris").doesNotContain("pyris");
-
-        FeatureAvailabilityDTO lecture = feature(defaultAvailability, "lecture");
-        assertThat(lecture.available()).isTrue();
-        assertThat(lecture.profileDependent()).isFalse();
-
-        FeatureAvailabilityDTO irisAi = feature(service().resolveAvailability("ai-enabled-profile"), "iris");
-        assertThat(irisAi.available()).isTrue();
-    }
-
-    @Test
-    void availabilityListsAllSelectableProfiles() {
-        WorkflowAvailabilityDTO availability = service().resolveAvailability(null);
-
-        assertThat(availability.availableProfiles()).extracting(profile -> profile.id()).contains("default-teacher-profile", "ai-enabled-profile");
+    private void writeLocalProfile(String json) throws IOException {
+        Path directory = dataRoot.resolve("deployment-profiles");
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("override.json"), json);
     }
 
     private OptionAvailabilityDTO option(WorkflowAvailabilityDTO availability, String optionId) {

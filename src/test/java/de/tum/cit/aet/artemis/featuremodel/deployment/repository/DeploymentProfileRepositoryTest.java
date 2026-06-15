@@ -24,14 +24,15 @@ class DeploymentProfileRepositoryTest {
     Path dataRoot;
 
     @Test
-    void loadsCommittedClasspathBootstrapProfiles() {
+    void loadsTheSingleBundledClasspathProfile() {
         List<DeploymentProfile> profiles = repository().loadProfiles();
 
-        assertThat(profiles).extracting(DeploymentProfile::id).contains("default-teacher-profile", "ai-enabled-profile");
-        DeploymentProfile aiProfile = profileById(profiles, "ai-enabled-profile");
-        assertThat(aiProfile.providedCapabilities()).contains("pyris-service", "pyris-secret");
-        DeploymentProfile defaultProfile = profileById(profiles, "default-teacher-profile");
-        assertThat(defaultProfile.providedCapabilities()).doesNotContain("pyris-service");
+        assertThat(profiles).extracting(DeploymentProfile::id).contains("default-artemis-profile");
+        DeploymentProfile defaultProfile = profileById(profiles, "default-artemis-profile");
+        // The single bundled profile provides every capability the guided workflow references.
+        assertThat(defaultProfile.providedCapabilities()).contains("pyris-service", "pyris-secret", "athena-service", "hyperion-service",
+                "lti-platform-registration", "theia-service", "sharing-platform-registration", "sharing-secret");
+        assertThat(defaultProfile.parameters()).containsKeys("pyris.url", "athena.url", "springAi.openAi.apiKeyRef", "theia.portalUrl");
     }
 
     @Test
@@ -43,11 +44,11 @@ class DeploymentProfileRepositoryTest {
 
     @Test
     void localProfileOverridesClasspathProfileWithSameId() throws IOException {
-        writeLocalProfile("override.json", "{ \"id\": \"default-teacher-profile\", \"name\": \"Local Override Teacher Profile\", \"version\": \"9.9.9\" }");
+        writeLocalProfile("override.json", "{ \"id\": \"default-artemis-profile\", \"name\": \"Local Override Profile\", \"version\": \"9.9.9\" }");
 
-        DeploymentProfile overridden = profileById(repository().loadProfiles(), "default-teacher-profile");
+        DeploymentProfile overridden = profileById(repository().loadProfiles(), "default-artemis-profile");
 
-        assertThat(overridden.name()).isEqualTo("Local Override Teacher Profile");
+        assertThat(overridden.name()).isEqualTo("Local Override Profile");
         assertThat(overridden.version()).isEqualTo("9.9.9");
     }
 
@@ -58,7 +59,7 @@ class DeploymentProfileRepositoryTest {
 
         List<DeploymentProfile> profiles = repository().loadProfiles();
 
-        assertThat(profiles).extracting(DeploymentProfile::id).contains("default-teacher-profile", "ai-enabled-profile", "integration-profile");
+        assertThat(profiles).extracting(DeploymentProfile::id).contains("default-artemis-profile", "integration-profile");
         assertThat(profileById(profiles, "integration-profile").providedCapabilities()).containsExactly("theia-service");
     }
 
