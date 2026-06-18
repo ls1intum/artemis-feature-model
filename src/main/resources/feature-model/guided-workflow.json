@@ -26,6 +26,7 @@
         "hyperion",
         "lti",
         "theia",
+        "apollon",
         "sharing"
       ],
       "recommendedStepIds": [
@@ -59,6 +60,7 @@
         "iris",
         "hyperion",
         "lti",
+        "apollon",
         "sharing"
       ],
       "recommendedStepIds": [
@@ -96,6 +98,7 @@
         "hyperion",
         "lti",
         "theia",
+        "apollon",
         "sharing"
       ],
       "recommendedStepIds": [
@@ -131,6 +134,7 @@
         "hyperion",
         "lti",
         "theia",
+        "apollon",
         "sharing"
       ],
       "recommendedStepIds": [
@@ -164,6 +168,7 @@
       ],
       "deselectedFeatureIds": [
         "lti",
+        "apollon",
         "sharing"
       ],
       "recommendedStepIds": [
@@ -513,7 +518,7 @@
       "id": "ai-and-integrations",
       "title": "AI and Integrations",
       "order": 5,
-      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, and sharing integration features.",
+      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, modeling conversion, and sharing integration features.",
       "decisions": [
         {
           "id": "ai-feature-selection",
@@ -625,7 +630,7 @@
         {
           "id": "integration-feature-selection",
           "question": "Which platform integrations should be enabled?",
-          "description": "Integration choices connect Artemis to external learning tools, IDE services, or exercise sharing platforms.",
+          "description": "Integration choices connect Artemis to external learning tools, IDE services, modeling conversion, or exercise sharing platforms.",
           "selectionMode": "multiple",
           "reviewGroupId": "integrations",
           "options": [
@@ -693,6 +698,39 @@
               "thingsToKnow": [
                 "EduIDE support requires administrator-provided infrastructure.",
                 "Students may still choose a local IDE when the course allows it."
+              ]
+            },
+            {
+              "id": "enable-apollon",
+              "label": "Enable Apollon",
+              "description": "Enable UML diagram PDF export through the Apollon conversion service.",
+              "selects": [
+                "apollon"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "apollon-conversion-service"
+              ],
+              "consequences": [
+                "Allows UML models from modeling exercises to be converted to PDF."
+              ],
+              "artifactImpacts": [
+                "Sets artemis.apollon.enabled = true in the generated external configuration overlay."
+              ],
+              "warnings": [
+                "Only available when the active deployment profile provides the Apollon conversion service."
+              ],
+              "enabledOutcome": [
+                "Instructors and students can export UML diagrams from modeling exercises as PDF files.",
+                "Modeling exercise example solutions can include a conversion-backed PDF view when the service is configured."
+              ],
+              "recommendedWhen": [
+                "Your course uses modeling exercises and needs PDF exports of UML diagrams.",
+                "Administrators can provide the Apollon conversion service endpoint."
+              ],
+              "thingsToKnow": [
+                "Apollon depends on the Modeling feature being useful in the selected course setup.",
+                "The conversion service is optional; modeling exercises remain available without PDF export."
               ]
             },
             {
@@ -800,6 +838,7 @@
       "featureIds": [
         "lti",
         "theia",
+        "apollon",
         "sharing"
       ]
     }
