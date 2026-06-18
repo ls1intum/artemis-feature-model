@@ -865,7 +865,7 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": ["apollon-conversion-service"],ß
       "artifactMappings": [
         {
           "target": "application-core.yml",
