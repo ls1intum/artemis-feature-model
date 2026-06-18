@@ -26,7 +26,12 @@ class JsonFeatureModelStoreTest {
         assertThat(model.model().sourceCommitSha()).isNull();
         assertThat(model.features()).isNotEmpty();
         assertThat(model.relations()).isNotEmpty();
-        assertThat(model.constraints()).isEmpty();
+        assertThat(model.constraints()).singleElement().satisfies(constraint -> {
+            assertThat(constraint.id()).isEqualTo("apollon-requires-modeling");
+            assertThat(constraint.type()).isEqualTo("requires");
+            assertThat(constraint.source()).isEqualTo("apollon");
+            assertThat(constraint.target()).isEqualTo("modeling");
+        });
         Set<String> featureIds = model.features().stream().map(feature -> feature.id()).collect(Collectors.toSet());
         assertThat(model.relations()).allSatisfy(relation -> {
             assertThat(featureIds).contains(relation.parentId());

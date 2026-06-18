@@ -1083,5 +1083,14 @@
       "order": 4
     }
   ],
-  "constraints": []
+  "constraints": [
+    {
+      "id": "apollon-requires-modeling",
+      "type": "requires",
+      "source": "apollon",
+      "target": "modeling",
+      "expression": null,
+      "description": "Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model."
+    }
+  ]
 }

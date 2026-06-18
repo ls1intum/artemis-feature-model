@@ -80,6 +80,60 @@ function markTutorialSeen(): void {
     window.localStorage.setItem(TUTORIAL_SEEN_KEY, 'true');
 }
 
+function buildResponseWithApollonConstraint(): FeatureModelResponse {
+    const response = buildMvpFeatureModelResponse();
+    const theia = response.features.find((feature) => feature.id === 'theia');
+    if (!theia) {
+        throw new Error('Test fixture is missing theia.');
+    }
+    response.features = [
+        ...response.features,
+        {
+            ...theia,
+            id: 'apollon',
+            name: 'Apollon',
+            description: 'Optional UML diagram PDF export for modeling exercises.',
+            defaultState: 'disabled',
+            requiresCapabilities: ['apollon-conversion-service'],
+        },
+    ];
+    response.constraints = [
+        {
+            id: 'apollon-requires-modeling',
+            type: 'requires',
+            source: 'apollon',
+            target: 'modeling',
+            expression: null,
+            description: 'Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model.',
+        },
+    ];
+    return response;
+}
+
+function buildWorkflowWithApollonOption(): GuidedWorkflow {
+    const workflow = buildGuidedWorkflowFixture();
+    const integrationStep = workflow.steps.find((step) => step.id === 'ai-and-integrations');
+    const decision = integrationStep?.decisions[0];
+    if (!decision) {
+        throw new Error('Test fixture is missing the integration decision.');
+    }
+    decision.options.push({
+        id: 'enable-apollon',
+        label: 'Enable Apollon',
+        description: 'Enable UML diagram PDF export through the Apollon conversion service.',
+        selects: ['apollon'],
+        deselects: [],
+        requiresCapabilities: ['apollon-conversion-service'],
+        consequences: ['Allows UML models from modeling exercises to be converted to PDF.'],
+        artifactImpacts: ['Sets artemis.apollon.enabled = true in the generated external configuration overlay.'],
+        enabledOutcome: ['Instructors and students can export UML diagrams from modeling exercises as PDF files.'],
+        recommendedWhen: ['Your course uses modeling exercises and needs PDF exports of UML diagrams.'],
+        thingsToKnow: ['Apollon depends on the Modeling feature being useful in the selected course setup.'],
+        warnings: ['Only available when the active deployment profile provides the Apollon conversion service.'],
+    });
+    return workflow;
+}
+
 describe('FeatureModelConfiguratorComponent', () => {
     let fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
     let httpMock: HttpTestingController;
@@ -211,6 +265,40 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(reason?.textContent).toContain('Requires administrator setup');
         expect(reason?.textContent).not.toContain('pyris-service');
         expect(reason?.textContent).not.toContain('pyris-secret');
+    });
+
+    it('hides Apollon until Modeling is selected and removes it when Modeling is deselected', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildResponseWithApollonConstraint(), buildWorkflowWithApollonOption());
+        clickByTestId(fixture, 'template-card-minimal-teaching-setup');
+        flushValidation(httpMock, validResult());
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(2);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-apollon"]')).toBeNull();
+
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+        clickByTestId(fixture, 'option-card-enable-written-exercise-types');
+        flushValidation(httpMock, validResult());
+        fixture.componentInstance.onJumpToStep(2);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-apollon"]')).not.toBeNull();
+
+        clickByTestId(fixture, 'option-card-enable-apollon');
+        const apollonBody = flushValidation(httpMock, validResult());
+        expect(apollonBody.selectedFeatureIds).toContain('modeling');
+        expect(apollonBody.selectedFeatureIds).toContain('apollon');
+
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+        clickByTestId(fixture, 'option-card-enable-written-exercise-types');
+        const deselectedBody = flushValidation(httpMock, validResult());
+
+        expect(deselectedBody.selectedFeatureIds).not.toContain('modeling');
+        expect(deselectedBody.selectedFeatureIds).not.toContain('apollon');
     });
 
     it('renders validation feedback after selection changes', () => {
