@@ -475,6 +475,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return options;
     }
 
+    /** Evaluates visibility against the selection that would exist after applying the option. */
     private isOptionVisible(option: GuidedDecisionOption, selectedFeatureIds: ReadonlySet<string>): boolean {
         const candidateSelection = new Set(selectedFeatureIds);
         applyOptionSelection(candidateSelection, option);
@@ -489,6 +490,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return true;
     }
 
+    /** Drops selected guided options that became hidden after another option removed a required feature. */
     private removeHiddenOptionSelections(nextSelection: Set<string>, optionIdsByDecision: Map<string, ReadonlySet<string>>): void {
         const template = this.selectedTemplate();
         if (!template) {
