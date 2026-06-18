@@ -17,6 +17,7 @@
     "hyperion-service",
     "lti-platform-registration",
     "theia-service",
+    "apollon-conversion-service",
     "sharing-platform-registration",
     "sharing-secret"
   ],
@@ -56,6 +57,7 @@
     "atlas.atlasml.authTokenRef": "env:ARTEMIS_ATLASML_AUTH_TOKEN",
     "theia.portalUrl": "https://your-theia-instance.com",
     "theia.images.java.java17": "my-kubernetes-appdefinition",
+    "apollon.conversionServiceUrl": "http://localhost:8080",
     "sharing.serverUrl": "https://search.sharing-codeability.uibk.ac.at/",
     "sharing.apiKeyRef": "env:ARTEMIS_SHARING_APIKEY",
     "sharing.actionName": "Export to Artemis@myUniversity",
@@ -70,6 +72,7 @@
     "LTI platform registration is database-managed in Artemis and cannot be generated as a simple YAML property.",
     "AtlasML values are optional/future unless the feature model adds a dedicated AtlasML capability.",
     "Theia image mappings are environment-specific and may need structured profile values instead of dotted string keys.",
-    "Sharing requires an API key issued for a reachable Artemis instance."
+    "Sharing requires an API key issued for a reachable Artemis instance.",
+    "Apollon maps apollon.conversionServiceUrl to artemis.apollon.conversion-service-url (application-artemis.yml:88-89); it requires the Modeling feature (apollon-requires-modeling constraint)."
   ]
 }

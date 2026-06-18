@@ -737,7 +737,7 @@
       "name": "Platform Integrations",
       "kind": "group",
       "selectable": false,
-      "description": "Visual domain group for optional LMS, IDE, and exercise sharing integrations.",
+      "description": "Visual domain group for optional LMS, IDE, modeling conversion, and exercise sharing integrations.",
       "defaultState": "not_applicable",
       "category": "derived",
       "visibleTo": [
@@ -825,6 +825,51 @@
         {
           "target": "application.yml",
           "path": "artemis.theia.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
+    },
+    {
+      "id": "apollon",
+      "name": "Apollon",
+      "kind": "module",
+      "selectable": true,
+      "description": "Optional external modeling conversion integration for UML diagram PDF export, controlled by artemis.apollon.enabled.",
+      "defaultState": "disabled",
+      "source": {
+        "configKey": "artemis.apollon.enabled",
+        "frontendConstant": "MODULE_FEATURE_APOLLON",
+        "backendConditionClass": "ApollonEnabled",
+        "evidence": [
+          "Constants.java:450,550",
+          "ApollonEnabled.java:13,23",
+          "ModelingWithApollonEnabled.java:13,23",
+          "ApollonConversionResource.java:26,47",
+          "modeling-exercise-detail.component.ts:63,67,108",
+          "application-core.yml:38-39"
+        ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": ["apollon-conversion-service"],
+      "artifactMappings": [
+        {
+          "target": "application-core.yml",
+          "path": "artemis.apollon.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
@@ -1027,10 +1072,25 @@
     },
     {
       "parentId": "platform-integrations",
-      "childId": "sharing",
+      "childId": "apollon",
       "relationType": "optional",
       "order": 3
+    },
+    {
+      "parentId": "platform-integrations",
+      "childId": "sharing",
+      "relationType": "optional",
+      "order": 4
     }
   ],
-  "constraints": []
+  "constraints": [
+    {
+      "id": "apollon-requires-modeling",
+      "type": "requires",
+      "source": "apollon",
+      "target": "modeling",
+      "expression": null,
+      "description": "Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model."
+    }
+  ]
 }

@@ -35,7 +35,12 @@ class FeatureModelCatalogServiceTest {
         assertThat(response.model().sourceCommitSha()).isNull();
         assertThat(response.features()).hasSameSizeAs(model.features());
         assertThat(response.relations()).hasSameSizeAs(model.relations());
-        assertThat(response.constraints()).isEmpty();
+        assertThat(response.constraints()).singleElement().satisfies(constraint -> {
+            assertThat(constraint.id()).isEqualTo("apollon-requires-modeling");
+            assertThat(constraint.type()).isEqualTo("requires");
+            assertThat(constraint.source()).isEqualTo("apollon");
+            assertThat(constraint.target()).isEqualTo("modeling");
+        });
         assertThat(response.tree().feature().id()).isEqualTo("artemis");
         assertThat(response.tree().feature().category()).isEqualTo("derived");
         assertThat(response.features()).anySatisfy(feature -> {

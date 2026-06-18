@@ -37,7 +37,7 @@ class CapabilityResolutionServiceTest {
         assertThat(availability.activeProfile().defaultProfile()).isTrue();
 
         // The single bundled deployment context provides every capability, so the teacher is never blocked.
-        for (String optionId : new String[] { "enable-iris", "enable-hyperion", "enable-athena", "enable-lti", "enable-theia", "enable-sharing" }) {
+        for (String optionId : new String[] { "enable-iris", "enable-hyperion", "enable-athena", "enable-lti", "enable-theia", "enable-apollon", "enable-sharing" }) {
             OptionAvailabilityDTO option = option(availability, optionId);
             assertThat(option.available()).as("option %s is available", optionId).isTrue();
             assertThat(option.missingCapabilities()).as("option %s has no missing capabilities", optionId).isEmpty();
