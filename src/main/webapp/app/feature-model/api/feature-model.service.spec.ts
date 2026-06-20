@@ -121,6 +121,23 @@ describe('FeatureModelService', () => {
         expect(received).toEqual(workflow);
     });
 
+    it('issues a GET request to /api/feature-model/profile-availability without a profile id', () => {
+        service.loadWorkflowAvailability().subscribe();
+
+        const request = httpMock.expectOne('/api/feature-model/profile-availability');
+        expect(request.request.method).toBe('GET');
+        expect(request.request.params.has('profileId')).toBe(false);
+        request.flush({ activeProfile: undefined, availableProfiles: [], options: [], features: [] });
+    });
+
+    it('passes the profile id as a query parameter when requesting availability', () => {
+        service.loadWorkflowAvailability('ai-enabled-profile').subscribe();
+
+        const request = httpMock.expectOne((candidate) => candidate.url === '/api/feature-model/profile-availability');
+        expect(request.request.params.get('profileId')).toBe('ai-enabled-profile');
+        request.flush({ activeProfile: undefined, availableProfiles: [], options: [], features: [] });
+    });
+
     it('issues a GET request to /api/feature-model/snapshots', () => {
         const snapshots: SnapshotSummary[] = [
             {

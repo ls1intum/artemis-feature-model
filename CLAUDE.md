@@ -22,8 +22,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Dock
 ## Current Project State
 
 - The backend exposes `GET /api/feature-model`,
-  `POST /api/feature-model/validate`, and
-  `GET /api/feature-model/guided-workflow`.
+  `POST /api/feature-model/validate`, `GET /api/feature-model/guided-workflow`,
+  local snapshot endpoints under `/api/feature-model/snapshots`, deployment
+  profile endpoints (`GET /api/deployment-profiles`,
+  `GET /api/deployment-profiles/{id}`), and profile-aware availability
+  (`GET /api/feature-model/profile-availability`).
 - The Explorer route is read-only and supports tree/list inspection,
   filtering, expansion controls, and feature details.
 - The Configurator route is a guided workflow. It supports use-case templates,
@@ -33,6 +36,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Dock
 - The regular guided workflow should use user-facing outcome, recommendation,
   availability, and things-to-know text. Keep technical capability ids and
   artifact mappings in the advanced tree view.
+- Deployment Profiles are JSON files; one bundled `default-artemis-profile`
+  provides all capabilities and drives feature/option availability. The regular
+  Configurator does not expose a profile selector; capability gating is a latent
+  safety net for maintainer local overrides. Keep raw capability ids and
+  missing-capability details in advanced tree/debug views.
 - Custom configuration starts from backend-derived `defaultSelectedFeatureIds`;
   default-on guided options should be reflected as selected in the UI.
 - The in-configurator tree reflects guided selections in real time and can
@@ -83,6 +91,8 @@ Server package areas:
 - `validation` owns model and selection validation.
 - `visualization` owns derived tree/read-model structures.
 - `selection` owns user selection concepts and future selection sessions.
+- `snapshot` owns local feature model snapshot listing, import, and export.
+- `deployment` owns deployment profiles, profile loading, and capability resolution.
 - `export` is reserved for later deployment/configuration artifact generation.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
@@ -253,16 +263,21 @@ This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilit
 
 ## API and Server Design Conventions
 
-- Public MVP API routes live under `/api/feature-model`.
+- Public MVP API routes live under `/api/feature-model` and `/api/deployment-profiles`.
 - `GET /api/feature-model` returns the loaded model, derived tree, default selected feature ids, and warnings.
 - `POST /api/feature-model/validate` validates a submitted selection.
 - `GET /api/feature-model/guided-workflow` returns the guided workflow
   metadata, templates, steps, decision options, and review groups.
+- `GET /api/feature-model/snapshots...` lists, details, imports, and exports local snapshots.
+- `GET /api/deployment-profiles` and `GET /api/deployment-profiles/{id}` return deployment profile summaries and detail.
+- `GET /api/feature-model/profile-availability` returns profile-aware option and feature availability; an optional `profileId` is for tests/maintainers, not the regular UI.
+- Bootstrap profiles live in `src/main/resources/deployment-profiles`; local overrides under `<data-root>/deployment-profiles`.
 - Store abstraction belongs in `catalog.repository`.
 - JSON-backed loading belongs in `catalog.repository`.
 - API DTOs belong in the owning module's `dto` package.
 - Tree DTOs belong in `visualization.dto`.
 - Validation request and result DTOs belong in `validation.dto`.
+- Deployment profile and availability DTOs belong in `deployment.dto`.
 - Do not expose internal domain records directly from web resources if a REST DTO is more stable.
 
 ## Testing Guidelines

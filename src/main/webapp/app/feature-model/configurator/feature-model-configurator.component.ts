@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
+import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
 import { FeatureModelValidationService } from '../validation/feature-model-validation.service';
@@ -48,6 +49,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly errorMessage = signal<string | undefined>(undefined);
     readonly response = signal<FeatureModelResponse | undefined>(undefined);
     readonly workflow = signal<GuidedWorkflow | undefined>(undefined);
+    readonly availability = signal<WorkflowAvailability | undefined>(undefined);
+    readonly profileReconciliationNote = signal<string | undefined>(undefined);
     readonly screen = signal<ConfiguratorScreen>('templates');
     readonly previousGuidedScreen = signal<ConfiguratorScreen>('templates');
     readonly activeStepIndex = signal<number>(0);
@@ -117,6 +120,27 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return ids;
     });
+    readonly activeProfile = computed<DeploymentProfileSummary | undefined>(() => this.availability()?.activeProfile);
+    readonly optionAvailabilityById = computed<ReadonlyMap<string, OptionAvailability>>(() => {
+        const map = new Map<string, OptionAvailability>();
+        for (const option of this.availability()?.options ?? []) {
+            map.set(option.optionId, option);
+        }
+        return map;
+    });
+    readonly featureAvailabilityById = computed<ReadonlyMap<string, FeatureAvailability>>(() => {
+        const map = new Map<string, FeatureAvailability>();
+        for (const feature of this.availability()?.features ?? []) {
+            map.set(feature.featureId, feature);
+        }
+        return map;
+    });
+    /** Selected features that need deployment setup, surfaced as a neutral review note (unavailable ones first). */
+    readonly profileDependentFeatures = computed<FeatureAvailability[]>(() => {
+        const selected = this.selectedFeatureIds();
+        const dependent = (this.availability()?.features ?? []).filter((feature) => feature.profileDependent && selected.has(feature.featureId));
+        return [...dependent].sort((left, right) => Number(left.available) - Number(right.available));
+    });
     readonly requiresTargetsBySource = computed<ReadonlyMap<string, ReadonlySet<string>>>(() => {
         const targetsBySource = new Map<string, Set<string>>();
         for (const constraint of this.response()?.constraints ?? []) {
@@ -171,16 +195,16 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             }))
             .filter((group) => group.features.length > 0);
     });
-    /** Combines template-level warnings with warnings introduced by the currently selected guided options. */
+    /**
+     * Combines template-level warnings with the teacher-facing warnings of the currently selected guided options.
+     * Raw capability ids are intentionally not surfaced here; they stay in the advanced tree/debug view.
+     */
     readonly workflowWarnings = computed<string[]>(() => {
         const warnings = new Set<string>();
         for (const warning of this.selectedTemplate()?.warnings ?? []) {
             warnings.add(warning);
         }
         for (const option of this.selectedOptions()) {
-            for (const capability of option.requiresCapabilities) {
-                warnings.add(`Requires deployment capability: ${capability}.`);
-            }
             for (const warning of option.warnings) {
                 warnings.add(warning);
             }
@@ -221,10 +245,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         forkJoin({
             featureModel: this.featureModelService.loadFeatureModel(),
             guidedWorkflow: this.featureModelService.loadGuidedWorkflow(),
+            availability: this.featureModelService.loadWorkflowAvailability(),
         })
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
-                next: ({ featureModel, guidedWorkflow }) => this.handleLoaded(featureModel, guidedWorkflow),
+                next: ({ featureModel, guidedWorkflow, availability }) => this.handleLoaded(featureModel, guidedWorkflow, availability),
                 error: (error: Error) => this.handleError(error),
             });
     }
@@ -237,6 +262,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         const selected = this.initialSelectionForTemplate(template);
         const optionIdsByDecision = this.inferSelectedDecisionOptions(selected, this.visibleDecisionStepsForTemplate(template, selected));
+        this.profileReconciliationNote.set(undefined);
         this.selectedTemplateId.set(template.id);
         this.selectedFeatureIds.set(selected);
         this.selectedDecisionOptionIds.set(cloneDecisionOptionMap(optionIdsByDecision));
@@ -368,24 +394,56 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
-    /** Rebuilds guided answers after the advanced tree edits the underlying feature selection directly. */
+    /**
+     * Rebuilds guided answers after the advanced tree edits the underlying feature selection directly. Features the
+     * active profile does not support are reconciled out with a clear note instead of being silently configured.
+     */
     onReplaceSelection(nextSelection: ReadonlySet<string>): void {
-        const selected = new Set(nextSelection);
-        const inferred = cloneDecisionOptionMap(this.inferSelectedDecisionOptions(selected));
-        this.removeHiddenOptionSelections(selected, inferred);
-        this.selectedFeatureIds.set(selected);
+        const { selection, removed } = this.withoutUnavailableFeatures(nextSelection);
+        const inferred = cloneDecisionOptionMap(this.inferSelectedDecisionOptions(selection));
+        this.removeHiddenOptionSelections(selection, inferred);
+        this.selectedFeatureIds.set(selection);
         this.selectedDecisionOptionIds.set(inferred);
         this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(inferred));
+        if (removed.length > 0) {
+            const profileName = this.activeProfile()?.name ?? 'the selected profile';
+            this.profileReconciliationNote.set(
+                `${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} not available in ${profileName} and ${
+                    removed.length === 1 ? 'was' : 'were'
+                } removed from the selection.`,
+            );
+        }
         this.runValidation();
     }
 
-    private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow): void {
+    private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow, availability: WorkflowAvailability): void {
         this.response.set(response);
         this.workflow.set(workflow);
+        this.availability.set(availability);
         this.errorMessage.set(undefined);
         this.loading.set(false);
         this.onSelectTemplate(workflow.workflow.defaultTemplateId);
         this.initializeTutorialState(response, workflow);
+    }
+
+    /**
+     * Removes features the active deployment context marks unavailable, returning the kept selection and removed display
+     * names. With the bundled prototype profile every capability is provided, so this only filters when a maintainer
+     * local override restricts capabilities.
+     */
+    private withoutUnavailableFeatures(selection: ReadonlySet<string>): { selection: Set<string>; removed: string[] } {
+        const availabilityById = this.featureAvailabilityById();
+        const kept = new Set<string>();
+        const removed: string[] = [];
+        for (const id of selection) {
+            const availability = availabilityById.get(id);
+            if (availability && !availability.available) {
+                removed.push(availability.featureName);
+            } else {
+                kept.add(id);
+            }
+        }
+        return { selection: kept, removed };
     }
 
     /** Opens the tutorial once per model/workflow version by using a versioned browser-storage key. */
@@ -396,7 +454,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.tutorialOpen.set(!this.isTutorialSeen(key));
     }
 
-    /** Creates the starting feature set for a template while respecting model defaults and selectable nodes. */
+    /**
+     * Creates the starting feature set for a template while respecting model defaults, selectable nodes, and the active
+     * deployment profile. Features the active profile does not support are dropped so the guided flow never starts with
+     * an unavailable selection.
+     */
     private initialSelectionForTemplate(template: UseCaseTemplate): ReadonlySet<string> {
         const selected = template.selectedFeatureIds.length > 0 ? new Set<string>(template.selectedFeatureIds) : new Set<string>(this.response()?.defaultSelectedFeatureIds ?? []);
         for (const id of template.deselectedFeatureIds) {
@@ -407,7 +469,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                 selected.delete(id);
             }
         }
-        return selected;
+        return this.withoutUnavailableFeatures(selected).selection;
     }
 
     /** Resolves the workflow steps that should be shown for a template, sorted by authored order. */
