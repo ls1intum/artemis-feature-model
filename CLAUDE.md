@@ -4,9 +4,7 @@ This file provides guidance to Claude Code and other coding agents when working 
 
 ## Project Overview
 
-`artemis-feature-model` is a standalone MVP for an interactive Artemis feature model. It turns a functional feature catalog into a constraint-aware exploration and configuration tool while staying close enough to Artemis conventions to support later migration.
-
-Do not assume the main Artemis repository is available locally. This repository should build and run as a standalone project.
+`artemis-feature-model` is a standalone MVP for an interactive Artemis feature model. It turns a functional feature catalog into a constraint-aware exploration and configuration tool.
 
 ## Tech Stack
 
@@ -17,7 +15,7 @@ Do not assume the main Artemis repository is available locally. This repository 
 - Current styling baseline: Bootstrap-compatible SCSS
 - Runtime model: classpath JSON resource
 
-This MVP does not use a database, Liquibase, authentication, authorization, Docker, Helm, or the Artemis runtime.
+This MVP does not use a database, Liquibase, authentication, authorization, Helm, or the Artemis runtime.
 
 ## Current Project State
 
@@ -115,223 +113,18 @@ Client areas:
 
 Do not duplicate the feature model in client code. The server loads the runtime classpath copy and exposes it through APIs.
 
-## Behavioral Guidelines
+## Guidelines and Conventions
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+Detailed project guidelines are maintained in `docs/guidelines/`. Treat those
+files as the source of truth and avoid duplicating their contents here.
 
-### 1. Think Before Coding
+- [Java Conventions](docs/guidelines/java.md)
+- [TypeScript and Angular Conventions](docs/guidelines/typescript-angular.md)
+- [Client Styling and Theming](docs/guidelines/client-styling-theming.md)
+- [API and Server Design Conventions](docs/guidelines/server-design.md)
+- [Testing Guidelines](docs/guidelines/testing.md)
+- [Version Control Guidelines](docs/guidelines/version-control.md)
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-## Java Conventions
-
-Follow Artemis-style Java conventions where they fit this standalone MVP:
-
-- Use package-by-feature organization.
-- Do not create global top-level `dto`, `repository`, `service`, `web`, or `storage` packages.
-- Use 4-space indentation.
-- Use PascalCase for classes and camelCase for fields and methods.
-- Avoid wildcard imports.
-- Prefer constructor injection for Spring beans.
-- Use Java records for DTOs and immutable value objects when practical.
-- Keep REST resources thin; delegate behavior to services.
-- Keep domain logic in `catalog`, `validation`, `visualization`, `selection`, or `export`, not in `shared`.
-- Do not introduce JPA, repositories backed by a database, Liquibase, Spring Security, or user/session persistence unless a later phase explicitly requires it.
-- Do not inject `EntityManager` or `EntityManagerFactory`.
-- Use controlled exceptions for model loading and integrity failures instead of raw parser errors leaking to API callers.
-- Keep server services dependent on `FeatureModelStore`, not directly on JSON files.
-- Prefer intention-revealing method and variable names over terse names.
-- Keep methods small and focused on one action. Split validation, mapping, warning creation, and message construction into named helper methods when a method starts doing multiple things.
-- Avoid long stream/lambda chains when they make control flow hard to read. Use clear local variables and ordinary loops for multi-step validation or tree traversal logic.
-- Avoid horizontally long lines and deeply chained assertions or method calls. Break complex statements into named local variables.
-- Define constants for repeated literal values. Use `private static final` by default and expose constants only when another class genuinely needs them.
-- Use the least possible access level for fields, methods, and constants. Increase visibility only when there is a concrete caller outside the class.
-- Keep methods ordered from higher-level behavior to lower-level helpers, following the order in which they are used where practical.
-- Add Javadoc for server-side methods and constructors. Each Javadoc should include a short description, `@param` for every parameter, `@return` for non-void methods, and `@throws` for exceptions the method can throw.
-- Comments and Javadocs must be in English and should clarify intent or non-obvious behavior. Do not add comments that merely repeat the code.
-- For the feature-model server, document structural validation assumptions, such as root and group nodes being active paths even though users cannot toggle them.
-- Keep DTO conversion methods explicit and local to the owning DTO. Do not expose domain records directly from REST resources.
-
-## TypeScript and Angular Conventions
-
-Follow current Artemis client direction as much as possible:
-
-- Use standalone Angular components.
-- Use lazy loading for route-level features so the initial bundle stays small.
-- Use `ChangeDetectionStrategy.OnPush`.
-- Use kebab-case filenames.
-- Use PascalCase for classes, types, and enums.
-- Do not prefix interfaces with `I`.
-- Use camelCase for functions, properties, and local variables.
-- Use SCREAMING_SNAKE_CASE for constants.
-- Do not prefix private members with `_`.
-- Use descriptive whole words instead of terse abbreviations.
-- Use 4-space indentation and single quotes.
-- Prefer `inject()` over constructor injection.
-- Prefer signal-based APIs for new code:
-  - `input()` / `input.required()` instead of `@Input()`
-  - `output()` instead of `@Output()`
-  - `viewChild()` / `viewChild.required()` instead of `@ViewChild()`
-  - `viewChildren()` instead of `@ViewChildren()`
-  - `signal()`, `computed()`, and `effect()` for component state
-- Do not add legacy decorators such as `@Input`, `@Output`, `@ViewChild`, `@ViewChildren`, `@ContentChild`, or `@ContentChildren` in new code.
-- Use Angular template control flow:
-  - `@if`
-  - `@for`
-  - `@switch`
-- Do not use new `*ngIf`, `*ngFor`, or `*ngSwitch` in new templates.
-- Do not call component methods or getters from templates. Signals are the exception. Precompute values with `computed()` or assign view-ready state before rendering.
-- Avoid `null` where `undefined` works.
-- Prefer interfaces over type aliases whenever an interface can express the shape.
-- Put local type definitions near the top of the file.
-- Do not export types, constants, or helpers unless another file genuinely needs them.
-- Do not introduce global types or global values.
-- Do not use anonymous object shapes for meaningful data. Define named interfaces.
-- Never use `any`; keep client code strictly typed.
-- Treat objects and arrays as immutable outside the component or helper that created them.
-- Keep API calls in feature-model API services, not directly in route components.
-- Keep validation display components separate from validation service logic.
-- Use buttons for actions and links for navigation.
-- Associate labels with form controls using `for`/`id` or a wrapped input.
-- Keep route paths explicit: every variable segment should be preceded by a unique textual segment.
-- Use arrow functions instead of anonymous function expressions, and always wrap arrow parameters in parentheses.
-- Always use curly braces for loop and conditional bodies except for same-line statements.
-
-This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilities sparingly and do not add `ng-bootstrap`, FontAwesome, PrimeNG, or another component library until a project plan explicitly calls for it.
-
-### Client Styling and Theming
-
-- Use SCSS for component styles.
-- Prefer component-local styles over broad global styles.
-- Use BEM-style class structure for custom component CSS where it improves readability.
-- Do not hard-code color values in component styles, templates, or TypeScript.
-- Prefer theme-aware defaults, Bootstrap utility classes, or CSS variables such as `var(--bs-body-color)` and `var(--bs-body-bg)`.
-- If a custom color is unavoidable, define a named CSS variable and provide theme-aware values in the appropriate global theme file.
-- Verify UI changes in light and dark themes once theme support exists.
-- Do not use `::ng-deep`.
-- Use responsive layouts that adapt to small screens. Prefer a `.container` or deliberate responsive layout over brittle nested grid wrappers.
-
-## API and Server Design Conventions
-
-- Public MVP API routes live under `/api/feature-model` and `/api/deployment-profiles`.
-- `GET /api/feature-model` returns the loaded model, derived tree, default selected feature ids, and warnings.
-- `POST /api/feature-model/validate` validates a submitted selection.
-- `GET /api/feature-model/guided-workflow` returns the guided workflow
-  metadata, templates, steps, decision options, and review groups.
-- `GET /api/feature-model/snapshots...` lists, details, imports, and exports local snapshots.
-- `GET /api/deployment-profiles` and `GET /api/deployment-profiles/{id}` return deployment profile summaries and detail.
-- `GET /api/feature-model/profile-availability` returns profile-aware option and feature availability; an optional `profileId` is for tests/maintainers, not the regular UI.
-- Bootstrap profiles live in `src/main/resources/deployment-profiles`; local overrides under `<data-root>/deployment-profiles`.
-- Store abstraction belongs in `catalog.repository`.
-- JSON-backed loading belongs in `catalog.repository`.
-- API DTOs belong in the owning module's `dto` package.
-- Tree DTOs belong in `visualization.dto`.
-- Validation request and result DTOs belong in `validation.dto`.
-- Deployment profile and availability DTOs belong in `deployment.dto`.
-- Do not expose internal domain records directly from web resources if a REST DTO is more stable.
-
-## Testing Guidelines
-
-Server:
-
-- Use `./gradlew test`.
-- Use `./gradlew test --rerun-tasks` when you need to prove tests executed instead of relying on Gradle's `UP-TO-DATE` result.
-- Server tests must not require Docker or a database.
-- Name server tests `*Test.java`.
-- Prefer focused unit tests for services.
-- Use Spring tests only for application context and web/API contract coverage.
-- Build synthetic in-memory feature models for invalid cases. Do not mutate the runtime JSON in tests.
-- Check `build/test-results/test/TEST-*.xml` when you need exact server test class counts and pass/fail evidence.
-
-Client:
-
-- Use `npm run test`.
-- Prefer Vitest for new tests.
-- Use `vi.fn()`, `vi.spyOn()`, `vi.clearAllMocks()`, and `vi.restoreAllMocks()` instead of Jest APIs.
-- Keep tests co-located with Angular components or services.
-- Test components in isolation. Do not import broad production modules when stubs or focused providers are enough.
-- Do not use `NO_ERRORS_SCHEMA`; stub or mock child components, pipes, and directives instead.
-- Do not use `overrideTemplate()` to hide a component template. The template is part of the behavior under test.
-- Mock services that only fetch server data. For services with logic, keep the real service and mock HTTP requests with Angular HTTP testing utilities.
-- Reset mocks in `afterEach` when they are created across tests.
-- Prefer user-interaction tests over direct tests of internal component methods.
-- Make expectations specific, for example `toBeUndefined()`, `toHaveLength(3)`, or `toHaveBeenCalledOnce()` instead of broad truthiness checks.
-- Run `npm run build` after client-relevant changes.
-
-Before handing off code changes, prefer:
-
-```bash
-./gradlew test
-npm run test
-npm run build
-```
-
-If a command cannot run, document the exact command and reason in the handoff.
-
-## Version Control Guidelines
-
-- Use `feature/...` branches for implementation phases.
-- Keep commits small and reviewable.
-- Use concise imperative commit messages, scoped where useful.
-- Commit Gradle wrapper files and npm lock files.
-- Do not hand-edit `package-lock.json` unless resolving a targeted lockfile issue.
-- Do not commit generated build outputs, `node_modules`, `.angular`, or local IDE files.
-- Do not revert user changes unless the user explicitly asks.
-
-Recommended commit message examples:
-
-```text
-chore: add server feature model store
-test: cover mandatory feature validation
-docs: add phase 3 server api plan
-```
+When a change touches one of these areas, read the corresponding guideline
+before editing code. Update the guideline document itself when a convention
+changes; keep `CLAUDE.md` as the project overview and navigation entry point.
