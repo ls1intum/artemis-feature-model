@@ -1,0 +1,44 @@
+## TypeScript and Angular Conventions
+
+- Use standalone Angular components.
+- Use lazy loading for route-level features so the initial bundle stays small.
+- Use `ChangeDetectionStrategy.OnPush`.
+- Use kebab-case filenames.
+- Use PascalCase for classes, types, and enums.
+- Do not prefix interfaces with `I`.
+- Use camelCase for functions, properties, and local variables.
+- Use SCREAMING_SNAKE_CASE for constants.
+- Do not prefix private members with `_`.
+- Use descriptive whole words instead of terse abbreviations.
+- Use 4-space indentation and single quotes.
+- Prefer `inject()` over constructor injection.
+- Prefer signal-based APIs for new code:
+    - `input()` / `input.required()` instead of `@Input()`
+    - `output()` instead of `@Output()`
+    - `viewChild()` / `viewChild.required()` instead of `@ViewChild()`
+    - `viewChildren()` instead of `@ViewChildren()`
+    - `signal()`, `computed()`, and `effect()` for component state
+- Do not add legacy decorators such as `@Input`, `@Output`, `@ViewChild`, `@ViewChildren`, `@ContentChild`, or `@ContentChildren` in new code.
+- Use Angular template control flow:
+    - `@if`
+    - `@for`
+    - `@switch`
+- Do not use new `*ngIf`, `*ngFor`, or `*ngSwitch` in new templates.
+- Do not call component methods or getters from templates. Signals are the exception. Precompute values with `computed()` or assign view-ready state before rendering.
+- Avoid `null` where `undefined` works.
+- Prefer interfaces over type aliases whenever an interface can express the shape.
+- Put local type definitions near the top of the file.
+- Do not export types, constants, or helpers unless another file genuinely needs them.
+- Do not introduce global types or global values.
+- Do not use anonymous object shapes for meaningful data. Define named interfaces.
+- Never use `any`; keep client code strictly typed.
+- Treat objects and arrays as immutable outside the component or helper that created them.
+- Keep API calls in feature-model API services, not directly in route components.
+- Keep validation display components separate from validation service logic.
+- Use buttons for actions and links for navigation.
+- Associate labels with form controls using `for`/`id` or a wrapped input.
+- Keep route paths explicit: every variable segment should be preceded by a unique textual segment.
+- Use arrow functions instead of anonymous function expressions, and always wrap arrow parameters in parentheses.
+- Always use curly braces for loop and conditional bodies except for same-line statements.
+
+This MVP scaffold currently uses Bootstrap-compatible SCSS. Use Bootstrap utilities sparingly and do not add `ng-bootstrap`, FontAwesome, PrimeNG, or another component library until a project plan explicitly calls for it.
