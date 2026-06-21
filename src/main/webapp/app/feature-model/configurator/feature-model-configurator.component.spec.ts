@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse, buildWorkflowAvailabilityFixture } from '../core/feature-model.test-fixtures';
+import { ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
@@ -14,6 +15,8 @@ const MODEL_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_URL = '/api/feature-model/guided-workflow';
 const PROFILE_AVAILABILITY_URL = '/api/feature-model/profile-availability';
 const VALIDATE_URL = '/api/feature-model/validate';
+const ARTIFACTS_PREVIEW_URL = '/api/feature-model/artifacts/preview';
+const ARTIFACTS_DOWNLOAD_URL = '/api/feature-model/artifacts/download';
 const TUTORIAL_SEEN_KEY =
     'artemis.configurator.tutorial.seen:artemis-guided-configuration:0.1.0:artemis-functional-feature-tree:0.1.0';
 
@@ -40,6 +43,34 @@ function validResult(selectedFeatureIds: readonly string[] = []): ValidationResu
         normalizedSelection: [...selectedFeatureIds],
         violations: [],
         warnings: [],
+    };
+}
+
+function artifactResult(): ArtifactGenerationResult {
+    return {
+        status: 'GENERATED_WITH_WARNINGS',
+        files: [
+            {
+                path: 'config/application-feature-model.yml',
+                contentType: 'application/x-yaml',
+                preview: 'artemis:\n  iris:\n    enabled: true\n    secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}\n',
+            },
+        ],
+        report: {
+            status: 'GENERATED_WITH_WARNINGS',
+            mode: 'DEMO',
+            modelId: 'artemis-functional-feature-tree',
+            modelVersion: '0.1.0',
+            profileId: 'default-artemis-profile',
+            profileVersion: '1.0.0',
+            selectedFeatureIds: [],
+            generatedFiles: [],
+            consumedParameters: [],
+            omittedMappings: [],
+            warnings: [{ severity: 'warning', featureId: 'iris', parameter: 'artemis.iris.url', message: 'Placeholder value for artemis.iris.url is used.' }],
+            errors: [],
+        },
+        downloadAvailable: true,
     };
 }
 
@@ -394,7 +425,8 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(profileDependent?.textContent).toContain('need');
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-next-step"]')?.textContent).toContain('reserved for the next phase');
+        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-demo-note"]')?.textContent).toContain('placeholder deployment parameters');
     });
 
     it('shows exact missing capability ids in the advanced tree debug view under a restricted override', () => {
@@ -521,5 +553,72 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         expect(rootEl(fixture).querySelector('[data-testid="configurator-tree-screen"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
+    });
+
+    it('generates and previews artifacts from the review page', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'generate-artifacts-button');
+        const previewRequest = httpMock.expectOne(ARTIFACTS_PREVIEW_URL);
+        expect(previewRequest.request.method).toBe('POST');
+        expect((previewRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
+        previewRequest.flush(artifactResult());
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-result"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-status"]')?.textContent).toContain('GENERATED_WITH_WARNINGS');
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-warnings"]')?.textContent).toContain('Placeholder');
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-yaml-preview"]')?.textContent).toContain('secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}');
+        expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).not.toBeNull();
+    });
+
+    it('downloads the artifact ZIP package as a blob', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'generate-artifacts-button');
+        httpMock.expectOne(ARTIFACTS_PREVIEW_URL).flush(artifactResult());
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'download-artifacts-button');
+        const downloadRequest = httpMock.expectOne(ARTIFACTS_DOWNLOAD_URL);
+        expect(downloadRequest.request.method).toBe('POST');
+        expect(downloadRequest.request.responseType).toBe('blob');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('disables artifact generation while the selection is invalid', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'option-card-enable-programming-and-quiz');
+        flushValidation(httpMock, {
+            valid: false,
+            normalizedSelection: [],
+            violations: [
+                {
+                    code: 'MANDATORY_FEATURE_MISSING',
+                    message: 'Programming is mandatory under Exercise System.',
+                    featureIds: ['programming'],
+                    relation: { parentId: 'exercise-system', childId: 'programming' },
+                    suggestion: 'Enable Programming.',
+                },
+            ],
+            warnings: [],
+        });
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const button = rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]') as HTMLButtonElement;
+        expect(button.disabled).toBe(true);
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-invalid-note"]')).not.toBeNull();
     });
 });

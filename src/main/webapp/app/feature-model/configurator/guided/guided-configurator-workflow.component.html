@@ -385,10 +385,60 @@
                     }
                 </section>
 
-                <section class="review-section" data-testid="artifact-next-step">
-                    <h3>Next step</h3>
-                    <p>Artifact generation is reserved for the next phase. This review is the handoff point for generating configuration overlays later.</p>
-                    <button type="button" class="btn btn-secondary w-100" disabled>Generate artifacts later</button>
+                <section class="review-section" data-testid="artifact-generation">
+                    <h3>Deployment artifacts</h3>
+                    <p class="artifact-demo-note" data-testid="artifact-demo-note">
+                        This artifact uses placeholder deployment parameters. It validates the generation flow, but real service values must be provided before
+                        production deployment.
+                    </p>
+                    @if (activeProfile(); as profile) {
+                        <p class="muted" data-testid="artifact-profile">Deployment context: <strong>{{ profile.name }}</strong></p>
+                    }
+                    <button
+                        type="button"
+                        class="btn btn-primary w-100"
+                        [disabled]="!isValid() || artifactGenerating()"
+                        (click)="generateArtifacts.emit()"
+                        data-testid="generate-artifacts-button"
+                    >
+                        {{ artifactGenerating() ? 'Generating...' : 'Generate artifact preview' }}
+                    </button>
+                    @if (!isValid()) {
+                        <p class="muted" data-testid="artifact-invalid-note">Resolve the validation issues above before generating artifacts.</p>
+                    }
+                    @if (artifactErrorMessage(); as error) {
+                        <div class="alert alert-danger" role="alert" data-testid="artifact-error">{{ error }}</div>
+                    }
+                    @if (artifactPreview()) {
+                        <div class="artifact-result" data-testid="artifact-result">
+                            <p class="artifact-status" data-testid="artifact-status">Status: {{ artifactStatus() }}</p>
+                            @if (artifactMessages().length > 0) {
+                                <div class="artifact-warnings" data-testid="artifact-warnings">
+                                    <h4>Warnings and notes</h4>
+                                    <ul>
+                                        @for (message of artifactMessages(); track message.message) {
+                                            <li [class.artifact-message--info]="message.severity === 'info'">{{ message.message }}</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                            @if (overlayPreview(); as overlay) {
+                                <div class="artifact-preview">
+                                    <h4>config/application-feature-model.yml</h4>
+                                    <pre data-testid="artifact-yaml-preview">{{ overlay }}</pre>
+                                </div>
+                            }
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary w-100"
+                                [disabled]="artifactDownloading()"
+                                (click)="downloadArtifacts.emit()"
+                                data-testid="download-artifacts-button"
+                            >
+                                {{ artifactDownloading() ? 'Preparing ZIP...' : 'Download ZIP package' }}
+                            </button>
+                        </div>
+                    }
                 </section>
             </aside>
         </div>

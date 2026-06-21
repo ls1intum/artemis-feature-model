@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { SnapshotSummary } from '../core/snapshot.types';
@@ -162,5 +163,53 @@ describe('FeatureModelService', () => {
         expect(request.request.method).toBe('GET');
         request.flush(snapshots);
         expect(received).toEqual(snapshots);
+    });
+
+    it('issues a POST request to /api/feature-model/artifacts/preview with the selection', () => {
+        const result: ArtifactGenerationResult = {
+            status: 'GENERATED',
+            files: [],
+            report: {
+                status: 'GENERATED',
+                mode: 'DEMO',
+                modelId: 'artemis-functional-feature-tree',
+                modelVersion: '0.1.0',
+                profileId: 'default-artemis-profile',
+                profileVersion: '1.0.0',
+                selectedFeatureIds: ['programming'],
+                generatedFiles: [],
+                consumedParameters: [],
+                omittedMappings: [],
+                warnings: [],
+                errors: [],
+            },
+            downloadAvailable: true,
+        };
+        let received: ArtifactGenerationResult | undefined;
+
+        service.previewArtifacts({ selectedFeatureIds: ['programming'] }).subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/artifacts/preview');
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({ selectedFeatureIds: ['programming'] });
+        request.flush(result);
+        expect(received).toEqual(result);
+    });
+
+    it('issues a POST request to /api/feature-model/artifacts/download for a blob', () => {
+        const blob = new Blob(['zip-bytes']);
+        let received: Blob | undefined;
+
+        service.downloadArtifacts({ selectedFeatureIds: ['programming'] }).subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/artifacts/download');
+        expect(request.request.method).toBe('POST');
+        expect(request.request.responseType).toBe('blob');
+        request.flush(blob);
+        expect(received).toBe(blob);
     });
 });

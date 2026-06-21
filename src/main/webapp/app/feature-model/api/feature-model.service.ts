@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { ArtifactGenerationRequest, ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
@@ -11,6 +12,8 @@ const FEATURE_MODEL_RESOURCE_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_RESOURCE_URL = '/api/feature-model/guided-workflow';
 const PROFILE_AVAILABILITY_RESOURCE_URL = '/api/feature-model/profile-availability';
 const SNAPSHOTS_RESOURCE_URL = '/api/feature-model/snapshots';
+const ARTIFACTS_PREVIEW_RESOURCE_URL = '/api/feature-model/artifacts/preview';
+const ARTIFACTS_DOWNLOAD_RESOURCE_URL = '/api/feature-model/artifacts/download';
 
 @Injectable({ providedIn: 'root' })
 export class FeatureModelService {
@@ -57,5 +60,26 @@ export class FeatureModelService {
      */
     loadSnapshots(): Observable<SnapshotSummary[]> {
         return this.http.get<SnapshotSummary[]>(SNAPSHOTS_RESOURCE_URL);
+    }
+
+    /**
+     * Issues `POST /api/feature-model/artifacts/preview` and returns the generated artifact files and report for
+     * the given selection. Secret values appear only as `${VARIABLE}` placeholders.
+     *
+     * @param request Artifact generation request with the selected feature ids.
+     * @returns Observable that emits the artifact generation result once and completes.
+     */
+    previewArtifacts(request: ArtifactGenerationRequest): Observable<ArtifactGenerationResult> {
+        return this.http.post<ArtifactGenerationResult>(ARTIFACTS_PREVIEW_RESOURCE_URL, request);
+    }
+
+    /**
+     * Issues `POST /api/feature-model/artifacts/download` and returns the artifact ZIP package as a binary blob.
+     *
+     * @param request Artifact generation request with the selected feature ids.
+     * @returns Observable that emits the ZIP package blob once and completes.
+     */
+    downloadArtifacts(request: ArtifactGenerationRequest): Observable<Blob> {
+        return this.http.post(ARTIFACTS_DOWNLOAD_RESOURCE_URL, request, { responseType: 'blob' });
     }
 }

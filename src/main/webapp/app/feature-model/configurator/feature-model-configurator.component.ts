@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
+import { ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
@@ -31,6 +32,8 @@ import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
+const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please verify that the server is running and try again.';
+const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -62,6 +65,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly validationResult = signal<ValidationResult | undefined>(undefined);
     readonly validationLoading = signal<boolean>(false);
     readonly validationErrorMessage = signal<string | undefined>(undefined);
+    readonly artifactPreview = signal<ArtifactGenerationResult | undefined>(undefined);
+    readonly artifactGenerating = signal<boolean>(false);
+    readonly artifactDownloading = signal<boolean>(false);
+    readonly artifactErrorMessage = signal<string | undefined>(undefined);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -416,6 +423,69 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
+    /** Generates an artifact preview for the current valid selection against the active deployment context. */
+    onGenerateArtifacts(): void {
+        if (!this.isValid()) {
+            return;
+        }
+        this.artifactGenerating.set(true);
+        this.artifactErrorMessage.set(undefined);
+        this.featureModelService
+            .previewArtifacts({ selectedFeatureIds: [...this.selectedFeatureIds()] })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (result) => {
+                    this.artifactPreview.set(result);
+                    this.artifactGenerating.set(false);
+                },
+                error: (error: Error) => {
+                    this.artifactErrorMessage.set(this.artifactErrorText(error));
+                    this.artifactGenerating.set(false);
+                },
+            });
+    }
+
+    /** Downloads the artifact ZIP package for the current valid selection. */
+    onDownloadArtifacts(): void {
+        if (!this.isValid()) {
+            return;
+        }
+        this.artifactDownloading.set(true);
+        this.artifactErrorMessage.set(undefined);
+        this.featureModelService
+            .downloadArtifacts({ selectedFeatureIds: [...this.selectedFeatureIds()] })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (blob) => {
+                    this.saveBlob(blob, ARTIFACT_PACKAGE_FILE_NAME);
+                    this.artifactDownloading.set(false);
+                },
+                error: (error: Error) => {
+                    this.artifactErrorMessage.set(this.artifactErrorText(error));
+                    this.artifactDownloading.set(false);
+                },
+            });
+    }
+
+    /** Resolves a user-facing artifact error message, falling back to a default when none is present. */
+    private artifactErrorText(error: Error): string {
+        const message = error?.message?.trim();
+        return message && message.length > 0 ? message : DEFAULT_ARTIFACT_ERROR_MESSAGE;
+    }
+
+    /** Triggers a browser download for a generated blob without persisting it anywhere on the server. */
+    private saveBlob(blob: Blob, fileName: string): void {
+        if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+            return;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(objectUrl);
+    }
+
     private handleLoaded(response: FeatureModelResponse, workflow: GuidedWorkflow, availability: WorkflowAvailability): void {
         this.response.set(response);
         this.workflow.set(workflow);
@@ -620,6 +690,9 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const token = ++this.validationToken;
         this.validationLoading.set(true);
         this.validationErrorMessage.set(undefined);
+        // A selection change invalidates any previously generated artifact preview.
+        this.artifactPreview.set(undefined);
+        this.artifactErrorMessage.set(undefined);
         this.validationService
             .validateSelection(this.selectedFeatureIds())
             .pipe(takeUntilDestroyed(this.destroyRef))
