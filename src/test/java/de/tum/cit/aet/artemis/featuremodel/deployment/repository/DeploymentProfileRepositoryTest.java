@@ -32,7 +32,7 @@ class DeploymentProfileRepositoryTest {
         // The single bundled profile provides every capability the guided workflow references.
         assertThat(defaultProfile.providedCapabilities()).contains("pyris-service", "pyris-secret", "athena-service", "hyperion-service",
                 "lti-platform-registration", "theia-service", "sharing-platform-registration", "sharing-secret");
-        assertThat(defaultProfile.parameters()).containsKeys("pyris.url", "athena.url", "springAi.openAi.apiKeyRef", "theia.portalUrl");
+        assertThat(defaultProfile.parameters()).containsKeys("artemis.iris.url", "artemis.athena.url", "spring.ai.openai.api-key", "artemis.theia.portal-url");
     }
 
     @Test

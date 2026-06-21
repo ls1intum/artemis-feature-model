@@ -36,7 +36,7 @@ class DeploymentProfileServiceTest {
 
         assertThat(detail.providedCapabilities()).contains("pyris-service", "pyris-secret", "hyperion-service", "athena-service",
                 "lti-platform-registration", "theia-service", "sharing-platform-registration");
-        assertThat(detail.parameters()).containsKey("pyris.url");
+        assertThat(detail.parameters()).containsKey("artemis.iris.url");
         assertThat(detail.defaultProfile()).isTrue();
     }
 
