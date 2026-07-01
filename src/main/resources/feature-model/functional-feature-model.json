@@ -569,7 +569,10 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "athena-service",
+        "athena-secret"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
@@ -698,7 +701,10 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "pyris-service",
+        "pyris-secret"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
@@ -757,7 +763,9 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "hyperion-service"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
@@ -836,7 +844,9 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "lti-platform-registration"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
@@ -878,7 +888,9 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "theia-service"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
@@ -983,7 +995,10 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
+      "requiresCapabilities": [
+        "sharing-platform-registration",
+        "sharing-secret"
+      ],
       "artifactMappings": [
         {
           "target": "application-feature-model.yml",
