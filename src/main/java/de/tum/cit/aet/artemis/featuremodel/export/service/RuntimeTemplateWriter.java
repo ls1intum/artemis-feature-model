@@ -1,0 +1,212 @@
+package de.tum.cit.aet.artemis.featuremodel.export.service;
+
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
+/**
+ * Writes the static and near-static text files that turn the Phase 5 configuration artifacts into a local runtime
+ * deployment package: the package README, the demo/README env files, and the Layer 1 (local Artemis repository)
+ * Compose override and its README.
+ *
+ * <p>
+ * All content is deterministic for the same input. Shared paths and environment variable names are the literal values
+ * of the constants in {@link RuntimePackageConstants}; a drift-guard test keeps these files and the helper scripts in
+ * sync with those constants. Only Layer 1 files are produced in this phase; the remote-image layer is deferred.
+ */
+@Component
+public class RuntimeTemplateWriter {
+
+    /**
+     * Builds the package-level README describing the local runtime package and how to use its Layer 1 mode.
+     *
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param profileVersion active deployment profile version.
+     * @return README markdown text.
+     */
+    public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion) {
+        return """
+                # Artemis Feature Model — Local Runtime Deployment Package
+
+                Generated from feature model `%s` version `%s` and deployment context `%s` version `%s` in DEMO mode.
+
+                This package wraps the Level 1 configuration artifacts (see `metadata/generation-report.json`) with local
+                runtime templates, helper scripts, and package metadata. Its goal is **local validation**: confirming that
+                Artemis starts with the generated Spring configuration overlay mounted and loaded. It is **not** a
+                production deployment.
+
+                ## What this is not
+
+                - Not a production deployment. Placeholder values may be present; secrets are never written as plaintext.
+                - Not a replacement for normal Artemis configuration. `config/application-feature-model.yml` is applied as
+                  an **additional** Spring configuration file on top of the Artemis configuration stack.
+                - Not a guarantee that optional external services (Iris, Athena, Theia, Apollon, Sharing) work locally.
+
+                ## Runtime modes
+
+                This package currently supports one local validation mode:
+
+                - **Layer 1 — Local Artemis Repository Runtime** (`deployment/local-repo/`, `scripts/start-local-repo.sh`).
+                  Uses an existing local Artemis checkout and its Docker Compose setup.
+
+                A second mode (Layer 2 — Remote Artemis Image Runtime, running without an Artemis checkout by pulling a
+                pinned Artemis image) is planned for a later increment and is not included here.
+
+                ## First: make the scripts executable
+
+                ZIP archives do not preserve the executable bit, so after unzipping run:
+
+                ```bash
+                chmod +x scripts/*.sh
+                ```
+
+                ## Layer 1: local Artemis repository
+
+                ```bash
+                ./scripts/prepare-env.sh --demo
+                ./scripts/start-local-repo.sh /path/to/Artemis
+                # ... validate, then stop:
+                ./scripts/stop-local-repo.sh /path/to/Artemis
+                ```
+
+                `start-local-repo.sh` verifies Docker and Docker Compose, checks that the given path looks like an Artemis
+                repository, and layers `deployment/local-repo/docker-compose.override.example.yml` onto the Artemis Compose
+                stack. The override mounts the overlay read-only and tells Spring Boot to load it. Artemis then starts at
+                http://localhost:8080.
+
+                > The overlay keys were verified against Artemis commit `51caf4c1eb`. A local checkout at a very different
+                > commit may not match every key; review `metadata/generation-report.json` and `metadata/runtime-checks.json`.
+
+                ## Package contents
+
+                - `config/application-feature-model.yml` — the generated Spring configuration overlay.
+                - `env/` — environment files (`.env.example`, `.env.demo`) and their README.
+                - `metadata/` — selected features, deployment-profile summary, generation report, package manifest, and
+                  runtime checks.
+                - `deployment/local-repo/` — the local-repo Compose override and its README.
+                - `scripts/` — helper scripts described above plus `validate-package.sh` and `print-runtime-summary.sh`.
+
+                Run `./scripts/validate-package.sh` to check the package structure and `./scripts/print-runtime-summary.sh`
+                for a quick overview.
+                """.formatted(modelId, modelVersion, profileId, profileVersion);
+    }
+
+    /**
+     * Builds the demo env file with dummy values for every referenced environment variable. Clearly labeled as
+     * demo-only so it is never mistaken for a real secret store.
+     *
+     * @param environmentVariableNames referenced environment variable names, in stable order.
+     * @return {@code .env.demo} text.
+     */
+    public String envDemo(List<String> environmentVariableNames) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("# DEMO ONLY — dummy local values. UNSAFE for production; do not commit real secrets.\n");
+        builder.append("# scripts/prepare-env.sh --demo copies this file to env/.env for local validation.\n");
+        for (String name : environmentVariableNames) {
+            builder.append(name).append("=demo-change-me\n");
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Builds the env directory README explaining the three env files and secret-handling expectations.
+     *
+     * @return env README markdown text.
+     */
+    public String envReadme() {
+        return """
+                # Environment files
+
+                - `.env.example` — every environment variable the overlay references, with **empty** values. Copy it to
+                  `.env` and fill in real values for a real run.
+                - `.env.demo` — the same variables with **dummy** local values (`demo-change-me`). For local validation
+                  only; never use these for a real deployment.
+                - `.env` — the file the helper scripts actually load. It is created by `scripts/prepare-env.sh` from either
+                  `.env.example` or `.env.demo` and is not shipped in the package.
+
+                Secrets must never be committed or used in production from this package. Values here are placeholders or
+                dummy demo tokens; provide real secrets securely through your deployment environment.
+                """;
+    }
+
+    /**
+     * Builds the Layer 1 Compose override that layers the overlay onto an existing Artemis stack. The literal env var
+     * names, container path, and Spring config setting mirror {@link RuntimePackageConstants} and the helper scripts.
+     *
+     * @return docker-compose override YAML text.
+     */
+    public String localRepoOverride() {
+        return """
+                # Local-repo runtime override (Layer 1) — DEMO / local validation only.
+                #
+                # scripts/start-local-repo.sh combines this override with your local Artemis Docker Compose stack. It does
+                # NOT redefine the database or the full Artemis stack; it only layers the generated Spring configuration
+                # overlay onto the existing artemis-app service.
+                #
+                # Host paths are injected as absolute values through the FM_OVERLAY_HOST_PATH and FM_ENV_FILE environment
+                # variables that the start script exports, so this file works regardless of the directory Docker Compose
+                # resolves relative paths from.
+                services:
+                    artemis-app:
+                        volumes:
+                            - "${FM_OVERLAY_HOST_PATH}:/opt/artemis/config/application-feature-model.yml:ro"
+                        env_file:
+                            - "${FM_ENV_FILE}"
+                        environment:
+                            SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/opt/artemis/config/application-feature-model.yml"
+                """;
+    }
+
+    /**
+     * Builds the local-repo README explaining the override, the env vars the start script injects, and the caveats.
+     *
+     * @return local-repo README markdown text.
+     */
+    public String localRepoReadme() {
+        return """
+                # Local repository runtime (Layer 1)
+
+                This directory holds the Docker Compose override used when running Artemis from a **local checkout**.
+
+                ## How it is used
+
+                `scripts/start-local-repo.sh /path/to/Artemis` runs, from the Artemis `docker/` directory:
+
+                ```bash
+                docker compose -p artemis-feature-model-local \\
+                  --project-directory /path/to/Artemis/docker \\
+                  -f /path/to/Artemis/docker/artemis-dev-postgres.yml \\
+                  -f <this-package>/deployment/local-repo/docker-compose.override.example.yml \\
+                  up -d
+                ```
+
+                The Artemis Compose file can be changed with the `FM_ARTEMIS_COMPOSE_FILE` environment variable (default
+                `docker/artemis-dev-postgres.yml`).
+
+                ## What the override does
+
+                - Targets the `artemis-app` service only; it does not redefine the database or the full Artemis stack.
+                - Mounts `config/application-feature-model.yml` read-only into the container at
+                  `/opt/artemis/config/application-feature-model.yml`.
+                - Loads `env/.env` into the container.
+                - Sets `SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/opt/artemis/config/application-feature-model.yml`
+                  so Spring Boot loads the overlay as an additional configuration file.
+
+                ## Path handling
+
+                Docker Compose resolves relative bind-mount paths against the project directory (the first Compose file's
+                directory), not against this override. To avoid that pitfall, the start script exports absolute host paths
+                as `FM_OVERLAY_HOST_PATH` (the overlay) and `FM_ENV_FILE` (the env file), which this override references.
+                Run the scripts from the package; do not invoke Compose with this override by hand unless you export those
+                variables yourself.
+
+                ## Caveats
+
+                - This is an **example** override and may need adaptation to your Artemis version.
+                - The overlay only adds feature configuration; it does not provide a complete Artemis runtime configuration.
+                - Optional external services referenced by the overlay may be placeholders and may not function locally.
+                """;
+    }
+}
