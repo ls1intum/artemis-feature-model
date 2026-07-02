@@ -30,16 +30,29 @@ public class ArtifactPackageService {
     private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
 
     /**
-     * Builds the ZIP archive for a generated artifact package.
+     * Builds the ZIP archive for a generated artifact package under the default Phase 5 root directory.
      *
      * @param artifactPackage generated artifact package.
      * @return ZIP archive bytes.
      */
     public byte[] zip(GeneratedArtifactPackage artifactPackage) {
+        return zip(artifactPackage, ROOT_DIR);
+    }
+
+    /**
+     * Builds the ZIP archive for a generated package under a caller-provided root directory. Reused by the Phase 6
+     * deployment package, which uses a distinct root directory while keeping the same deterministic ordering and fixed
+     * entry timestamp.
+     *
+     * @param artifactPackage generated package.
+     * @param rootDir root directory prefix (must end with {@code /}) every entry is written under.
+     * @return ZIP archive bytes.
+     */
+    public byte[] zip(GeneratedArtifactPackage artifactPackage, String rootDir) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zipStream = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
             for (GeneratedArtifactFile file : artifactPackage.files()) {
-                ZipEntry entry = new ZipEntry(ROOT_DIR + file.path());
+                ZipEntry entry = new ZipEntry(rootDir + file.path());
                 entry.setTime(FIXED_ENTRY_TIME);
                 zipStream.putNextEntry(entry);
                 zipStream.write(file.content().getBytes(StandardCharsets.UTF_8));
