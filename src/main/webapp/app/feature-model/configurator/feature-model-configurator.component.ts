@@ -33,7 +33,9 @@ import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
 const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please verify that the server is running and try again.';
+const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the local runtime package. Please verify that the server is running and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
+const DEPLOYMENT_PACKAGE_FILE_NAME = 'artemis-feature-model-deployment-package.zip';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -69,6 +71,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly artifactGenerating = signal<boolean>(false);
     readonly artifactDownloading = signal<boolean>(false);
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
+    readonly deploymentPackageDownloading = signal<boolean>(false);
+    readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -467,10 +471,38 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             });
     }
 
+    /** Downloads the local runtime deployment package ZIP for the current valid selection. */
+    onDownloadDeploymentPackage(): void {
+        if (!this.isValid()) {
+            return;
+        }
+        this.deploymentPackageDownloading.set(true);
+        this.deploymentPackageErrorMessage.set(undefined);
+        this.featureModelService
+            .downloadDeploymentPackage({ selectedFeatureIds: [...this.selectedFeatureIds()] })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (blob) => {
+                    this.saveBlob(blob, DEPLOYMENT_PACKAGE_FILE_NAME);
+                    this.deploymentPackageDownloading.set(false);
+                },
+                error: (error: Error) => {
+                    this.deploymentPackageErrorMessage.set(this.deploymentPackageErrorText(error));
+                    this.deploymentPackageDownloading.set(false);
+                },
+            });
+    }
+
     /** Resolves a user-facing artifact error message, falling back to a default when none is present. */
     private artifactErrorText(error: Error): string {
         const message = error?.message?.trim();
         return message && message.length > 0 ? message : DEFAULT_ARTIFACT_ERROR_MESSAGE;
+    }
+
+    /** Resolves a user-facing deployment package error message, falling back to a default when none is present. */
+    private deploymentPackageErrorText(error: Error): string {
+        const message = error?.message?.trim();
+        return message && message.length > 0 ? message : DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE;
     }
 
     /** Triggers a browser download for a generated blob without persisting it anywhere on the server. */
@@ -693,6 +725,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         // A selection change invalidates any previously generated artifact preview.
         this.artifactPreview.set(undefined);
         this.artifactErrorMessage.set(undefined);
+        this.deploymentPackageErrorMessage.set(undefined);
         this.validationService
             .validateSelection(this.selectedFeatureIds())
             .pipe(takeUntilDestroyed(this.destroyRef))

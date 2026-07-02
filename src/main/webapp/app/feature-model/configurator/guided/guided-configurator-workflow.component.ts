@@ -53,6 +53,8 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly artifactGenerating = input<boolean>(false);
     readonly artifactDownloading = input<boolean>(false);
     readonly artifactErrorMessage = input<string | undefined>(undefined);
+    readonly deploymentPackageDownloading = input<boolean>(false);
+    readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();
@@ -67,6 +69,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly openTree = output<void>();
     readonly generateArtifacts = output<void>();
     readonly downloadArtifacts = output<void>();
+    readonly downloadDeploymentPackage = output<void>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
     readonly overlayPreview = computed<string | undefined>(() => this.artifactPreview()?.files.find((file) => file.path === OVERLAY_FILE_PATH)?.preview);

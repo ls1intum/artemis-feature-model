@@ -212,4 +212,19 @@ describe('FeatureModelService', () => {
         request.flush(blob);
         expect(received).toBe(blob);
     });
+
+    it('issues a POST request to /api/feature-model/deployment-package/download for a blob', () => {
+        const blob = new Blob(['zip-bytes']);
+        let received: Blob | undefined;
+
+        service.downloadDeploymentPackage({ selectedFeatureIds: ['programming'] }).subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/deployment-package/download');
+        expect(request.request.method).toBe('POST');
+        expect(request.request.responseType).toBe('blob');
+        request.flush(blob);
+        expect(received).toBe(blob);
+    });
 });
