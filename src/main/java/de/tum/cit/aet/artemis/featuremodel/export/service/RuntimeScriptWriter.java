@@ -205,6 +205,10 @@ public class RuntimeScriptWriter {
 
                 OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
 
+                # Artemis resolves image versions (e.g. POSTGRES_VERSION) from its repo-root .env during Compose
+                # interpolation. --project-directory points at docker/, where no .env lives, so pass it explicitly.
+                ARTEMIS_ENV_FILE="${FM_ARTEMIS_ENV_FILE:-$ARTEMIS_REPO/.env}"
+
                 # Inject absolute host paths so the override does not depend on Compose's relative-path resolution.
                 export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
                 export FM_ENV_FILE="$ENV_FILE"
@@ -213,13 +217,26 @@ public class RuntimeScriptWriter {
                 echo "  Compose file: $ARTEMIS_COMPOSE_FILE"
                 echo "  Overlay:      $FM_OVERLAY_HOST_PATH"
                 echo "  Env file:     $FM_ENV_FILE"
+                echo "  Artemis env:  $ARTEMIS_ENV_FILE"
                 echo "  Note: the first start may build the Artemis image and can take a while."
 
-                docker compose -p artemis-feature-model-local \\
-                  --project-directory "$ARTEMIS_DOCKER_DIR" \\
-                  -f "$ARTEMIS_COMPOSE_FILE" \\
-                  -f "$OVERRIDE_FILE" \\
-                  up -d
+                if [ -f "$ARTEMIS_ENV_FILE" ]; then
+                  docker compose -p artemis-feature-model-local \\
+                    --project-directory "$ARTEMIS_DOCKER_DIR" \\
+                    --env-file "$ARTEMIS_ENV_FILE" \\
+                    -f "$ARTEMIS_COMPOSE_FILE" \\
+                    -f "$OVERRIDE_FILE" \\
+                    up -d
+                else
+                  echo "WARNING: Artemis env file not found: $ARTEMIS_ENV_FILE" >&2
+                  echo "         The Artemis stack may fail to resolve image versions (e.g. POSTGRES_VERSION)." >&2
+                  echo "         Set FM_ARTEMIS_ENV_FILE if the Artemis interpolation .env lives elsewhere." >&2
+                  docker compose -p artemis-feature-model-local \\
+                    --project-directory "$ARTEMIS_DOCKER_DIR" \\
+                    -f "$ARTEMIS_COMPOSE_FILE" \\
+                    -f "$OVERRIDE_FILE" \\
+                    up -d
+                fi
 
                 echo ""
                 echo "Artemis is starting. Once healthy it will be available at http://localhost:8080"

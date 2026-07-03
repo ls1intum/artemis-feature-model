@@ -177,6 +177,7 @@ public class RuntimeTemplateWriter {
                 ```bash
                 docker compose -p artemis-feature-model-local \\
                   --project-directory /path/to/Artemis/docker \\
+                  --env-file /path/to/Artemis/.env \\
                   -f /path/to/Artemis/docker/artemis-dev-postgres.yml \\
                   -f <this-package>/deployment/local-repo/docker-compose.override.example.yml \\
                   up -d
@@ -184,6 +185,12 @@ public class RuntimeTemplateWriter {
 
                 The Artemis Compose file can be changed with the `FM_ARTEMIS_COMPOSE_FILE` environment variable (default
                 `docker/artemis-dev-postgres.yml`).
+
+                The `--env-file` points at the Artemis repo-root `.env`, which Artemis uses to resolve image versions
+                during Compose interpolation (for example `POSTGRES_VERSION`). Because `--project-directory` is the
+                `docker/` directory, that `.env` is not picked up automatically, so the start script passes it explicitly.
+                Override its location with `FM_ARTEMIS_ENV_FILE` if your Artemis `.env` lives elsewhere. Without it, the
+                Artemis stack fails with `invalid reference format` on `postgres:` (an empty image tag).
 
                 ## What the override does
 

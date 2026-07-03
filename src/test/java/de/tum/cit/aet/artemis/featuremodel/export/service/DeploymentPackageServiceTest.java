@@ -123,7 +123,11 @@ class DeploymentPackageServiceTest {
                 "scripts/print-runtime-summary.sh")) {
             assertThat(content(result, script)).startsWith("#!/usr/bin/env bash").contains("set -euo pipefail");
         }
-        assertThat(content(result, "scripts/start-local-repo.sh")).contains("docker compose").contains("up -d");
+        String startScript = content(result, "scripts/start-local-repo.sh");
+        assertThat(startScript).contains("docker compose").contains("up -d");
+        // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the
+        // Artemis stack resolves an empty postgres image tag and fails with "invalid reference format".
+        assertThat(startScript).contains("--env-file").contains("FM_ARTEMIS_ENV_FILE").contains("$ARTEMIS_REPO/.env");
         // stop keeps volumes by default: down --volumes only appears in the explicit branch, never unconditionally.
         assertThat(content(result, "scripts/stop-local-repo.sh")).contains("down").contains("--volumes");
         assertThat(content(result, "scripts/prepare-env.sh")).contains("already exists");
