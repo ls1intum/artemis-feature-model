@@ -62,14 +62,43 @@ public final class RuntimePackageConstants {
     /** Optional environment variable to override which Artemis Compose file the local-repo script uses. */
     public static final String ARTEMIS_COMPOSE_ENV = "FM_ARTEMIS_COMPOSE_FILE";
 
-    /** Default Artemis Compose file (relative to the Artemis repository) used by the local-repo script. */
-    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "docker/artemis-dev-postgres.yml";
+    /**
+     * Default Artemis Compose file (relative to the Artemis repository) used by the local-repo script. The CI-capable
+     * local-VC/local-CI stack is used so that CI-dependent features (for example Hyperion, which hard-requires a CI
+     * trigger bean) can start; a plain database-only stack shuts Artemis down when such a feature is enabled.
+     */
+    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "docker/artemis-dev-local-vc-local-ci-mysql.yml";
 
     /** Compose project name shared by the local-repo start and stop scripts so stop finds the started stack. */
     public static final String COMPOSE_PROJECT_NAME = "artemis-feature-model-local";
 
     /** Artemis application service name the local-repo override targets. */
     public static final String ARTEMIS_APP_SERVICE = "artemis-app";
+
+    /** Database service name in the CI-capable stack; also the resolvable host used in the datasource URL. */
+    public static final String DB_SERVICE = "mysql";
+
+    /** Local runtime database type recorded in the manifest. */
+    public static final String DATABASE_TYPE = "mysql";
+
+    /** Container name for our Artemis app, distinct from the stack default so it never collides with an existing one. */
+    public static final String CONTAINER_APP_NAME = "artemis-feature-model-local-app";
+
+    /** Container name for our database, distinct from the stack default to avoid name collisions. */
+    public static final String CONTAINER_DB_NAME = "artemis-feature-model-local-mysql";
+
+    /** Named volume for Artemis app data, isolated from any existing Artemis dev volumes. */
+    public static final String DATA_VOLUME = "artemis-feature-model-local-data";
+
+    /** Named volume for the database, isolated from any existing Artemis dev volumes. */
+    public static final String DB_VOLUME = "artemis-feature-model-local-mysqldata";
+
+    /**
+     * Datasource URL pointed at the {@code mysql} service by name (not the stack's default {@code artemis-mysql}
+     * container host), so our renamed database container still resolves. Artemis creates the database if absent.
+     */
+    public static final String DATASOURCE_URL = "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true"
+            + "&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
 
     /** URL Artemis is reachable at after a successful local-repo start. */
     public static final String ARTEMIS_LOCAL_URL = "http://localhost:8080";

@@ -19,12 +19,14 @@ import java.util.List;
  * @param model active feature model reference.
  * @param deploymentProfile active deployment profile reference.
  * @param artemisRuntime Artemis runtime context notes relevant to the local-repo layer.
+ * @param database local runtime database used to validate startup.
  * @param generatedFiles relative paths of all files in the package, in deterministic order.
  * @param requiredEnvironmentVariables environment variable names the overlay references, from {@code .env.example}.
  * @param readiness readiness flags making clear this is a local-validation, non-production package.
  */
 public record DeploymentPackageManifest(String packageType, String packageVersion, String mode, List<String> supportedRuntimeModes, ModelRef model,
-        ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, List<String> generatedFiles, List<String> requiredEnvironmentVariables, Readiness readiness) {
+        ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, List<String> generatedFiles, List<String> requiredEnvironmentVariables,
+        Readiness readiness) {
 
     /**
      * Normalizes nullable list fields to immutable empty lists.
@@ -36,6 +38,7 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * @param model active feature model reference.
      * @param deploymentProfile active deployment profile reference.
      * @param artemisRuntime Artemis runtime context notes.
+     * @param database local runtime database.
      * @param generatedFiles package file paths.
      * @param requiredEnvironmentVariables referenced environment variable names.
      * @param readiness readiness flags.
@@ -71,6 +74,15 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * @param note human-readable note about how the local-repo layer reuses the local Artemis stack.
      */
     public record ArtemisRuntimeInfo(String verifiedAgainstArtemisCommit, String note) {
+    }
+
+    /**
+     * Local runtime database used for validation.
+     *
+     * @param type database type, for example {@code mysql}.
+     * @param mode how the database is provided, for example {@code local-container}.
+     */
+    public record Database(String type, String mode) {
     }
 
     /**

@@ -73,7 +73,10 @@ public class RuntimeTemplateWriter {
 
                 `start-local-repo.sh` verifies Docker and Docker Compose, checks that the given path looks like an Artemis
                 repository, and layers `deployment/local-repo/docker-compose.override.example.yml` onto the Artemis Compose
-                stack. The override mounts the overlay read-only and tells Spring Boot to load it. Artemis then starts at
+                stack. It uses the CI-capable local-VC/local-CI stack (MySQL) so any selection — including CI-dependent
+                features such as Hyperion — can start; the first start is therefore slower and heavier than a database-only
+                stack. The override mounts the overlay read-only and tells Spring Boot to load it, using its own container
+                names and volumes so it does not disturb an existing local Artemis dev environment. Artemis then starts at
                 http://localhost:8080.
 
                 > The overlay keys were verified against Artemis commit `51caf4c1eb`. A local checkout at a very different
@@ -141,21 +144,39 @@ public class RuntimeTemplateWriter {
         return """
                 # Local-repo runtime override (Layer 1) — DEMO / local validation only.
                 #
-                # scripts/start-local-repo.sh combines this override with your local Artemis Docker Compose stack. It does
-                # NOT redefine the database or the full Artemis stack; it only layers the generated Spring configuration
-                # overlay onto the existing artemis-app service.
+                # scripts/start-local-repo.sh combines this override with the CI-capable Artemis local-VC/local-CI stack
+                # (docker/artemis-dev-local-vc-local-ci-mysql.yml), so CI-dependent features such as Hyperion can start. It
+                # only layers the generated Spring configuration overlay onto the existing artemis-app service; it does not
+                # redefine the Artemis stack.
+                #
+                # It uses its own container names and named volumes so it never collides with, or writes into, an existing
+                # local Artemis dev environment. The database host is pinned to the "mysql" service name so the renamed
+                # database container still resolves. Running CI builds (not startup) additionally needs the Docker socket
+                # the base stack already mounts.
                 #
                 # Host paths are injected as absolute values through the FM_OVERLAY_HOST_PATH and FM_ENV_FILE environment
                 # variables that the start script exports, so this file works regardless of the directory Docker Compose
                 # resolves relative paths from.
                 services:
                     artemis-app:
+                        container_name: artemis-feature-model-local-app
                         volumes:
                             - "${FM_OVERLAY_HOST_PATH}:/opt/artemis/config/application-feature-model.yml:ro"
+                            - "artemis-feature-model-local-data:/opt/artemis/data"
                         env_file:
                             - "${FM_ENV_FILE}"
                         environment:
                             SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/opt/artemis/config/application-feature-model.yml"
+                            SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC"
+                    mysql:
+                        container_name: artemis-feature-model-local-mysql
+                        volumes:
+                            - "artemis-feature-model-local-mysqldata:/var/lib/mysql"
+                volumes:
+                    artemis-feature-model-local-data:
+                        name: artemis-feature-model-local-data
+                    artemis-feature-model-local-mysqldata:
+                        name: artemis-feature-model-local-mysqldata
                 """;
     }
 
@@ -170,6 +191,14 @@ public class RuntimeTemplateWriter {
 
                 This directory holds the Docker Compose override used when running Artemis from a **local checkout**.
 
+                ## CI-capable stack
+
+                The default Artemis Compose file is `docker/artemis-dev-local-vc-local-ci-mysql.yml` — the local-VC/local-CI
+                stack (profiles `localci,localvc,buildagent`) backed by **MySQL**. This is deliberate: CI-dependent features
+                such as Hyperion hard-require a CI trigger bean at startup, so a database-only stack would shut Artemis down
+                when they are enabled. As a result any feature selection can start here. Trade-offs: the stack is heavier and
+                the first start is slower than a database-only one, and it uses MySQL rather than PostgreSQL.
+
                 ## How it is used
 
                 `scripts/start-local-repo.sh /path/to/Artemis` runs, from the Artemis `docker/` directory:
@@ -178,28 +207,33 @@ public class RuntimeTemplateWriter {
                 docker compose -p artemis-feature-model-local \\
                   --project-directory /path/to/Artemis/docker \\
                   --env-file /path/to/Artemis/.env \\
-                  -f /path/to/Artemis/docker/artemis-dev-postgres.yml \\
+                  -f /path/to/Artemis/docker/artemis-dev-local-vc-local-ci-mysql.yml \\
                   -f <this-package>/deployment/local-repo/docker-compose.override.example.yml \\
                   up -d
                 ```
 
                 The Artemis Compose file can be changed with the `FM_ARTEMIS_COMPOSE_FILE` environment variable (default
-                `docker/artemis-dev-postgres.yml`).
+                `docker/artemis-dev-local-vc-local-ci-mysql.yml`). Note the override pins a MySQL datasource, so a different
+                database stack would also need the override adapted.
 
-                The `--env-file` points at the Artemis repo-root `.env`, which Artemis uses to resolve image versions
-                during Compose interpolation (for example `POSTGRES_VERSION`). Because `--project-directory` is the
-                `docker/` directory, that `.env` is not picked up automatically, so the start script passes it explicitly.
-                Override its location with `FM_ARTEMIS_ENV_FILE` if your Artemis `.env` lives elsewhere. Without it, the
-                Artemis stack fails with `invalid reference format` on `postgres:` (an empty image tag).
+                The `--env-file` points at the Artemis repo-root `.env`, which Artemis uses to resolve image versions during
+                Compose interpolation (for example `MYSQL_VERSION`). Because `--project-directory` is the `docker/`
+                directory, that `.env` is not picked up automatically, so the start script passes it explicitly. Override
+                its location with `FM_ARTEMIS_ENV_FILE` if your Artemis `.env` lives elsewhere.
 
                 ## What the override does
 
-                - Targets the `artemis-app` service only; it does not redefine the database or the full Artemis stack.
+                - Layers only onto the `artemis-app` service; it does not redefine the Artemis stack.
+                - Uses its **own container names** (`artemis-feature-model-local-app`, `artemis-feature-model-local-mysql`)
+                  and **own named volumes**, so it never collides with, or writes into, an existing local Artemis dev
+                  environment.
                 - Mounts `config/application-feature-model.yml` read-only into the container at
                   `/opt/artemis/config/application-feature-model.yml`.
                 - Loads `env/.env` into the container.
                 - Sets `SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/opt/artemis/config/application-feature-model.yml`
                   so Spring Boot loads the overlay as an additional configuration file.
+                - Pins `SPRING_DATASOURCE_URL` to the `mysql` **service** name (not the stack default `artemis-mysql`
+                  container host), so the renamed database container still resolves.
 
                 ## Path handling
 
@@ -213,7 +247,9 @@ public class RuntimeTemplateWriter {
 
                 - This is an **example** override and may need adaptation to your Artemis version.
                 - The overlay only adds feature configuration; it does not provide a complete Artemis runtime configuration.
-                - Optional external services referenced by the overlay may be placeholders and may not function locally.
+                - Startup / config-loading is validated, not full functionality. Optional external services (Iris, Athena,
+                  Theia, Apollon, Sharing) may be placeholders; and running actual CI builds (for example Hyperion code
+                  generation) needs the Docker socket the base stack mounts, which on macOS may need group/permission tweaks.
                 """;
     }
 }

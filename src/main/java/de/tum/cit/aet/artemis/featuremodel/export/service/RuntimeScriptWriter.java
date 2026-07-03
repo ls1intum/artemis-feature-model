@@ -169,7 +169,8 @@ public class RuntimeScriptWriter {
                 if [ "$#" -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
                   echo "Usage: $(basename "$0") /path/to/Artemis"
                   echo "  Starts Artemis from a local checkout with the generated overlay layered on top."
-                  echo "  Override the Artemis Compose file with FM_ARTEMIS_COMPOSE_FILE (default docker/artemis-dev-postgres.yml)."
+                  echo "  Uses the CI-capable local-VC/local-CI (MySQL) stack so any selection can start."
+                  echo "  Override the Artemis Compose file with FM_ARTEMIS_COMPOSE_FILE (default docker/artemis-dev-local-vc-local-ci-mysql.yml)."
                   exit 0
                 fi
 
@@ -189,7 +190,7 @@ public class RuntimeScriptWriter {
                   exit 1
                 fi
 
-                COMPOSE_FILE_REL="${FM_ARTEMIS_COMPOSE_FILE:-docker/artemis-dev-postgres.yml}"
+                COMPOSE_FILE_REL="${FM_ARTEMIS_COMPOSE_FILE:-docker/artemis-dev-local-vc-local-ci-mysql.yml}"
                 ARTEMIS_COMPOSE_FILE="$ARTEMIS_REPO/$COMPOSE_FILE_REL"
                 if [ ! -f "$ARTEMIS_COMPOSE_FILE" ]; then
                   echo "ERROR: Artemis Compose file not found: $ARTEMIS_COMPOSE_FILE" >&2
@@ -218,7 +219,7 @@ public class RuntimeScriptWriter {
                 echo "  Overlay:      $FM_OVERLAY_HOST_PATH"
                 echo "  Env file:     $FM_ENV_FILE"
                 echo "  Artemis env:  $ARTEMIS_ENV_FILE"
-                echo "  Note: the first start may build the Artemis image and can take a while."
+                echo "  Note: this is the CI-capable MySQL stack; the first start pulls/builds images and can take a while."
 
                 if [ -f "$ARTEMIS_ENV_FILE" ]; then
                   docker compose -p artemis-feature-model-local \\

@@ -172,13 +172,15 @@ public class DeploymentPackageService {
      */
     private DeploymentPackageManifest buildManifest(GenerationReport report, List<String> packagePaths, List<String> requiredEnvVars) {
         DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT,
-                "Layer 1 (local-repo) reuses the local Artemis checkout's own Docker Compose stack, image, and database. The overlay keys were verified against the "
-                        + "referenced Artemis commit; a checkout at a different commit may not match all keys.");
+                "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including CI-dependent features such as "
+                        + "Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a different commit may not match all "
+                        + "keys.");
+        DeploymentPackageManifest.Database database = new DeploymentPackageManifest.Database(RuntimePackageConstants.DATABASE_TYPE, "local-container");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(true, false,
                 "Generated in DEMO mode for local validation only; may contain placeholder values and never resolves real secrets.");
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
-                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, packagePaths, requiredEnvVars, readiness);
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, packagePaths, requiredEnvVars, readiness);
     }
 
     /**

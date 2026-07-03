@@ -81,6 +81,8 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.generatedFiles()).hasSize(17);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo("51caf4c1eb");
+        assertThat(manifest.database().type()).isEqualTo("mysql");
+        assertThat(manifest.database().mode()).isEqualTo("local-container");
     }
 
     @Test
@@ -112,6 +114,9 @@ class DeploymentPackageServiceTest {
         String override = content(result, "deployment/local-repo/docker-compose.override.example.yml");
         assertThat(override).contains("artemis-app:").contains("/opt/artemis/config/application-feature-model.yml:ro")
                 .contains("SPRING_CONFIG_ADDITIONAL_LOCATION").contains("${FM_OVERLAY_HOST_PATH}").contains("${FM_ENV_FILE}");
+        // The CI-capable MySQL stack: pin the datasource to the mysql service and use isolated container names.
+        assertThat(override).contains("SPRING_DATASOURCE_URL").contains("jdbc:mysql://mysql:3306").contains("mysql:")
+                .contains("container_name: artemis-feature-model-local-app");
         assertThat(override).doesNotContain("postgres").doesNotContain("image:");
     }
 
@@ -141,7 +146,8 @@ class DeploymentPackageServiceTest {
         String start = content(result, "scripts/start-local-repo.sh");
         String stop = content(result, "scripts/stop-local-repo.sh");
         assertThat(override).contains(RuntimePackageConstants.OVERLAY_HOST_PATH_ENV).contains(RuntimePackageConstants.ENV_FILE_ENV)
-                .contains(RuntimePackageConstants.CONTAINER_OVERLAY_PATH).contains(RuntimePackageConstants.SPRING_CONFIG_ENV);
+                .contains(RuntimePackageConstants.CONTAINER_OVERLAY_PATH).contains(RuntimePackageConstants.SPRING_CONFIG_ENV)
+                .contains(RuntimePackageConstants.DATASOURCE_URL).contains(RuntimePackageConstants.CONTAINER_APP_NAME).contains(RuntimePackageConstants.CONTAINER_DB_NAME);
         assertThat(start).contains(RuntimePackageConstants.COMPOSE_PROJECT_NAME).contains(RuntimePackageConstants.OVERLAY_HOST_PATH_ENV)
                 .contains(RuntimePackageConstants.DEFAULT_ARTEMIS_COMPOSE_FILE).contains(RuntimePackageConstants.ARTEMIS_COMPOSE_ENV);
         assertThat(stop).contains(RuntimePackageConstants.COMPOSE_PROJECT_NAME);
