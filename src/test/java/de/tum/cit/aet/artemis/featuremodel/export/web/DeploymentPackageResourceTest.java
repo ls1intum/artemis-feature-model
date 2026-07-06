@@ -41,6 +41,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelExceptionHandler;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
@@ -69,8 +70,8 @@ class DeploymentPackageResourceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, new RuntimeTemplateWriter(), new RuntimeScriptWriter(),
-                objectMapper);
+        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService,
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();

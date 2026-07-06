@@ -3,6 +3,8 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +25,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManife
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException;
@@ -54,7 +57,8 @@ class DeploymentPackageServiceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        service = new DeploymentPackageService(artifactGenerationService, new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
+        service = new DeploymentPackageService(artifactGenerationService, new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
+                new RuntimeScriptWriter(), objectMapper);
     }
 
     @Test
@@ -63,9 +67,9 @@ class DeploymentPackageServiceTest {
 
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
                 "env/README.md", "metadata/selected-features.json", "metadata/deployment-profile-summary.json", "metadata/generation-report.json",
-                "metadata/package-manifest.json", "metadata/runtime-checks.json", "deployment/local-repo/docker-compose.override.example.yml",
-                "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh",
-                "scripts/print-runtime-summary.sh");
+                "metadata/package-manifest.json", "metadata/runtime-checks.json", "metadata/static-config-validation.json",
+                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/validate-package.sh",
+                "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
     }
 
     @Test
@@ -78,7 +82,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
-        assertThat(manifest.generatedFiles()).hasSize(17);
+        assertThat(manifest.generatedFiles()).hasSize(18);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo("51caf4c1eb");
         assertThat(manifest.database().type()).isEqualTo("mysql");
@@ -93,10 +97,34 @@ class DeploymentPackageServiceTest {
         assertThat(checks.mode()).isEqualTo("DEMO");
         assertThat(checks.overallStatus()).isEqualTo("PASS");
         assertThat(checks.checks()).extracting(RuntimeCheck::id).contains("required-files-present", "overlay-no-env-leaks", "env-placeholders-declared",
-                "no-plaintext-secrets", "placeholder-values-reported");
+                "static-config-keys", "no-plaintext-secrets", "placeholder-values-reported");
         assertThat(statusOf(checks, "overlay-no-env-leaks")).isEqualTo("PASS");
         assertThat(statusOf(checks, "no-plaintext-secrets")).isEqualTo("PASS");
         assertThat(statusOf(checks, "env-placeholders-declared")).isEqualTo("PASS");
+        assertThat(statusOf(checks, "static-config-keys")).isEqualTo("PASS");
+    }
+
+    /**
+     * CI gate for the static config validation (Workstream A1): the comprehensive reference selection must validate
+     * as PASS, and the report is exported under {@code build/reports/static-config-validation/} so the CI workflow can
+     * publish the machine-readable JSON as an artifact.
+     */
+    @Test
+    void staticConfigValidationPassesForTheComprehensiveSelectionAndIsExportedForCi() throws IOException {
+        List<String> comprehensiveSelection = withExtra("lecture", "tutorialgroup", "text", "modeling", "athena", "atlas", "iris", "hyperion", "theia", "apollon");
+        GeneratedArtifactPackage result = service.generate(request(comprehensiveSelection, null));
+
+        String reportJson = content(result, "metadata/static-config-validation.json");
+        Path reportDir = Path.of("build", "reports", "static-config-validation");
+        Files.createDirectories(reportDir);
+        Files.writeString(reportDir.resolve("static-config-validation.json"), reportJson);
+
+        StaticConfigValidationReport report = objectMapper.readValue(reportJson, StaticConfigValidationReport.class);
+        assertThat(report.overallStatus()).isEqualTo("PASS");
+        assertThat(report.findings()).isEmpty();
+        assertThat(report.checkedEntryCount()).isGreaterThan(15);
+        assertThat(report.catalogVersion()).isEqualTo("1.0.0");
+        assertThat(report.verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
     }
 
     @Test

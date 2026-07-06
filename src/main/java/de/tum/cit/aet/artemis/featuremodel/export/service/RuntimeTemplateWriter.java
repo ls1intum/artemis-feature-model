@@ -86,8 +86,8 @@ public class RuntimeTemplateWriter {
 
                 - `config/application-feature-model.yml` — the generated Spring configuration overlay.
                 - `env/` — environment files (`.env.example`, `.env.demo`) and their README.
-                - `metadata/` — selected features, deployment-profile summary, generation report, package manifest, and
-                  runtime checks.
+                - `metadata/` — selected features, deployment-profile summary, generation report, package manifest,
+                  runtime checks, and the static config validation report.
                 - `deployment/local-repo/` — the local-repo Compose override and its README.
                 - `scripts/` — helper scripts described above plus `validate-package.sh` and `print-runtime-summary.sh`.
 

@@ -20,6 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackag
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,8 +31,8 @@ import tools.jackson.databind.ObjectMapper;
  * <p>
  * This service does not re-map features to parameters or re-render the YAML overlay: it delegates to
  * {@link ArtifactGenerationService}, reuses the generated Phase 5 files, and adds the Phase 6 files (package README,
- * demo env file, env README, package manifest, runtime checks, the local-repo Compose override and its README, and the
- * helper scripts). The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and the report
+ * demo env file, env README, package manifest, runtime checks, static config validation report, the local-repo Compose
+ * override and its README, and the helper scripts). The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and the report
  * is the unchanged Phase 5 report. Only the local Artemis repository runtime (Layer 1) is generated in this phase.
  */
 @Service
@@ -49,6 +50,8 @@ public class DeploymentPackageService {
     static final String MANIFEST_FILE = "metadata/package-manifest.json";
 
     static final String RUNTIME_CHECKS_FILE = "metadata/runtime-checks.json";
+
+    static final String STATIC_VALIDATION_FILE = "metadata/static-config-validation.json";
 
     static final String LOCAL_REPO_OVERRIDE_FILE = "deployment/local-repo/docker-compose.override.example.yml";
 
@@ -81,6 +84,8 @@ public class DeploymentPackageService {
 
     private final ArtifactGenerationService artifactGenerationService;
 
+    private final StaticConfigValidationService staticConfigValidationService;
+
     private final RuntimeTemplateWriter templateWriter;
 
     private final RuntimeScriptWriter scriptWriter;
@@ -91,13 +96,15 @@ public class DeploymentPackageService {
      * Creates the deployment package service.
      *
      * @param artifactGenerationService Phase 5 service used to generate the base configuration artifacts.
+     * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
      * @param templateWriter writer for the runtime template files.
      * @param scriptWriter writer for the helper scripts.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
-    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter,
-            ObjectMapper objectMapper) {
+    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, StaticConfigValidationService staticConfigValidationService,
+            RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter, ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
+        this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
         this.scriptWriter = scriptWriter;
         this.objectMapper = objectMapper;
@@ -123,9 +130,10 @@ public class DeploymentPackageService {
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion());
         String envDemo = templateWriter.envDemo(requiredEnvVars);
 
+        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
         List<String> packagePaths = packageFilePaths();
         String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars));
-        String checksJson = writeJson(buildRuntimeChecks(overlay.content(), requiredEnvVars, report, packagePaths.size()));
+        String checksJson = writeJson(buildRuntimeChecks(overlay.content(), requiredEnvVars, report, packagePaths.size(), staticValidation));
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, packageReadme));
@@ -138,6 +146,7 @@ public class DeploymentPackageService {
         files.add(baseByPath.get(ArtifactGenerationService.REPORT_FILE));
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
         files.add(new GeneratedArtifactFile(RUNTIME_CHECKS_FILE, CONTENT_TYPE_JSON, checksJson));
+        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(staticValidation)));
         files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, templateWriter.localRepoOverride()));
         files.add(new GeneratedArtifactFile(LOCAL_REPO_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.localRepoReadme()));
         files.add(new GeneratedArtifactFile(PREPARE_ENV_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.prepareEnvScript()));
@@ -158,8 +167,8 @@ public class DeploymentPackageService {
     private List<String> packageFilePaths() {
         return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE, ENV_DEMO_FILE, ENV_README_FILE,
                 ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE,
-                RUNTIME_CHECKS_FILE, LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE,
-                STOP_LOCAL_REPO_SCRIPT_FILE, PRINT_SUMMARY_SCRIPT_FILE);
+                RUNTIME_CHECKS_FILE, STATIC_VALIDATION_FILE, LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, VALIDATE_PACKAGE_SCRIPT_FILE,
+                START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE, PRINT_SUMMARY_SCRIPT_FILE);
     }
 
     /**
@@ -191,9 +200,11 @@ public class DeploymentPackageService {
      * @param requiredEnvVars environment variables declared in {@code .env.example}.
      * @param report Phase 5 generation report.
      * @param fileCount number of files in the package.
+     * @param staticValidation static overlay validation result against the Artemis config key catalog.
      * @return runtime checks report.
      */
-    private RuntimeChecksReport buildRuntimeChecks(String overlayContent, List<String> requiredEnvVars, GenerationReport report, int fileCount) {
+    private RuntimeChecksReport buildRuntimeChecks(String overlayContent, List<String> requiredEnvVars, GenerationReport report, int fileCount,
+            StaticConfigValidationReport staticValidation) {
         List<RuntimeCheck> checks = new ArrayList<>();
 
         checks.add(new RuntimeCheck("required-files-present", "All expected package files were generated.", RuntimeCheck.STATUS_PASS,
@@ -212,6 +223,14 @@ public class DeploymentPackageService {
         checks.add(new RuntimeCheck("env-placeholders-declared", "Every ${VARIABLE} in the overlay is declared in env/.env.example.",
                 undeclared.isEmpty() ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
                 undeclared.isEmpty() ? "All " + requiredEnvVars.size() + " placeholders are declared." : "Undeclared: " + String.join(", ", undeclared) + "."));
+
+        boolean staticPass = StaticConfigValidationReport.STATUS_PASS.equals(staticValidation.overallStatus());
+        checks.add(new RuntimeCheck("static-config-keys", "Every overlay key is a verified Artemis configuration key with an acceptable value type.",
+                staticPass ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
+                staticPass
+                        ? staticValidation.checkedEntryCount() + " overlay entries validated against catalog " + staticValidation.catalogVersion() + " (Artemis commit "
+                                + staticValidation.verifiedAgainstArtemisCommit() + ")."
+                        : staticValidation.findings().size() + " finding(s); see " + STATIC_VALIDATION_FILE + "."));
 
         long plaintextSecrets = report.consumedParameters().stream()
                 .filter(parameter -> parameter.secret() && !ConsumedParameter.SOURCE_ENV.equals(parameter.source())).count();

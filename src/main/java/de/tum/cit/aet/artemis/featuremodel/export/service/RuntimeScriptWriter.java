@@ -71,8 +71,8 @@ public class RuntimeScriptWriter {
     }
 
     /**
-     * Builds {@code validate-package.sh}, which checks required files, overlay env leaks, and placeholder declarations.
-     * It does not require {@code jq}.
+     * Builds {@code validate-package.sh}, which checks required files, overlay env leaks, placeholder declarations, and
+     * the static config validation verdict. It does not require {@code jq}.
      *
      * @return {@code validate-package.sh} content.
      */
@@ -98,6 +98,7 @@ public class RuntimeScriptWriter {
                   "metadata/generation-report.json"
                   "metadata/package-manifest.json"
                   "metadata/runtime-checks.json"
+                  "metadata/static-config-validation.json"
                   "deployment/local-repo/docker-compose.override.example.yml"
                   "deployment/local-repo/README.md"
                   "scripts/prepare-env.sh"
@@ -141,6 +142,15 @@ public class RuntimeScriptWriter {
                   if [ "$MISSING" = 0 ]; then
                     echo "  All overlay placeholders are declared."
                   fi
+                fi
+
+                STATIC_REPORT="metadata/static-config-validation.json"
+                echo "Checking static config validation result..."
+                if [ -f "$STATIC_REPORT" ] && grep -Eq '"overallStatus"[[:space:]]*:[[:space:]]*"PASS"' "$STATIC_REPORT"; then
+                  echo "  OK   static config validation reported PASS"
+                else
+                  echo "  FAIL static config validation did not report PASS (see $STATIC_REPORT)"
+                  STATUS=1
                 fi
 
                 echo ""
@@ -307,6 +317,7 @@ public class RuntimeScriptWriter {
                 echo "Package metadata:"
                 echo "  - metadata/package-manifest.json"
                 echo "  - metadata/runtime-checks.json"
+                echo "  - metadata/static-config-validation.json"
                 echo "  - metadata/generation-report.json"
                 echo ""
                 if [ -f "$PACKAGE_ROOT/env/.env" ]; then
