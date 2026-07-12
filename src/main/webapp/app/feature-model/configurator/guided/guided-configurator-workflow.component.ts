@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
-import { ArtifactGenerationResult, GenerationMessage } from '../../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
@@ -12,8 +11,6 @@ import {
     LocalizedWarning,
     ReviewGroupSummary,
 } from '../shared/configurator-view.types';
-
-const OVERLAY_FILE_PATH = 'config/application-feature-model.yml';
 
 @Component({
     selector: 'fm-guided-configurator-workflow',
@@ -49,9 +46,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly hasValidationResult = input.required<boolean>();
     readonly isValid = input.required<boolean>();
     readonly activeProfile = input<DeploymentProfileSummary | undefined>(undefined);
-    readonly artifactPreview = input<ArtifactGenerationResult | undefined>(undefined);
     readonly artifactGenerating = input<boolean>(false);
-    readonly artifactDownloading = input<boolean>(false);
     readonly artifactErrorMessage = input<string | undefined>(undefined);
     readonly deploymentPackageDownloading = input<boolean>(false);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
@@ -68,13 +63,9 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly toggleDecisionOption = output<DecisionOptionToggle>();
     readonly openTree = output<void>();
     readonly generateArtifacts = output<void>();
-    readonly downloadArtifacts = output<void>();
     readonly downloadDeploymentPackage = output<void>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
-    readonly overlayPreview = computed<string | undefined>(() => this.artifactPreview()?.files.find((file) => file.path === OVERLAY_FILE_PATH)?.preview);
-    readonly artifactMessages = computed<GenerationMessage[]>(() => this.artifactPreview()?.report.warnings ?? []);
-    readonly artifactStatus = computed<string | undefined>(() => this.artifactPreview()?.report.status);
 
     onToggleDecisionOption(decision: GuidedDecision, option: GuidedDecisionOption): void {
         if (!this.isOptionAvailable(option)) {

@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
@@ -67,9 +66,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly validationResult = signal<ValidationResult | undefined>(undefined);
     readonly validationLoading = signal<boolean>(false);
     readonly validationErrorMessage = signal<string | undefined>(undefined);
-    readonly artifactPreview = signal<ArtifactGenerationResult | undefined>(undefined);
     readonly artifactGenerating = signal<boolean>(false);
-    readonly artifactDownloading = signal<boolean>(false);
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
@@ -427,7 +424,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.runValidation();
     }
 
-    /** Generates an artifact preview for the current valid selection against the active deployment context. */
+    /** Generates and downloads the artifact ZIP package for the current valid selection, with no preview step. */
     onGenerateArtifacts(): void {
         if (!this.isValid()) {
             return;
@@ -435,38 +432,16 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.artifactGenerating.set(true);
         this.artifactErrorMessage.set(undefined);
         this.featureModelService
-            .previewArtifacts({ selectedFeatureIds: [...this.selectedFeatureIds()] })
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe({
-                next: (result) => {
-                    this.artifactPreview.set(result);
-                    this.artifactGenerating.set(false);
-                },
-                error: (error: Error) => {
-                    this.artifactErrorMessage.set(this.artifactErrorText(error));
-                    this.artifactGenerating.set(false);
-                },
-            });
-    }
-
-    /** Downloads the artifact ZIP package for the current valid selection. */
-    onDownloadArtifacts(): void {
-        if (!this.isValid()) {
-            return;
-        }
-        this.artifactDownloading.set(true);
-        this.artifactErrorMessage.set(undefined);
-        this.featureModelService
             .downloadArtifacts({ selectedFeatureIds: [...this.selectedFeatureIds()] })
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
                 next: (blob) => {
                     this.saveBlob(blob, ARTIFACT_PACKAGE_FILE_NAME);
-                    this.artifactDownloading.set(false);
+                    this.artifactGenerating.set(false);
                 },
                 error: (error: Error) => {
                     this.artifactErrorMessage.set(this.artifactErrorText(error));
-                    this.artifactDownloading.set(false);
+                    this.artifactGenerating.set(false);
                 },
             });
     }
@@ -722,8 +697,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const token = ++this.validationToken;
         this.validationLoading.set(true);
         this.validationErrorMessage.set(undefined);
-        // A selection change invalidates any previously generated artifact preview.
-        this.artifactPreview.set(undefined);
+        // A selection change clears any stale artifact/package error from a previous attempt.
         this.artifactErrorMessage.set(undefined);
         this.deploymentPackageErrorMessage.set(undefined);
         this.validationService

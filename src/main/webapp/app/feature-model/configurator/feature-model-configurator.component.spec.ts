@@ -5,7 +5,6 @@ import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse, buildWorkflowAvailabilityFixture } from '../core/feature-model.test-fixtures';
-import { ArtifactGenerationResult } from '../core/artifact-generation.types';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
@@ -15,7 +14,6 @@ const MODEL_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_URL = '/api/feature-model/guided-workflow';
 const PROFILE_AVAILABILITY_URL = '/api/feature-model/profile-availability';
 const VALIDATE_URL = '/api/feature-model/validate';
-const ARTIFACTS_PREVIEW_URL = '/api/feature-model/artifacts/preview';
 const ARTIFACTS_DOWNLOAD_URL = '/api/feature-model/artifacts/download';
 const DEPLOYMENT_PACKAGE_DOWNLOAD_URL = '/api/feature-model/deployment-package/download';
 const TUTORIAL_SEEN_KEY =
@@ -44,34 +42,6 @@ function validResult(selectedFeatureIds: readonly string[] = []): ValidationResu
         normalizedSelection: [...selectedFeatureIds],
         violations: [],
         warnings: [],
-    };
-}
-
-function artifactResult(): ArtifactGenerationResult {
-    return {
-        status: 'GENERATED_WITH_WARNINGS',
-        files: [
-            {
-                path: 'config/application-feature-model.yml',
-                contentType: 'application/x-yaml',
-                preview: 'artemis:\n  iris:\n    enabled: true\n    secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}\n',
-            },
-        ],
-        report: {
-            status: 'GENERATED_WITH_WARNINGS',
-            mode: 'DEMO',
-            modelId: 'artemis-functional-feature-tree',
-            modelVersion: '0.1.0',
-            profileId: 'default-artemis-profile',
-            profileVersion: '1.0.0',
-            selectedFeatureIds: [],
-            generatedFiles: [],
-            consumedParameters: [],
-            omittedMappings: [],
-            warnings: [{ severity: 'warning', featureId: 'iris', parameter: 'artemis.iris.url', message: 'Placeholder value for artemis.iris.url is used.' }],
-            errors: [],
-        },
-        downloadAvailable: true,
     };
 }
 
@@ -556,41 +526,23 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
     });
 
-    it('generates and previews artifacts from the review page', () => {
+    it('generates and downloads the artifact ZIP directly from the review page, with no preview', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
         clickByTestId(fixture, 'generate-artifacts-button');
-        const previewRequest = httpMock.expectOne(ARTIFACTS_PREVIEW_URL);
-        expect(previewRequest.request.method).toBe('POST');
-        expect((previewRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
-        previewRequest.flush(artifactResult());
-        fixture.detectChanges();
-
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-result"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-status"]')?.textContent).toContain('GENERATED_WITH_WARNINGS');
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-warnings"]')?.textContent).toContain('Placeholder');
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-yaml-preview"]')?.textContent).toContain('secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}');
-        expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).not.toBeNull();
-    });
-
-    it('downloads the artifact ZIP package as a blob', () => {
-        markTutorialSeen();
-        flushInitialLoads(fixture, httpMock);
-        fixture.componentInstance.onOpenReview();
-        fixture.detectChanges();
-
-        clickByTestId(fixture, 'generate-artifacts-button');
-        httpMock.expectOne(ARTIFACTS_PREVIEW_URL).flush(artifactResult());
-        fixture.detectChanges();
-
-        clickByTestId(fixture, 'download-artifacts-button');
         const downloadRequest = httpMock.expectOne(ARTIFACTS_DOWNLOAD_URL);
         expect(downloadRequest.request.method).toBe('POST');
         expect(downloadRequest.request.responseType).toBe('blob');
+        expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
         downloadRequest.flush(new Blob(['zip-bytes']));
+        fixture.detectChanges();
+
+        // No preview UI is rendered anymore.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-result"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).toBeNull();
     });
 
     it('renders the local runtime package section and downloads it as a blob', () => {
