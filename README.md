@@ -7,9 +7,19 @@ aware exploration and configuration tool.
 ## Status
 
 This repository has completed the guided Configurator MVP: the Angular
-configurator now combines use-case templates, guided feature decisions, review
+configurator combines use-case templates, guided feature decisions, review
 summaries, immediate validation feedback, an in-configurator tree view, and a
 first-run tutorial.
+
+On top of that, a valid selection can be exported. The server generates Level 1
+configuration artifacts (a Spring configuration overlay, an `.env.example`,
+selected-feature and deployment-profile metadata, and a generation report) and a
+Level 2 local runtime deployment package that adds a Docker Compose override,
+helper scripts, a package manifest, and runtime checks. The generated overlay is
+statically validated against a curated Artemis configuration key catalog, so
+unknown keys and value-type mismatches are caught without booting Artemis.
+Generation is DEMO-mode only and never writes plaintext secrets; secret values
+appear solely as `${VARIABLE}` placeholders.
 
 Current server capabilities:
 
@@ -20,6 +30,19 @@ Current server capabilities:
 - `GET /api/feature-model/guided-workflow` returns the guided workflow
   metadata, use-case templates, decision steps, decision options, and review
   groups used by the Configurator.
+- `GET /api/deployment-profiles` and `GET /api/deployment-profiles/{id}` return
+  deployment profile summaries and detail; `GET /api/feature-model/profile-availability`
+  returns profile-aware option and feature availability.
+- `POST /api/feature-model/artifacts/download` returns the Level 1 configuration
+  artifacts as a ZIP.
+- `POST /api/feature-model/deployment-package/preview` and `/download` return
+  the local runtime deployment package (Level 1 artifacts plus a local-repo
+  Compose override, helper scripts, a package manifest, runtime checks, and a
+  static config validation report).
+- Static overlay validation checks every generated key against the Artemis
+  config key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`),
+  reporting unknown keys and value-type mismatches; a drift-guard test keeps the
+  catalog in sync with the model's mapping paths.
 - The server loads the runtime classpath JSON through `FeatureModelStore`.
 - The guided workflow is loaded from the runtime classpath JSON through the
   selection service boundary.
@@ -31,7 +54,7 @@ Current server capabilities:
 Current explorer capabilities:
 
 - `/feature-model/explorer` loads `GET /api/feature-model` through a shared
-  `FeatureModelService` and renders the 24-node feature tree with kind,
+  `FeatureModelService` and renders the 26-node feature tree with kind,
   relation, and default-state badges. A list view and a left-to-right SVG
   diagram view share expansion state.
 - Branches can be expanded and collapsed individually, or in bulk via
@@ -57,7 +80,9 @@ Current configurator capabilities:
 - Valid/invalid status, detailed violations, detailed warnings, affected
   features, and suggestions are shown in the guided workflow.
 - The review screen summarizes selected features, warnings, validation status,
-  changed guided decisions, and the later artifact-generation handoff.
+  and changed guided decisions. From there a valid selection generates and
+  downloads the Level 1 artifact ZIP directly (no preview step) and offers a
+  separate download of the local runtime deployment package.
 - The advanced tree stays inside the Configurator, reflects the current guided
   selection in real time, can directly update the selection, and surfaces
   technical capability details plus artifact mappings for advanced users.
@@ -137,8 +162,10 @@ docker run --rm -p 8080:8080 artemis-feature-model
 ```
 
 The repository CI workflow runs frontend tests, the frontend production build,
-backend tests, and the Spring Boot jar build on every branch. It does not
-deploy directly.
+backend tests, and the Spring Boot jar build on every branch. A separate,
+branch-scoped `static-config-validation` workflow runs the static overlay
+validation gate and uploads its machine-readable report as an artifact. Neither
+workflow deploys directly.
 
 ## Routes
 
