@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
-import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationResponse;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
 
@@ -39,22 +38,6 @@ public class ArtifactGenerationResource {
     public ArtifactGenerationResource(ArtifactGenerationService artifactGenerationService, ArtifactPackageService artifactPackageService) {
         this.artifactGenerationService = artifactGenerationService;
         this.artifactPackageService = artifactPackageService;
-    }
-
-    /**
-     * Generates an artifact preview from a feature selection and deployment profile.
-     *
-     * @param request artifact generation request.
-     * @return preview response with generated file content and the generation report.
-     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is invalid.
-     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException if the profile cannot be resolved.
-     */
-    @PostMapping("/preview")
-    public ArtifactGenerationResponse preview(@RequestBody ArtifactGenerationRequest request) {
-        log.debug("REST request to preview artifacts for {} selected feature ids.", request.selectedFeatureIds().size());
-        GeneratedArtifactPackage artifactPackage = artifactGenerationService.generate(request);
-        log.info("REST response previews {} artifact files with status {}.", artifactPackage.files().size(), artifactPackage.report().status());
-        return ArtifactGenerationResponse.from(artifactPackage);
     }
 
     /**

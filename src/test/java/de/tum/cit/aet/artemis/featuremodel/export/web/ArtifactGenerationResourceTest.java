@@ -1,7 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.web;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -66,30 +65,22 @@ class ArtifactGenerationResourceTest {
     }
 
     @Test
-    void previewReturnsGeneratedFilesAndReport() throws Exception {
-        mockMvc.perform(post("/api/feature-model/artifacts/preview").contentType(MediaType.APPLICATION_JSON).content("{\"selectedFeatureIds\":" + MINIMAL + "}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").exists())
-                .andExpect(jsonPath("$.files[*].path", hasItem("config/application-feature-model.yml")))
-                .andExpect(jsonPath("$.report.mode").value("DEMO")).andExpect(jsonPath("$.downloadAvailable").value(true));
-    }
-
-    @Test
-    void previewRejectsInvalidSelectionWithBadRequest() throws Exception {
-        mockMvc.perform(post("/api/feature-model/artifacts/preview").contentType(MediaType.APPLICATION_JSON).content("{\"selectedFeatureIds\":[\"iris\"]}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_INVALID_SELECTION"));
-    }
-
-    @Test
-    void previewReturnsNotFoundForUnknownProfile() throws Exception {
-        mockMvc.perform(post("/api/feature-model/artifacts/preview").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"profileId\":\"missing-profile\"}")).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("DEPLOYMENT_PROFILE_NOT_FOUND"));
-    }
-
-    @Test
     void downloadReturnsZipAttachment() throws Exception {
         mockMvc.perform(post("/api/feature-model/artifacts/download").contentType(MediaType.APPLICATION_JSON).content("{\"selectedFeatureIds\":" + MINIMAL + "}"))
                 .andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith(MediaType.parseMediaType("application/zip")))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("artemis-feature-model-artifacts.zip")));
+    }
+
+    @Test
+    void downloadRejectsInvalidSelectionWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/feature-model/artifacts/download").contentType(MediaType.APPLICATION_JSON).content("{\"selectedFeatureIds\":[\"iris\"]}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_INVALID_SELECTION"));
+    }
+
+    @Test
+    void downloadReturnsNotFoundForUnknownProfile() throws Exception {
+        mockMvc.perform(post("/api/feature-model/artifacts/download").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"profileId\":\"missing-profile\"}")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DEPLOYMENT_PROFILE_NOT_FOUND"));
     }
 }

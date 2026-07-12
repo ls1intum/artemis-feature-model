@@ -88,9 +88,7 @@
                 [hasValidationResult]="hasValidationResult()"
                 [isValid]="isValid()"
                 [activeProfile]="activeProfile()"
-                [artifactPreview]="artifactPreview()"
                 [artifactGenerating]="artifactGenerating()"
-                [artifactDownloading]="artifactDownloading()"
                 [artifactErrorMessage]="artifactErrorMessage()"
                 [deploymentPackageDownloading]="deploymentPackageDownloading()"
                 [deploymentPackageErrorMessage]="deploymentPackageErrorMessage()"
@@ -106,7 +104,6 @@
                 (toggleDecisionOption)="onToggleDecisionOption($event)"
                 (openTree)="onOpenTree()"
                 (generateArtifacts)="onGenerateArtifacts()"
-                (downloadArtifacts)="onDownloadArtifacts()"
                 (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
             />
         }
