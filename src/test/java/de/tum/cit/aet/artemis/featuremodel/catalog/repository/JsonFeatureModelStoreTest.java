@@ -49,7 +49,7 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.configurableBy()).containsExactly("teacher", "maintainer");
             assertThat(feature.requiresCapabilities()).isEmpty();
             assertThat(feature.artifactMappings()).singleElement().satisfies(mapping -> {
-                assertThat(mapping.target()).isEqualTo("application-core.yml");
+                assertThat(mapping.target()).isEqualTo("application-feature-model.yml");
                 assertThat(mapping.path()).isEqualTo("artemis.text.enabled");
                 assertThat(mapping.valueWhenSelected().booleanValue()).isTrue();
                 assertThat(mapping.valueWhenDeselected().booleanValue()).isFalse();

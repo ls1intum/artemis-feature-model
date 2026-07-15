@@ -1,0 +1,33 @@
+{
+  "catalogVersion": "1.0.0",
+  "verifiedAgainstArtemisCommit": "51caf4c1eb",
+  "source": "Curated from the Phase 5 parameter alignment audit and re-checked read-only against the Artemis checkout at the referenced commit. Module toggle keys are declared in Artemis core/config/Constants.java; value keys are declared in application*.yml or at their @Value injection sites.",
+  "keys": [
+    { "key": "artemis.apollon.conversion-service-url", "type": "url" },
+    { "key": "artemis.apollon.enabled", "type": "boolean" },
+    { "key": "artemis.athena.enabled", "type": "boolean" },
+    { "key": "artemis.athena.secret", "type": "string" },
+    { "key": "artemis.athena.url", "type": "url" },
+    { "key": "artemis.atlas.chat-model", "type": "string" },
+    { "key": "artemis.atlas.enabled", "type": "boolean" },
+    { "key": "artemis.exam.enabled", "type": "boolean" },
+    { "key": "artemis.fileupload.enabled", "type": "boolean" },
+    { "key": "artemis.hyperion.enabled", "type": "boolean" },
+    { "key": "artemis.iris.enabled", "type": "boolean" },
+    { "key": "artemis.iris.secret-token", "type": "string" },
+    { "key": "artemis.iris.url", "type": "url" },
+    { "key": "artemis.lecture.enabled", "type": "boolean" },
+    { "key": "artemis.lti.enabled", "type": "boolean" },
+    { "key": "artemis.modeling.enabled", "type": "boolean" },
+    { "key": "artemis.plagiarism.enabled", "type": "boolean" },
+    { "key": "artemis.sharing.apikey", "type": "string" },
+    { "key": "artemis.sharing.enabled", "type": "boolean" },
+    { "key": "artemis.sharing.serverurl", "type": "url" },
+    { "key": "artemis.text.enabled", "type": "boolean" },
+    { "key": "artemis.theia.enabled", "type": "boolean" },
+    { "key": "artemis.theia.portal-url", "type": "url" },
+    { "key": "artemis.tutorialgroup.enabled", "type": "boolean" },
+    { "key": "spring.ai.openai.api-key", "type": "string" },
+    { "key": "spring.ai.openai.base-url", "type": "url" }
+  ]
+}

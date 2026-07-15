@@ -23,8 +23,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `POST /api/feature-model/validate`, `GET /api/feature-model/guided-workflow`,
   local snapshot endpoints under `/api/feature-model/snapshots`, deployment
   profile endpoints (`GET /api/deployment-profiles`,
-  `GET /api/deployment-profiles/{id}`), and profile-aware availability
-  (`GET /api/feature-model/profile-availability`).
+  `GET /api/deployment-profiles/{id}`), profile-aware availability
+  (`GET /api/feature-model/profile-availability`), Level 1 configuration
+  artifact download (`POST /api/feature-model/artifacts/download`), and local
+  runtime deployment package endpoints
+  (`POST /api/feature-model/deployment-package/preview` and `/download`).
 - The Explorer route is read-only and supports tree/list inspection,
   filtering, expansion controls, and feature details.
 - The Configurator route is a guided workflow. It supports use-case templates,
@@ -43,8 +46,23 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   default-on guided options should be reflected as selected in the UI.
 - The in-configurator tree reflects guided selections in real time and can
   directly update the selection.
-- Artifact generation is still a later-phase placeholder. Do not add
-  export/download behavior unless a plan explicitly asks for it.
+- Artifact and deployment-package generation are implemented. A valid selection
+  yields a downloadable ZIP: a Spring configuration overlay
+  (`application-feature-model.yml`), an `.env.example`, selected-feature and
+  deployment-profile metadata, and a generation report (Phase 5 Level 1); the
+  deployment package adds a Docker Compose override, helper scripts, a package
+  manifest, and runtime checks for local validation (Phase 6 Layer 1). The
+  review page generates and downloads directly; there is no preview step.
+  Generation is DEMO-mode only and never writes plaintext secrets — secret
+  values appear solely as `${VARIABLE}` placeholders.
+- The generated overlay is statically validated against a curated Artemis config
+  key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
+  unknown keys and value-type mismatches are reported without booting Artemis.
+  The verdict ships as `metadata/static-config-validation.json`, a
+  `static-config-keys` runtime check, and a `validate-package.sh` gate, and runs
+  as a branch-scoped CI workflow. A drift-guard test fails when a model mapping
+  path is missing from the catalog, so the catalog must be refreshed when
+  Artemis config keys change.
 
 ## Build and Development Commands
 
@@ -91,7 +109,9 @@ Server package areas:
 - `selection` owns user selection concepts and future selection sessions.
 - `snapshot` owns local feature model snapshot listing, import, and export.
 - `deployment` owns deployment profiles, profile loading, and capability resolution.
-- `export` is reserved for later deployment/configuration artifact generation.
+- `export` owns Level 1 configuration artifact generation, the Level 2 local
+  runtime deployment package, and static overlay validation against the Artemis
+  config key catalog.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:

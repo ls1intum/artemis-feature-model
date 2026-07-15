@@ -45,7 +45,7 @@ class DeploymentProfileResourceTest {
     void returnsProfileDetailWithCapabilities() throws Exception {
         mockMvc.perform(get("/api/deployment-profiles/default-artemis-profile")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("default-artemis-profile")).andExpect(jsonPath("$.providedCapabilities", hasItem("pyris-service")))
-                .andExpect(jsonPath("$.parameters['pyris.url']").exists());
+                .andExpect(jsonPath("$.parameters['artemis.iris.url']").exists());
     }
 
     @Test

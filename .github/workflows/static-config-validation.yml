@@ -1,0 +1,43 @@
+name: Static config validation
+
+# A1 CI gate: statically validate the generated configuration overlay against the
+# Artemis config key catalog without booting Artemis. Scoped to the working branch
+# and manual dispatch on purpose; the general CI workflow covers other branches.
+on:
+  push:
+    branches:
+      - feature/deployment-package-static-check
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Static key and type validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Run static config validation gate
+        run: >-
+          ./gradlew test
+          --tests 'de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationServiceTest'
+          --tests 'de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageServiceTest'
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-config-validation-report
+          path: build/reports/static-config-validation/static-config-validation.json
+          if-no-files-found: warn

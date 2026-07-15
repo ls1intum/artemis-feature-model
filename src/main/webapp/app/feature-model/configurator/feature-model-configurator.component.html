@@ -87,6 +87,11 @@
                 [validationErrorMessage]="validationErrorMessage()"
                 [hasValidationResult]="hasValidationResult()"
                 [isValid]="isValid()"
+                [activeProfile]="activeProfile()"
+                [artifactGenerating]="artifactGenerating()"
+                [artifactErrorMessage]="artifactErrorMessage()"
+                [deploymentPackageDownloading]="deploymentPackageDownloading()"
+                [deploymentPackageErrorMessage]="deploymentPackageErrorMessage()"
                 (selectTemplate)="onSelectTemplate($event)"
                 (startWorkflow)="onStartWorkflow()"
                 (returnToTemplates)="onReturnToTemplates()"
@@ -98,6 +103,8 @@
                 (focusOption)="onFocusOption($event)"
                 (toggleDecisionOption)="onToggleDecisionOption($event)"
                 (openTree)="onOpenTree()"
+                (generateArtifacts)="onGenerateArtifacts()"
+                (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
             />
         }
     }

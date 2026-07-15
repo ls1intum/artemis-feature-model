@@ -78,7 +78,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.lecture.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -119,7 +119,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.tutorialgroup.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -341,7 +341,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.text.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -383,7 +383,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.modeling.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -425,7 +425,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.fileupload.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -487,7 +487,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.exam.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -528,7 +528,7 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.plagiarism.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -575,11 +575,28 @@
       ],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.athena.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.athena.url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.athena.url",
+          "requiredWhenSelected": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.athena.secret",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.athena.secret",
+          "requiredWhenSelected": true,
+          "secret": true
         }
       ],
       "extraction": {
@@ -638,11 +655,18 @@
       "requiresCapabilities": [],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.atlas.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.atlas.chat-model",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.atlas.chat-model"
         }
       ],
       "extraction": {
@@ -683,11 +707,28 @@
       ],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.iris.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.iris.url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.iris.url",
+          "requiredWhenSelected": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.iris.secret-token",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.iris.secret-token",
+          "requiredWhenSelected": true,
+          "secret": true
         }
       ],
       "extraction": {
@@ -727,11 +768,28 @@
       ],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.hyperion.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "spring.ai.openai.api-key",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "spring.ai.openai.api-key",
+          "requiredWhenSelected": true,
+          "secret": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "spring.ai.openai.base-url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "spring.ai.openai.base-url",
+          "requiredWhenSelected": true
         }
       ],
       "extraction": {
@@ -791,7 +849,7 @@
       ],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.lti.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
@@ -835,11 +893,19 @@
       ],
       "artifactMappings": [
         {
-          "target": "application.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.theia.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.theia.portal-url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.theia.portal-url",
+          "requiredWhenSelected": true
         }
       ],
       "extraction": {
@@ -880,11 +946,19 @@
       "requiresCapabilities": ["apollon-conversion-service"],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.apollon.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.apollon.conversion-service-url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.apollon.conversion-service-url",
+          "requiredWhenSelected": true
         }
       ],
       "extraction": {
@@ -927,11 +1001,28 @@
       ],
       "artifactMappings": [
         {
-          "target": "application-core.yml",
+          "target": "application-feature-model.yml",
           "path": "artemis.sharing.enabled",
           "valueWhenSelected": true,
           "valueWhenDeselected": false,
           "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.sharing.serverurl",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.sharing.serverurl",
+          "requiredWhenSelected": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.sharing.apikey",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.sharing.apikey",
+          "requiredWhenSelected": true,
+          "secret": true
         }
       ],
       "extraction": {

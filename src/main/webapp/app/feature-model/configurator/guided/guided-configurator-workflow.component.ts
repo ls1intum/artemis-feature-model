@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
-import { FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
+import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
 import {
@@ -45,6 +45,11 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly validationErrorMessage = input<string | undefined>(undefined);
     readonly hasValidationResult = input.required<boolean>();
     readonly isValid = input.required<boolean>();
+    readonly activeProfile = input<DeploymentProfileSummary | undefined>(undefined);
+    readonly artifactGenerating = input<boolean>(false);
+    readonly artifactErrorMessage = input<string | undefined>(undefined);
+    readonly deploymentPackageDownloading = input<boolean>(false);
+    readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();
@@ -57,6 +62,8 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly focusOption = output<string>();
     readonly toggleDecisionOption = output<DecisionOptionToggle>();
     readonly openTree = output<void>();
+    readonly generateArtifacts = output<void>();
+    readonly downloadDeploymentPackage = output<void>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 

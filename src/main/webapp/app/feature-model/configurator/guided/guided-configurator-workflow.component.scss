@@ -339,3 +339,10 @@
         position: static;
     }
 }
+
+.artifact-demo-note {
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--bs-warning-border-subtle);
+    background: var(--bs-warning-bg-subtle);
+    font-size: 0.85rem;
+}

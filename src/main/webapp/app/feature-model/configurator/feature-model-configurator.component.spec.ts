@@ -14,6 +14,8 @@ const MODEL_URL = '/api/feature-model';
 const GUIDED_WORKFLOW_URL = '/api/feature-model/guided-workflow';
 const PROFILE_AVAILABILITY_URL = '/api/feature-model/profile-availability';
 const VALIDATE_URL = '/api/feature-model/validate';
+const ARTIFACTS_DOWNLOAD_URL = '/api/feature-model/artifacts/download';
+const DEPLOYMENT_PACKAGE_DOWNLOAD_URL = '/api/feature-model/deployment-package/download';
 const TUTORIAL_SEEN_KEY =
     'artemis.configurator.tutorial.seen:artemis-guided-configuration:0.1.0:artemis-functional-feature-tree:0.1.0';
 
@@ -394,7 +396,8 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(profileDependent?.textContent).toContain('need');
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-next-step"]')?.textContent).toContain('reserved for the next phase');
+        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-demo-note"]')?.textContent).toContain('placeholder deployment parameters');
     });
 
     it('shows exact missing capability ids in the advanced tree debug view under a restricted override', () => {
@@ -521,5 +524,119 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         expect(rootEl(fixture).querySelector('[data-testid="configurator-tree-screen"]')).not.toBeNull();
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
+    });
+
+    it('generates and downloads the artifact ZIP directly from the review page, with no preview', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'generate-artifacts-button');
+        const downloadRequest = httpMock.expectOne(ARTIFACTS_DOWNLOAD_URL);
+        expect(downloadRequest.request.method).toBe('POST');
+        expect(downloadRequest.request.responseType).toBe('blob');
+        expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+        fixture.detectChanges();
+
+        // No preview UI is rendered anymore.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-result"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).toBeNull();
+    });
+
+    it('renders the local runtime package section and downloads it as a blob', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('local validation');
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button).not.toBeNull();
+        expect(button.disabled).toBe(false);
+
+        button.click();
+        fixture.detectChanges();
+
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        expect(downloadRequest.request.method).toBe('POST');
+        expect(downloadRequest.request.responseType).toBe('blob');
+        expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('disables the runtime package download while the selection is invalid', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'option-card-enable-programming-and-quiz');
+        flushValidation(httpMock, {
+            valid: false,
+            normalizedSelection: [],
+            violations: [
+                {
+                    code: 'MANDATORY_FEATURE_MISSING',
+                    message: 'Programming is mandatory under Exercise System.',
+                    featureIds: ['programming'],
+                    relation: { parentId: 'exercise-system', childId: 'programming' },
+                    suggestion: 'Enable Programming.',
+                },
+            ],
+            warnings: [],
+        });
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button.disabled).toBe(true);
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-invalid-note"]')).not.toBeNull();
+    });
+
+    it('renders a runtime package download error', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL).error(new ProgressEvent('error'), { status: 500, statusText: 'Server Error' });
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).not.toBeNull();
+    });
+
+    it('disables artifact generation while the selection is invalid', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        clickByTestId(fixture, 'start-workflow');
+        fixture.componentInstance.onJumpToStep(1);
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'option-card-enable-programming-and-quiz');
+        flushValidation(httpMock, {
+            valid: false,
+            normalizedSelection: [],
+            violations: [
+                {
+                    code: 'MANDATORY_FEATURE_MISSING',
+                    message: 'Programming is mandatory under Exercise System.',
+                    featureIds: ['programming'],
+                    relation: { parentId: 'exercise-system', childId: 'programming' },
+                    suggestion: 'Enable Programming.',
+                },
+            ],
+            warnings: [],
+        });
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const button = rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]') as HTMLButtonElement;
+        expect(button.disabled).toBe(true);
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-invalid-note"]')).not.toBeNull();
     });
 });

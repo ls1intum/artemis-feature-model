@@ -63,4 +63,16 @@ public class FeatureModelExceptionHandler {
         log.warn("Deployment profile exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
         return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
     }
+
+    /**
+     * Converts artifact generation exceptions to JSON error responses using the status the exception carries.
+     *
+     * @param exception artifact generation exception.
+     * @return response entity with stable error code and message.
+     */
+    @ExceptionHandler(ArtifactGenerationException.class)
+    public ResponseEntity<Map<String, String>> handleArtifactGenerationException(ArtifactGenerationException exception) {
+        log.warn("Artifact generation exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
+        return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
+    }
 }
