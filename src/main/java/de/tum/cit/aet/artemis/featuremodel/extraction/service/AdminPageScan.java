@@ -24,6 +24,8 @@ class AdminPageScan {
 
     private static final Pattern ARRAY_IDENTIFIER_PATTERN = Pattern.compile("^\\s*(\\w+),?\\s*$");
 
+    private static final Pattern INLINE_IDENTIFIER_PATTERN = Pattern.compile("(\\w+)");
+
     private static final Pattern MAP_ENTRY_PATTERN = Pattern.compile("^\\s*\\[(\\w+(?:\\.\\w+)?)\\]:\\s*'([^']*)',?\\s*$");
 
     /**
@@ -84,7 +86,9 @@ class AdminPageScan {
     }
 
     /**
-     * Scans one identifier array field block, from the line declaring the field to the closing bracket.
+     * Scans one identifier array field, accepting both a single-line initializer and a multi-line block. The bracket
+     * detection looks only at the initializer after the assignment, because the field type annotation itself contains
+     * brackets such as {@code ModuleFeature[]}.
      *
      * @param lines component lines.
      * @param fieldName array field name.
@@ -96,9 +100,21 @@ class AdminPageScan {
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
             if (!insideBlock) {
-                if (line.contains(fieldName) && line.contains("[")) {
-                    insideBlock = !line.contains("]");
+                int assignmentIndex = line.indexOf('=');
+                if (!line.contains(fieldName) || assignmentIndex < 0) {
+                    continue;
                 }
+                String initializer = line.substring(assignmentIndex + 1);
+                int openIndex = initializer.indexOf('[');
+                if (openIndex < 0) {
+                    continue;
+                }
+                int closeIndex = initializer.indexOf(']', openIndex);
+                if (closeIndex >= 0) {
+                    collectInlineIdentifiers(initializer.substring(openIndex + 1, closeIndex), index + 1, entries);
+                    break;
+                }
+                insideBlock = true;
                 continue;
             }
             if (line.contains("]")) {
@@ -110,6 +126,20 @@ class AdminPageScan {
             }
         }
         return List.copyOf(entries);
+    }
+
+    /**
+     * Collects the identifiers of a single-line array initializer.
+     *
+     * @param initializerContent text between the array brackets.
+     * @param line 1-based line of the declaration.
+     * @param entries membership entry sink.
+     */
+    private void collectInlineIdentifiers(String initializerContent, int line, List<MembershipEntry> entries) {
+        Matcher matcher = INLINE_IDENTIFIER_PATTERN.matcher(initializerContent);
+        while (matcher.find()) {
+            entries.add(new MembershipEntry(matcher.group(1), line));
+        }
     }
 
     /**
