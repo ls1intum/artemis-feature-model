@@ -1,8 +1,14 @@
 manifestVersion: 1
 verifiedAgainstArtemisCommit: 553aab75955a3eec0a66dc1eb54edb4a63233da4
 
+# Membership mirrors the curated 26-feature model: the include list carries exactly the anchored curated modules,
+# and every other candidate is excluded with a documented reason. Entries with reason `deferred` are candidates the
+# extraction surfaced that stay out only until the generated model reaches parity with the curated model; moving one
+# back is a single-entry change. Optionality is a modeling judgment code cannot express: include entries default to
+# optional, and the always-on conceptual modules below declare `optionality: mandatory`.
+
 include:
-  # Functional module anchors already represented in the curated model.
+  # Functional module anchors represented in the curated model, all optional like their curated relations.
   - anchor: module:lecture
     id: lecture
     group: teaching-and-content
@@ -56,120 +62,6 @@ include:
     group: platform-integrations
     requiresCapabilities: [sharing-platform-registration, sharing-secret]
 
-  # Newly extracted source-level capabilities retained for generated-model review in E3.
-  - anchor: module:atlasml
-    id: atlasml
-    parent: atlas
-    rationale: AtlasML has its own enablement property and Spring condition and is more than a runtime-only switch.
-  - anchor: module:ldap
-    id: ldap
-    group: platform-integrations
-    rationale: LDAP authentication and synchronization is a selectable deployment capability with a dedicated condition.
-  - anchor: module:saml2
-    id: saml2
-    group: platform-integrations
-    rationale: SAML2 authentication is a selectable deployment integration with a dedicated condition.
-  - anchor: module:passkey
-    id: passkey
-    group: platform-integrations
-    rationale: Passkey authentication is independently enabled and user-visible; its administrator policy stays excluded.
-  - anchor: module:tumlive
-    id: tumlive
-    group: platform-integrations
-    rationale: TUM Live is an externally configured lecture integration guarded by its own condition.
-
-  # Course-facing runtime toggles are child features of their owning functional capability.
-  - anchor: toggle:AtlasAgent
-    id: atlas-agent
-    parent: atlas
-    kind: runtime-toggle
-    rationale: The Atlas assistant is a user-visible optional capability within adaptive learning.
-  - anchor: toggle:AutonomousTutor
-    id: autonomous-tutor
-    parent: iris
-    kind: runtime-toggle
-    rationale: Autonomous course-channel responses are a distinct user-visible Iris behavior.
-  - anchor: toggle:Exports
-    id: data-exports
-    parent: course-workflow
-    kind: runtime-toggle
-    rationale: Course and exam exports are an instructor-facing capability rather than an operational safeguard.
-  - anchor: toggle:GlobalSearch
-    id: global-search
-    parent: course-workflow
-    kind: runtime-toggle
-    rationale: Global search is a user-visible navigation capability that can be independently enabled.
-  - anchor: toggle:LearningPaths
-    id: learning-paths
-    parent: atlas
-    kind: runtime-toggle
-    rationale: Personalized learning paths are a distinct Atlas capability visible to students.
-  - anchor: toggle:LectureContentProcessing
-    id: lecture-content-processing
-    parent: lecture
-    kind: runtime-toggle
-    rationale: Lecture transcription and ingestion is a separately controlled lecture capability.
-  - anchor: toggle:Memiris
-    id: memiris
-    parent: iris
-    kind: runtime-toggle
-    rationale: Long-term assistant memory materially changes the Iris user experience and data behavior.
-  - anchor: toggle:PlagiarismChecks
-    id: plagiarism-checks
-    parent: plagiarism
-    kind: runtime-toggle
-    rationale: The runtime switch controls whether instructors can run the included plagiarism capability.
-  - anchor: toggle:ProgrammingExercises
-    id: programming-exercises-toggle
-    parent: programming
-    kind: runtime-toggle
-    rationale: The switch gates instructor creation and student participation in programming exercises.
-  - anchor: toggle:StandardizedCompetencies
-    id: standardized-competencies
-    parent: atlas
-    kind: runtime-toggle
-    rationale: Standards-based competency import is a distinct instructor-facing Atlas capability.
-  - anchor: toggle:StudentCourseAnalyticsDashboard
-    id: student-course-analytics-dashboard
-    parent: atlas
-    kind: runtime-toggle
-    rationale: The personal analytics dashboard is an independently visible student capability.
-  - anchor: toggle:TutorSuggestions
-    id: tutor-suggestions
-    parent: iris
-    kind: runtime-toggle
-    rationale: AI-assisted answer suggestions are a distinct tutor-facing Iris capability.
-
-  # Initial technical variability for the unified model.
-  - anchor: infra:mysql
-    id: mysql
-    group: database
-    kind: technical
-    providesCapabilities: [default-database]
-    name: MySQL
-  - anchor: infra:postgres
-    id: postgresql
-    group: database
-    kind: technical
-    providesCapabilities: [default-database]
-    name: PostgreSQL
-  - anchor: profile:localci
-    id: integrated-code-lifecycle
-    group: ci-provider
-    kind: technical
-    providesCapabilities: [default-ci-provider]
-    name: Integrated Code Lifecycle
-    rationale: Local CI is the canonical anchor; the build-agent profile is an implementation sub-option.
-  - anchor: profile:jenkins
-    id: jenkins
-    group: ci-provider
-    kind: technical
-    providesCapabilities: [default-ci-provider]
-  - anchor: profile:localvc
-    id: localvc
-    kind: technical
-    name: Local Version Control
-
 exclude:
   # Configuration-key candidates remain evidence for their owning module rather than duplicate feature nodes.
   - anchor: configkey:artemis.apollon.enabled
@@ -220,19 +112,89 @@ exclude:
   - anchor: module:weaviate
     reason: internal-mechanism
     rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
+  - anchor: module:atlasml
+    reason: sub-option
+    rationale: The curated model treats AtlasML as an extra sub-switch of Atlas rather than an independent feature.
 
-  # Runtime switches that should not become separate model nodes.
+  # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
+  - anchor: module:ldap
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+  - anchor: module:saml2
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+  - anchor: module:passkey
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+  - anchor: module:tumlive
+    reason: deferred
+    rationale: External lecture-video integration the curated model does not represent; revisit after generated-model parity.
+
+  # Runtime switches: the curated functional model contains no runtime toggles.
   - anchor: toggle:AtlasML
     reason: sub-option
-    rationale: The source-level module:atlasml anchor already represents this capability and avoids a duplicate node.
+    rationale: The source-level atlasml anchor already represents this capability and stays excluded with it.
   - anchor: toggle:RateLimit
     reason: operational
     rationale: Rate limiting is an abuse-protection safeguard, not a course or deployment capability choice.
   - anchor: toggle:Science
     reason: experimental
     rationale: Research data collection is experiment consent and policy, not functional model scope.
+  - anchor: toggle:AtlasAgent
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+  - anchor: toggle:AutonomousTutor
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+  - anchor: toggle:Exports
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+  - anchor: toggle:GlobalSearch
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+  - anchor: toggle:LearningPaths
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+  - anchor: toggle:LectureContentProcessing
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of lecture after parity.
+  - anchor: toggle:Memiris
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+  - anchor: toggle:PlagiarismChecks
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of plagiarism after parity.
+  - anchor: toggle:ProgrammingExercises
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of programming after parity.
+  - anchor: toggle:StandardizedCompetencies
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+  - anchor: toggle:StudentCourseAnalyticsDashboard
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+  - anchor: toggle:TutorSuggestions
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
 
-  # Spring lifecycle and composition profiles are implementation details unless selected above as canonical anchors.
+  # Technical variability: the curated model is functional-only; the technical subtree is introduced deliberately in E3.
+  - anchor: infra:mysql
+    reason: deferred
+    rationale: Database alternative kept out until the planned technical subtree is introduced after parity.
+  - anchor: infra:postgres
+    reason: deferred
+    rationale: Database alternative kept out until the planned technical subtree is introduced after parity.
+  - anchor: profile:localci
+    reason: deferred
+    rationale: CI provider alternative kept out until the planned technical subtree is introduced after parity.
+  - anchor: profile:jenkins
+    reason: deferred
+    rationale: CI provider alternative kept out until the planned technical subtree is introduced after parity.
+  - anchor: profile:localvc
+    reason: deferred
+    rationale: Version-control baseline kept out until the planned technical subtree is introduced after parity.
+
+  # Spring lifecycle and composition profiles are implementation details, not feature-model candidates.
   - anchor: profile:artemis
     reason: internal-mechanism
   - anchor: profile:buildagent
@@ -267,11 +229,13 @@ conceptualNodes:
   - id: course-workflow
     parent: teaching-and-content
     kind: module
+    optionality: mandatory
     name: Course Workflow
     description: Core course creation, access, overview, and lifecycle workflows.
   - id: communication
     parent: teaching-and-content
     kind: module
+    optionality: mandatory
     name: Communication
     description: Course communication, messaging, and notification workflows.
   - id: exercise-system
@@ -282,16 +246,19 @@ conceptualNodes:
   - id: exercise-common
     parent: exercise-system
     kind: module
+    optionality: mandatory
     name: Common Exercise Infrastructure
     description: Shared creation, participation, submission, and assessment infrastructure for exercises.
   - id: programming
     parent: exercise-system
     kind: module
+    optionality: mandatory
     name: Programming Exercises
     description: Programming exercise authoring, participation, and automated assessment workflows.
   - id: quiz
     parent: exercise-system
     kind: module
+    optionality: mandatory
     name: Quiz Exercises
     description: Quiz authoring, participation, and assessment workflows.
   - id: assessment-and-integrity
@@ -309,13 +276,3 @@ conceptualNodes:
     kind: group
     name: Platform Integrations
     description: Authentication, external platform, editor, and sharing integrations.
-  - id: database
-    parent: artemis
-    kind: group
-    name: Database
-    description: Mutually exclusive database implementation selected for a deployment.
-  - id: ci-provider
-    parent: artemis
-    kind: group
-    name: CI Provider
-    description: Mutually exclusive continuous-integration implementation selected for programming exercises.
