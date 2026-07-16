@@ -1,0 +1,150 @@
+package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+
+/**
+ * Scans the admin Features page component for the curated display membership lists and per-feature documentation
+ * links. Identifiers in the arrays and map keys are constant or enum symbols; the assembler resolves them against the
+ * frontend constant and enum scans. Only the page structure matters here — its live enablement state reflects one
+ * deployment and is irrelevant to extraction.
+ */
+class AdminPageScan {
+
+    static final String DEFAULT_ADMIN_COMPONENT_PATH = "src/main/webapp/app/admin/features/admin-feature-toggle.component.ts";
+
+    private static final String ADMIN_COMPONENT_FILE_NAME = "admin-feature-toggle.component.ts";
+
+    private static final Pattern ARRAY_IDENTIFIER_PATTERN = Pattern.compile("^\\s*(\\w+),?\\s*$");
+
+    private static final Pattern MAP_ENTRY_PATTERN = Pattern.compile("^\\s*\\[(\\w+(?:\\.\\w+)?)\\]:\\s*'([^']*)',?\\s*$");
+
+    /**
+     * One identifier reference inside a display membership array.
+     *
+     * @param identifier referenced constant symbol.
+     * @param line 1-based line of the reference.
+     */
+    record MembershipEntry(String identifier, Integer line) {
+    }
+
+    /**
+     * One documentation link entry.
+     *
+     * @param identifier referenced constant or enum symbol, for example {@code MODULE_FEATURE_IRIS} or
+     *            {@code FeatureToggle.Exports}.
+     * @param url documentation link.
+     * @param line 1-based line of the entry.
+     */
+    record DocumentationEntry(String identifier, String url, Integer line) {
+    }
+
+    /**
+     * Scan result of the admin Features page component.
+     *
+     * @param file checkout-relative path of the component.
+     * @param displayedModuleFeatures module feature membership entries in display order.
+     * @param displayedProfiles profile membership entries in display order.
+     * @param documentationEntries all documentation link entries of the component in source order.
+     */
+    record Result(String file, List<MembershipEntry> displayedModuleFeatures, List<MembershipEntry> displayedProfiles, List<DocumentationEntry> documentationEntries) {
+
+        /**
+         * Creates an empty result for a failed or skipped scan.
+         *
+         * @return result without entries.
+         */
+        static Result empty() {
+            return new Result(null, List.of(), List.of(), List.of());
+        }
+    }
+
+    /**
+     * Scans the admin Features page component of the given checkout.
+     *
+     * @param source Artemis source repository.
+     * @return scanned membership lists and documentation links.
+     * @throws IOException if the component cannot be read.
+     * @throws IllegalArgumentException if the component cannot be located.
+     */
+    Result scan(ArtemisSourceRepository source) throws IOException {
+        String file = locateAdminComponentFile(source);
+        List<String> lines = source.readLines(file);
+        List<MembershipEntry> displayedModuleFeatures = scanArrayBlock(lines, "displayedModuleFeatures");
+        List<MembershipEntry> displayedProfiles = scanArrayBlock(lines, "displayedProfiles");
+        List<DocumentationEntry> documentationEntries = scanDocumentationEntries(lines);
+        return new Result(file, displayedModuleFeatures, displayedProfiles, documentationEntries);
+    }
+
+    /**
+     * Scans one identifier array field block, from the line declaring the field to the closing bracket.
+     *
+     * @param lines component lines.
+     * @param fieldName array field name.
+     * @return identifier entries in declaration order; empty when the field is absent.
+     */
+    private List<MembershipEntry> scanArrayBlock(List<String> lines, String fieldName) {
+        List<MembershipEntry> entries = new ArrayList<>();
+        boolean insideBlock = false;
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (!insideBlock) {
+                if (line.contains(fieldName) && line.contains("[")) {
+                    insideBlock = !line.contains("]");
+                }
+                continue;
+            }
+            if (line.contains("]")) {
+                break;
+            }
+            Matcher matcher = ARRAY_IDENTIFIER_PATTERN.matcher(line);
+            if (matcher.matches()) {
+                entries.add(new MembershipEntry(matcher.group(1), index + 1));
+            }
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Scans all computed-key documentation link entries of the component.
+     *
+     * @param lines component lines.
+     * @return documentation entries in source order, de-duplicated by identifier keeping the first occurrence.
+     */
+    private List<DocumentationEntry> scanDocumentationEntries(List<String> lines) {
+        Map<String, DocumentationEntry> entriesByIdentifier = new LinkedHashMap<>();
+        for (int index = 0; index < lines.size(); index++) {
+            Matcher matcher = MAP_ENTRY_PATTERN.matcher(lines.get(index));
+            if (matcher.matches()) {
+                entriesByIdentifier.putIfAbsent(matcher.group(1), new DocumentationEntry(matcher.group(1), matcher.group(2), index + 1));
+            }
+        }
+        return List.copyOf(entriesByIdentifier.values());
+    }
+
+    /**
+     * Locates the admin component file, preferring the known location and falling back to a name-based search.
+     *
+     * @param source Artemis source repository.
+     * @return checkout-relative path of the component.
+     * @throws IOException if the search fails.
+     * @throws IllegalArgumentException if no admin component can be found.
+     */
+    private String locateAdminComponentFile(ArtemisSourceRepository source) throws IOException {
+        if (source.fileExists(DEFAULT_ADMIN_COMPONENT_PATH)) {
+            return DEFAULT_ADMIN_COMPONENT_PATH;
+        }
+        List<String> matches = source.findFilesByName("src/main/webapp", ADMIN_COMPONENT_FILE_NAME);
+        if (matches.isEmpty()) {
+            throw new IllegalArgumentException("No " + ADMIN_COMPONENT_FILE_NAME + " found under src/main/webapp.");
+        }
+        return matches.getFirst();
+    }
+}

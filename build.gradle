@@ -27,12 +27,22 @@ def skipFrontendBuild = providers.gradleProperty('skipFrontendBuild')
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'com.github.javaparser:javaparser-core:3.26.4'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.register('extractFeatureModel', JavaExec) {
+    description = 'Scans a local Artemis checkout and writes feature extraction outputs under build/feature-extraction.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionRunner'
+    def artemisPath = providers.gradleProperty('artemisPath').getOrElse('/Users/juntingning/thesis/Repositories/Artemis')
+    args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path]
 }
 
 tasks.register('syncFeatureModelResource', Copy) {
