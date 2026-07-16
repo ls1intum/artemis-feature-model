@@ -1,0 +1,38 @@
+{
+    "artemisApp": {
+        "features": {
+            "title": "Features",
+            "profiles": {
+                "cione": {
+                    "name": "CI One",
+                    "description": "Enables the first continuous integration variant."
+                }
+            },
+            "modules": {
+                "alpha": {
+                    "name": "Alpha Module",
+                    "description": "Enables the Alpha module."
+                },
+                "beta": {
+                    "name": "Beta Authentication",
+                    "description": "Enables Beta authentication."
+                },
+                "beta-extra": {
+                    "name": "Beta Required for Extra Features",
+                    "description": "Requires Beta authentication for extra features."
+                }
+            },
+            "toggles": {
+                "ToggleOne": {
+                    "name": "Toggle One",
+                    "description": "First runtime toggle.",
+                    "disableWarning": "Disabling toggle one hides the export."
+                },
+                "ToggleTwo": {
+                    "name": "Toggle Two",
+                    "description": "Second runtime toggle."
+                }
+            }
+        }
+    }
+}

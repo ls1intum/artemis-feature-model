@@ -1,0 +1,8 @@
+artemis:
+    alpha:
+        enabled: true
+        gamma:
+            enabled: false
+    user-management:
+        beta:
+            enabled: false

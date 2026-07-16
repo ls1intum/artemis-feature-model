@@ -34,6 +34,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    def smokeTestArtemisPath = providers.gradleProperty('artemisPath')
+    if (smokeTestArtemisPath.isPresent()) {
+        systemProperty 'artemisPath', smokeTestArtemisPath.get()
+    }
 }
 
 tasks.register('extractFeatureModel', JavaExec) {
