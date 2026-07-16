@@ -67,8 +67,14 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   Artemis checkout read-only (no Spring context, no user-reachable trigger) and
   writes feature candidates, evidence, relation candidates, and a drift report
   against the active curated model under `build/feature-extraction/<commit>/`.
-  Outputs are deterministic apart from scan-metadata timestamps; the drift
-  report replaces the discovery step of the manual weekly consistency audit.
+  The bundled scope manifest classifies every current candidate as include or
+  exclude and adds curation counts and decisions to the report; unlisted
+  candidates remain pending and never enter a model. Source-parsed
+  `@ArtemisFeature` semantics override manifest-entry semantics but never grant
+  membership. Override the relocatable manifest input with
+  `-PfeatureManifestPath=<manifest.yml>`. Outputs are deterministic apart from
+  scan-metadata timestamps; the drift report replaces the discovery step of
+  the manual weekly consistency audit.
 
 ## Build and Development Commands
 

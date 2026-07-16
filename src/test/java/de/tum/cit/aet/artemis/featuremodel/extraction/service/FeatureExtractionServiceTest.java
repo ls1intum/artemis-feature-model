@@ -242,6 +242,19 @@ class FeatureExtractionServiceTest {
         assertThat(outcome.report().curatedModelId()).isEqualTo("fixture-model");
     }
 
+    @Test
+    void classifiesEveryFixtureCandidateWithManifestMembership() throws Exception {
+        FeatureManifestLoader loader = new FeatureManifestLoader();
+        var manifest = loader.load(Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"));
+        FeatureExtractionService.Outcome curatedOutcome = new FeatureExtractionService(new ObjectMapper()).extract(new LocalArtemisSourceRepository(FIXTURE_PATH),
+                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog(), manifest);
+
+        assertThat(curatedOutcome.report().curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("pending", 0);
+        assertThat(curatedOutcome.report().curation().pendingCandidateIds()).isEmpty();
+        assertThat(curatedOutcome.includedFeatures()).singleElement().satisfies(feature -> assertThat(feature.id()).isEqualTo("alpha-feature"));
+        assertThat(curatedOutcome.report().items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL));
+    }
+
     private FeatureCandidate candidate(String id) {
         return outcome.candidates().stream().filter(candidate -> candidate.id().equals(id)).findFirst().orElseThrow();
     }

@@ -46,7 +46,9 @@ tasks.register('extractFeatureModel', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionRunner'
     def artemisPath = providers.gradleProperty('artemisPath').getOrElse('/Users/juntingning/thesis/Repositories/Artemis')
-    args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path]
+    def manifestPath = providers.gradleProperty('featureManifestPath')
+            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
+    args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path, manifestPath]
 }
 
 tasks.register('syncFeatureModelResource', Copy) {

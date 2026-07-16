@@ -2,19 +2,24 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,17 +31,22 @@ import tools.jackson.databind.ObjectMapper;
 public class FeatureExtractionService {
 
     /** Version of the extraction pipeline, recorded in the scan metadata. */
-    public static final String EXTRACTOR_VERSION = "0.1.0";
+    public static final String EXTRACTOR_VERSION = "0.2.0";
 
-    private static final Map<String, String> CODE_DOCUMENTATION = new TreeMap<>(Map.of(
-            ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL, "A module or toggle candidate found in Artemis has no matching feature in the active curated model.",
-            ReportItem.CODE_CURATED_ANCHOR_MISSING, "A curated feature references a config key, condition class, or frontend constant the scan did not find.",
-            ReportItem.CODE_CURATED_EVIDENCE_STALE, "A curated file:line evidence reference no longer matches the scanned Artemis sources.",
-            ReportItem.CODE_UNANCHORED_CURATED_FEATURE, "A curated feature has no config anchor; expected for conceptual aggregates and always-on modules.",
-            ReportItem.CODE_FE_BE_MIRROR_MISMATCH, "Frontend and backend disagree about a module feature constant or runtime toggle enum member.",
-            ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, "The curated config key catalog disagrees with the scanned Artemis configuration keys or commit pin.",
-            ReportItem.CODE_EXTRACTOR_ERROR, "One extractor failed to parse its source; the scan continued without its contribution.",
-            ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Backend enabled property constants and module feature constants are asymmetric."));
+    private static final Map<String, String> CODE_DOCUMENTATION = new TreeMap<>(Map.ofEntries(
+            Map.entry(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL, "A module or toggle candidate found in Artemis has no matching feature in the active curated model."),
+            Map.entry(ReportItem.CODE_CURATED_ANCHOR_MISSING, "A curated feature references a config key, condition class, or frontend constant the scan did not find."),
+            Map.entry(ReportItem.CODE_CURATED_EVIDENCE_STALE, "A curated file:line evidence reference no longer matches the scanned Artemis sources."),
+            Map.entry(ReportItem.CODE_UNANCHORED_CURATED_FEATURE, "A curated feature has no config anchor; expected for conceptual aggregates and always-on modules."),
+            Map.entry(ReportItem.CODE_FE_BE_MIRROR_MISMATCH, "Frontend and backend disagree about a module feature constant or runtime toggle enum member."),
+            Map.entry(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, "The curated config key catalog disagrees with the scanned Artemis configuration keys or commit pin."),
+            Map.entry(ReportItem.CODE_EXTRACTOR_ERROR, "One extractor failed to parse its source; the scan continued without its contribution."),
+            Map.entry(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Backend enabled property constants and module feature constants are asymmetric."),
+            Map.entry(ReportItem.CODE_PENDING_SCOPE_DECISION, "An extracted candidate is unlisted and awaits an explicit scope decision."),
+            Map.entry(ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, "A source annotation exists but the manifest does not include its candidate."),
+            Map.entry(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, "Source annotation semantics override the included manifest entry for the same anchor."),
+            Map.entry(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, "An annotated source anchor could not be joined to an extracted candidate."),
+            Map.entry(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, "The scope manifest was verified against a different Artemis commit.")));
 
     private final ObjectMapper objectMapper;
 
@@ -55,9 +65,11 @@ public class FeatureExtractionService {
      * @param candidates feature candidates sorted by id.
      * @param evidence evidence items sorted by candidate id, file, line, kind, and symbol.
      * @param relationCandidates relation candidates sorted by id.
-     * @param report assembled extraction report with the drift section.
+     * @param report assembled extraction report with drift and curation sections.
+     * @param includedFeatures included candidates with resolved annotation-over-manifest semantics.
      */
-    public record Outcome(List<FeatureCandidate> candidates, List<EvidenceItem> evidence, List<RelationCandidate> relationCandidates, ExtractionReport report) {
+    public record Outcome(List<FeatureCandidate> candidates, List<EvidenceItem> evidence, List<RelationCandidate> relationCandidates, ExtractionReport report,
+            List<ResolvedFeatureScope> includedFeatures) {
     }
 
     /**
@@ -69,6 +81,20 @@ public class FeatureExtractionService {
      * @return deterministic extraction outcome.
      */
     public Outcome extract(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog) {
+        FeatureScopeManifest emptyManifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, source.commit(), List.of(), List.of(), List.of());
+        return extract(source, curatedModel, catalog, emptyManifest);
+    }
+
+    /**
+     * Runs the full extraction and curation pipeline against a checkout.
+     *
+     * @param source Artemis source repository.
+     * @param curatedModel active curated feature model for the drift comparison.
+     * @param catalog curated config key catalog for the drift comparison.
+     * @param manifest scope manifest that controls candidate membership.
+     * @return deterministic extraction and curation outcome.
+     */
+    public Outcome extract(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog, FeatureScopeManifest manifest) {
         List<ReportItem> items = new ArrayList<>();
 
         BackendConstantScan.Result constantScan = runScan("backend constants", items, () -> new BackendConstantScan().scan(source), BackendConstantScan.Result.empty());
@@ -85,17 +111,37 @@ public class FeatureExtractionService {
         YamlConfigScan.Result yamlScan = runScan("configuration defaults", items, () -> new YamlConfigScan().scan(source), YamlConfigScan.Result.empty());
         ComposeFileScan.Result composeScan = runScan("compose files", items, () -> new ComposeFileScan().scan(source), ComposeFileScan.Result.empty());
         UsageEvidenceScan.Result usageScan = runScan("usage evidence", items, () -> new UsageEvidenceScan().scan(source), UsageEvidenceScan.Result.empty());
+        ArtemisFeatureAnnotationScan.Result annotationScan = runScan("ArtemisFeature annotations", items, () -> new ArtemisFeatureAnnotationScan().scan(source),
+                ArtemisFeatureAnnotationScan.Result.empty());
 
         items.addAll(conditionScan.errors());
         items.addAll(yamlScan.errors());
+        items.addAll(annotationScan.errors());
 
         CandidateAssembler.Result assembly = new CandidateAssembler().assemble(source, constantScan, configHelperScan, conditionScan, backendToggleScan,
                 frontendConstantScan, frontendToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan);
         items.addAll(assembly.items());
         items.addAll(new DriftComparator().compare(source, curatedModel, catalog, assembly.candidates(), yamlScan, source.commit()));
+        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, assembly.candidates(), annotationScan.annotations(), source.commit());
+        suppressExplicitlyExcludedNewCandidateItems(items, curation);
+        items.addAll(curation.items());
 
-        ExtractionReport report = assembleReport(curatedModel, source.commit(), items);
-        return new Outcome(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), report);
+        ExtractionReport report = assembleReport(curatedModel, source.commit(), curation.report(), items);
+        return new Outcome(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), report, curation.includedFeatures());
+    }
+
+    /**
+     * Removes generic new-candidate drift warnings after the manifest has documented a permanent exclusion. Included
+     * and pending candidates retain the drift warning until generated-model comparison supersedes it in E3.
+     *
+     * @param items collected drift diagnostics.
+     * @param curation manifest curation result.
+     */
+    private void suppressExplicitlyExcludedNewCandidateItems(List<ReportItem> items, ScopeCurationService.Result curation) {
+        Set<String> excludedCandidateIds = new HashSet<>();
+        curation.report().decisions().stream().filter(decision -> ScopeCurationService.STATE_EXCLUDE.equals(decision.state()))
+                .forEach(decision -> excludedCandidateIds.add(decision.candidateId()));
+        items.removeIf(item -> ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL.equals(item.code()) && excludedCandidateIds.contains(item.subject()));
     }
 
     /**
@@ -128,7 +174,7 @@ public class FeatureExtractionService {
      * @param items collected report items.
      * @return assembled report.
      */
-    private ExtractionReport assembleReport(FeatureModel curatedModel, String artemisCommit, List<ReportItem> items) {
+    private ExtractionReport assembleReport(FeatureModel curatedModel, String artemisCommit, CurationReport curation, List<ReportItem> items) {
         List<ReportItem> sortedItems = new ArrayList<>(items);
         sortedItems.sort(Comparator.comparing(ReportItem::code).thenComparing(ReportItem::subject).thenComparing(ReportItem::message).thenComparing(ReportItem::severity));
         Map<String, Integer> severityCounts = new TreeMap<>();
@@ -137,7 +183,7 @@ public class FeatureExtractionService {
             severityCounts.merge(item.severity(), 1, Integer::sum);
             codeCounts.merge(item.code(), 1, Integer::sum);
         }
-        return new ExtractionReport(artemisCommit, curatedModel.model().id(), curatedModel.model().version(), new LinkedHashMap<>(CODE_DOCUMENTATION),
+        return new ExtractionReport(artemisCommit, curatedModel.model().id(), curatedModel.model().version(), curation, new LinkedHashMap<>(CODE_DOCUMENTATION),
                 severityCounts, codeCounts, List.copyOf(sortedItems));
     }
 }

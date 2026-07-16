@@ -14,8 +14,10 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureExtractionService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -30,9 +32,10 @@ class RealArtemisCheckoutSmokeTest {
         ObjectMapper objectMapper = new ObjectMapper();
         FeatureModel curatedModel = new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper).loadActiveModel();
         ArtemisConfigKeyCatalog catalog = loadCatalog(objectMapper);
+        FeatureScopeManifest manifest = loadManifest();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(Path.of(System.getProperty("artemisPath")));
 
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog);
+        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest);
 
         assertThat(outcome.candidates().size()).isGreaterThanOrEqualTo(50);
         assertThat(outcome.relationCandidates()).isNotEmpty();
@@ -43,8 +46,10 @@ class RealArtemisCheckoutSmokeTest {
         });
         List<String> newCandidateSubjects = outcome.report().items().stream().filter(item -> ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL.equals(item.code()))
                 .map(ReportItem::subject).toList();
-        assertThat(newCandidateSubjects).contains("module:ldap", "module:saml2", "module:passkey", "module:passkey-admin", "module:atlasml", "module:weaviate",
-                "module:tumlive");
+        assertThat(newCandidateSubjects).contains("module:ldap", "module:saml2", "module:passkey", "module:atlasml", "module:tumlive")
+                .doesNotContain("module:passkey-admin", "module:weaviate");
+        assertThat(outcome.report().curation().pendingCandidateIds()).isEmpty();
+        assertThat(outcome.report().curation().stateCounts()).containsEntry("include", 37).containsEntry("exclude", 35).containsEntry("pending", 0);
     }
 
     /**
@@ -57,6 +62,18 @@ class RealArtemisCheckoutSmokeTest {
     private ArtemisConfigKeyCatalog loadCatalog(ObjectMapper objectMapper) throws Exception {
         try (InputStream inputStream = new DefaultResourceLoader().getResource("classpath:feature-model/artemis-config-key-catalog.json").getInputStream()) {
             return objectMapper.readValue(inputStream, ArtemisConfigKeyCatalog.class);
+        }
+    }
+
+    /**
+     * Loads the bundled scope manifest.
+     *
+     * @return parsed feature scope manifest.
+     * @throws Exception if the manifest cannot be read.
+     */
+    private FeatureScopeManifest loadManifest() throws Exception {
+        try (InputStream inputStream = new DefaultResourceLoader().getResource("classpath:feature-model/extraction/artemis-feature-manifest.yml").getInputStream()) {
+            return new FeatureManifestLoader().load(inputStream, "bundled feature manifest");
         }
     }
 }

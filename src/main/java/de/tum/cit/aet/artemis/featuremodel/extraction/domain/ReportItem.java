@@ -41,6 +41,21 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A backend property name constant has no matching backend module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
+    /** An extracted candidate is absent from both manifest membership lists. */
+    public static final String CODE_PENDING_SCOPE_DECISION = "PENDING_SCOPE_DECISION";
+
+    /** A source annotation exists on a candidate that the manifest does not include. */
+    public static final String CODE_ANNOTATED_BUT_UNSCOPED = "ANNOTATED_BUT_UNSCOPED";
+
+    /** Source annotation semantics take precedence over redundant semantics in the include entry. */
+    public static final String CODE_ANNOTATION_OVERRIDES_MANIFEST = "ANNOTATION_OVERRIDES_MANIFEST";
+
+    /** A source annotation could not be joined to an extracted candidate. */
+    public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
+
+    /** The scope manifest commit pin differs from the scanned Artemis commit. */
+    public static final String CODE_MANIFEST_COMMIT_MISMATCH = "MANIFEST_COMMIT_MISMATCH";
+
     /**
      * Creates an error item.
      *
