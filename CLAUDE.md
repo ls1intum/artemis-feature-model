@@ -63,6 +63,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   as a branch-scoped CI workflow. A drift-guard test fails when a model mapping
   path is missing from the catalog, so the catalog must be refreshed when
   Artemis config keys change.
+- `./gradlew extractFeatureModel -PartemisPath=<artemis-checkout>` scans a local
+  Artemis checkout read-only (no Spring context, no user-reachable trigger) and
+  writes feature candidates, evidence, relation candidates, and a drift report
+  against the active curated model under `build/feature-extraction/<commit>/`.
+  Outputs are deterministic apart from scan-metadata timestamps; the drift
+  report replaces the discovery step of the manual weekly consistency audit.
 
 ## Build and Development Commands
 
@@ -112,6 +118,9 @@ Server package areas:
 - `export` owns Level 1 configuration artifact generation, the Level 2 local
   runtime deployment package, and static overlay validation against the Artemis
   config key catalog.
+- `extraction` owns the read-only Artemis checkout scan: anchor extractors,
+  candidate assembly with evidence, relation candidates, the drift comparison
+  against the active curated model, and the deterministic output writers.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:
