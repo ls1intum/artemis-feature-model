@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import com.github.javaparser.ast.CompilationUnit;
@@ -105,6 +106,14 @@ class ArtemisFeatureAnnotationScan {
         return new Result(List.copyOf(annotations), List.copyOf(errors));
     }
 
+    /**
+     * Parses one file and collects every annotated type, field, and enum constant anchor.
+     *
+     * @param content Java source text.
+     * @param file checkout-relative path.
+     * @param annotations annotation sink.
+     * @throws IllegalArgumentException if the file or an annotation shape cannot be parsed.
+     */
     private void scanFile(String content, String file, List<AnnotatedAnchor> annotations) {
         CompilationUnit unit = JavaSourceParser.parse(content, file);
         String packageName = unit.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
@@ -124,10 +133,24 @@ class ArtemisFeatureAnnotationScan {
         }
     }
 
-    private java.util.Optional<AnnotationExpr> findAnnotation(NodeWithAnnotations<?> node) {
+    /**
+     * Finds the feature annotation on a node.
+     *
+     * @param node annotatable parsed node.
+     * @return the feature annotation, or empty.
+     */
+    private Optional<AnnotationExpr> findAnnotation(NodeWithAnnotations<?> node) {
         return node.getAnnotations().stream().filter(annotation -> ANNOTATION_NAME.equals(annotation.getName().getIdentifier())).findFirst();
     }
 
+    /**
+     * Parses the attribute values of one feature annotation.
+     *
+     * @param annotation parsed annotation expression.
+     * @param file checkout-relative path, used in failure messages.
+     * @return parsed semantics.
+     * @throws IllegalArgumentException if the annotation uses an unsupported shape or unknown attributes.
+     */
     private AnnotationSemantics parseSemantics(AnnotationExpr annotation, String file) {
         if (!(annotation instanceof NormalAnnotationExpr normal)) {
             throw new IllegalArgumentException("@ArtemisFeature in " + file + " must use named attributes.");
@@ -142,6 +165,15 @@ class ArtemisFeatureAnnotationScan {
                 optionalString(normal, "description", file), optionalString(normal, "documentationUrl", file));
     }
 
+    /**
+     * Reads a required non-blank string attribute.
+     *
+     * @param annotation parsed annotation.
+     * @param name attribute name.
+     * @param file checkout-relative path, used in failure messages.
+     * @return attribute value.
+     * @throws IllegalArgumentException if the attribute is absent or blank.
+     */
     private String requiredString(NormalAnnotationExpr annotation, String name, String file) {
         String value = optionalString(annotation, name, file);
         if (value == null || value.isBlank()) {
@@ -150,6 +182,16 @@ class ArtemisFeatureAnnotationScan {
         return value;
     }
 
+    /**
+     * Reads an optional string attribute, mapping the annotation's empty-string default to null so absent attributes
+     * never override manifest semantics.
+     *
+     * @param annotation parsed annotation.
+     * @param name attribute name.
+     * @param file checkout-relative path, used in failure messages.
+     * @return attribute value, or null when absent or empty.
+     * @throws IllegalArgumentException if the attribute is present but not a string literal.
+     */
     private String optionalString(NormalAnnotationExpr annotation, String name, String file) {
         Expression value = attribute(annotation, name);
         if (value == null) {
@@ -161,6 +203,15 @@ class ArtemisFeatureAnnotationScan {
         return literal.getValue().isEmpty() ? null : literal.getValue();
     }
 
+    /**
+     * Reads an optional string-array attribute, accepting a single literal as a one-element array.
+     *
+     * @param annotation parsed annotation.
+     * @param name attribute name.
+     * @param file checkout-relative path, used in failure messages.
+     * @return attribute values, or null when the attribute is absent.
+     * @throws IllegalArgumentException if the attribute contains anything but non-blank string literals.
+     */
     private List<String> optionalStringList(NormalAnnotationExpr annotation, String name, String file) {
         Expression value = attribute(annotation, name);
         if (value == null) {
@@ -177,6 +228,13 @@ class ArtemisFeatureAnnotationScan {
         return List.copyOf(strings);
     }
 
+    /**
+     * Finds the value expression of a named annotation attribute.
+     *
+     * @param annotation parsed annotation.
+     * @param name attribute name.
+     * @return value expression, or null when the attribute is absent.
+     */
     private Expression attribute(NormalAnnotationExpr annotation, String name) {
         return annotation.getPairs().stream().filter(pair -> name.equals(pair.getNameAsString())).map(pair -> pair.getValue()).findFirst().orElse(null);
     }

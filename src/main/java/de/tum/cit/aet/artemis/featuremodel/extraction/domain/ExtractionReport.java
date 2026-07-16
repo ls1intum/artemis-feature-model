@@ -5,8 +5,8 @@ import java.util.Map;
 
 /**
  * Payload of {@code extraction-report.json}: all diagnostics of one scan, including the drift section against the
- * active curated model. The report documents its own code contract so that later automation phases can key on stable
- * code strings without consulting external documentation.
+ * active curated model and the manifest curation section. The report documents its own code contract so that later
+ * automation phases can key on stable code strings without consulting external documentation.
  *
  * @param artemisCommit resolved git commit of the scanned checkout.
  * @param curatedModelId id of the curated model the drift section compared against.
