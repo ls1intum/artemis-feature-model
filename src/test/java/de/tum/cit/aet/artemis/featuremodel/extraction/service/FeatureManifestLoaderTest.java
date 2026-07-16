@@ -78,6 +78,18 @@ class FeatureManifestLoaderTest {
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field(s): pending");
     }
 
+    @Test
+    void rejectsUndeclaredParentReference() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    group: missing-group
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("'alpha' references undeclared parent/group 'missing-group'");
+    }
+
     private FeatureScopeManifest load(String yaml) {
         return loader.load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), "test manifest");
     }

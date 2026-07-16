@@ -46,7 +46,9 @@ public class FeatureExtractionService {
             Map.entry(ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, "A source annotation exists but the manifest does not include its candidate."),
             Map.entry(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, "Source annotation semantics override the included manifest entry for the same anchor."),
             Map.entry(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, "An annotated source anchor could not be joined to an extracted candidate."),
-            Map.entry(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, "The scope manifest was verified against a different Artemis commit.")));
+            Map.entry(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, "The scope manifest was verified against a different Artemis commit."),
+            Map.entry(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "A manifest anchor matches no extraction candidate of this scan, or matches more than one."),
+            Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries, annotations, or resolved semantics collide for this scan and need review.")));
 
     private final ObjectMapper objectMapper;
 
@@ -171,6 +173,7 @@ public class FeatureExtractionService {
      *
      * @param curatedModel active curated model.
      * @param artemisCommit resolved commit of the scanned checkout.
+     * @param curation manifest curation section.
      * @param items collected report items.
      * @return assembled report.
      */

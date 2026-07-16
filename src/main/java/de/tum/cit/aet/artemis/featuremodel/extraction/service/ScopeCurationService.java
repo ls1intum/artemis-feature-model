@@ -13,7 +13,6 @@ import java.util.TreeMap;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
@@ -22,7 +21,13 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScop
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotationSemantics;
 
-/** Validates and applies manifest membership, then merges source annotation semantics for included anchors. */
+/**
+ * Applies manifest membership to the extracted candidates and merges source annotation semantics for included
+ * anchors. Manifest problems that only this scan can reveal — anchors that no longer resolve, entries colliding on
+ * one candidate, or resolved semantics conflicting after annotation precedence — become error report items instead of
+ * aborting the run: the drift report must keep working exactly when Artemis has drifted away from the manifest.
+ * Statically detectable authoring errors are rejected earlier by {@link FeatureManifestLoader}.
+ */
 class ScopeCurationService {
 
     static final String STATE_INCLUDE = "include";
@@ -30,6 +35,10 @@ class ScopeCurationService {
     static final String STATE_EXCLUDE = "exclude";
 
     static final String STATE_PENDING = "pending";
+
+    private static final String SEMANTIC_SOURCE_MANIFEST = "manifest";
+
+    private static final String SEMANTIC_SOURCE_ANNOTATION = "annotation";
 
     /**
      * Curation result.
@@ -41,6 +50,10 @@ class ScopeCurationService {
     record Result(CurationReport report, List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
     }
 
+    /** Manifest membership of one candidate; exactly one of the two entries is set. */
+    private record Membership(IncludeEntry include, ExcludeEntry exclude) {
+    }
+
     /**
      * Applies the manifest to extracted candidates.
      *
@@ -49,156 +62,250 @@ class ScopeCurationService {
      * @param annotations parsed source annotations.
      * @param scannedCommit resolved checkout commit.
      * @return classifications, resolved include semantics, and diagnostics.
-     * @throws FeatureManifestException if manifest anchors or hierarchy are invalid.
      */
     Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations, String scannedCommit) {
-        CandidateResolver resolver = new CandidateResolver(candidates);
-        Map<String, IncludeEntry> includes = resolveIncludes(manifest, resolver);
-        Map<String, ExcludeEntry> excludes = resolveExcludes(manifest, resolver, includes.keySet());
-        validateConceptualHierarchy(manifest, includes.values());
-
-        Map<String, AnnotatedAnchor> annotationsByCandidate = resolveAnnotations(annotations, resolver);
         List<ReportItem> items = new ArrayList<>();
         if (!manifest.verifiedAgainstArtemisCommit().equals(scannedCommit)) {
             items.add(ReportItem.warning(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, scannedCommit,
                     "Scope manifest was verified against Artemis commit '" + manifest.verifiedAgainstArtemisCommit() + "'."));
         }
 
+        CandidateResolver resolver = new CandidateResolver(candidates);
+        Map<String, Membership> membershipByCandidate = resolveMembership(manifest, resolver, items);
+        Map<String, AnnotatedAnchor> annotationsByCandidate = resolveAnnotations(annotations, resolver, items);
+
         List<CurationDecision> decisions = new ArrayList<>();
         List<ResolvedFeatureScope> includedFeatures = new ArrayList<>();
         for (FeatureCandidate candidate : candidates) {
-            IncludeEntry include = includes.get(candidate.id());
-            ExcludeEntry exclude = excludes.get(candidate.id());
-            AnnotatedAnchor annotation = annotationsByCandidate.get(candidate.id());
-            if (include != null) {
-                ResolvedFeatureScope scope = resolveSemantics(candidate, include, annotation);
-                includedFeatures.add(scope);
-                decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_INCLUDE, scope.id(), null, scope.semanticSource()));
-                if (annotation != null) {
-                    items.add(ReportItem.info(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, candidate.id(),
-                            "Source annotation at " + annotation.file() + ":" + annotation.line() + " overrides manifest-entry semantics."));
-                }
-            }
-            else if (exclude != null) {
-                decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_EXCLUDE, null, exclude.reason(), null));
-                if (annotation != null) {
-                    items.add(annotatedButUnscoped(candidate, annotation, STATE_EXCLUDE));
-                }
-            }
-            else {
-                decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_PENDING, null, null, null));
-                items.add(ReportItem.info(ReportItem.CODE_PENDING_SCOPE_DECISION, candidate.id(), "Candidate is unlisted and remains outside the generated model."));
-                if (annotation != null) {
-                    items.add(annotatedButUnscoped(candidate, annotation, STATE_PENDING));
-                }
-            }
-        }
-        for (AnnotatedAnchor annotation : annotations) {
-            if (resolver.resolveOrNull(annotation.anchor()) == null) {
-                items.add(ReportItem.warning(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, annotation.anchor(),
-                        "Annotated source anchor at " + annotation.file() + ":" + annotation.line() + " did not match an extraction candidate."));
-            }
+            classifyCandidate(candidate, membershipByCandidate.get(candidate.id()), annotationsByCandidate.get(candidate.id()), decisions, includedFeatures, items);
         }
 
         includedFeatures.sort(Comparator.comparing(ResolvedFeatureScope::candidateId));
-        validateResolvedHierarchy(manifest, includedFeatures);
+        reportResolvedSemanticConflicts(manifest, includedFeatures, items);
         decisions.sort(Comparator.comparingInt((CurationDecision decision) -> stateOrder(decision.state())).thenComparing(CurationDecision::candidateId));
         CurationReport report = assembleReport(manifest, decisions);
         return new Result(report, List.copyOf(includedFeatures), List.copyOf(items));
     }
 
-    private Map<String, IncludeEntry> resolveIncludes(FeatureScopeManifest manifest, CandidateResolver resolver) {
-        Map<String, IncludeEntry> resolved = new LinkedHashMap<>();
+    /**
+     * Resolves the include and exclude anchors onto candidates. An anchor that resolves to no candidate or to several
+     * candidates yields an orphan diagnostic and is skipped; several entries resolving to the same candidate yield a
+     * conflict diagnostic and the first entry wins. Runtime-toggle entries without written rationale are flagged.
+     *
+     * @param manifest loaded manifest.
+     * @param resolver candidate resolver.
+     * @param items report item sink.
+     * @return membership per resolved candidate id.
+     */
+    private Map<String, Membership> resolveMembership(FeatureScopeManifest manifest, CandidateResolver resolver, List<ReportItem> items) {
+        Map<String, Membership> membershipByCandidate = new LinkedHashMap<>();
         for (IncludeEntry entry : manifest.include()) {
-            String candidateId = resolver.resolveRequired(entry.anchor());
-            if (resolved.putIfAbsent(candidateId, entry) != null) {
-                throw new FeatureManifestException("Multiple include entries resolve to candidate '" + candidateId + "'.");
+            String candidateId = resolveAnchor(entry.anchor(), resolver, items);
+            if (candidateId == null || conflictsWithExistingEntry(membershipByCandidate, candidateId, entry.anchor(), items)) {
+                continue;
             }
-            FeatureCandidate candidate = resolver.candidate(candidateId);
-            if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && entry.rationale() == null) {
-                throw new FeatureManifestException("Runtime toggle include entry '" + entry.anchor() + "' requires rationale.");
-            }
+            membershipByCandidate.put(candidateId, new Membership(entry, null));
+            requireToggleRationale(resolver.candidate(candidateId), entry.anchor(), entry.rationale(), items);
         }
-        return resolved;
-    }
-
-    private Map<String, ExcludeEntry> resolveExcludes(FeatureScopeManifest manifest, CandidateResolver resolver, Set<String> includedIds) {
-        Map<String, ExcludeEntry> resolved = new LinkedHashMap<>();
         for (ExcludeEntry entry : manifest.exclude()) {
-            String candidateId = resolver.resolveRequired(entry.anchor());
-            if (includedIds.contains(candidateId) || resolved.putIfAbsent(candidateId, entry) != null) {
-                throw new FeatureManifestException("Multiple manifest entries resolve to candidate '" + candidateId + "'.");
+            String candidateId = resolveAnchor(entry.anchor(), resolver, items);
+            if (candidateId == null || conflictsWithExistingEntry(membershipByCandidate, candidateId, entry.anchor(), items)) {
+                continue;
             }
-            FeatureCandidate candidate = resolver.candidate(candidateId);
-            if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && entry.rationale() == null) {
-                throw new FeatureManifestException("Runtime toggle exclude entry '" + entry.anchor() + "' requires rationale.");
-            }
+            membershipByCandidate.put(candidateId, new Membership(null, entry));
+            requireToggleRationale(resolver.candidate(candidateId), entry.anchor(), entry.rationale(), items);
         }
-        return resolved;
+        return membershipByCandidate;
     }
 
-    private void validateConceptualHierarchy(FeatureScopeManifest manifest, Iterable<IncludeEntry> includes) {
-        Set<String> ids = new LinkedHashSet<>();
-        manifest.conceptualNodes().forEach(node -> ids.add(node.id()));
-        includes.forEach(entry -> ids.add(entry.id()));
-        manifest.conceptualNodes().forEach(node -> validateParent(node.id(), node.parent(), ids));
-        includes.forEach(entry -> {
-            validateParent(entry.id(), entry.parent(), ids);
-            validateParent(entry.id(), entry.group(), ids);
-        });
+    /**
+     * Resolves one manifest anchor and reports resolution failures as orphan diagnostics.
+     *
+     * @param anchor manifest anchor.
+     * @param resolver candidate resolver.
+     * @param items report item sink.
+     * @return resolved candidate id, or null when the anchor is unknown or ambiguous.
+     */
+    private String resolveAnchor(String anchor, CandidateResolver resolver, List<ReportItem> items) {
+        CandidateResolver.Resolution resolution = resolver.resolve(anchor);
+        if (resolution.problem() != null) {
+            items.add(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, anchor, resolution.problem() + " The entry is skipped for this scan."));
+            return null;
+        }
+        return resolution.candidateId();
     }
 
-    private void validateParent(String id, String parent, Set<String> ids) {
-        if (parent != null && !ids.contains(parent)) {
-            throw new FeatureManifestException("Manifest entry '" + id + "' references unknown parent/group '" + parent + "'.");
+    /**
+     * Reports a conflict when a candidate already has a manifest entry.
+     *
+     * @param membershipByCandidate memberships resolved so far.
+     * @param candidateId resolved candidate id.
+     * @param anchor anchor of the newly resolved entry.
+     * @param items report item sink.
+     * @return true if the candidate was already claimed and the new entry must be skipped.
+     */
+    private boolean conflictsWithExistingEntry(Map<String, Membership> membershipByCandidate, String candidateId, String anchor, List<ReportItem> items) {
+        if (!membershipByCandidate.containsKey(candidateId)) {
+            return false;
+        }
+        items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidateId,
+                "Manifest anchor '" + anchor + "' resolves to a candidate that already has a manifest entry; the first entry wins."));
+        return true;
+    }
+
+    /**
+     * Flags runtime-toggle manifest entries without documented reasoning; every toggle decision must record why.
+     *
+     * @param candidate resolved candidate.
+     * @param anchor manifest anchor of the entry.
+     * @param rationale documented reasoning, or null.
+     * @param items report item sink.
+     */
+    private void requireToggleRationale(FeatureCandidate candidate, String anchor, String rationale, List<ReportItem> items) {
+        if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && rationale == null) {
+            items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidate.id(),
+                    "Runtime toggle entry '" + anchor + "' has no rationale; every toggle decision must document its reasoning."));
         }
     }
 
-    private void validateResolvedHierarchy(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures) {
-        Set<String> ids = new LinkedHashSet<>();
-        for (FeatureScopeManifest.ConceptualNode node : manifest.conceptualNodes()) {
-            if (!ids.add(node.id())) {
-                throw new FeatureManifestException("Duplicate resolved curated id '" + node.id() + "'.");
-            }
-        }
-        for (ResolvedFeatureScope feature : includedFeatures) {
-            if (!ids.add(feature.id())) {
-                throw new FeatureManifestException("Duplicate resolved curated id '" + feature.id() + "'.");
-            }
-        }
-        for (ResolvedFeatureScope feature : includedFeatures) {
-            validateParent(feature.id(), feature.parent(), ids);
-            validateParent(feature.id(), feature.group(), ids);
-        }
-    }
-
-    private Map<String, AnnotatedAnchor> resolveAnnotations(List<AnnotatedAnchor> annotations, CandidateResolver resolver) {
-        Map<String, AnnotatedAnchor> resolved = new LinkedHashMap<>();
+    /**
+     * Resolves source annotations onto candidates. Unmatched annotations are reported; several annotations resolving
+     * to the same candidate yield a conflict diagnostic and the first annotation wins.
+     *
+     * @param annotations parsed source annotations.
+     * @param resolver candidate resolver.
+     * @param items report item sink.
+     * @return annotation per resolved candidate id.
+     */
+    private Map<String, AnnotatedAnchor> resolveAnnotations(List<AnnotatedAnchor> annotations, CandidateResolver resolver, List<ReportItem> items) {
+        Map<String, AnnotatedAnchor> annotationsByCandidate = new LinkedHashMap<>();
         for (AnnotatedAnchor annotation : annotations) {
-            String candidateId = resolver.resolveOrNull(annotation.anchor());
-            if (candidateId != null && resolved.putIfAbsent(candidateId, annotation) != null) {
-                throw new FeatureManifestException("Multiple @ArtemisFeature annotations resolve to candidate '" + candidateId + "'.");
+            CandidateResolver.Resolution resolution = resolver.resolve(annotation.anchor());
+            if (resolution.problem() != null) {
+                items.add(ReportItem.warning(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, annotation.anchor(),
+                        "Annotated source anchor at " + annotation.file() + ":" + annotation.line() + " did not match an extraction candidate. " + resolution.problem()));
+                continue;
+            }
+            if (annotationsByCandidate.putIfAbsent(resolution.candidateId(), annotation) != null) {
+                items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, resolution.candidateId(),
+                        "Several @ArtemisFeature annotations resolve to this candidate; the annotation at " + annotation.file() + ":" + annotation.line()
+                                + " is ignored."));
             }
         }
-        return resolved;
+        return annotationsByCandidate;
     }
 
+    /**
+     * Classifies one candidate into include, exclude, or pending and records the annotation diagnostics that belong
+     * to the classification.
+     *
+     * @param candidate extracted candidate.
+     * @param membership manifest membership, or null when the candidate is unlisted.
+     * @param annotation source annotation resolved to the candidate, or null.
+     * @param decisions decision sink.
+     * @param includedFeatures resolved include semantics sink.
+     * @param items report item sink.
+     */
+    private void classifyCandidate(FeatureCandidate candidate, Membership membership, AnnotatedAnchor annotation, List<CurationDecision> decisions,
+            List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
+        if (membership != null && membership.include() != null) {
+            ResolvedFeatureScope scope = resolveSemantics(candidate, membership.include(), annotation);
+            includedFeatures.add(scope);
+            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_INCLUDE, scope.id(), null, scope.semanticSource()));
+            if (annotation != null) {
+                items.add(ReportItem.info(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, candidate.id(),
+                        "Source annotation at " + annotation.file() + ":" + annotation.line() + " overrides manifest-entry semantics."));
+            }
+            return;
+        }
+        if (membership != null) {
+            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_EXCLUDE, null, membership.exclude().reason(), null));
+            if (annotation != null) {
+                items.add(annotatedButUnscoped(candidate, annotation, STATE_EXCLUDE));
+            }
+            return;
+        }
+        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_PENDING, null, null, null));
+        items.add(ReportItem.info(ReportItem.CODE_PENDING_SCOPE_DECISION, candidate.id(), "Candidate is unlisted and remains outside the generated model."));
+        if (annotation != null) {
+            items.add(annotatedButUnscoped(candidate, annotation, STATE_PENDING));
+        }
+    }
+
+    /**
+     * Reports conflicts in the resolved include semantics: duplicate curated ids and parent or group references that
+     * no longer resolve after annotation precedence or skipped orphan entries. The manifest-internal references were
+     * already validated statically by the loader, so every conflict here is scan- or annotation-induced.
+     *
+     * @param manifest loaded manifest.
+     * @param includedFeatures resolved include semantics.
+     * @param items report item sink.
+     */
+    private void reportResolvedSemanticConflicts(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
+        Set<String> resolvedIds = new LinkedHashSet<>();
+        manifest.conceptualNodes().forEach(node -> resolvedIds.add(node.id()));
+        for (ResolvedFeatureScope feature : includedFeatures) {
+            if (!resolvedIds.add(feature.id())) {
+                items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, feature.candidateId(),
+                        "Resolved curated id '" + feature.id() + "' is already used by another included feature or conceptual node."));
+            }
+        }
+        for (ResolvedFeatureScope feature : includedFeatures) {
+            reportUnresolvedReference(feature, feature.parent(), resolvedIds, items);
+            reportUnresolvedReference(feature, feature.group(), resolvedIds, items);
+        }
+    }
+
+    /**
+     * Reports a parent or group reference that does not resolve within the included and conceptual ids.
+     *
+     * @param feature resolved feature carrying the reference.
+     * @param reference referenced parent or group id, or null when not set.
+     * @param resolvedIds all resolved curated ids.
+     * @param items report item sink.
+     */
+    private void reportUnresolvedReference(ResolvedFeatureScope feature, String reference, Set<String> resolvedIds, List<ReportItem> items) {
+        if (reference != null && !resolvedIds.contains(reference)) {
+            items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, feature.candidateId(),
+                    "Resolved feature '" + feature.id() + "' references parent/group '" + reference + "' which is not part of the resolved scope."));
+        }
+    }
+
+    /**
+     * Resolves the final semantics of one included candidate. Explicitly written annotation attributes win over the
+     * manifest entry; unspecified attributes keep their manifest values. Membership itself is never annotation-driven.
+     *
+     * @param candidate extracted candidate.
+     * @param manifest include entry of the candidate.
+     * @param annotated source annotation resolved to the candidate, or null.
+     * @return resolved semantics with their source marker.
+     */
     private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated) {
         if (annotated == null) {
             return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate),
-                    manifest.requiresCapabilities(), manifest.providesCapabilities(), manifest.name(), manifest.description(), manifest.documentationUrl(), "manifest");
+                    manifest.requiresCapabilities(), manifest.providesCapabilities(), manifest.name(), manifest.description(), manifest.documentationUrl(),
+                    SEMANTIC_SOURCE_MANIFEST);
         }
         AnnotationSemantics annotation = annotated.semantics();
         return new ResolvedFeatureScope(candidate.id(), annotation.id(), firstNonNull(annotation.group(), manifest.group()),
                 firstNonNull(annotation.parent(), manifest.parent()), kind(firstNonNull(annotation.kind(), manifest.kind()), candidate),
-                firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()), firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()),
-                firstNonNull(annotation.name(), manifest.name()), firstNonNull(annotation.description(), manifest.description()),
-                firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()), "annotation");
+                firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()),
+                firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()), firstNonNull(annotation.name(), manifest.name()),
+                firstNonNull(annotation.description(), manifest.description()), firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()),
+                SEMANTIC_SOURCE_ANNOTATION);
     }
 
-    private String kind(String manifestKind, FeatureCandidate candidate) {
-        if (manifestKind != null) {
-            return manifestKind;
+    /**
+     * Chooses the model kind of an included candidate: the explicit override when present, otherwise a default derived
+     * from the extraction candidate kind.
+     *
+     * @param declaredKind explicit kind from manifest or annotation, or null.
+     * @param candidate extracted candidate.
+     * @return model kind.
+     */
+    private String kind(String declaredKind, FeatureCandidate candidate) {
+        if (declaredKind != null) {
+            return declaredKind;
         }
         return switch (candidate.kind()) {
             case FeatureCandidate.KIND_MODULE_FEATURE -> "module";
@@ -207,15 +314,38 @@ class ScopeCurationService {
         };
     }
 
+    /**
+     * Returns the preferred value when present, otherwise the fallback.
+     *
+     * @param <T> value type.
+     * @param preferred preferred value, or null.
+     * @param fallback fallback value.
+     * @return preferred value or fallback.
+     */
     private <T> T firstNonNull(T preferred, T fallback) {
         return preferred == null ? fallback : preferred;
     }
 
+    /**
+     * Creates the diagnostic for an annotation whose candidate is not included by the manifest.
+     *
+     * @param candidate annotated candidate.
+     * @param annotation source annotation.
+     * @param state manifest state of the candidate.
+     * @return annotated-but-unscoped warning.
+     */
     private ReportItem annotatedButUnscoped(FeatureCandidate candidate, AnnotatedAnchor annotation, String state) {
         return ReportItem.warning(ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, candidate.id(),
                 "Source annotation at " + annotation.file() + ":" + annotation.line() + " does not grant membership; manifest state is '" + state + "'.");
     }
 
+    /**
+     * Assembles the curation report section with deterministic counts and ordering.
+     *
+     * @param manifest loaded manifest.
+     * @param decisions sorted candidate decisions.
+     * @return curation report section.
+     */
     private CurationReport assembleReport(FeatureScopeManifest manifest, List<CurationDecision> decisions) {
         Map<String, Integer> stateCounts = initializedCounts();
         Map<String, Map<String, Integer>> byKind = new TreeMap<>();
@@ -232,6 +362,11 @@ class ScopeCurationService {
                 List.copyOf(pending), List.copyOf(decisions));
     }
 
+    /**
+     * Creates a state count map with all three states present, so report consumers see explicit zeros.
+     *
+     * @return mutable count map initialized to zero.
+     */
     private Map<String, Integer> initializedCounts() {
         Map<String, Integer> counts = new LinkedHashMap<>();
         counts.put(STATE_INCLUDE, 0);
@@ -240,12 +375,24 @@ class ScopeCurationService {
         return counts;
     }
 
+    /**
+     * Copies nested count maps into unmodifiable views.
+     *
+     * @param values nested count maps.
+     * @return unmodifiable deep copy.
+     */
     private Map<String, Map<String, Integer>> deepImmutable(Map<String, Map<String, Integer>> values) {
         Map<String, Map<String, Integer>> copy = new LinkedHashMap<>();
         values.forEach((key, counts) -> copy.put(key, Collections.unmodifiableMap(new LinkedHashMap<>(counts))));
         return Collections.unmodifiableMap(copy);
     }
 
+    /**
+     * Orders decisions so pending candidates lead the report, followed by includes and excludes.
+     *
+     * @param state decision state.
+     * @return sort rank of the state.
+     */
     private int stateOrder(String state) {
         return switch (state) {
             case STATE_PENDING -> 0;
@@ -257,43 +404,79 @@ class ScopeCurationService {
     /** Resolves manifest and annotation symbols to the canonical namespaced candidate id. */
     private static final class CandidateResolver {
 
+        /**
+         * Outcome of one anchor resolution; exactly one component is set.
+         *
+         * @param candidateId resolved candidate id, or null on failure.
+         * @param problem human-readable resolution failure, or null on success.
+         */
+        private record Resolution(String candidateId, String problem) {
+        }
+
         private final Map<String, FeatureCandidate> candidatesById = new LinkedHashMap<>();
 
         private final List<FeatureCandidate> candidates;
 
+        /**
+         * Creates a resolver over the extracted candidates.
+         *
+         * @param candidates extracted candidates.
+         */
         private CandidateResolver(List<FeatureCandidate> candidates) {
             this.candidates = candidates;
             candidates.forEach(candidate -> candidatesById.put(candidate.id(), candidate));
         }
 
-        private String resolveRequired(String anchor) {
-            String resolved = resolveOrNull(anchor);
-            if (resolved == null) {
-                throw new FeatureManifestException("Manifest anchor '" + anchor + "' does not match an extraction candidate.");
-            }
-            return resolved;
-        }
-
-        private String resolveOrNull(String anchor) {
+        /**
+         * Resolves an anchor written as a namespaced candidate id or as a source symbol: a condition class, a backend
+         * constant, or a frontend constant, optionally package-qualified.
+         *
+         * @param anchor manifest or annotation anchor.
+         * @return successful resolution, or the failure description.
+         */
+        private Resolution resolve(String anchor) {
             if (candidatesById.containsKey(anchor)) {
-                return anchor;
+                return new Resolution(anchor, null);
             }
             List<String> matches = candidates.stream().filter(candidate -> matches(candidate, anchor)).map(FeatureCandidate::id).distinct().toList();
-            if (matches.size() > 1) {
-                throw new FeatureManifestException("Anchor '" + anchor + "' is ambiguous across candidates " + matches + ".");
+            if (matches.isEmpty()) {
+                return new Resolution(null, "Anchor '" + anchor + "' does not match an extraction candidate.");
             }
-            return matches.isEmpty() ? null : matches.getFirst();
+            if (matches.size() > 1) {
+                return new Resolution(null, "Anchor '" + anchor + "' is ambiguous across candidates " + matches + ".");
+            }
+            return new Resolution(matches.getFirst(), null);
         }
 
+        /**
+         * Checks whether an anchor names one of the candidate's source symbols.
+         *
+         * @param candidate extracted candidate.
+         * @param anchor manifest or annotation anchor.
+         * @return true if the anchor matches a symbol of the candidate.
+         */
         private boolean matches(FeatureCandidate candidate, String anchor) {
             return matchesSymbol(anchor, candidate.backendConditionClass()) || matchesSymbol(anchor, candidate.backendConstant())
                     || matchesSymbol(anchor, candidate.frontendConstant());
         }
 
+        /**
+         * Checks whether an anchor equals a symbol or is a package-qualified form of it.
+         *
+         * @param anchor manifest or annotation anchor.
+         * @param symbol candidate source symbol, or null.
+         * @return true if the anchor names the symbol.
+         */
         private boolean matchesSymbol(String anchor, String symbol) {
             return symbol != null && (anchor.equals(symbol) || anchor.endsWith("." + symbol));
         }
 
+        /**
+         * Returns the candidate registered under an id.
+         *
+         * @param id namespaced candidate id.
+         * @return candidate.
+         */
         private FeatureCandidate candidate(String id) {
             return candidatesById.get(id);
         }

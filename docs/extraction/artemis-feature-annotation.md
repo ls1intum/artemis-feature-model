@@ -14,8 +14,8 @@ Phase E2.
 - Use `TYPE` on a `*Enabled` Spring `Condition` class when one is the canonical feature anchor.
 - Use `FIELD` on a `Constants.MODULE_FEATURE_*` field when no condition class exists.
 - Use `FIELD` on a backend `Feature` enum constant for a runtime-toggle anchor.
-- Put at most one feature annotation on the canonical anchor. Multiple annotations resolving to one candidate are a
-  manifest validation failure.
+- Put at most one feature annotation on the canonical anchor. When several annotations resolve to one candidate, the
+  first one wins and the report flags the collision as `MANIFEST_CURATION_CONFLICT`.
 
 ```java
 @ArtemisFeature(id = "iris",
