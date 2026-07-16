@@ -10,6 +10,7 @@ import java.util.List;
  * @param group group placement, or null.
  * @param parent direct parent placement, or null.
  * @param kind model kind.
+ * @param optionality {@code mandatory} or {@code optional}; drives the parent relation type of the generated model.
  * @param requiresCapabilities required deployment capabilities.
  * @param providesCapabilities provided deployment capabilities.
  * @param name explicit name override, or null to use extracted i18n.
@@ -17,7 +18,7 @@ import java.util.List;
  * @param documentationUrl explicit documentation link override, or null to use extracted admin-page data.
  * @param semanticSource {@code manifest} or {@code annotation}.
  */
-public record ResolvedFeatureScope(String candidateId, String id, String group, String parent, String kind, List<String> requiresCapabilities,
+public record ResolvedFeatureScope(String candidateId, String id, String group, String parent, String kind, String optionality, List<String> requiresCapabilities,
         List<String> providesCapabilities, String name, String description, String documentationUrl, String semanticSource) {
 
     /**

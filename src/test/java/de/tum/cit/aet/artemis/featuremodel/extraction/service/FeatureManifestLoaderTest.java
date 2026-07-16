@@ -31,13 +31,34 @@ class FeatureManifestLoaderTest {
                 conceptualNodes:
                   - id: root
                     kind: root
+                  - id: always-on
+                    parent: root
+                    kind: module
+                    optionality: mandatory
                 """);
 
         assertThat(manifest.include()).singleElement().satisfies(entry -> {
             assertThat(entry.anchor()).isEqualTo("module:alpha");
+            assertThat(entry.optionality()).isNull();
             assertThat(entry.requiresCapabilities()).containsExactly("alpha-service");
         });
         assertThat(manifest.exclude()).singleElement().satisfies(entry -> assertThat(entry.reason()).isEqualTo("operational"));
+        assertThat(manifest.conceptualNodes()).anySatisfy(node -> {
+            assertThat(node.id()).isEqualTo("always-on");
+            assertThat(node.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_MANDATORY);
+        });
+    }
+
+    @Test
+    void rejectsInvalidOptionalityValue() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    optionality: required
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("include[0].optionality must be one of");
     }
 
     @Test

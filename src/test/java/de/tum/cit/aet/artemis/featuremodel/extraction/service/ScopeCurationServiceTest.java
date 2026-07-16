@@ -33,10 +33,10 @@ class ScopeCurationServiceTest {
                 .contains("MODULE_FEATURE_FIELD_ALPHA", "toggle:ToggleField");
 
         List<FeatureCandidate> candidates = List.of(module("module:alpha", "AlphaEnabled"), module("module:beta", "BetaEnabled"));
-        IncludeEntry include = new IncludeEntry("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", "manifest-alpha", "manifest-group", null, null,
+        IncludeEntry include = new IncludeEntry("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", "manifest-alpha", "manifest-group", null, null, null,
                 List.of("manifest-service"), List.of(), null, null, null, null);
         FeatureScopeManifest manifest = new FeatureScopeManifest(1, "unknown", List.of(include), List.of(),
-                List.of(new ConceptualNode("manifest-group", null, "group", null, null), new ConceptualNode("annotation-group", null, "group", null, null)));
+                List.of(new ConceptualNode("manifest-group", null, "group", null, null, null), new ConceptualNode("annotation-group", null, "group", null, null, null)));
 
         List<ArtemisFeatureAnnotationScan.AnnotatedAnchor> conditionAnnotations = annotationScan.annotations().stream()
                 .filter(annotation -> annotation.anchor().endsWith("Enabled")).toList();
@@ -47,6 +47,7 @@ class ScopeCurationServiceTest {
             assertThat(feature.group()).isEqualTo("annotation-group");
             assertThat(feature.requiresCapabilities()).containsExactly("annotation-service", "annotation-secret");
             assertThat(feature.semanticSource()).isEqualTo("annotation");
+            assertThat(feature.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         });
         assertThat(result.report().pendingCandidateIds()).containsExactly("module:beta");
         assertThat(result.report().decisions().getFirst().state()).isEqualTo(ScopeCurationService.STATE_PENDING);
@@ -56,7 +57,7 @@ class ScopeCurationServiceTest {
 
     @Test
     void reportsOrphanManifestAnchorAndKeepsCurating() {
-        IncludeEntry orphan = new IncludeEntry("module:missing", "missing", null, null, null, List.of(), List.of(), null, null, null, null);
+        IncludeEntry orphan = new IncludeEntry("module:missing", "missing", null, null, null, null, List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest manifest = new FeatureScopeManifest(1, "unknown", List.of(orphan), List.of(), List.of());
 
         ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of(), "unknown");
@@ -72,7 +73,7 @@ class ScopeCurationServiceTest {
 
     @Test
     void reportsConflictWhenSeveralEntriesResolveToOneCandidateAndFirstWins() {
-        IncludeEntry byId = new IncludeEntry("module:alpha", "alpha", null, null, null, List.of(), List.of(), null, null, null, null);
+        IncludeEntry byId = new IncludeEntry("module:alpha", "alpha", null, null, null, null, List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest.ExcludeEntry bySymbol = new FeatureScopeManifest.ExcludeEntry("AlphaEnabled", "duplicate", null);
         FeatureScopeManifest manifest = new FeatureScopeManifest(1, "unknown", List.of(byId), List.of(bySymbol), List.of());
 
@@ -89,7 +90,7 @@ class ScopeCurationServiceTest {
 
     @Test
     void flagsRuntimeToggleEntriesWithoutRationale() {
-        IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, List.of(), List.of(), null, null, null, null);
+        IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, null, List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest manifest = new FeatureScopeManifest(1, "unknown", List.of(toggleWithoutRationale), List.of(), List.of());
         FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
                 null, null, null);

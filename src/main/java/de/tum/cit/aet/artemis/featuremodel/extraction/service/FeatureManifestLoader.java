@@ -28,12 +28,14 @@ public class FeatureManifestLoader {
 
     private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "verifiedAgainstArtemisCommit", "include", "exclude", "conceptualNodes");
 
-    private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "requiresCapabilities", "providesCapabilities", "name",
-            "description", "documentationUrl", "rationale");
+    private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "requiresCapabilities", "providesCapabilities",
+            "name", "description", "documentationUrl", "rationale");
 
     private static final Set<String> EXCLUDE_FIELDS = Set.of("anchor", "reason", "rationale");
 
-    private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "name", "description");
+    private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "name", "description");
+
+    private static final Set<String> OPTIONALITY_VALUES = Set.of(FeatureScopeManifest.OPTIONALITY_MANDATORY, FeatureScopeManifest.OPTIONALITY_OPTIONAL);
 
     /**
      * Loads a manifest from a filesystem path.
@@ -95,9 +97,9 @@ public class FeatureManifestLoader {
             Map<String, Object> entry = asMap(item, location);
             rejectUnknownFields(entry, INCLUDE_FIELDS, location);
             entries.add(new IncludeEntry(requiredString(entry, "anchor", location), requiredString(entry, "id", location), optionalString(entry, "group", location),
-                    optionalString(entry, "parent", location), optionalString(entry, "kind", location), stringList(entry, "requiresCapabilities", location),
-                    stringList(entry, "providesCapabilities", location), optionalString(entry, "name", location), optionalString(entry, "description", location),
-                    optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location)));
+                    optionalString(entry, "parent", location), optionalString(entry, "kind", location), optionality(entry, location),
+                    stringList(entry, "requiresCapabilities", location), stringList(entry, "providesCapabilities", location), optionalString(entry, "name", location),
+                    optionalString(entry, "description", location), optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location)));
             index++;
         }
         return List.copyOf(entries);
@@ -138,7 +140,7 @@ public class FeatureManifestLoader {
             Map<String, Object> entry = asMap(item, location);
             rejectUnknownFields(entry, CONCEPTUAL_FIELDS, location);
             entries.add(new ConceptualNode(requiredString(entry, "id", location), optionalString(entry, "parent", location), optionalString(entry, "kind", location),
-                    optionalString(entry, "name", location), optionalString(entry, "description", location)));
+                    optionality(entry, location), optionalString(entry, "name", location), optionalString(entry, "description", location)));
             index++;
         }
         return List.copyOf(entries);
@@ -189,6 +191,22 @@ public class FeatureManifestLoader {
             requireKnownReference(knownIds, entry.id(), entry.parent());
             requireKnownReference(knownIds, entry.id(), entry.group());
         }
+    }
+
+    /**
+     * Reads and validates the optional optionality field.
+     *
+     * @param values parsed mapping.
+     * @param location location label for failure messages.
+     * @return declared optionality, or null when absent.
+     * @throws FeatureManifestException if the value is not {@code mandatory} or {@code optional}.
+     */
+    private String optionality(Map<String, Object> values, String location) {
+        String value = optionalString(values, "optionality", location);
+        if (value != null && !OPTIONALITY_VALUES.contains(value)) {
+            throw new FeatureManifestException(location + ".optionality must be one of " + OPTIONALITY_VALUES + ".");
+        }
+        return value;
     }
 
     /**

@@ -281,14 +281,15 @@ class ScopeCurationService {
      * @return resolved semantics with their source marker.
      */
     private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated) {
+        String optionality = firstNonNull(manifest.optionality(), FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         if (annotated == null) {
-            return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate),
+            return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate), optionality,
                     manifest.requiresCapabilities(), manifest.providesCapabilities(), manifest.name(), manifest.description(), manifest.documentationUrl(),
                     SEMANTIC_SOURCE_MANIFEST);
         }
         AnnotationSemantics annotation = annotated.semantics();
         return new ResolvedFeatureScope(candidate.id(), annotation.id(), firstNonNull(annotation.group(), manifest.group()),
-                firstNonNull(annotation.parent(), manifest.parent()), kind(firstNonNull(annotation.kind(), manifest.kind()), candidate),
+                firstNonNull(annotation.parent(), manifest.parent()), kind(firstNonNull(annotation.kind(), manifest.kind()), candidate), optionality,
                 firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()),
                 firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()), firstNonNull(annotation.name(), manifest.name()),
                 firstNonNull(annotation.description(), manifest.description()), firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()),

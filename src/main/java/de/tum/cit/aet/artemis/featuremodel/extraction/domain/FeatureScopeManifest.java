@@ -18,6 +18,12 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
     /** Current manifest schema version. */
     public static final int CURRENT_VERSION = 1;
 
+    /** Optionality of a feature whose selection is enforced by validation and rendered as a filled circle. */
+    public static final String OPTIONALITY_MANDATORY = "mandatory";
+
+    /** Optionality of a feature users may freely select or deselect; the default when not declared. */
+    public static final String OPTIONALITY_OPTIONAL = "optional";
+
     /**
      * Normalizes manifest collections to immutable lists.
      */
@@ -35,6 +41,8 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
      * @param group group placement, or null.
      * @param parent direct parent placement, or null.
      * @param kind feature kind override, or null.
+     * @param optionality {@code mandatory} or {@code optional}; null defaults to optional. Whether a feature is
+     *            mandatory is a modeling judgment that source code cannot express, so it is declared here.
      * @param requiresCapabilities required deployment capabilities.
      * @param providesCapabilities capabilities supplied by the feature.
      * @param name explicit name override, or null.
@@ -42,7 +50,7 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
      * @param documentationUrl explicit documentation URL override, or null.
      * @param rationale documented reason for the scope decision, or null.
      */
-    public record IncludeEntry(String anchor, String id, String group, String parent, String kind, List<String> requiresCapabilities,
+    public record IncludeEntry(String anchor, String id, String group, String parent, String kind, String optionality, List<String> requiresCapabilities,
             List<String> providesCapabilities, String name, String description, String documentationUrl, String rationale) {
 
         /**
@@ -70,9 +78,11 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
      * @param id curated feature id.
      * @param parent direct parent id, or null for the root.
      * @param kind model kind, normally root, group, or module.
+     * @param optionality {@code mandatory} or {@code optional} for module nodes; null for root and group nodes or to
+     *            default to optional.
      * @param name optional explicit name.
      * @param description optional explicit description.
      */
-    public record ConceptualNode(String id, String parent, String kind, String name, String description) {
+    public record ConceptualNode(String id, String parent, String kind, String optionality, String name, String description) {
     }
 }
