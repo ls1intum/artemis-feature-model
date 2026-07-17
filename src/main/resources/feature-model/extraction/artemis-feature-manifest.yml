@@ -9,54 +9,69 @@ verifiedAgainstArtemisCommit: 553aab75955a3eec0a66dc1eb54edb4a63233da4
 
 include:
   # Functional module anchors represented in the curated model, all optional like their curated relations.
+
   - anchor: module:lecture
     id: lecture
     group: teaching-and-content
+
   - anchor: module:tutorialgroup
     id: tutorialgroup
     group: teaching-and-content
+
   - anchor: module:text
     id: text
     group: exercise-system
+
   - anchor: module:modeling
     id: modeling
     group: exercise-system
+
   - anchor: module:fileupload
     id: file-upload
     group: exercise-system
+
   - anchor: module:exam
     id: exam
     group: assessment-and-integrity
+
   - anchor: module:plagiarism
     id: plagiarism
     group: assessment-and-integrity
+
   - anchor: module:athena
     id: athena
     group: assessment-and-integrity
     requiresCapabilities: [athena-service, athena-secret]
+
   - anchor: module:atlas
     id: atlas
     group: adaptive-learning-and-ai
+
   - anchor: module:iris
     id: iris
     group: adaptive-learning-and-ai
     requiresCapabilities: [pyris-service, pyris-secret]
+
   - anchor: module:hyperion
     id: hyperion
     group: adaptive-learning-and-ai
     requiresCapabilities: [hyperion-service]
+
   - anchor: module:lti
     id: lti
     group: platform-integrations
     requiresCapabilities: [lti-platform-registration]
+
   - anchor: module:theia
     id: theia
     group: platform-integrations
     requiresCapabilities: [theia-service]
+
   - anchor: module:apollon
     id: apollon
     group: platform-integrations
     requiresCapabilities: [apollon-conversion-service]
+
   - anchor: module:sharing
     id: sharing
     group: platform-integrations
@@ -64,213 +79,220 @@ include:
 
 exclude:
   # Configuration-key candidates remain evidence for their owning module rather than duplicate feature nodes.
-  - anchor: configkey:artemis.apollon.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.athena.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.atlas.atlasml.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.atlas.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.exam.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.fileupload.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.hyperion.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.iris.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.lecture.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.lti.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.modeling.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.plagiarism.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.sharing.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.text.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.theia.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.tutorialgroup.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.user-management.ldap.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.user-management.passkey.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.user-management.saml2.enabled
-    reason: internal-mechanism
-  - anchor: configkey:artemis.weaviate.enabled
-    reason: internal-mechanism
+  - { anchor: configkey:artemis.apollon.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.athena.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.atlas.atlasml.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.atlas.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.exam.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.fileupload.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.hyperion.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.iris.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.lecture.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.lti.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.modeling.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.plagiarism.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.sharing.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.text.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.theia.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.tutorialgroup.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.ldap.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.passkey.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.saml2.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.weaviate.enabled, reason: internal-mechanism }
 
   # Module-level discoveries that are policy details or backing infrastructure.
+
   - anchor: module:passkey-admin
     reason: sub-option
     rationale: This is an administrator reauthentication policy within passkey support, not an independent feature.
+
   - anchor: module:weaviate
     reason: internal-mechanism
     rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
+
   - anchor: module:atlasml
     reason: sub-option
     rationale: The curated model treats AtlasML as an extra sub-switch of Atlas rather than an independent feature.
 
   # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
+
   - anchor: module:ldap
     reason: deferred
     rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
   - anchor: module:saml2
     reason: deferred
     rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
   - anchor: module:passkey
     reason: deferred
     rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
   - anchor: module:tumlive
     reason: deferred
     rationale: External lecture-video integration the curated model does not represent; revisit after generated-model parity.
 
   # Runtime switches: the curated functional model contains no runtime toggles.
+
   - anchor: toggle:AtlasML
     reason: sub-option
     rationale: The source-level atlasml anchor already represents this capability and stays excluded with it.
+
   - anchor: toggle:RateLimit
     reason: operational
     rationale: Rate limiting is an abuse-protection safeguard, not a course or deployment capability choice.
+
   - anchor: toggle:Science
     reason: experimental
     rationale: Research data collection is experiment consent and policy, not functional model scope.
+
   - anchor: toggle:AtlasAgent
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
   - anchor: toggle:AutonomousTutor
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
   - anchor: toggle:Exports
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+
   - anchor: toggle:GlobalSearch
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+
   - anchor: toggle:LearningPaths
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
   - anchor: toggle:LectureContentProcessing
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of lecture after parity.
+
   - anchor: toggle:Memiris
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
   - anchor: toggle:PlagiarismChecks
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of plagiarism after parity.
+
   - anchor: toggle:ProgrammingExercises
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of programming after parity.
+
   - anchor: toggle:StandardizedCompetencies
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
   - anchor: toggle:StudentCourseAnalyticsDashboard
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
   - anchor: toggle:TutorSuggestions
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
 
   # Technical variability: the curated model is functional-only; the technical subtree is introduced deliberately in E3.
+
   - anchor: infra:mysql
     reason: deferred
     rationale: Database alternative kept out until the planned technical subtree is introduced after parity.
+
   - anchor: infra:postgres
     reason: deferred
     rationale: Database alternative kept out until the planned technical subtree is introduced after parity.
+
   - anchor: profile:localci
     reason: deferred
     rationale: CI provider alternative kept out until the planned technical subtree is introduced after parity.
+
   - anchor: profile:jenkins
     reason: deferred
     rationale: CI provider alternative kept out until the planned technical subtree is introduced after parity.
+
   - anchor: profile:localvc
     reason: deferred
     rationale: Version-control baseline kept out until the planned technical subtree is introduced after parity.
 
   # Spring lifecycle and composition profiles are implementation details, not feature-model candidates.
-  - anchor: profile:artemis
-    reason: internal-mechanism
-  - anchor: profile:buildagent
-    reason: sub-option
-  - anchor: profile:buildagent-test
-    reason: internal-mechanism
-  - anchor: profile:core
-    reason: internal-mechanism
-  - anchor: profile:dev
-    reason: internal-mechanism
-  - anchor: profile:lti
-    reason: internal-mechanism
-  - anchor: profile:prod
-    reason: internal-mechanism
-  - anchor: profile:scheduling
-    reason: internal-mechanism
-  - anchor: profile:test
-    reason: internal-mechanism
-  - anchor: profile:test-independent-integration
-    reason: internal-mechanism
+  - { anchor: profile:artemis, reason: internal-mechanism }
+  - { anchor: profile:buildagent, reason: sub-option }
+  - { anchor: profile:buildagent-test, reason: internal-mechanism }
+  - { anchor: profile:core, reason: internal-mechanism }
+  - { anchor: profile:dev, reason: internal-mechanism }
+  - { anchor: profile:lti, reason: internal-mechanism }
+  - { anchor: profile:prod, reason: internal-mechanism }
+  - { anchor: profile:scheduling, reason: internal-mechanism }
+  - { anchor: profile:test, reason: internal-mechanism }
+  - { anchor: profile:test-independent-integration, reason: internal-mechanism }
 
 conceptualNodes:
   - id: artemis
     kind: root
     name: Artemis
     description: Root of the Artemis feature model.
+
   - id: teaching-and-content
     parent: artemis
     kind: group
     name: Teaching and Content
     description: Course-facing teaching, content, and communication capabilities.
+
   - id: course-workflow
     parent: teaching-and-content
     kind: module
     optionality: mandatory
     name: Course Workflow
     description: Core course creation, access, overview, and lifecycle workflows.
+
   - id: communication
     parent: teaching-and-content
     kind: module
     optionality: mandatory
     name: Communication
     description: Course communication, messaging, and notification workflows.
+
   - id: exercise-system
     parent: artemis
     kind: group
     name: Exercise System
     description: Shared exercise infrastructure and supported exercise types.
+
   - id: exercise-common
     parent: exercise-system
     kind: module
     optionality: mandatory
     name: Common Exercise Infrastructure
     description: Shared creation, participation, submission, and assessment infrastructure for exercises.
+
   - id: programming
     parent: exercise-system
     kind: module
     optionality: mandatory
     name: Programming Exercises
     description: Programming exercise authoring, participation, and automated assessment workflows.
+
   - id: quiz
     parent: exercise-system
     kind: module
     optionality: mandatory
     name: Quiz Exercises
     description: Quiz authoring, participation, and assessment workflows.
+
   - id: assessment-and-integrity
     parent: artemis
     kind: group
     name: Assessment and Integrity
     description: Exam, assessment-support, and academic-integrity capabilities.
+
   - id: adaptive-learning-and-ai
     parent: artemis
     kind: group
     name: Adaptive Learning and AI
     description: Adaptive learning, tutoring, feedback, and AI-assisted capabilities.
+
   - id: platform-integrations
     parent: artemis
     kind: group
