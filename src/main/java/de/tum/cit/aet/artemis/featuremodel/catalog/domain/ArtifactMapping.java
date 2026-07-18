@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import tools.jackson.databind.JsonNode;
@@ -45,6 +46,7 @@ public record ArtifactMapping(String target, String path, JsonNode valueWhenSele
      *
      * @return true if {@link #valueFromProfile} names a non-blank profile parameter.
      */
+    @JsonIgnore
     public boolean isProfileValue() {
         return valueFromProfile != null && !valueFromProfile.isBlank();
     }
@@ -54,6 +56,7 @@ public record ArtifactMapping(String target, String path, JsonNode valueWhenSele
      *
      * @return true if this is a toggle mapping with at least one toggle value.
      */
+    @JsonIgnore
     public boolean isToggle() {
         return !isProfileValue() && (valueWhenSelected != null || valueWhenDeselected != null);
     }

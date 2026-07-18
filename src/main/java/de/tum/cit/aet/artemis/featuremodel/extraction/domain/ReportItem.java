@@ -62,6 +62,24 @@ public record ReportItem(String severity, String code, String subject, String me
     /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
+    /** The assembled generated model failed the shared structural integrity validation. */
+    public static final String CODE_GENERATED_MODEL_INVALID = "GENERATED_MODEL_INVALID";
+
+    /** The bundled guided workflow failed its hard reference validation against the generated model. */
+    public static final String CODE_GENERATED_WORKFLOW_INVALID = "GENERATED_WORKFLOW_INVALID";
+
+    /** A technical feature of the generated model is visible or configurable for teachers. */
+    public static final String CODE_TECHNICAL_FEATURE_ROLE_LEAK = "TECHNICAL_FEATURE_ROLE_LEAK";
+
+    /** An included technical feature provides a capability the bundled deployment profile does not list. */
+    public static final String CODE_PROFILE_CAPABILITY_MISMATCH = "PROFILE_CAPABILITY_MISMATCH";
+
+    /** A directed relation candidate connects included features without a matching declared constraint. */
+    public static final String CODE_RELATION_CANDIDATE_UNDECLARED = "RELATION_CANDIDATE_UNDECLARED";
+
+    /** The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json. */
+    public static final String CODE_GUIDED_WORKFLOW_FINDINGS = "GUIDED_WORKFLOW_FINDINGS";
+
     /**
      * Creates an error item.
      *

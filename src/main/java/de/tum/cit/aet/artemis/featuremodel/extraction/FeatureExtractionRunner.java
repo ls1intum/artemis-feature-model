@@ -10,6 +10,7 @@ import org.springframework.core.io.Resource;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
@@ -17,16 +18,22 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSou
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ExtractionOutputWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureExtractionService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
+import de.tum.cit.aet.artemis.featuremodel.selection.repository.JsonGuidedWorkflowStore;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Command line entry point of the {@code extractFeatureModel} Gradle task. Runs the extraction and manifest curation
- * pipeline against a local Artemis checkout without a Spring context and writes the five outputs under the given
- * output root, in a directory named after the resolved Artemis commit.
+ * Command line entry point of the {@code extractFeatureModel} Gradle task. Runs the extraction, manifest curation,
+ * and generated-model assembly pipeline against a local Artemis checkout without a Spring context and writes all
+ * outputs under the given output root, in a directory named after the resolved Artemis commit.
  */
 public final class FeatureExtractionRunner {
 
     private static final String CATALOG_RESOURCE = "classpath:feature-model/artemis-config-key-catalog.json";
+
+    private static final String WORKFLOW_RESOURCE = "classpath:feature-model/guided-workflow.json";
+
+    private static final String PROFILE_RESOURCE = "classpath:deployment-profiles/default-artemis-profile.json";
 
     private FeatureExtractionRunner() {
     }
@@ -44,35 +51,58 @@ public final class FeatureExtractionRunner {
             System.exit(1);
         }
         ObjectMapper objectMapper = new ObjectMapper();
+        DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(Path.of(args[0]));
-        FeatureModel curatedModel = new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper).loadActiveModel();
-        ArtemisConfigKeyCatalog catalog = loadCatalog(objectMapper);
+        FeatureModel curatedModel = new JsonFeatureModelStore(resourceLoader, objectMapper).loadActiveModel();
+        ArtemisConfigKeyCatalog catalog = readResource(objectMapper, CATALOG_RESOURCE, ArtemisConfigKeyCatalog.class);
         FeatureScopeManifest manifest = new FeatureManifestLoader().load(Path.of(args[2]));
+        GuidedWorkflow bundledWorkflow = new JsonGuidedWorkflowStore(resourceLoader, objectMapper).loadActiveWorkflow();
+        DeploymentProfile bundledProfile = readResource(objectMapper, PROFILE_RESOURCE, DeploymentProfile.class);
 
         String scanStartedAt = Instant.now().toString();
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest);
+        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest, bundledWorkflow,
+                bundledProfile);
         String scanFinishedAt = Instant.now().toString();
 
         ScanMetadata metadata = new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
                 scanStartedAt, scanFinishedAt, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
                 outcome.report().items().size());
         Path outputDirectory = Path.of(args[1]).resolve(source.commit());
-        new ExtractionOutputWriter(objectMapper).writeAll(outputDirectory, metadata, outcome);
+        ExtractionOutputWriter writer = new ExtractionOutputWriter(objectMapper);
+        writer.writeAll(outputDirectory, metadata, outcome);
+        writer.writeSnapshot(outputDirectory, outcome, readResourceBytes(resourceLoader, WORKFLOW_RESOURCE), source.root().toString(), source.commit());
 
         printSummary(outcome, outputDirectory);
     }
 
     /**
-     * Loads the classpath config key catalog.
+     * Reads and parses a classpath JSON resource.
      *
+     * @param <T> payload type.
      * @param objectMapper Jackson mapper.
-     * @return parsed catalog.
-     * @throws Exception if the catalog resource cannot be read.
+     * @param location classpath resource location.
+     * @param type payload class.
+     * @return parsed payload.
+     * @throws Exception if the resource cannot be read.
      */
-    private static ArtemisConfigKeyCatalog loadCatalog(ObjectMapper objectMapper) throws Exception {
-        Resource resource = new DefaultResourceLoader().getResource(CATALOG_RESOURCE);
+    private static <T> T readResource(ObjectMapper objectMapper, String location, Class<T> type) throws Exception {
+        Resource resource = new DefaultResourceLoader().getResource(location);
         try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, ArtemisConfigKeyCatalog.class);
+            return objectMapper.readValue(inputStream, type);
+        }
+    }
+
+    /**
+     * Reads the raw bytes of a classpath resource.
+     *
+     * @param resourceLoader Spring resource loader.
+     * @param location classpath resource location.
+     * @return resource bytes.
+     * @throws Exception if the resource cannot be read.
+     */
+    private static byte[] readResourceBytes(DefaultResourceLoader resourceLoader, String location) throws Exception {
+        try (InputStream inputStream = resourceLoader.getResource(location).getInputStream()) {
+            return inputStream.readAllBytes();
         }
     }
 
@@ -90,6 +120,13 @@ public final class FeatureExtractionRunner {
         System.out.println("  Report items: " + outcome.report().items().size() + " " + describeCounts(outcome.report().severityCounts()));
         System.out.println("  Curation: " + outcome.report().curation().stateCounts());
         outcome.report().codeCounts().forEach((code, count) -> System.out.println("    " + code + ": " + count));
+        if (outcome.generatedModel() != null) {
+            System.out.println("  Generated model: " + outcome.generatedModel().features().size() + " features, " + outcome.generatedModel().relations().size()
+                    + " relations, " + outcome.generatedModel().constraints().size() + " constraints (version " + outcome.generatedModel().model().version() + ")");
+            System.out.println("  Generated catalog: " + outcome.generatedCatalog().keys().size() + " keys");
+            System.out.println("  Model diff: " + outcome.modelDiff().classificationCounts());
+            System.out.println("  Guided workflow validation: " + outcome.guidedWorkflowValidation().status());
+        }
         System.out.println("  Output: " + outputDirectory);
     }
 
