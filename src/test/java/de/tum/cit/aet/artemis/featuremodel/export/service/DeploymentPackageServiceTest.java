@@ -58,7 +58,7 @@ class DeploymentPackageServiceTest {
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, profileService, new StaticConfigValidationService(resourceLoader, objectMapper),
-                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
+                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
     }
 
     @Test
@@ -205,6 +205,43 @@ class DeploymentPackageServiceTest {
         DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
         assertThat(manifest.deploymentMode()).isEqualTo("local-docker");
         assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
+    }
+
+    @Test
+    void composesTheDevIdePackageWithoutComposeFilesOrRuntimeScripts() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra("iris", "hyperion"), null, null, "dev-ide"));
+
+        assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example",
+                "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml", "metadata/selected-features.json",
+                "metadata/deployment-profile-summary.json", "metadata/generation-report.json", "metadata/package-manifest.json",
+                "metadata/static-config-validation.json");
+        String runConfiguration = content(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
+        assertThat(runConfiguration).contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,core,dev,local,scheduling,localci,localvc,buildagent\" />");
+        assertThat(content(result, "README.md")).contains("application-local.yml").contains(".idea/runConfigurations/");
+    }
+
+    @Test
+    void recordsTheConfigurationOnlyNatureInTheDevIdeManifest() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "dev-ide"));
+
+        DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
+        assertThat(manifest.packageType()).isEqualTo("dev-ide-configuration-package");
+        assertThat(manifest.deploymentMode()).isEqualTo("dev-ide");
+        assertThat(manifest.supportedRuntimeModes()).isEmpty();
+        assertThat(manifest.database()).isNull();
+        assertThat(manifest.readiness().localRuntimeReady()).isFalse();
+        assertThat(manifest.readiness().productionReady()).isFalse();
+        assertThat(manifest.generatedFiles()).hasSize(9);
+    }
+
+    @Test
+    void neverLeaksPlaintextSecretsIntoTheDevIdePackage() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra("iris", "athena", "hyperion"), null, null, "dev-ide"));
+
+        for (var file : result.files()) {
+            assertThat(file.content()).doesNotContain("env:ARTEMIS").doesNotContain("env:SPRING");
+        }
+        assertThat(content(result, "config/application-feature-model.yml")).doesNotContain("env:");
     }
 
     @Test

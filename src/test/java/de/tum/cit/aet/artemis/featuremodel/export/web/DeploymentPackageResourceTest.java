@@ -33,8 +33,10 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogSe
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
@@ -71,7 +73,8 @@ class DeploymentPackageResourceTest {
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, profileService,
-                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(),
+                new DevIdeTemplateWriter(), objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();
@@ -126,6 +129,20 @@ class DeploymentPackageResourceTest {
                 "artemis-feature-model-deployment-package/deployment/local-repo/docker-compose.override.example.yml",
                 "artemis-feature-model-deployment-package/scripts/start-local-repo.sh");
         assertThat(names).allMatch(name -> name.startsWith("artemis-feature-model-deployment-package/"));
+    }
+
+    @Test
+    void downloadsTheDevIdePackageWithTheRunConfigurationAndWithoutRuntimeScripts() throws Exception {
+        byte[] archive = mockMvc
+                .perform(post("/api/feature-model/deployment-package/download").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"dev-ide\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+
+        List<String> names = entryNames(archive);
+        assertThat(names).contains("artemis-feature-model-deployment-package/intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml",
+                "artemis-feature-model-deployment-package/config/application-feature-model.yml",
+                "artemis-feature-model-deployment-package/metadata/static-config-validation.json");
+        assertThat(names).noneMatch(name -> name.contains("scripts/")).noneMatch(name -> name.contains("deployment/local-repo/"));
     }
 
     private List<String> entryNames(byte[] archive) throws Exception {

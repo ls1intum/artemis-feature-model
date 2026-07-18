@@ -73,6 +73,12 @@ public class DeploymentPackageService {
 
     static final String PRINT_SUMMARY_SCRIPT_FILE = "scripts/print-runtime-summary.sh";
 
+    /** IntelliJ run configuration of the dev-ide mode; the file name follows the IntelliJ naming convention. */
+    static final String DEV_IDE_RUN_CONFIG_FILE = "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml";
+
+    /** Package type recorded in the dev-ide manifest; the package is configuration-only and contains no runtime. */
+    static final String DEV_IDE_PACKAGE_TYPE = "dev-ide-configuration-package";
+
     private static final String CONTENT_TYPE_YAML = "application/x-yaml";
 
     private static final String CONTENT_TYPE_JSON = "application/json";
@@ -82,6 +88,8 @@ public class DeploymentPackageService {
     private static final String CONTENT_TYPE_MARKDOWN = "text/markdown";
 
     private static final String CONTENT_TYPE_SHELL = "text/x-shellscript";
+
+    private static final String CONTENT_TYPE_XML = "application/xml";
 
     private static final Pattern ENV_PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([A-Z0-9_]+)\\}");
 
@@ -98,6 +106,10 @@ public class DeploymentPackageService {
 
     private final RuntimeScriptWriter scriptWriter;
 
+    private final ActiveProfilesDeriver activeProfilesDeriver;
+
+    private final DevIdeTemplateWriter devIdeTemplateWriter;
+
     private final ObjectMapper objectMapper;
 
     /**
@@ -106,18 +118,22 @@ public class DeploymentPackageService {
      * @param artifactGenerationService Phase 5 service used to generate the base configuration artifacts.
      * @param deploymentProfileService service used to resolve the active profile for the deployment-mode support check.
      * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
-     * @param templateWriter writer for the runtime template files.
-     * @param scriptWriter writer for the helper scripts.
+     * @param templateWriter writer for the local-docker runtime template files.
+     * @param scriptWriter writer for the local-docker helper scripts.
+     * @param activeProfilesDeriver deriver of the dev-ide {@code ACTIVE_PROFILES} value from the selection.
+     * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
     public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, DeploymentProfileService deploymentProfileService,
             StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter,
-            ObjectMapper objectMapper) {
+            ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter, ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
         this.deploymentProfileService = deploymentProfileService;
         this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
         this.scriptWriter = scriptWriter;
+        this.activeProfilesDeriver = activeProfilesDeriver;
+        this.devIdeTemplateWriter = devIdeTemplateWriter;
         this.objectMapper = objectMapper;
     }
 
@@ -158,7 +174,8 @@ public class DeploymentPackageService {
         }
 
         SharedArtifacts shared = generateSharedArtifacts(request);
-        List<GeneratedArtifactFile> files = composeLocalDockerFiles(shared, requestedDeploymentMode);
+        List<GeneratedArtifactFile> files = DeploymentModes.DEV_IDE.equals(deploymentMode) ? composeDevIdeFiles(shared)
+                : composeLocalDockerFiles(shared, requestedDeploymentMode);
 
         log.info("Generated a '{}' deployment package with {} files for profile '{}' with status {}.", deploymentMode, files.size(), shared.report().profileId(),
                 shared.report().status());
@@ -235,6 +252,67 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript()));
         files.add(new GeneratedArtifactFile(PRINT_SUMMARY_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.printRuntimeSummaryScript()));
         return files;
+    }
+
+    /**
+     * Composes the dev-ide configuration package from the shared artifacts: the Level 1 overlay files, the generated
+     * IntelliJ run configuration with derived active profiles, the developer README, the package manifest, and the
+     * static config validation report. No Compose files or runtime scripts are included.
+     *
+     * @param shared shared generation results.
+     * @return ordered dev-ide package files.
+     */
+    private List<GeneratedArtifactFile> composeDevIdeFiles(SharedArtifacts shared) {
+        GenerationReport report = shared.report();
+        String activeProfiles = activeProfilesDeriver.deriveActiveProfiles(report.selectedFeatureIds());
+        String readme = devIdeTemplateWriter.devIdeReadme(report.modelId(), report.modelVersion(), report.profileId(), activeProfiles, shared.requiredEnvVars());
+        String runConfigurationXml = devIdeTemplateWriter.runConfigurationXml(activeProfiles);
+        String manifestJson = writeJson(buildDevIdeManifest(report, shared.requiredEnvVars()));
+
+        List<GeneratedArtifactFile> files = new ArrayList<>();
+        files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, readme));
+        files.add(shared.overlay());
+        files.add(shared.envExample());
+        files.add(new GeneratedArtifactFile(DEV_IDE_RUN_CONFIG_FILE, CONTENT_TYPE_XML, runConfigurationXml));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.PROFILE_SUMMARY_FILE));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.REPORT_FILE));
+        files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
+        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(shared.staticValidation())));
+        return files;
+    }
+
+    /**
+     * Builds the package manifest for the dev-ide configuration package. The package has no startable runtime, so it
+     * declares no supported runtime modes and no database, and its readiness makes the configuration-only nature
+     * explicit.
+     *
+     * @param report Phase 5 generation report, source of the model/profile references.
+     * @param requiredEnvVars environment variables the overlay references.
+     * @return dev-ide package manifest.
+     */
+    private DeploymentPackageManifest buildDevIdeManifest(GenerationReport report, List<String> requiredEnvVars) {
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT,
+                "The dev-ide package configures a local IntelliJ IDEA development run of an existing Artemis checkout. The overlay keys were verified against the "
+                        + "referenced Artemis commit; a checkout at a different commit may not match all keys.");
+        DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
+                "Configuration-only package for IDE development; generated in DEMO mode and never resolves real secrets.");
+        return new DeploymentPackageManifest(DEV_IDE_PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
+                DeploymentModes.DEV_IDE, List.of(), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, null, devIdePackageFilePaths(), requiredEnvVars,
+                readiness);
+    }
+
+    /**
+     * Returns the deterministic ordered list of the dev-ide package file paths, used for both the manifest and file
+     * assembly.
+     *
+     * @return ordered dev-ide package file paths.
+     */
+    private List<String> devIdePackageFilePaths() {
+        return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE, DEV_IDE_RUN_CONFIG_FILE,
+                ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE,
+                MANIFEST_FILE, STATIC_VALIDATION_FILE);
     }
 
     /**

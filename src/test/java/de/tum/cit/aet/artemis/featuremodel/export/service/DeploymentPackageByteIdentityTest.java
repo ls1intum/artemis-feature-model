@@ -68,7 +68,7 @@ class DeploymentPackageByteIdentityTest {
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, profileService, new StaticConfigValidationService(resourceLoader, objectMapper),
-                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
+                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
     }
 
     @Test

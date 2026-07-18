@@ -13,7 +13,10 @@ public final class DeploymentModes {
     /** Local Docker runtime package (Phase 6 Layer 1); the default mode and today's behavior. */
     public static final String LOCAL_DOCKER = "local-docker";
 
-    private static final List<String> KNOWN_MODE_IDS = List.of(LOCAL_DOCKER);
+    /** Configuration-only IDE development setup: the overlay plus a generated IntelliJ run configuration. */
+    public static final String DEV_IDE = "dev-ide";
+
+    private static final List<String> KNOWN_MODE_IDS = List.of(LOCAL_DOCKER, DEV_IDE);
 
     private DeploymentModes() {
     }
