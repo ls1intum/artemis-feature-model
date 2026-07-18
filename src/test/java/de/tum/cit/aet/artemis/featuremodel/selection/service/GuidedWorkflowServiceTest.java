@@ -32,6 +32,7 @@ class GuidedWorkflowServiceTest {
         JsonFeatureModelStore featureModelStore = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(featureModelStore, new FeatureModelIntegrityService(), treeService);
         JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(resourceLoader, objectMapper);
-        return new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler());
+        return new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler(),
+                new GuidedWorkflowDiagnosticsService());
     }
 }

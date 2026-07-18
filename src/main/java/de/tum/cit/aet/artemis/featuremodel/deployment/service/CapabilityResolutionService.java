@@ -1,7 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel.deployment.service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +20,9 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDT
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowFinding;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
 
 /**
@@ -49,18 +53,22 @@ public class CapabilityResolutionService {
 
     private final DeploymentProfileService deploymentProfileService;
 
+    private final GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService;
+
     /**
      * Creates the capability resolution service.
      *
      * @param featureModelCatalogService service used to load the active feature model.
      * @param guidedWorkflowService service used to load the active guided workflow.
      * @param deploymentProfileService service used to load and resolve deployment profiles.
+     * @param guidedWorkflowDiagnosticsService diagnostics service used to surface unknown capability ids.
      */
     public CapabilityResolutionService(FeatureModelCatalogService featureModelCatalogService, GuidedWorkflowService guidedWorkflowService,
-            DeploymentProfileService deploymentProfileService) {
+            DeploymentProfileService deploymentProfileService, GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService) {
         this.featureModelCatalogService = featureModelCatalogService;
         this.guidedWorkflowService = guidedWorkflowService;
         this.deploymentProfileService = deploymentProfileService;
+        this.guidedWorkflowDiagnosticsService = guidedWorkflowDiagnosticsService;
     }
 
     /**
@@ -79,12 +87,34 @@ public class CapabilityResolutionService {
 
         FeatureModel model = featureModelCatalogService.loadActiveModel();
         GuidedWorkflow workflow = guidedWorkflowService.getActiveGuidedWorkflow();
+        logCapabilityDiagnostics(workflow, model, profiles);
 
         List<OptionAvailabilityDTO> options = resolveOptionAvailability(workflow, activeProfile);
         List<FeatureAvailabilityDTO> features = resolveFeatureAvailability(model, activeProfile);
 
         log.info("Resolved availability under profile '{}': {} options and {} features evaluated.", activeProfile.id(), options.size(), features.size());
         return new WorkflowAvailabilityDTO(summary(activeProfile, defaultProfileId), summaries(profiles, defaultProfileId), options, features);
+    }
+
+    /**
+     * Logs capability-validity findings against the union of all loaded profiles' capabilities. A capability id no
+     * profile provides silently disables its feature everywhere, so it is surfaced as a warning without failing the
+     * request.
+     *
+     * @param workflow active guided workflow.
+     * @param model active feature model.
+     * @param profiles all loaded deployment profiles.
+     */
+    private void logCapabilityDiagnostics(GuidedWorkflow workflow, FeatureModel model, List<DeploymentProfile> profiles) {
+        Set<String> knownCapabilities = new LinkedHashSet<>();
+        for (DeploymentProfile profile : profiles) {
+            knownCapabilities.addAll(profile.providedCapabilities());
+        }
+        for (GuidedWorkflowFinding finding : guidedWorkflowDiagnosticsService.findings(workflow, model, knownCapabilities)) {
+            if (GuidedWorkflowFinding.CODE_UNKNOWN_CAPABILITY.equals(finding.code())) {
+                log.warn("Guided workflow diagnostic {} for '{}': {}", finding.code(), finding.subject(), finding.message());
+            }
+        }
     }
 
     /**
