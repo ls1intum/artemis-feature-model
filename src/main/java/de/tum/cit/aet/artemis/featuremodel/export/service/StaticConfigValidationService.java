@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -50,15 +52,31 @@ public class StaticConfigValidationService {
     private final Map<String, String> typesByKey;
 
     /**
-     * Creates the service and eagerly loads the classpath catalog, so a broken catalog fails at startup instead of at
-     * the first validation.
+     * Creates the service against the curated classpath catalog, the default catalog source.
      *
      * @param resourceLoader Spring resource loader used to resolve the classpath catalog.
      * @param objectMapper Jackson mapper used to parse the catalog.
      * @throws FeatureModelLoadException if the catalog resource cannot be read or parsed.
      */
     public StaticConfigValidationService(ResourceLoader resourceLoader, ObjectMapper objectMapper) {
-        this.catalog = loadCatalog(resourceLoader, objectMapper);
+        this(resourceLoader, objectMapper, CATALOG_RESOURCE);
+    }
+
+    /**
+     * Creates the service and eagerly loads the configured catalog, so a broken catalog fails at startup instead of
+     * at the first validation. The curated classpath catalog stays the default; a maintainer may explicitly point the
+     * location at a regenerated catalog produced by the extraction pipeline, for example
+     * {@code file:build/feature-extraction/<commit>/generated-config-key-catalog.json}.
+     *
+     * @param resourceLoader Spring resource loader used to resolve the catalog location.
+     * @param objectMapper Jackson mapper used to parse the catalog.
+     * @param catalogLocation catalog resource location; the curated classpath catalog by default.
+     * @throws FeatureModelLoadException if the catalog resource cannot be read or parsed.
+     */
+    @Autowired
+    public StaticConfigValidationService(ResourceLoader resourceLoader, ObjectMapper objectMapper,
+            @Value("${featuremodel.static-validation.catalog-location:" + CATALOG_RESOURCE + "}") String catalogLocation) {
+        this.catalog = loadCatalog(resourceLoader, objectMapper, catalogLocation);
         this.typesByKey = catalog.keys().stream().collect(Collectors.toMap(ArtemisConfigKeyCatalog.CatalogKey::key, ArtemisConfigKeyCatalog.CatalogKey::type,
                 (first, second) -> first, LinkedHashMap::new));
     }
@@ -215,24 +233,25 @@ public class StaticConfigValidationService {
     }
 
     /**
-     * Loads and parses the classpath catalog resource.
+     * Loads and parses the configured catalog resource.
      *
      * @param resourceLoader Spring resource loader.
      * @param objectMapper Jackson mapper.
+     * @param catalogLocation catalog resource location.
      * @return parsed catalog.
      * @throws FeatureModelLoadException if the resource cannot be read or parsed.
      */
-    private ArtemisConfigKeyCatalog loadCatalog(ResourceLoader resourceLoader, ObjectMapper objectMapper) {
-        Resource resource = resourceLoader.getResource(CATALOG_RESOURCE);
+    private ArtemisConfigKeyCatalog loadCatalog(ResourceLoader resourceLoader, ObjectMapper objectMapper, String catalogLocation) {
+        Resource resource = resourceLoader.getResource(catalogLocation);
         try (InputStream inputStream = resource.getInputStream()) {
             ArtemisConfigKeyCatalog loaded = objectMapper.readValue(inputStream, ArtemisConfigKeyCatalog.class);
-            log.info("Loaded Artemis config key catalog {} with {} keys, verified against Artemis commit {}.", loaded.catalogVersion(), loaded.keys().size(),
-                    loaded.verifiedAgainstArtemisCommit());
+            log.info("Loaded Artemis config key catalog {} with {} keys, verified against Artemis commit {}, from {}.", loaded.catalogVersion(),
+                    loaded.keys().size(), loaded.verifiedAgainstArtemisCommit(), catalogLocation);
             return loaded;
         }
         catch (IOException e) {
-            log.error("Could not load the Artemis config key catalog from {}.", CATALOG_RESOURCE, e);
-            throw new FeatureModelLoadException("Could not load the Artemis config key catalog from " + CATALOG_RESOURCE + ".", e);
+            log.error("Could not load the Artemis config key catalog from {}.", catalogLocation, e);
+            throw new FeatureModelLoadException("Could not load the Artemis config key catalog from " + catalogLocation + ".", e);
         }
     }
 }
