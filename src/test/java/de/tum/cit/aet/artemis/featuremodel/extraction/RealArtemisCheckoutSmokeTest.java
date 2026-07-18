@@ -48,7 +48,7 @@ class RealArtemisCheckoutSmokeTest {
                 .map(ReportItem::subject).toList();
         assertThat(newCandidateSubjects).as("every non-curated candidate carries an explicit manifest exclusion").isEmpty();
         assertThat(outcome.report().curation().pendingCandidateIds()).isEmpty();
-        assertThat(outcome.report().curation().stateCounts()).containsEntry("include", 15).containsEntry("exclude", 57).containsEntry("pending", 0);
+        assertThat(outcome.report().curation().stateCounts()).containsEntry("include", 20).containsEntry("exclude", 52).containsEntry("pending", 0);
     }
 
     /**

@@ -1,0 +1,223 @@
+package de.tum.cit.aet.artemis.featuremodel.extraction;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.io.DefaultResourceLoader;
+
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
+import de.tum.cit.aet.artemis.featuremodel.deployment.service.CapabilityResolutionService;
+import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
+import de.tum.cit.aet.artemis.featuremodel.deployment.dto.FeatureAvailabilityDTO;
+import de.tum.cit.aet.artemis.featuremodel.deployment.dto.OptionAvailabilityDTO;
+import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDTO;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ExtractionOutputWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureExtractionService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
+import de.tum.cit.aet.artemis.featuremodel.selection.repository.JsonGuidedWorkflowStore;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowAssembler;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
+import de.tum.cit.aet.artemis.featuremodel.snapshot.dto.ImportSnapshotRequest;
+import de.tum.cit.aet.artemis.featuremodel.snapshot.dto.ImportSnapshotResultDTO;
+import de.tum.cit.aet.artemis.featuremodel.snapshot.service.SnapshotService;
+import de.tum.cit.aet.artemis.featuremodel.validation.dto.ValidationRequest;
+import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
+import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * Opt-in end-to-end proof on a real Artemis checkout: run the full extraction and generation pipeline, import the
+ * generated snapshot through the snapshot subsystem, activate it, and spot-check API-level parity between the curated
+ * and the generated model on the curated intersection. Enabled only when the {@code artemisPath} system property is
+ * set; skipped silently otherwise.
+ */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@EnabledIfSystemProperty(named = "artemisPath", matches = ".+")
+class GeneratedModelImportParityTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
+
+    @TempDir
+    static Path workingDirectory;
+
+    private FeatureExtractionService.Outcome outcome;
+
+    private String snapshotId;
+
+    private Path dataRoot;
+
+    @BeforeAll
+    void runPipelineAndImportSnapshot() throws Exception {
+        FeatureModel curatedModel = new JsonFeatureModelStore(resourceLoader, objectMapper).loadActiveModel();
+        ArtemisConfigKeyCatalog catalog = readResource("classpath:feature-model/artemis-config-key-catalog.json", ArtemisConfigKeyCatalog.class);
+        GuidedWorkflow bundledWorkflow = new JsonGuidedWorkflowStore(resourceLoader, objectMapper).loadActiveWorkflow();
+        DeploymentProfile bundledProfile = readResource("classpath:deployment-profiles/default-artemis-profile.json", DeploymentProfile.class);
+        var manifest = new FeatureManifestLoader().load(Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"));
+        LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(Path.of(System.getProperty("artemisPath")));
+
+        outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest, bundledWorkflow, bundledProfile);
+
+        Path outputDirectory = workingDirectory.resolve("extraction");
+        ExtractionOutputWriter writer = new ExtractionOutputWriter(objectMapper);
+        writer.writeAll(outputDirectory, new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(),
+                source.workingTreeDirty(), "start", "end", 0, 0, 0, 0), outcome);
+        byte[] workflowBytes;
+        try (InputStream inputStream = resourceLoader.getResource("classpath:feature-model/guided-workflow.json").getInputStream()) {
+            workflowBytes = inputStream.readAllBytes();
+        }
+        writer.writeSnapshot(outputDirectory, outcome, workflowBytes, source.root().toString(), source.commit());
+
+        dataRoot = workingDirectory.resolve("data");
+        SnapshotService snapshotService = new SnapshotService(
+                new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper), objectMapper,
+                new FeatureModelIntegrityService(), new GuidedWorkflowIntegrityService());
+        ImportSnapshotResultDTO result = snapshotService
+                .importSnapshot(new ImportSnapshotRequest(outputDirectory.resolve("snapshot").toString(), null, false));
+        snapshotId = result.snapshotId();
+    }
+
+    @Test
+    void generationValidatesCleanlyAndClassifiesEveryDifference() {
+        assertThat(outcome.generatedModel()).isNotNull();
+        assertThat(outcome.guidedWorkflowValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
+        assertThat(outcome.modelDiff().classificationCounts()).containsEntry(ModelDiffReport.CLASS_EXTRACTOR_GAP, 0);
+        int classifiedTotal = outcome.modelDiff().classificationCounts().values().stream().mapToInt(Integer::intValue).sum();
+        assertThat(classifiedTotal).isEqualTo(outcome.modelDiff().entries().size());
+    }
+
+    @Test
+    void importedSnapshotServesEveryCuratedFeatureWithMatchingDefaults() {
+        FeatureModelCatalogService curatedStack = catalogService(SnapshotProperties.classpathFallback());
+        FeatureModelCatalogService generatedStack = catalogService(new SnapshotProperties(dataRoot.toString(), snapshotId));
+
+        FeatureModel curated = curatedStack.loadActiveModel();
+        FeatureModel generated = generatedStack.loadActiveModel();
+        assertThat(generated.model().id()).isEqualTo("artemis-generated-feature-model");
+
+        Set<String> curatedIds = curated.features().stream().map(FeatureNode::id).collect(Collectors.toSet());
+        Set<String> generatedIds = generated.features().stream().map(FeatureNode::id).collect(Collectors.toSet());
+        assertThat(generatedIds).containsAll(curatedIds);
+
+        List<String> curatedDefaults = curatedStack.defaultSelectedFeatureIds(curated);
+        List<String> generatedDefaults = generatedStack.defaultSelectedFeatureIds(generated);
+        assertThat(generatedDefaults.stream().filter(curatedIds::contains).toList()).containsExactlyElementsOf(curatedDefaults);
+        assertThat(generatedDefaults).contains("localvc", "mysql", "integrated-code-lifecycle");
+    }
+
+    @Test
+    void importedSnapshotValidatesItsOwnDefaultSelection() {
+        FeatureModelCatalogService generatedStack = catalogService(new SnapshotProperties(dataRoot.toString(), snapshotId));
+        FeatureModelValidationService validationService = new FeatureModelValidationService(generatedStack, new FeatureModelTreeService());
+
+        FeatureModel generated = generatedStack.loadActiveModel();
+        var result = validationService.validateSelection(new ValidationRequest(generatedStack.defaultSelectedFeatureIds(generated)));
+
+        assertThat(result.valid()).as("the generated default selection satisfies mandatory and xor constraints").isTrue();
+    }
+
+    @Test
+    void importedSnapshotServesTheGuidedWorkflowWithIdenticalDerivedWiring() {
+        GuidedWorkflow curatedServed = guidedWorkflowService(SnapshotProperties.classpathFallback()).getActiveGuidedWorkflow();
+        GuidedWorkflow generatedServed = guidedWorkflowService(new SnapshotProperties(dataRoot.toString(), snapshotId)).getActiveGuidedWorkflow();
+
+        assertThat(generatedServed.workflow().featureModelId()).isEqualTo("artemis-generated-feature-model");
+        Map<String, GuidedDecisionOption> curatedOptions = optionsById(curatedServed);
+        Map<String, GuidedDecisionOption> generatedOptions = optionsById(generatedServed);
+        assertThat(generatedOptions.keySet()).isEqualTo(curatedOptions.keySet());
+        curatedOptions.forEach((optionId, curatedOption) -> {
+            GuidedDecisionOption generatedOption = generatedOptions.get(optionId);
+            assertThat(generatedOption.requiresCapabilities()).as("capabilities of %s", optionId).isEqualTo(curatedOption.requiresCapabilities());
+            assertThat(generatedOption.artifactImpacts()).as("impacts of %s", optionId).isEqualTo(curatedOption.artifactImpacts());
+        });
+        assertThat(generatedServed.finalReviewGroups()).usingRecursiveComparison().isEqualTo(curatedServed.finalReviewGroups());
+    }
+
+    @Test
+    void importedSnapshotKeepsTechnicalFeaturesOutOfTheTeacherSurface() {
+        WorkflowAvailabilityDTO curatedAvailability = capabilityResolutionService(SnapshotProperties.classpathFallback()).resolveAvailability(null);
+        WorkflowAvailabilityDTO generatedAvailability = capabilityResolutionService(new SnapshotProperties(dataRoot.toString(), snapshotId))
+                .resolveAvailability(null);
+
+        Map<String, Boolean> curatedOptionAvailability = curatedAvailability.options().stream()
+                .collect(Collectors.toMap(OptionAvailabilityDTO::optionId, OptionAvailabilityDTO::available, (first, second) -> first, LinkedHashMap::new));
+        Map<String, Boolean> generatedOptionAvailability = generatedAvailability.options().stream()
+                .collect(Collectors.toMap(OptionAvailabilityDTO::optionId, OptionAvailabilityDTO::available, (first, second) -> first, LinkedHashMap::new));
+        assertThat(generatedOptionAvailability).isEqualTo(curatedOptionAvailability);
+
+        for (String technicalFeatureId : List.of("database", "mysql", "postgresql", "ci-provider", "integrated-code-lifecycle", "jenkins", "localvc")) {
+            FeatureAvailabilityDTO availability = generatedAvailability.features().stream()
+                    .filter(feature -> feature.featureId().equals(technicalFeatureId)).findFirst().orElseThrow();
+            assertThat(availability.available()).as("technical feature %s is not teacher-available", technicalFeatureId).isFalse();
+        }
+    }
+
+    private FeatureModelCatalogService catalogService(SnapshotProperties properties) {
+        LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
+        JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper, snapshotRepository);
+        return new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), new FeatureModelTreeService());
+    }
+
+    private GuidedWorkflowService guidedWorkflowService(SnapshotProperties properties) {
+        LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
+        JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(resourceLoader, objectMapper, snapshotRepository);
+        return new GuidedWorkflowService(workflowStore, catalogService(properties), new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler(),
+                new GuidedWorkflowDiagnosticsService());
+    }
+
+    private CapabilityResolutionService capabilityResolutionService(SnapshotProperties properties) {
+        DeploymentProfileRepository profileRepository = new DeploymentProfileRepository(new SnapshotProperties(workingDirectory.toString(), null), objectMapper);
+        return new CapabilityResolutionService(catalogService(properties), guidedWorkflowService(properties), new DeploymentProfileService(profileRepository),
+                new GuidedWorkflowDiagnosticsService());
+    }
+
+    private Map<String, GuidedDecisionOption> optionsById(GuidedWorkflow workflow) {
+        Map<String, GuidedDecisionOption> optionsById = new LinkedHashMap<>();
+        for (GuidedWorkflowStep step : workflow.steps()) {
+            for (GuidedDecision decision : step.decisions()) {
+                for (GuidedDecisionOption option : decision.options()) {
+                    optionsById.putIfAbsent(option.id(), option);
+                }
+            }
+        }
+        return optionsById;
+    }
+
+    private <T> T readResource(String location, Class<T> type) throws Exception {
+        try (InputStream inputStream = resourceLoader.getResource(location).getInputStream()) {
+            return objectMapper.readValue(inputStream, type);
+        }
+    }
+}
