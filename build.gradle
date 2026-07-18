@@ -51,6 +51,17 @@ tasks.register('extractFeatureModel', JavaExec) {
     args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path, manifestPath]
 }
 
+tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
+    description = 'Synchronizes the authored guided workflow scaffold with the manifest include set without touching prose.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.GuidedWorkflowScaffoldRunner'
+    def scaffoldManifestPath = providers.gradleProperty('featureManifestPath')
+            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
+    args = [layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path, scaffoldManifestPath,
+            layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
+}
+
 tasks.register('syncFeatureModelResource', Copy) {
     description = 'Copies the WP1 feature-model artifact into the runtime classpath resource location.'
     group = 'build setup'
