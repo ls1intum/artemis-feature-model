@@ -284,16 +284,17 @@ class ScopeCurationService {
         String optionality = firstNonNull(manifest.optionality(), FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         if (annotated == null) {
             return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate), optionality,
-                    manifest.requiresCapabilities(), manifest.providesCapabilities(), manifest.name(), manifest.description(), manifest.documentationUrl(),
-                    SEMANTIC_SOURCE_MANIFEST);
+                    manifest.category(), manifest.defaultState(), manifest.order(), manifest.requiresCapabilities(), manifest.providesCapabilities(),
+                    manifest.artifactMappings(), manifest.name(), manifest.description(), manifest.documentationUrl(), SEMANTIC_SOURCE_MANIFEST);
         }
+        // The annotation contract carries no category, default state, order, or mapping hints yet; those stay manifest data.
         AnnotationSemantics annotation = annotated.semantics();
         return new ResolvedFeatureScope(candidate.id(), annotation.id(), firstNonNull(annotation.group(), manifest.group()),
                 firstNonNull(annotation.parent(), manifest.parent()), kind(firstNonNull(annotation.kind(), manifest.kind()), candidate), optionality,
-                firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()),
-                firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()), firstNonNull(annotation.name(), manifest.name()),
-                firstNonNull(annotation.description(), manifest.description()), firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()),
-                SEMANTIC_SOURCE_ANNOTATION);
+                manifest.category(), manifest.defaultState(), manifest.order(), firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()),
+                firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()), manifest.artifactMappings(),
+                firstNonNull(annotation.name(), manifest.name()), firstNonNull(annotation.description(), manifest.description()),
+                firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()), SEMANTIC_SOURCE_ANNOTATION);
     }
 
     /**

@@ -15,6 +15,7 @@ import org.yaml.snakeyaml.Yaml;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
 
@@ -26,16 +27,30 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
  */
 public class FeatureManifestLoader {
 
-    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "verifiedAgainstArtemisCommit", "include", "exclude", "conceptualNodes");
+    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "verifiedAgainstArtemisCommit", "include", "exclude", "conceptualNodes",
+            "constraints");
 
-    private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "requiresCapabilities", "providesCapabilities",
-            "name", "description", "documentationUrl", "rationale");
+    private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
+            "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
 
     private static final Set<String> EXCLUDE_FIELDS = Set.of("anchor", "reason", "rationale");
 
-    private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "name", "description");
+    private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "category", "groupType", "order", "name", "description");
+
+    private static final Set<String> CONSTRAINT_FIELDS = Set.of("id", "type", "source", "target", "description");
+
+    private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "valueWhenSelected", "valueWhenDeselected", "valueFromProfile",
+            "requiredWhenSelected", "secret");
 
     private static final Set<String> OPTIONALITY_VALUES = Set.of(FeatureScopeManifest.OPTIONALITY_MANDATORY, FeatureScopeManifest.OPTIONALITY_OPTIONAL);
+
+    private static final Set<String> CATEGORY_VALUES = Set.of(FeatureScopeManifest.CATEGORY_FUNCTIONAL, FeatureScopeManifest.CATEGORY_TECHNICAL);
+
+    private static final Set<String> DEFAULT_STATE_VALUES = Set.of("enabled", "disabled");
+
+    private static final Set<String> GROUP_TYPE_VALUES = Set.of("and", "or", "alternative");
+
+    private static final Set<String> CONSTRAINT_TYPE_VALUES = Set.of("requires", "excludes");
 
     /**
      * Loads a manifest from a filesystem path.
@@ -77,9 +92,11 @@ public class FeatureManifestLoader {
         List<IncludeEntry> includes = parseIncludes(root.get("include"));
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
+        List<ConstraintEntry> constraints = parseConstraints(root.get("constraints"));
         validateUniqueness(includes, excludes, conceptualNodes);
         validateInternalReferences(includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, verifiedCommit, includes, excludes, conceptualNodes);
+        validateConstraintReferences(constraints, includes, conceptualNodes);
+        return new FeatureScopeManifest(manifestVersion, verifiedCommit, includes, excludes, conceptualNodes, constraints);
     }
 
     /**
@@ -98,7 +115,9 @@ public class FeatureManifestLoader {
             rejectUnknownFields(entry, INCLUDE_FIELDS, location);
             entries.add(new IncludeEntry(requiredString(entry, "anchor", location), requiredString(entry, "id", location), optionalString(entry, "group", location),
                     optionalString(entry, "parent", location), optionalString(entry, "kind", location), optionality(entry, location),
-                    stringList(entry, "requiresCapabilities", location), stringList(entry, "providesCapabilities", location), optionalString(entry, "name", location),
+                    enumeratedString(entry, "category", CATEGORY_VALUES, location), enumeratedString(entry, "defaultState", DEFAULT_STATE_VALUES, location),
+                    optionalOrder(entry, location), stringList(entry, "requiresCapabilities", location), stringList(entry, "providesCapabilities", location),
+                    parseMappingHints(entry.get("artifactMappings"), location), optionalString(entry, "name", location),
                     optionalString(entry, "description", location), optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location)));
             index++;
         }
@@ -139,11 +158,65 @@ public class FeatureManifestLoader {
             String location = "conceptualNodes[" + index + "]";
             Map<String, Object> entry = asMap(item, location);
             rejectUnknownFields(entry, CONCEPTUAL_FIELDS, location);
-            entries.add(new ConceptualNode(requiredString(entry, "id", location), optionalString(entry, "parent", location), optionalString(entry, "kind", location),
-                    optionality(entry, location), optionalString(entry, "name", location), optionalString(entry, "description", location)));
+            String groupType = enumeratedString(entry, "groupType", GROUP_TYPE_VALUES, location);
+            String kind = optionalString(entry, "kind", location);
+            if (groupType != null && !"group".equals(kind)) {
+                throw new FeatureManifestException(location + ".groupType is only allowed on nodes of kind 'group'.");
+            }
+            entries.add(new ConceptualNode(requiredString(entry, "id", location), optionalString(entry, "parent", location), kind,
+                    optionality(entry, location), enumeratedString(entry, "category", CATEGORY_VALUES, location), groupType, optionalOrder(entry, location),
+                    optionalString(entry, "name", location), optionalString(entry, "description", location)));
             index++;
         }
         return List.copyOf(entries);
+    }
+
+    /**
+     * Parses the constraints section.
+     *
+     * @param value raw YAML value of the constraints section, or null when absent.
+     * @return parsed constraint entries in manifest order.
+     * @throws FeatureManifestException if a constraint is malformed or uses an unknown type.
+     */
+    private List<ConstraintEntry> parseConstraints(Object value) {
+        List<ConstraintEntry> entries = new ArrayList<>();
+        int index = 0;
+        for (Object item : asList(value, "constraints")) {
+            String location = "constraints[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, CONSTRAINT_FIELDS, location);
+            String type = requiredString(entry, "type", location);
+            if (!CONSTRAINT_TYPE_VALUES.contains(type)) {
+                throw new FeatureManifestException(location + ".type must be one of " + CONSTRAINT_TYPE_VALUES + ".");
+            }
+            entries.add(new ConstraintEntry(requiredString(entry, "id", location), type, requiredString(entry, "source", location),
+                    requiredString(entry, "target", location), optionalString(entry, "description", location)));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Parses the artifact mapping hints of an include entry.
+     *
+     * @param value raw YAML value of the artifactMappings field, or null when absent.
+     * @param entryLocation location label of the owning entry.
+     * @return parsed mapping hints in declaration order.
+     * @throws FeatureManifestException if a mapping hint is malformed.
+     */
+    private List<FeatureScopeManifest.MappingHint> parseMappingHints(Object value, String entryLocation) {
+        List<FeatureScopeManifest.MappingHint> hints = new ArrayList<>();
+        int index = 0;
+        for (Object item : asList(value, entryLocation + ".artifactMappings")) {
+            String location = entryLocation + ".artifactMappings[" + index + "]";
+            Map<String, Object> hint = asMap(item, location);
+            rejectUnknownFields(hint, MAPPING_FIELDS, location);
+            hints.add(new FeatureScopeManifest.MappingHint(requiredString(hint, "target", location), requiredString(hint, "path", location),
+                    hint.get("valueWhenSelected"), hint.get("valueWhenDeselected"), optionalString(hint, "valueFromProfile", location),
+                    optionalBoolean(hint, "requiredWhenSelected", location), optionalBoolean(hint, "secret", location)));
+            index++;
+        }
+        return List.copyOf(hints);
     }
 
     /**
@@ -194,6 +267,26 @@ public class FeatureManifestLoader {
     }
 
     /**
+     * Rejects constraint endpoints that do not point at a manifest-declared id.
+     *
+     * @param constraints parsed constraint entries.
+     * @param includes parsed include entries.
+     * @param conceptualNodes parsed conceptual nodes.
+     * @throws FeatureManifestException if a constraint references an undeclared feature id.
+     */
+    private void validateConstraintReferences(List<ConstraintEntry> constraints, List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
+        Set<String> knownIds = new LinkedHashSet<>();
+        includes.forEach(entry -> knownIds.add(entry.id()));
+        conceptualNodes.forEach(node -> knownIds.add(node.id()));
+        Set<String> constraintIds = new LinkedHashSet<>();
+        for (ConstraintEntry constraint : constraints) {
+            requireUnique(constraintIds, constraint.id(), "Duplicate constraint id '" + constraint.id() + "'.");
+            requireKnownReference(knownIds, constraint.id(), constraint.source());
+            requireKnownReference(knownIds, constraint.id(), constraint.target());
+        }
+    }
+
+    /**
      * Reads and validates the optional optionality field.
      *
      * @param values parsed mapping.
@@ -207,6 +300,63 @@ public class FeatureManifestLoader {
             throw new FeatureManifestException(location + ".optionality must be one of " + OPTIONALITY_VALUES + ".");
         }
         return value;
+    }
+
+    /**
+     * Reads an optional string field restricted to an allowed value set.
+     *
+     * @param values parsed mapping.
+     * @param field field name.
+     * @param allowed allowed values.
+     * @param location location label for failure messages.
+     * @return declared value, or null when absent.
+     * @throws FeatureManifestException if the value is not in the allowed set.
+     */
+    private String enumeratedString(Map<String, Object> values, String field, Set<String> allowed, String location) {
+        String value = optionalString(values, field, location);
+        if (value != null && !allowed.contains(value)) {
+            throw new FeatureManifestException(location + "." + field + " must be one of " + allowed + ".");
+        }
+        return value;
+    }
+
+    /**
+     * Reads the optional relation order field.
+     *
+     * @param values parsed mapping.
+     * @param location location label for failure messages.
+     * @return declared order, or null when absent.
+     * @throws FeatureManifestException if the value is not a positive integer.
+     */
+    private Integer optionalOrder(Map<String, Object> values, String location) {
+        Object value = values.get("order");
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Integer order) || order < 1) {
+            throw new FeatureManifestException(location + ".order must be a positive integer when present.");
+        }
+        return order;
+    }
+
+    /**
+     * Reads an optional boolean field.
+     *
+     * @param values parsed mapping.
+     * @param field field name.
+     * @param location location label for failure messages.
+     * @return declared boolean, or null when absent.
+     * @throws FeatureManifestException if the value is present but not a boolean.
+     */
+    private Boolean optionalBoolean(Map<String, Object> values, String field, String location) {
+        Object value = values.get(field);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Boolean bool)) {
+            throw new FeatureManifestException(location + "." + field + " must be a boolean when present.");
+        }
+        return bool;
     }
 
     /**
