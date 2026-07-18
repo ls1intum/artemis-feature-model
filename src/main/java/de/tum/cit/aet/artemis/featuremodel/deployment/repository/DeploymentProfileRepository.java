@@ -21,6 +21,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Repository;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException;
 import tools.jackson.databind.ObjectMapper;
@@ -195,6 +196,25 @@ public class DeploymentProfileRepository {
         if (profile.id() == null || profile.id().isBlank()) {
             throw new IllegalArgumentException("Deployment profile is missing a non-blank id.");
         }
+        warnAboutUnknownDeploymentModes(profile);
         return profile;
+    }
+
+    /**
+     * Logs a warning for every unknown deployment-mode id a profile declares. Unknown entries are lenient by design:
+     * they never match a requested mode and therefore stay inert, but they are not a load failure, so a profile
+     * authored for a future mode still loads today.
+     *
+     * @param profile parsed deployment profile.
+     */
+    private void warnAboutUnknownDeploymentModes(DeploymentProfile profile) {
+        if (profile.supportedDeploymentModes() == null) {
+            return;
+        }
+        for (String modeId : profile.supportedDeploymentModes()) {
+            if (!DeploymentModes.isKnown(modeId)) {
+                log.warn("Deployment profile '{}' declares unknown deployment mode '{}'; the entry is ignored.", profile.id(), modeId);
+            }
+        }
     }
 }

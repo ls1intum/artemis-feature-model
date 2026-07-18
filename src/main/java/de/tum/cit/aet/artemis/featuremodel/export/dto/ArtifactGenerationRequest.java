@@ -10,9 +10,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * @param selectedFeatureIds selected functional feature ids.
  * @param profileId deployment profile id to generate against, or {@code null}/blank for the default profile.
  * @param mode generation mode, or {@code null}/blank for the default {@code DEMO} mode.
+ * @param deploymentMode deployment mode id for the deployment package, or {@code null}/blank for today's default
+ *            behavior (the local Docker runtime package). Mode ids are stable strings, not enums.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record ArtifactGenerationRequest(List<String> selectedFeatureIds, String profileId, String mode) {
+public record ArtifactGenerationRequest(List<String> selectedFeatureIds, String profileId, String mode, String deploymentMode) {
 
     /**
      * Normalizes the selected feature ids to an immutable list.
@@ -20,8 +22,21 @@ public record ArtifactGenerationRequest(List<String> selectedFeatureIds, String 
      * @param selectedFeatureIds selected functional feature ids.
      * @param profileId deployment profile id, or {@code null}/blank for the default profile.
      * @param mode generation mode, or {@code null}/blank for the default mode.
+     * @param deploymentMode deployment mode id, or {@code null}/blank for the default deployment mode.
      */
     public ArtifactGenerationRequest {
         selectedFeatureIds = selectedFeatureIds == null ? List.of() : List.copyOf(selectedFeatureIds);
+    }
+
+    /**
+     * Creates a request without a deployment mode, keeping today's default behavior. Convenient for callers and tests
+     * written before the deployment-mode axis existed.
+     *
+     * @param selectedFeatureIds selected functional feature ids.
+     * @param profileId deployment profile id, or {@code null}/blank for the default profile.
+     * @param mode generation mode, or {@code null}/blank for the default mode.
+     */
+    public ArtifactGenerationRequest(List<String> selectedFeatureIds, String profileId, String mode) {
+        this(selectedFeatureIds, profileId, mode, null);
     }
 }

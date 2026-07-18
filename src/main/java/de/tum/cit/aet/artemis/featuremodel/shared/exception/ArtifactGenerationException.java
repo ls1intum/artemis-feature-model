@@ -39,6 +39,29 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for a deployment mode id that is not a known mode.
+     *
+     * @param deploymentMode requested deployment mode id.
+     * @return unknown-deployment-mode artifact generation exception.
+     */
+    public static ArtifactGenerationException unknownDeploymentMode(String deploymentMode) {
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNKNOWN_DEPLOYMENT_MODE", "Unknown deployment mode '" + deploymentMode + "'.",
+                HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a known deployment mode the active profile does not support.
+     *
+     * @param deploymentMode requested deployment mode id.
+     * @param profileId active deployment profile id.
+     * @return unsupported-deployment-mode artifact generation exception.
+     */
+    public static ArtifactGenerationException unsupportedDeploymentMode(String deploymentMode, String profileId) {
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_DEPLOYMENT_MODE",
+                "Deployment mode '" + deploymentMode + "' is not supported by deployment profile '" + profileId + "'.", HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Returns the stable error code for this failure.
      *
      * @return error code.

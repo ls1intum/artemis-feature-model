@@ -70,7 +70,7 @@ class DeploymentPackageResourceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService,
+        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, profileService,
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
@@ -99,6 +99,13 @@ class DeploymentPackageResourceTest {
         mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"profileId\":\"missing-profile\"}")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("DEPLOYMENT_PROFILE_NOT_FOUND"));
+    }
+
+    @Test
+    void previewRejectsAnUnknownDeploymentModeWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"cloud-magic\"}")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_UNKNOWN_DEPLOYMENT_MODE"));
     }
 
     @Test

@@ -57,8 +57,8 @@ class DeploymentPackageServiceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        service = new DeploymentPackageService(artifactGenerationService, new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
-                new RuntimeScriptWriter(), objectMapper);
+        service = new DeploymentPackageService(artifactGenerationService, profileService, new StaticConfigValidationService(resourceLoader, objectMapper),
+                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), objectMapper);
     }
 
     @Test
@@ -189,6 +189,39 @@ class DeploymentPackageServiceTest {
             assertThat(file.content()).doesNotContain("env:ARTEMIS").doesNotContain("env:SPRING");
         }
         assertThat(content(result, "config/application-feature-model.yml")).doesNotContain("env:");
+    }
+
+    @Test
+    void omitsTheDeploymentModeFromTheManifestForADefaultRequest() {
+        GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
+
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("deploymentMode");
+    }
+
+    @Test
+    void recordsAnExplicitlyChosenDeploymentModeInTheManifest() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "local-docker"));
+
+        DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
+        assertThat(manifest.deploymentMode()).isEqualTo("local-docker");
+        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
+    }
+
+    @Test
+    void rejectsAnUnknownDeploymentMode() {
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "cloud-magic")))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("Unknown deployment mode");
+    }
+
+    @Test
+    void rejectsADeploymentModeTheActiveProfileDoesNotSupport() throws IOException {
+        Path profileDirectory = dataRoot.resolve("deployment-profiles");
+        Files.createDirectories(profileDirectory);
+        Files.writeString(profileDirectory.resolve("restricted-profile.json"),
+                "{\"id\":\"restricted-profile\",\"name\":\"Restricted\",\"version\":\"1.0.0\",\"status\":\"published\",\"supportedDeploymentModes\":[]}");
+
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, "restricted-profile", null, "local-docker")))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("not supported");
     }
 
     @Test

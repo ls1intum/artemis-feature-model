@@ -13,6 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ConsumedParameter;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManifest;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
@@ -22,18 +25,21 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Builds a local runtime deployment package (Phase 6, Layer 1) by enriching the Phase 5 configuration artifacts with
- * runtime templates, helper scripts, and package metadata.
+ * Builds a deployment package for the requested deployment mode by enriching the Phase 5 configuration artifacts with
+ * mode-specific files and package metadata.
  *
  * <p>
  * This service does not re-map features to parameters or re-render the YAML overlay: it delegates to
- * {@link ArtifactGenerationService}, reuses the generated Phase 5 files, and adds the Phase 6 files (package README,
- * demo env file, env README, package manifest, runtime checks, static config validation report, the local-repo Compose
- * override and its README, and the helper scripts). The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and the report
- * is the unchanged Phase 5 report. Only the local Artemis repository runtime (Layer 1) is generated in this phase.
+ * {@link ArtifactGenerationService}, reuses the generated Phase 5 files, and composes them per deployment mode with
+ * shared metadata (package manifest, static config validation report) plus mode-specific files. The default mode is
+ * {@link DeploymentModes#LOCAL_DOCKER} (Phase 6, Layer 1): package README, demo env file, env README, runtime checks,
+ * the local-repo Compose override and its README, and the helper scripts. A default-mode request produces a package
+ * byte-identical to the pre-mode-axis output. The result reuses {@link GeneratedArtifactPackage}: the file list is the
+ * full package and the report is the unchanged Phase 5 report.
  */
 @Service
 public class DeploymentPackageService {
@@ -84,6 +90,8 @@ public class DeploymentPackageService {
 
     private final ArtifactGenerationService artifactGenerationService;
 
+    private final DeploymentProfileService deploymentProfileService;
+
     private final StaticConfigValidationService staticConfigValidationService;
 
     private final RuntimeTemplateWriter templateWriter;
@@ -96,14 +104,17 @@ public class DeploymentPackageService {
      * Creates the deployment package service.
      *
      * @param artifactGenerationService Phase 5 service used to generate the base configuration artifacts.
+     * @param deploymentProfileService service used to resolve the active profile for the deployment-mode support check.
      * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
      * @param templateWriter writer for the runtime template files.
      * @param scriptWriter writer for the helper scripts.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
-    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, StaticConfigValidationService staticConfigValidationService,
-            RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter, ObjectMapper objectMapper) {
+    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, DeploymentProfileService deploymentProfileService,
+            StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter,
+            ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
+        this.deploymentProfileService = deploymentProfileService;
         this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
         this.scriptWriter = scriptWriter;
@@ -111,42 +122,111 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Generates the in-memory local runtime deployment package for a request.
+     * Shared generation results every deployment mode composes its package from: the Phase 5 files by path, the Phase
+     * 5 report, the parsed required environment variables, and the static overlay validation.
      *
-     * @param request artifact generation request (selection and optional profile).
-     * @return generated package with the Phase 5 files plus the Phase 6 runtime files, and the Phase 5 report.
-     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is invalid.
+     * @param report Phase 5 generation report.
+     * @param baseByPath Phase 5 files keyed by package path.
+     * @param overlay generated Spring configuration overlay file.
+     * @param envExample generated {@code .env.example} file.
+     * @param requiredEnvVars environment variable names the overlay references.
+     * @param staticValidation static overlay validation result against the Artemis config key catalog.
+     */
+    private record SharedArtifacts(GenerationReport report, Map<String, GeneratedArtifactFile> baseByPath, GeneratedArtifactFile overlay,
+            GeneratedArtifactFile envExample, List<String> requiredEnvVars, StaticConfigValidationReport staticValidation) {
+    }
+
+    /**
+     * Generates the in-memory deployment package for a request in the requested deployment mode. A request without a
+     * deployment mode produces the default local Docker runtime package, byte-identical to the pre-mode-axis output.
+     *
+     * @param request artifact generation request (selection, optional profile, optional deployment mode).
+     * @return generated package for the requested mode, with the unchanged Phase 5 report.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is invalid, the deployment mode is unknown, or the
+     *             active profile does not support the requested mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException if the profile cannot be resolved.
      */
     public GeneratedArtifactPackage generate(ArtifactGenerationRequest request) {
+        String requestedDeploymentMode = normalizedDeploymentMode(request);
+        String deploymentMode = requestedDeploymentMode == null ? DeploymentModes.LOCAL_DOCKER : requestedDeploymentMode;
+        if (!DeploymentModes.isKnown(deploymentMode)) {
+            throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
+        }
+        DeploymentProfile profile = deploymentProfileService.resolveProfileOrDefault(deploymentProfileService.loadProfiles(), request.profileId());
+        if (!profile.supportsDeploymentMode(deploymentMode)) {
+            throw ArtifactGenerationException.unsupportedDeploymentMode(deploymentMode, profile.id());
+        }
+
+        SharedArtifacts shared = generateSharedArtifacts(request);
+        List<GeneratedArtifactFile> files = composeLocalDockerFiles(shared, requestedDeploymentMode);
+
+        log.info("Generated a '{}' deployment package with {} files for profile '{}' with status {}.", deploymentMode, files.size(), shared.report().profileId(),
+                shared.report().status());
+        return new GeneratedArtifactPackage(files, shared.report());
+    }
+
+    /**
+     * Normalizes the requested deployment mode to {@code null} when absent or blank.
+     *
+     * @param request artifact generation request.
+     * @return requested deployment mode id, or {@code null} for a default-mode request.
+     */
+    private String normalizedDeploymentMode(ArtifactGenerationRequest request) {
+        String deploymentMode = request.deploymentMode();
+        return deploymentMode == null || deploymentMode.isBlank() ? null : deploymentMode;
+    }
+
+    /**
+     * Generates the mode-independent shared artifacts: the Phase 5 files, the required environment variables, and the
+     * static overlay validation.
+     *
+     * @param request artifact generation request.
+     * @return shared artifacts every mode composes its package from.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is invalid.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException if the profile cannot be resolved.
+     */
+    private SharedArtifacts generateSharedArtifacts(ArtifactGenerationRequest request) {
         GeneratedArtifactPackage base = artifactGenerationService.generate(request);
         Map<String, GeneratedArtifactFile> baseByPath = base.files().stream().collect(Collectors.toMap(GeneratedArtifactFile::path, Function.identity()));
-        GenerationReport report = base.report();
-
         GeneratedArtifactFile overlay = baseByPath.get(ArtifactGenerationService.OVERLAY_FILE);
         GeneratedArtifactFile envExample = baseByPath.get(ArtifactGenerationService.ENV_FILE);
         List<String> requiredEnvVars = parseEnvNames(envExample.content());
+        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
+        return new SharedArtifacts(base.report(), baseByPath, overlay, envExample, requiredEnvVars, staticValidation);
+    }
+
+    /**
+     * Composes the local Docker runtime package (Phase 6, Layer 1) from the shared artifacts. The output for a
+     * default-mode request is byte-identical to the pre-mode-axis package.
+     *
+     * @param shared shared generation results.
+     * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request;
+     *            recorded in the manifest only when present so the default manifest stays byte-identical.
+     * @return ordered local Docker runtime package files.
+     */
+    private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {
+        GenerationReport report = shared.report();
+        List<String> requiredEnvVars = shared.requiredEnvVars();
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion());
         String envDemo = templateWriter.envDemo(requiredEnvVars);
 
-        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
         List<String> packagePaths = packageFilePaths();
-        String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars));
-        String checksJson = writeJson(buildRuntimeChecks(overlay.content(), requiredEnvVars, report, packagePaths.size(), staticValidation));
+        String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars, requestedDeploymentMode));
+        String checksJson = writeJson(buildRuntimeChecks(shared.overlay().content(), requiredEnvVars, report, packagePaths.size(), shared.staticValidation()));
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, packageReadme));
-        files.add(overlay);
-        files.add(envExample);
+        files.add(shared.overlay());
+        files.add(shared.envExample());
         files.add(new GeneratedArtifactFile(ENV_DEMO_FILE, CONTENT_TYPE_TEXT, envDemo));
         files.add(new GeneratedArtifactFile(ENV_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.envReadme()));
-        files.add(baseByPath.get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
-        files.add(baseByPath.get(ArtifactGenerationService.PROFILE_SUMMARY_FILE));
-        files.add(baseByPath.get(ArtifactGenerationService.REPORT_FILE));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.PROFILE_SUMMARY_FILE));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.REPORT_FILE));
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
         files.add(new GeneratedArtifactFile(RUNTIME_CHECKS_FILE, CONTENT_TYPE_JSON, checksJson));
-        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(staticValidation)));
+        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(shared.staticValidation())));
         files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, templateWriter.localRepoOverride()));
         files.add(new GeneratedArtifactFile(LOCAL_REPO_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.localRepoReadme()));
         files.add(new GeneratedArtifactFile(PREPARE_ENV_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.prepareEnvScript()));
@@ -154,9 +234,7 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(START_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startLocalRepoScript()));
         files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript()));
         files.add(new GeneratedArtifactFile(PRINT_SUMMARY_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.printRuntimeSummaryScript()));
-
-        log.info("Generated a local runtime deployment package with {} files for profile '{}' with status {}.", files.size(), report.profileId(), report.status());
-        return new GeneratedArtifactPackage(files, report);
+        return files;
     }
 
     /**
@@ -177,9 +255,11 @@ public class DeploymentPackageService {
      * @param report Phase 5 generation report, source of the model/profile references.
      * @param packagePaths all package file paths, in order.
      * @param requiredEnvVars environment variables the overlay references.
+     * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
      * @return package manifest.
      */
-    private DeploymentPackageManifest buildManifest(GenerationReport report, List<String> packagePaths, List<String> requiredEnvVars) {
+    private DeploymentPackageManifest buildManifest(GenerationReport report, List<String> packagePaths, List<String> requiredEnvVars,
+            String requestedDeploymentMode) {
         DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT,
                 "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including CI-dependent features such as "
                         + "Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a different commit may not match all "
@@ -188,7 +268,8 @@ public class DeploymentPackageService {
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(true, false,
                 "Generated in DEMO mode for local validation only; may contain placeholder values and never resolves real secrets.");
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
-                List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
+                requestedDeploymentMode, List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO),
+                new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
                 new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, packagePaths, requiredEnvVars, readiness);
     }
 
