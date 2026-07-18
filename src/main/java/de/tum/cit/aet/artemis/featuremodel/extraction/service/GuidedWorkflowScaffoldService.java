@@ -188,15 +188,15 @@ public class GuidedWorkflowScaffoldService {
      * @param newId replacement id.
      */
     private void rewriteIdReferences(ObjectNode workflow, String oldId, String newId) {
-        for (ObjectNode template : objectElements(workflow.withArray("useCaseTemplates"))) {
-            rewriteIdList(template.withArray("selectedFeatureIds"), oldId, newId);
-            rewriteIdList(template.withArray("deselectedFeatureIds"), oldId, newId);
+        for (ObjectNode template : objectElements(workflow.withArrayProperty("useCaseTemplates"))) {
+            rewriteIdList(template.withArrayProperty("selectedFeatureIds"), oldId, newId);
+            rewriteIdList(template.withArrayProperty("deselectedFeatureIds"), oldId, newId);
         }
-        for (ObjectNode step : objectElements(workflow.withArray("steps"))) {
-            for (ObjectNode decision : objectElements(step.withArray("decisions"))) {
-                for (ObjectNode option : objectElements(decision.withArray("options"))) {
-                    rewriteIdList(option.withArray("selects"), oldId, newId);
-                    rewriteIdList(option.withArray("deselects"), oldId, newId);
+        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
+            for (ObjectNode decision : objectElements(step.withArrayProperty("decisions"))) {
+                for (ObjectNode option : objectElements(decision.withArrayProperty("options"))) {
+                    rewriteIdList(option.withArrayProperty("selects"), oldId, newId);
+                    rewriteIdList(option.withArrayProperty("deselects"), oldId, newId);
                 }
             }
         }
@@ -212,7 +212,7 @@ public class GuidedWorkflowScaffoldService {
     private void rewriteIdList(ArrayNode ids, String oldId, String newId) {
         for (int index = 0; index < ids.size(); index++) {
             if (oldId.equals(ids.get(index).asString())) {
-                ids.set(index, objectMapper.getNodeFactory().textNode(newId));
+                ids.set(index, objectMapper.getNodeFactory().stringNode(newId));
             }
         }
     }
@@ -238,13 +238,13 @@ public class GuidedWorkflowScaffoldService {
         stub.put("id", "enable-" + feature.id());
         stub.put("label", feature.label());
         stub.put("description", TODO_PROSE + "Describe this option for teachers.");
-        stub.withArray("selects").add(feature.id());
-        stub.withArray("deselects");
-        stub.withArray("warnings");
-        stub.withArray("enabledOutcome").add(TODO_PROSE + "Describe what this option enables.");
-        stub.withArray("recommendedWhen").add(TODO_PROSE + "Describe when this option fits.");
-        stub.withArray("thingsToKnow").add(TODO_PROSE + "Describe notes and caveats.");
-        targetDecision.withArray("options").add(stub);
+        stub.withArrayProperty("selects").add(feature.id());
+        stub.withArrayProperty("deselects");
+        stub.withArrayProperty("warnings");
+        stub.withArrayProperty("enabledOutcome").add(TODO_PROSE + "Describe what this option enables.");
+        stub.withArrayProperty("recommendedWhen").add(TODO_PROSE + "Describe when this option fits.");
+        stub.withArrayProperty("thingsToKnow").add(TODO_PROSE + "Describe notes and caveats.");
+        targetDecision.withArrayProperty("options").add(stub);
         addedOptionIds.add("enable-" + feature.id());
     }
 
@@ -259,8 +259,8 @@ public class GuidedWorkflowScaffoldService {
     private ObjectNode findDecisionCoveringGroup(ObjectNode workflow, String group, Map<String, String> groupByFeatureId) {
         ObjectNode bestDecision = null;
         int bestScore = 0;
-        for (ObjectNode step : objectElements(workflow.withArray("steps"))) {
-            for (ObjectNode decision : objectElements(step.withArray("decisions"))) {
+        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
+            for (ObjectNode decision : objectElements(step.withArrayProperty("decisions"))) {
                 int score = groupCoverageScore(decision, group, groupByFeatureId);
                 if (score > bestScore) {
                     bestScore = score;
@@ -284,8 +284,8 @@ public class GuidedWorkflowScaffoldService {
             return 0;
         }
         int score = 0;
-        for (ObjectNode option : objectElements(decision.withArray("options"))) {
-            for (var selected : option.withArray("selects")) {
+        for (ObjectNode option : objectElements(decision.withArrayProperty("options"))) {
+            for (var selected : option.withArrayProperty("selects")) {
                 if (group.equals(groupByFeatureId.get(selected.asString()))) {
                     score++;
                 }
@@ -304,13 +304,13 @@ public class GuidedWorkflowScaffoldService {
      */
     private ObjectNode appendScaffoldDecision(ObjectNode workflow, EligibleFeature feature, List<String> addedDecisionIds) {
         ObjectNode lastDecisionStep = null;
-        for (ObjectNode step : objectElements(workflow.withArray("steps"))) {
-            if (!step.withArray("decisions").isEmpty()) {
+        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
+            if (!step.withArrayProperty("decisions").isEmpty()) {
                 lastDecisionStep = step;
             }
         }
         if (lastDecisionStep == null) {
-            lastDecisionStep = (ObjectNode) workflow.withArray("steps").get(0);
+            lastDecisionStep = (ObjectNode) workflow.withArrayProperty("steps").get(0);
         }
         ObjectNode decision = objectMapper.createObjectNode();
         String decisionId = feature.group() != null ? feature.group() + "-scaffold" : feature.id() + "-scaffold";
@@ -318,8 +318,8 @@ public class GuidedWorkflowScaffoldService {
         decision.put("question", TODO_PROSE + "Ask the guided question for this group.");
         decision.put("description", TODO_PROSE + "Describe this decision for teachers.");
         decision.put("selectionMode", "multiple");
-        decision.withArray("options");
-        lastDecisionStep.withArray("decisions").add(decision);
+        decision.withArrayProperty("options");
+        lastDecisionStep.withArrayProperty("decisions").add(decision);
         addedDecisionIds.add(decisionId);
         return decision;
     }
@@ -336,7 +336,7 @@ public class GuidedWorkflowScaffoldService {
         if (group == null) {
             return;
         }
-        ArrayNode reviewGroups = workflow.withArray("finalReviewGroups");
+        ArrayNode reviewGroups = workflow.withArrayProperty("finalReviewGroups");
         for (ObjectNode reviewGroup : objectElements(reviewGroups)) {
             if (group.equals(reviewGroup.path("groupNodeId").asString(null))) {
                 return;
@@ -359,10 +359,10 @@ public class GuidedWorkflowScaffoldService {
      */
     private Set<String> coveredFeatureIds(ObjectNode workflow) {
         Set<String> covered = new LinkedHashSet<>();
-        for (ObjectNode step : objectElements(workflow.withArray("steps"))) {
-            for (ObjectNode decision : objectElements(step.withArray("decisions"))) {
-                for (ObjectNode option : objectElements(decision.withArray("options"))) {
-                    option.withArray("selects").forEach(selected -> covered.add(selected.asString()));
+        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
+            for (ObjectNode decision : objectElements(step.withArrayProperty("decisions"))) {
+                for (ObjectNode option : objectElements(decision.withArrayProperty("options"))) {
+                    option.withArrayProperty("selects").forEach(selected -> covered.add(selected.asString()));
                 }
             }
         }
@@ -377,15 +377,15 @@ public class GuidedWorkflowScaffoldService {
      */
     private List<String> referencedIds(ObjectNode workflow) {
         Set<String> referenced = new LinkedHashSet<>();
-        for (ObjectNode template : objectElements(workflow.withArray("useCaseTemplates"))) {
-            template.withArray("selectedFeatureIds").forEach(id -> referenced.add(id.asString()));
-            template.withArray("deselectedFeatureIds").forEach(id -> referenced.add(id.asString()));
+        for (ObjectNode template : objectElements(workflow.withArrayProperty("useCaseTemplates"))) {
+            template.withArrayProperty("selectedFeatureIds").forEach(id -> referenced.add(id.asString()));
+            template.withArrayProperty("deselectedFeatureIds").forEach(id -> referenced.add(id.asString()));
         }
-        for (ObjectNode step : objectElements(workflow.withArray("steps"))) {
-            for (ObjectNode decision : objectElements(step.withArray("decisions"))) {
-                for (ObjectNode option : objectElements(decision.withArray("options"))) {
-                    option.withArray("selects").forEach(id -> referenced.add(id.asString()));
-                    option.withArray("deselects").forEach(id -> referenced.add(id.asString()));
+        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
+            for (ObjectNode decision : objectElements(step.withArrayProperty("decisions"))) {
+                for (ObjectNode option : objectElements(decision.withArrayProperty("options"))) {
+                    option.withArrayProperty("selects").forEach(id -> referenced.add(id.asString()));
+                    option.withArrayProperty("deselects").forEach(id -> referenced.add(id.asString()));
                 }
             }
         }

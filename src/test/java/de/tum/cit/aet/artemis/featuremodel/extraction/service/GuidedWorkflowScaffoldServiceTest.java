@@ -62,10 +62,10 @@ class GuidedWorkflowScaffoldServiceTest {
         ObjectNode stub = lastOption(result.workflow());
         assertThat(stub.path("id").asString()).isEqualTo("enable-newcomer");
         assertThat(stub.path("label").asString()).isEqualTo("Newcomer Feature");
-        assertThat(stub.withArray("selects")).hasSize(1);
-        assertThat(stub.withArray("selects").get(0).asString()).isEqualTo("newcomer");
+        assertThat(stub.withArrayProperty("selects")).hasSize(1);
+        assertThat(stub.withArrayProperty("selects").get(0).asString()).isEqualTo("newcomer");
         assertThat(stub.path("description").asString()).startsWith("TODO");
-        assertThat(stub.withArray("enabledOutcome").get(0).asString()).startsWith("TODO");
+        assertThat(stub.withArrayProperty("enabledOutcome").get(0).asString()).startsWith("TODO");
         // The stub joins the decision already covering the group, and the review group is derived from the group node.
         assertThat(result.report().addedDecisionIds()).isEmpty();
         assertThat(result.report().addedReviewGroupNodeIds()).isEmpty();
@@ -80,7 +80,7 @@ class GuidedWorkflowScaffoldServiceTest {
         GuidedWorkflowScaffoldService.Result result = service.sync(workflow, manifest);
 
         assertThat(result.report().addedReviewGroupNodeIds()).containsExactly("new-group");
-        ArrayNode reviewGroups = result.workflow().withArray("finalReviewGroups");
+        ArrayNode reviewGroups = result.workflow().withArrayProperty("finalReviewGroups");
         assertThat(reviewGroups.get(reviewGroups.size() - 1).path("groupNodeId").asString()).isEqualTo("new-group");
         // No existing decision covers the new group, so a scaffold decision is appended for placement review.
         assertThat(result.report().addedDecisionIds()).containsExactly("new-group-scaffold");
@@ -108,13 +108,13 @@ class GuidedWorkflowScaffoldServiceTest {
         orphanOption.put("id", "enable-removed");
         orphanOption.put("label", "Removed");
         orphanOption.put("description", "Authored prose that must survive.");
-        orphanOption.withArray("selects").add("removed-feature");
-        orphanOption.withArray("deselects");
-        firstDecision(workflow).withArray("options").add(orphanOption);
+        orphanOption.withArrayProperty("selects").add("removed-feature");
+        orphanOption.withArrayProperty("deselects");
+        firstDecision(workflow).withArrayProperty("options").add(orphanOption);
         ObjectNode secondOrphan = objectMapper.createObjectNode();
         secondOrphan.put("id", "enable-second-removed");
-        secondOrphan.withArray("selects").add("second-removed-feature");
-        firstDecision(workflow).withArray("options").add(secondOrphan);
+        secondOrphan.withArrayProperty("selects").add("second-removed-feature");
+        firstDecision(workflow).withArrayProperty("options").add(secondOrphan);
 
         GuidedWorkflowScaffoldService.Result result = service.sync(workflow, manifest);
 
@@ -135,8 +135,8 @@ class GuidedWorkflowScaffoldServiceTest {
         assertThat(result.changed()).isTrue();
         assertThat(result.report().renamedIds()).containsExactly("alpha->alpha-renamed");
         assertThat(result.report().addedOptionIds()).isEmpty();
-        assertThat(firstOption(result.workflow()).withArray("selects").get(0).asString()).isEqualTo("alpha-renamed");
-        assertThat(result.workflow().withArray("useCaseTemplates").get(0).withArray("selectedFeatureIds").get(0).asString()).isEqualTo("alpha-renamed");
+        assertThat(firstOption(result.workflow()).withArrayProperty("selects").get(0).asString()).isEqualTo("alpha-renamed");
+        assertThat(result.workflow().withArrayProperty("useCaseTemplates").get(0).withArrayProperty("selectedFeatureIds").get(0).asString()).isEqualTo("alpha-renamed");
         assertThat(firstOption(result.workflow()).path("enabledOutcome").get(0).asString()).isEqualTo(proseBefore);
     }
 
@@ -181,36 +181,36 @@ class GuidedWorkflowScaffoldServiceTest {
         metadata.put("name", "Test Workflow");
         metadata.put("version", "0.0.1");
         metadata.put("defaultTemplateId", "custom");
-        ObjectNode template = workflow.withArray("useCaseTemplates").addObject();
+        ObjectNode template = workflow.withArrayProperty("useCaseTemplates").addObject();
         template.put("id", "custom");
         template.put("label", "Custom");
         template.put("description", "Synthetic template.");
-        template.withArray("selectedFeatureIds").add(featureId);
-        template.withArray("deselectedFeatureIds");
-        template.withArray("recommendedStepIds");
-        template.withArray("consequences");
-        template.withArray("warnings");
-        ObjectNode step = workflow.withArray("steps").addObject();
+        template.withArrayProperty("selectedFeatureIds").add(featureId);
+        template.withArrayProperty("deselectedFeatureIds");
+        template.withArrayProperty("recommendedStepIds");
+        template.withArrayProperty("consequences");
+        template.withArrayProperty("warnings");
+        ObjectNode step = workflow.withArrayProperty("steps").addObject();
         step.put("id", "content");
         step.put("title", "Content");
         step.put("order", 1);
         step.put("description", "Synthetic step.");
-        ObjectNode decision = step.withArray("decisions").addObject();
+        ObjectNode decision = step.withArrayProperty("decisions").addObject();
         decision.put("id", "content-decision");
         decision.put("question", "Which content?");
         decision.put("description", "Synthetic decision.");
         decision.put("selectionMode", "multiple");
-        ObjectNode option = decision.withArray("options").addObject();
+        ObjectNode option = decision.withArrayProperty("options").addObject();
         option.put("id", "enable-" + featureId);
         option.put("label", "Enable Alpha");
         option.put("description", "Authored description.");
-        option.withArray("selects").add(featureId);
-        option.withArray("deselects");
-        option.withArray("warnings");
-        option.withArray("enabledOutcome").add("Authored outcome prose.");
-        option.withArray("recommendedWhen").add("Authored recommendation.");
-        option.withArray("thingsToKnow").add("Authored note.");
-        ObjectNode reviewGroup = workflow.withArray("finalReviewGroups").addObject();
+        option.withArrayProperty("selects").add(featureId);
+        option.withArrayProperty("deselects");
+        option.withArrayProperty("warnings");
+        option.withArrayProperty("enabledOutcome").add("Authored outcome prose.");
+        option.withArrayProperty("recommendedWhen").add("Authored recommendation.");
+        option.withArrayProperty("thingsToKnow").add("Authored note.");
+        ObjectNode reviewGroup = workflow.withArrayProperty("finalReviewGroups").addObject();
         reviewGroup.put("groupNodeId", "content-group");
         reviewGroup.put("title", "Content");
         reviewGroup.put("order", 1);
@@ -218,21 +218,21 @@ class GuidedWorkflowScaffoldServiceTest {
     }
 
     private ObjectNode firstDecision(ObjectNode workflow) {
-        return (ObjectNode) workflow.withArray("steps").get(0).withArray("decisions").get(0);
+        return (ObjectNode) workflow.withArrayProperty("steps").get(0).withArrayProperty("decisions").get(0);
     }
 
     private ObjectNode firstOption(ObjectNode workflow) {
-        return (ObjectNode) firstDecision(workflow).withArray("options").get(0);
+        return (ObjectNode) firstDecision(workflow).withArrayProperty("options").get(0);
     }
 
     private ObjectNode lastOption(ObjectNode workflow) {
-        ArrayNode options = firstDecision(workflow).withArray("options");
+        ArrayNode options = firstDecision(workflow).withArrayProperty("options");
         return (ObjectNode) options.get(options.size() - 1);
     }
 
     private List<String> optionIds(ObjectNode decision) {
         List<String> ids = new ArrayList<>();
-        decision.withArray("options").forEach(option -> ids.add(option.path("id").asString()));
+        decision.withArrayProperty("options").forEach(option -> ids.add(option.path("id").asString()));
         return ids;
     }
 }
