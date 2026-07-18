@@ -566,6 +566,42 @@ describe('FeatureModelConfiguratorComponent', () => {
         downloadRequest.flush(new Blob(['zip-bytes']));
     });
 
+    it('preselects the local Docker target and omits the deployment mode from the default download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const defaultRadio = rootEl(fixture).querySelector('[data-testid="deployment-mode-local-docker"]') as HTMLInputElement;
+        expect(defaultRadio).not.toBeNull();
+        expect(defaultRadio.checked).toBe(true);
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        // The default target preserves the pre-mode-axis request shape: no deploymentMode field at all.
+        expect((downloadRequest.request.body as { deploymentMode?: string }).deploymentMode).toBeUndefined();
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('switches to the dev-ide target and sends the deployment mode with the download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-dev-ide');
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('IntelliJ');
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button.textContent).toContain('IDE setup package');
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        expect((downloadRequest.request.body as { deploymentMode?: string }).deploymentMode).toBe('dev-ide');
+        expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
     it('disables the runtime package download while the selection is invalid', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);

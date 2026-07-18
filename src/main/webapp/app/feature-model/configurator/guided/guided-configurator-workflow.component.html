@@ -412,11 +412,43 @@
                 </section>
 
                 <section class="review-section" data-testid="deployment-package">
-                    <h3>Local runtime package</h3>
-                    <p class="artifact-demo-note" data-testid="deployment-package-note">
-                        A local validation package that wraps the configuration artifacts above with a Docker Compose override and helper scripts, so you can run
-                        Artemis locally from an existing checkout and confirm the generated overlay loads. It is for local validation only, not production.
-                    </p>
+                    <h3>Deployment package</h3>
+                    <fieldset class="deployment-target-picker" data-testid="deployment-target-picker">
+                        <legend>Deployment target</legend>
+                        <label class="deployment-target-option">
+                            <input
+                                type="radio"
+                                name="deployment-target"
+                                value="local-docker"
+                                [checked]="selectedDeploymentMode() === 'local-docker'"
+                                (change)="selectDeploymentMode.emit('local-docker')"
+                                data-testid="deployment-mode-local-docker"
+                            />
+                            <span>Local Docker runtime <small class="muted">(default)</small></span>
+                        </label>
+                        <label class="deployment-target-option">
+                            <input
+                                type="radio"
+                                name="deployment-target"
+                                value="dev-ide"
+                                [checked]="selectedDeploymentMode() === 'dev-ide'"
+                                (change)="selectDeploymentMode.emit('dev-ide')"
+                                data-testid="deployment-mode-dev-ide"
+                            />
+                            <span>IntelliJ IDE development setup</span>
+                        </label>
+                    </fieldset>
+                    @if (selectedDeploymentMode() === 'dev-ide') {
+                        <p class="artifact-demo-note" data-testid="deployment-package-note">
+                            A configuration-only package for developers: the configuration artifacts above plus a generated IntelliJ run configuration whose Spring
+                            profiles match your selection, and a short setup README. Nothing is deployed; you run Artemis from your own local checkout.
+                        </p>
+                    } @else {
+                        <p class="artifact-demo-note" data-testid="deployment-package-note">
+                            A local validation package that wraps the configuration artifacts above with a Docker Compose override and helper scripts, so you can run
+                            Artemis locally from an existing checkout and confirm the generated overlay loads. It is for local validation only, not production.
+                        </p>
+                    }
                     <button
                         type="button"
                         class="btn btn-outline-primary w-100"
@@ -424,7 +456,13 @@
                         (click)="downloadDeploymentPackage.emit()"
                         data-testid="download-deployment-package-button"
                     >
-                        {{ deploymentPackageDownloading() ? 'Preparing ZIP...' : 'Download local runtime package' }}
+                        {{
+                            deploymentPackageDownloading()
+                                ? 'Preparing ZIP...'
+                                : selectedDeploymentMode() === 'dev-ide'
+                                  ? 'Download IDE setup package'
+                                  : 'Download local runtime package'
+                        }}
                     </button>
                     @if (!isValid()) {
                         <p class="muted" data-testid="deployment-package-invalid-note">Resolve the validation issues above before downloading the runtime package.</p>

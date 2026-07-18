@@ -8,4 +8,6 @@ export interface ArtifactGenerationRequest {
     selectedFeatureIds: string[];
     profileId?: string;
     mode?: string;
+    /** Deployment mode id for the deployment package; omitted for the default local Docker runtime behavior. */
+    deploymentMode?: string;
 }

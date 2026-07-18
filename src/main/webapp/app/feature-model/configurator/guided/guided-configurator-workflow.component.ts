@@ -50,6 +50,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly artifactErrorMessage = input<string | undefined>(undefined);
     readonly deploymentPackageDownloading = input<boolean>(false);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
+    readonly selectedDeploymentMode = input.required<string>();
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();
@@ -64,6 +65,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly openTree = output<void>();
     readonly generateArtifacts = output<void>();
     readonly downloadDeploymentPackage = output<void>();
+    readonly selectDeploymentMode = output<string>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 
