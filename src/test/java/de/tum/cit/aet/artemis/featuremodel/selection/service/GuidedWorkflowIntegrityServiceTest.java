@@ -64,6 +64,6 @@ class GuidedWorkflowIntegrityServiceTest {
     }
 
     private FinalReviewGroup reviewGroup() {
-        return new FinalReviewGroup("summary", "Summary", 1, List.of("programming"));
+        return new FinalReviewGroup(null, "exercise-system", "Summary", 1, null);
     }
 }

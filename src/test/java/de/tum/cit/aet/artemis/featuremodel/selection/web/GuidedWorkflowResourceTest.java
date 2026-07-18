@@ -15,6 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelSt
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.repository.JsonGuidedWorkflowStore;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowAssembler;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
@@ -42,6 +43,6 @@ class GuidedWorkflowResourceTest {
         JsonFeatureModelStore featureModelStore = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(featureModelStore, new FeatureModelIntegrityService(), treeService);
         JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(resourceLoader, objectMapper);
-        return new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService());
+        return new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler());
     }
 }

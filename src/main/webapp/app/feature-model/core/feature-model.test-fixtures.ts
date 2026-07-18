@@ -218,7 +218,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                         question: 'Which teaching content capabilities should be available?',
                         description: 'Select the course-facing content and communication features that teachers normally use.',
                         selectionMode: 'multiple',
-                        reviewGroupId: 'teaching-content',
                         options: [
                             {
                                 id: 'enable-lecture-materials',
@@ -227,7 +226,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 selects: ['lecture'],
                                 deselects: [],
                                 requiresCapabilities: [],
-                                consequences: ['Enables lecture management and material workflows.'],
                                 artifactImpacts: ['Sets artemis.lecture.enabled = true in the generated external configuration overlay.'],
                                 enabledOutcome: ['Instructors can publish lecture material and connect course content with exercises.'],
                                 recommendedWhen: ['Your course uses slides, recordings, linked resources, or lecture units alongside exercises.'],
@@ -249,7 +247,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                         question: 'Which exercise types should teachers be able to use?',
                         description: 'Exercise choices map directly to functional feature ids.',
                         selectionMode: 'multiple',
-                        reviewGroupId: 'exercise-types',
                         options: [
                             {
                                 id: 'enable-programming-and-quiz',
@@ -258,7 +255,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 selects: ['exercise-common', 'programming', 'quiz'],
                                 deselects: [],
                                 requiresCapabilities: [],
-                                consequences: ['Keeps common exercise infrastructure, programming exercises, and quiz exercises available.'],
                                 artifactImpacts: [],
                                 enabledOutcome: ['Instructors can run programming exercises with individual feedback and quiz exercises.'],
                                 recommendedWhen: ['Your course includes code-based assignments, automatically assessed tasks, or quizzes.'],
@@ -272,7 +268,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 selects: ['text', 'modeling', 'file-upload'],
                                 deselects: [],
                                 requiresCapabilities: [],
-                                consequences: ['Allows teachers to create text, modeling, and file upload assignments.'],
                                 artifactImpacts: ['Sets artemis.text.enabled = true in the generated external configuration overlay.'],
                                 enabledOutcome: ['Instructors can use text, modeling, and file upload exercises.'],
                                 recommendedWhen: ['Your course needs essays, explanations, diagrams, PDFs, images, or other file submissions.'],
@@ -294,7 +289,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                         question: 'Which AI and adaptive learning features should be enabled?',
                         description: 'AI features explain both functional consequences and later deployment profile requirements.',
                         selectionMode: 'multiple',
-                        reviewGroupId: 'ai-and-adaptive-learning',
                         options: [
                             {
                                 id: 'enable-iris',
@@ -303,7 +297,6 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 selects: ['iris'],
                                 deselects: [],
                                 requiresCapabilities: ['pyris-service', 'pyris-secret'],
-                                consequences: ['Enables AI tutoring functionality.', 'Requires Pyris service and a configured secret reference.'],
                                 artifactImpacts: ['Sets artemis.iris.enabled = true in the generated external configuration overlay.'],
                                 enabledOutcome: ['Students and instructors can receive AI tutoring support.'],
                                 recommendedWhen: ['Your course wants AI-assisted help for recurring questions or learning progress.'],
@@ -316,9 +309,15 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
             },
         ],
         finalReviewGroups: [
-            { id: 'teaching-content', title: 'Teaching Content', order: 1, featureIds: ['lecture', 'course-workflow', 'communication'] },
-            { id: 'exercise-types', title: 'Exercise Types', order: 2, featureIds: ['exercise-common', 'programming', 'quiz', 'text', 'modeling', 'file-upload'] },
-            { id: 'ai-and-adaptive-learning', title: 'AI and Adaptive Learning', order: 3, featureIds: ['iris'] },
+            { id: 'teaching-and-content', groupNodeId: 'teaching-and-content', title: 'Teaching Content', order: 1, featureIds: ['lecture', 'course-workflow', 'communication'] },
+            {
+                id: 'exercise-system',
+                groupNodeId: 'exercise-system',
+                title: 'Exercise Types',
+                order: 2,
+                featureIds: ['exercise-common', 'programming', 'quiz', 'text', 'modeling', 'file-upload'],
+            },
+            { id: 'adaptive-learning-and-ai', groupNodeId: 'adaptive-learning-and-ai', title: 'AI and Adaptive Learning', order: 3, featureIds: ['iris'] },
         ],
     };
     return { ...workflow, ...overrides };

@@ -32,22 +32,31 @@ class JsonGuidedWorkflowStoreTest {
         GuidedWorkflow workflow = store.loadActiveWorkflow();
 
         assertThat(workflow.workflow().id()).isEqualTo("artemis-guided-configuration");
-        assertThat(workflow.workflow().featureModelId()).isEqualTo("artemis-functional-feature-tree");
-        assertThat(workflow.workflow().featureModelVersion()).isEqualTo("0.1.0");
         assertThat(workflow.workflow().defaultTemplateId()).isEqualTo("custom-configuration");
         assertThat(workflow.useCaseTemplates()).extracting("id").containsExactly("minimal-teaching-setup", "programming-course", "exam-focused-course",
                 "course-with-lecture-materials", "ai-enabled-course", "custom-configuration");
         assertThat(workflow.steps()).extracting("id").containsExactly("configuration-goal", "teaching-content", "exercise-types",
                 "assessment-and-integrity", "ai-and-integrations", "review-and-consequences", "artifact-generation");
-        assertThat(workflow.finalReviewGroups()).extracting("id").containsExactly("teaching-content", "exercise-types", "assessment-and-integrity",
-                "ai-and-adaptive-learning", "integrations");
+        assertThat(workflow.finalReviewGroups()).extracting("groupNodeId").containsExactly("teaching-and-content", "exercise-system",
+                "assessment-and-integrity", "adaptive-learning-and-ai", "platform-integrations");
         GuidedDecisionOption irisOption = findOption(workflow, "enable-iris");
         assertThat(irisOption.selects()).containsExactly("iris");
-        assertThat(irisOption.requiresCapabilities()).containsExactly("pyris-service", "pyris-secret");
-        assertThat(irisOption.artifactImpacts()).anyMatch(impact -> impact.contains("artemis.iris.enabled"));
         assertThat(irisOption.enabledOutcome()).anyMatch(outcome -> outcome.contains("AI tutoring support"));
         assertThat(irisOption.recommendedWhen()).anyMatch(recommendation -> recommendation.contains("AI-assisted help"));
         assertThat(irisOption.thingsToKnow()).anyMatch(note -> note.contains("administrator setup"));
+    }
+
+    @Test
+    void authoredWorkflowCarriesNoModelOwnedWiring() {
+        GuidedWorkflow workflow = store.loadActiveWorkflow();
+
+        // The authored resource is lean: the serve-time enrichment derives model pin, capabilities, impacts, and members.
+        assertThat(workflow.workflow().featureModelId()).isNull();
+        assertThat(workflow.workflow().featureModelVersion()).isNull();
+        GuidedDecisionOption irisOption = findOption(workflow, "enable-iris");
+        assertThat(irisOption.requiresCapabilities()).isEmpty();
+        assertThat(irisOption.artifactImpacts()).isEmpty();
+        assertThat(workflow.finalReviewGroups()).allSatisfy(group -> assertThat(group.featureIds()).isEmpty());
     }
 
     @Test

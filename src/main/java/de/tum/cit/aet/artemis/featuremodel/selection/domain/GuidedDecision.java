@@ -5,7 +5,7 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record GuidedDecision(String id, String question, String description, String selectionMode, String reviewGroupId, List<GuidedDecisionOption> options) {
+public record GuidedDecision(String id, String question, String description, String selectionMode, List<GuidedDecisionOption> options) {
 
     /**
      * Creates a guided decision and normalizes nullable options to an immutable empty list.
@@ -14,7 +14,6 @@ public record GuidedDecision(String id, String question, String description, Str
      * @param question user-facing decision question.
      * @param description user-facing decision context.
      * @param selectionMode option selection mode.
-     * @param reviewGroupId final review group id for selected options.
      * @param options available decision options.
      */
     public GuidedDecision {
