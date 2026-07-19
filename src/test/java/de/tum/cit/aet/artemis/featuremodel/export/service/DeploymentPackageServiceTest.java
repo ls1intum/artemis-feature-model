@@ -211,13 +211,17 @@ class DeploymentPackageServiceTest {
     void composesTheDevIdePackageWithoutComposeFilesOrRuntimeScripts() {
         GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra("iris", "hyperion"), null, null, "dev-ide"));
 
-        assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example",
+        assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml",
+                "config/application-feature-model-demo.yml", "env/.env.example",
                 "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml", "metadata/selected-features.json",
                 "metadata/deployment-profile-summary.json", "metadata/generation-report.json", "metadata/package-manifest.json",
                 "metadata/static-config-validation.json");
         String runConfiguration = content(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
-        assertThat(runConfiguration).contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,local\" />");
+        assertThat(runConfiguration)
+                .contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local\" />");
         assertThat(content(result, "README.md")).contains("application-local.yml").contains(".idea/runConfigurations/");
+        // The demo defaults cover every ${VARIABLE} the overlay references, so a DEMO run resolves all placeholders.
+        assertThat(content(result, "config/application-feature-model-demo.yml")).contains("ARTEMIS_IRIS_SECRET_TOKEN: demo-change-me");
     }
 
     @Test
@@ -231,7 +235,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.database()).isNull();
         assertThat(manifest.readiness().localRuntimeReady()).isFalse();
         assertThat(manifest.readiness().productionReady()).isFalse();
-        assertThat(manifest.generatedFiles()).hasSize(9);
+        assertThat(manifest.generatedFiles()).hasSize(10);
     }
 
     @Test

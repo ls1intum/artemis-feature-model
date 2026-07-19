@@ -9,16 +9,17 @@ import org.junit.jupiter.api.Test;
 
 class ActiveProfilesDeriverTest {
 
-    private static final String BASE_PROFILES = "artemis,scheduling,core,dev,feature-model,local";
+    private static final String BASE_PROFILES = "artemis,scheduling,core,dev,feature-model,feature-model-demo,local";
 
     /**
      * The exact order of the shipped {@code Artemis_Server__Dev__BuildAgent_LocalCI_.xml} plus the
-     * {@code feature-model} profile that loads the generated overlay by file name. The order is semantic:
-     * {@code buildagent} must stay before {@code core}, because {@code application-buildagent.yml} excludes the
-     * JPA/DataSource auto-configurations and only the later {@code application-core.yml} exclude list restores them;
-     * {@code feature-model} stays before {@code local} so a developer's {@code application-local.yml} wins.
+     * {@code feature-model} profile that loads the generated overlay by file name and the {@code feature-model-demo}
+     * profile that loads the demo placeholder defaults. The order is semantic: {@code buildagent} must stay before
+     * {@code core}, because {@code application-buildagent.yml} excludes the JPA/DataSource auto-configurations and
+     * only the later {@code application-core.yml} exclude list restores them; the feature-model profiles stay before
+     * {@code local} so a developer's {@code application-local.yml} wins.
      */
-    private static final String CI_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,local";
+    private static final String CI_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
 
     private final ActiveProfilesDeriver deriver = new ActiveProfilesDeriver();
 

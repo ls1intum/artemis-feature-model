@@ -76,6 +76,12 @@ public class DeploymentPackageService {
     /** IntelliJ run configuration of the dev-ide mode; the file name follows the IntelliJ naming convention. */
     static final String DEV_IDE_RUN_CONFIG_FILE = "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml";
 
+    /**
+     * Demo defaults for the overlay's environment-variable placeholders, loaded via the {@code feature-model-demo}
+     * profile; the dev-ide counterpart of {@code env/.env.demo}.
+     */
+    static final String DEV_IDE_DEMO_ENV_FILE = "config/application-feature-model-demo.yml";
+
     /** Package type recorded in the dev-ide manifest; the package is configuration-only and contains no runtime. */
     static final String DEV_IDE_PACKAGE_TYPE = "dev-ide-configuration-package";
 
@@ -272,6 +278,7 @@ public class DeploymentPackageService {
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, readme));
         files.add(shared.overlay());
+        files.add(new GeneratedArtifactFile(DEV_IDE_DEMO_ENV_FILE, CONTENT_TYPE_YAML, devIdeTemplateWriter.demoEnvDefaultsYaml(shared.requiredEnvVars())));
         files.add(shared.envExample());
         files.add(new GeneratedArtifactFile(DEV_IDE_RUN_CONFIG_FILE, CONTENT_TYPE_XML, runConfigurationXml));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
@@ -310,9 +317,9 @@ public class DeploymentPackageService {
      * @return ordered dev-ide package file paths.
      */
     private List<String> devIdePackageFilePaths() {
-        return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE, DEV_IDE_RUN_CONFIG_FILE,
-                ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE,
-                MANIFEST_FILE, STATIC_VALIDATION_FILE);
+        return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, DEV_IDE_DEMO_ENV_FILE, ArtifactGenerationService.ENV_FILE,
+                DEV_IDE_RUN_CONFIG_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE,
+                ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE, STATIC_VALIDATION_FILE);
     }
 
     /**

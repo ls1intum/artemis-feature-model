@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class DevIdeTemplateWriterTest {
 
-    private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,local";
+    private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
 
     private final DevIdeTemplateWriter writer = new DevIdeTemplateWriter();
 
@@ -40,14 +40,28 @@ class DevIdeTemplateWriterTest {
     }
 
     @Test
+    void writesDeterministicDemoDefaultsForEveryRequiredPlaceholder() {
+        List<String> requiredEnvVars = List.of("ARTEMIS_ATHENA_SECRET", "ARTEMIS_IRIS_SECRET_TOKEN");
+
+        String first = writer.demoEnvDefaultsYaml(requiredEnvVars);
+        String second = writer.demoEnvDefaultsYaml(requiredEnvVars);
+
+        assertThat(first).isEqualTo(second);
+        assertThat(first).contains("ARTEMIS_ATHENA_SECRET: demo-change-me").contains("ARTEMIS_IRIS_SECRET_TOKEN: demo-change-me").contains("DEMO ONLY")
+                .contains("feature-model-demo");
+        assertThat(first).doesNotContain("env:");
+    }
+
+    @Test
     void writesAReadmeCoveringOverlayPlacementRunConfigImportAndSecretPlaceholders() {
         String readme = writer.devIdeReadme("artemis-functional-features", "1.0.0", "default-artemis-profile", CI_ACTIVE_PROFILES,
                 List.of("ARTEMIS_IRIS_SECRET_TOKEN"));
 
-        // The overlay is copied under its original name; the feature-model profile loads it, no rename or merge.
-        assertThat(readme).contains("src/main/resources/config/application-feature-model.yml").contains("keep the file name").contains("`feature-model` Spring profile")
-                .contains("application-local.yml").contains("SPRING_CONFIG_ADDITIONAL_LOCATION").contains(".idea/runConfigurations/")
-                .contains(CI_ACTIVE_PROFILES).contains("`ARTEMIS_IRIS_SECRET_TOKEN`").contains("env/.env.example").contains("DEMO");
+        // The config files are copied under their original names; the feature-model profiles load them directly.
+        assertThat(readme).contains("src/main/resources/config/").contains("keep the file names").contains("`feature-model` Spring profile")
+                .contains("application-feature-model-demo.yml").contains("application-local.yml").contains("SPRING_CONFIG_ADDITIONAL_LOCATION")
+                .contains(".idea/runConfigurations/").contains(CI_ACTIVE_PROFILES).contains("`ARTEMIS_IRIS_SECRET_TOKEN`").contains("env/.env.example")
+                .contains("DEMO");
         assertThat(readme).doesNotContain("env:ARTEMIS");
     }
 }

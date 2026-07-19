@@ -31,6 +31,12 @@ import org.springframework.stereotype.Component;
  * {@code application-local.yml} keeps the final say for machine-specific settings.
  *
  * <p>
+ * The extra {@link #DEMO_ENV_PROFILE} loads {@code application-feature-model-demo.yml}, the dev-ide counterpart of
+ * the local-docker package's {@code env/.env.demo}: dummy defaults for the {@code ${VARIABLE}} placeholders the
+ * overlay references, so a DEMO run starts without manual environment setup. Real environment variables rank above
+ * config files in Spring Boot's property precedence and therefore override the dummies automatically.
+ *
+ * <p>
  * Seam note: generated feature models since Phase E3 declare {@code SPRING_PROFILES_ACTIVE} token contributions as
  * artifact mappings on technical features. The bundled curated model carries no technical features, so this class
  * derives the profiles by rule; it is the seam where mapping-driven derivation will later replace the rule for models
@@ -42,11 +48,14 @@ public class ActiveProfilesDeriver {
     /** Profile that makes Spring load the generated {@code application-feature-model.yml} overlay by file name. */
     static final String FEATURE_MODEL_PROFILE = "feature-model";
 
+    /** Profile that loads the generated demo defaults for the overlay's environment-variable placeholders. */
+    static final String DEMO_ENV_PROFILE = "feature-model-demo";
+
     /** Feature ids that require a CI trigger bean at runtime and therefore force the local-CI profile family. */
     private static final Set<String> CI_DEPENDENT_FEATURE_IDS = Set.of("programming", "hyperion");
 
     /** Ordered profiles of an IDE development run without CI-dependent features, mirroring Artemis' run configs. */
-    private static final List<String> BASE_RUN_PROFILES = List.of("artemis", "scheduling", "core", "dev", FEATURE_MODEL_PROFILE, "local");
+    private static final List<String> BASE_RUN_PROFILES = List.of("artemis", "scheduling", "core", "dev", FEATURE_MODEL_PROFILE, DEMO_ENV_PROFILE, "local");
 
     /**
      * Ordered profiles when a CI-dependent feature is selected, mirroring the shipped
@@ -54,7 +63,7 @@ public class ActiveProfilesDeriver {
      * class javadoc).
      */
     private static final List<String> CI_RUN_PROFILES = List.of("artemis", "localci", "localvc", "scheduling", "buildagent", "core", "dev", FEATURE_MODEL_PROFILE,
-            "local");
+            DEMO_ENV_PROFILE, "local");
 
     /**
      * Derives the comma-separated {@code ACTIVE_PROFILES} value for a selection.

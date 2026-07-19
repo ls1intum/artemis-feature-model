@@ -66,6 +66,27 @@ public class DevIdeTemplateWriter {
     }
 
     /**
+     * Builds the demo defaults file for the overlay's {@code ${VARIABLE}} placeholders — the dev-ide counterpart of
+     * the local-docker package's {@code env/.env.demo}. Each required environment variable becomes a top-level
+     * property with a dummy value, loaded through the {@code feature-model-demo} profile, so a DEMO run resolves all
+     * placeholders without manual environment setup. Real environment variables rank above config files in Spring
+     * Boot's property precedence and override these dummies; the values are never real secrets.
+     *
+     * @param requiredEnvVars environment variable names the overlay references.
+     * @return deterministic demo defaults YAML text.
+     */
+    public String demoEnvDefaultsYaml(List<String> requiredEnvVars) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("# DEMO ONLY — dummy defaults for the ${VARIABLE} placeholders in application-feature-model.yml.\n");
+        builder.append("# Loaded via the feature-model-demo profile so a demo run starts without manual environment setup.\n");
+        builder.append("# Real environment variables override these values. UNSAFE for production; never put real secrets here.\n");
+        for (String name : requiredEnvVars) {
+            builder.append(name).append(": demo-change-me\n");
+        }
+        return builder.toString();
+    }
+
+    /**
      * Builds the dev-ide developer README explaining how to apply the overlay, import the run configuration, and
      * provide secret values.
      *
@@ -89,16 +110,20 @@ public class DevIdeTemplateWriter {
 
                 ## 1. Apply the configuration overlay
 
-                Copy `config/application-feature-model.yml` into your Artemis checkout at
-                `src/main/resources/config/application-feature-model.yml` — **keep the file name**. The run
-                configuration activates a `feature-model` Spring profile, so Spring Boot loads the file automatically
-                as profile-specific configuration; no renaming or merging is needed. Your own
-                `src/main/resources/config/application-local.yml` (if you maintain one) is loaded after the overlay
-                and keeps the final say for machine-specific settings.
+                Copy both files from this package's `config/` directory into your Artemis checkout's
+                `src/main/resources/config/` — **keep the file names**:
 
-                Do not commit the copied file: Artemis' `.gitignore` covers only `application-local*.yml`. Consider
-                adding `src/main/resources/config/application-feature-model.yml` to `.git/info/exclude` in your
-                checkout.
+                - `application-feature-model.yml` — the generated configuration overlay, loaded through the
+                  `feature-model` Spring profile the run configuration activates; no renaming or merging is needed.
+                - `application-feature-model-demo.yml` — DEMO dummy defaults for the `${VARIABLE}` placeholders the
+                  overlay references, loaded through the `feature-model-demo` profile, so the run starts without
+                  manual environment setup (the dev-ide counterpart of the local runtime package's `env/.env.demo`).
+
+                Your own `src/main/resources/config/application-local.yml` (if you maintain one) is loaded after the
+                overlay and keeps the final say for machine-specific settings.
+
+                Do not commit the copied files: Artemis' `.gitignore` covers only `application-local*.yml`. Consider
+                adding both file names to `.git/info/exclude` in your checkout.
 
                 Alternatively, leave the overlay where it is and point Spring Boot at it by adding the environment
                 variable `SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/absolute/path/to/config/application-feature-model.yml`
@@ -123,9 +148,11 @@ public class DevIdeTemplateWriter {
 
                 ## 3. Provide secret values
 
-                The overlay never contains plaintext secrets; it references them as `${VARIABLE}` placeholders. Fill
-                in the variables listed in `env/.env.example` before starting Artemis, for example in the run
-                configuration's environment variables (Run → Edit Configurations → Environment variables):
+                The overlay never contains plaintext secrets; it references them as `${VARIABLE}` placeholders. For a
+                DEMO run nothing is required: `application-feature-model-demo.yml` supplies dummy defaults for every
+                placeholder. To use real service values, set the variables listed in `env/.env.example` in the run
+                configuration's environment (Run → Edit Configurations → Environment variables) — environment
+                variables rank above config files in Spring Boot's property precedence and override the demo defaults:
 
                 %s
 
