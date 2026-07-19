@@ -54,18 +54,25 @@ public class RuntimeTemplateWriter {
                 A second mode (Layer 2 — Remote Artemis Image Runtime, running without an Artemis checkout by pulling a
                 pinned Artemis image) is planned for a later increment and is not included here.
 
-                ## First: make the scripts executable
+                ## Quick start (DEMO)
 
-                ZIP archives do not preserve the executable bit, so after unzipping run:
+                One command starts the Layer 1 stack in DEMO mode:
 
                 ```bash
-                chmod +x scripts/*.sh
+                bash scripts/start-demo.sh /path/to/Artemis
                 ```
 
-                ## Layer 1: local Artemis repository
+                It makes the package scripts executable (ZIP archives do not preserve the executable bit), creates
+                `env/.env` with DEMO placeholder values (an existing `env/.env` is kept unchanged), and starts the
+                local Artemis repository stack. Stop it later with `./scripts/stop-local-repo.sh /path/to/Artemis`.
+
+                ## Manual path: Layer 1 step by step
+
+                Use the individual scripts instead when you want real service values in `env/.env` or more control:
 
                 ```bash
-                ./scripts/prepare-env.sh --demo
+                chmod +x scripts/*.sh           # ZIP archives do not preserve the executable bit
+                ./scripts/prepare-env.sh        # or --demo for placeholder values
                 ./scripts/start-local-repo.sh /path/to/Artemis
                 # ... validate, then stop:
                 ./scripts/stop-local-repo.sh /path/to/Artemis

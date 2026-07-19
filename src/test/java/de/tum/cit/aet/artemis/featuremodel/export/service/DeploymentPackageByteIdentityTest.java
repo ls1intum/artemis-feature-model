@@ -31,10 +31,12 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Guards the D1 byte-identity promise: the default local-docker deployment package for a fixed selection stays
- * byte-for-byte identical to the pre-mode-axis output, recorded as per-file SHA-256 hashes in
- * {@code fixtures/local-docker-package-sha256.json}. An explicit {@code local-docker} request may differ only by the
- * deployment mode recorded in the manifest.
+ * Guards the local-docker package bytes against accidental drift: the default deployment package for a fixed
+ * selection must stay byte-for-byte identical to the recorded baseline in
+ * {@code fixtures/local-docker-package-sha256.json}, and an explicit {@code local-docker} request may differ only by
+ * the deployment mode recorded in the manifest. The fixture was first recorded from the pre-mode-axis output to prove
+ * the D1 refactor byte-identical, and is re-baselined only for deliberate content changes (last: the
+ * {@code scripts/start-demo.sh} single-command entry point).
  */
 class DeploymentPackageByteIdentityTest {
 

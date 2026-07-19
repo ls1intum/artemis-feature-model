@@ -68,8 +68,8 @@ class DeploymentPackageServiceTest {
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
                 "env/README.md", "metadata/selected-features.json", "metadata/deployment-profile-summary.json", "metadata/generation-report.json",
                 "metadata/package-manifest.json", "metadata/runtime-checks.json", "metadata/static-config-validation.json",
-                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/validate-package.sh",
-                "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
+                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/start-demo.sh",
+                "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
     }
 
     @Test
@@ -82,7 +82,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
-        assertThat(manifest.generatedFiles()).hasSize(18);
+        assertThat(manifest.generatedFiles()).hasSize(19);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo("51caf4c1eb");
         assertThat(manifest.database().type()).isEqualTo("mysql");
@@ -152,10 +152,14 @@ class DeploymentPackageServiceTest {
     void generatesHelperScriptsWithSafeDefaults() {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
-        for (String script : List.of("scripts/prepare-env.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh",
-                "scripts/print-runtime-summary.sh")) {
+        for (String script : List.of("scripts/prepare-env.sh", "scripts/start-demo.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh",
+                "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh")) {
             assertThat(content(result, script)).startsWith("#!/usr/bin/env bash").contains("set -euo pipefail");
         }
+        // The single-command DEMO entry point chains chmod, demo env preparation, and the local-repo start.
+        String startDemo = content(result, "scripts/start-demo.sh");
+        assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh");
+        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /path/to/Artemis");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the

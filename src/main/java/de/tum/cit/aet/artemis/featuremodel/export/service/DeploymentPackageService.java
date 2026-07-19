@@ -37,9 +37,11 @@ import tools.jackson.databind.ObjectMapper;
  * {@link ArtifactGenerationService}, reuses the generated Phase 5 files, and composes them per deployment mode with
  * shared metadata (package manifest, static config validation report) plus mode-specific files. The default mode is
  * {@link DeploymentModes#LOCAL_DOCKER} (Phase 6, Layer 1): package README, demo env file, env README, runtime checks,
- * the local-repo Compose override and its README, and the helper scripts. A default-mode request produces a package
- * byte-identical to the pre-mode-axis output. The result reuses {@link GeneratedArtifactPackage}: the file list is the
- * full package and the report is the unchanged Phase 5 report.
+ * the local-repo Compose override and its README, and the helper scripts. A default-mode request and an explicit
+ * local-docker request produce the same package except for the deployment mode recorded in the manifest; a recorded
+ * fixture test guards the package bytes against accidental drift, so deliberate content changes must re-baseline the
+ * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and the report is
+ * the unchanged Phase 5 report.
  */
 @Service
 public class DeploymentPackageService {
@@ -64,6 +66,9 @@ public class DeploymentPackageService {
     static final String LOCAL_REPO_README_FILE = "deployment/local-repo/README.md";
 
     static final String PREPARE_ENV_SCRIPT_FILE = "scripts/prepare-env.sh";
+
+    /** Single-command DEMO entry point chaining chmod, prepare-env --demo, and start-local-repo. */
+    static final String START_DEMO_SCRIPT_FILE = "scripts/start-demo.sh";
 
     static final String VALIDATE_PACKAGE_SCRIPT_FILE = "scripts/validate-package.sh";
 
@@ -160,7 +165,7 @@ public class DeploymentPackageService {
 
     /**
      * Generates the in-memory deployment package for a request in the requested deployment mode. A request without a
-     * deployment mode produces the default local Docker runtime package, byte-identical to the pre-mode-axis output.
+     * deployment mode produces the default local Docker runtime package.
      *
      * @param request artifact generation request (selection, optional profile, optional deployment mode).
      * @return generated package for the requested mode, with the unchanged Phase 5 report.
@@ -219,8 +224,8 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Composes the local Docker runtime package (Phase 6, Layer 1) from the shared artifacts. The output for a
-     * default-mode request is byte-identical to the pre-mode-axis package.
+     * Composes the local Docker runtime package (Phase 6, Layer 1) from the shared artifacts. The output is guarded
+     * byte-for-byte by a recorded fixture; deliberate content changes must re-baseline that fixture.
      *
      * @param shared shared generation results.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request;
@@ -253,6 +258,7 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, templateWriter.localRepoOverride()));
         files.add(new GeneratedArtifactFile(LOCAL_REPO_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.localRepoReadme()));
         files.add(new GeneratedArtifactFile(PREPARE_ENV_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.prepareEnvScript()));
+        files.add(new GeneratedArtifactFile(START_DEMO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startDemoScript()));
         files.add(new GeneratedArtifactFile(VALIDATE_PACKAGE_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.validatePackageScript()));
         files.add(new GeneratedArtifactFile(START_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startLocalRepoScript()));
         files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript()));
@@ -330,8 +336,8 @@ public class DeploymentPackageService {
     private List<String> packageFilePaths() {
         return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE, ENV_DEMO_FILE, ENV_README_FILE,
                 ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE,
-                RUNTIME_CHECKS_FILE, STATIC_VALIDATION_FILE, LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, VALIDATE_PACKAGE_SCRIPT_FILE,
-                START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE, PRINT_SUMMARY_SCRIPT_FILE);
+                RUNTIME_CHECKS_FILE, STATIC_VALIDATION_FILE, LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, START_DEMO_SCRIPT_FILE,
+                VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE, PRINT_SUMMARY_SCRIPT_FILE);
     }
 
     /**

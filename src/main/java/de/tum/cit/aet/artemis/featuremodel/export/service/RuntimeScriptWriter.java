@@ -16,6 +16,36 @@ import org.springframework.stereotype.Component;
 public class RuntimeScriptWriter {
 
     /**
+     * Builds {@code start-demo.sh}, the single-command DEMO entry point: it makes the package scripts executable (ZIP
+     * archives do not preserve the executable bit), creates {@code env/.env} with DEMO values via
+     * {@code prepare-env.sh --demo} (an existing {@code env/.env} is kept), and delegates to
+     * {@code start-local-repo.sh}. Invoked with {@code bash scripts/start-demo.sh /path/to/Artemis} so no prior
+     * {@code chmod} is needed.
+     *
+     * @return {@code start-demo.sh} content.
+     */
+    public String startDemoScript() {
+        return """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+                if [ "$#" -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+                  echo "Usage: bash $(basename "$0") /path/to/Artemis"
+                  echo "  One-command DEMO start: makes the package scripts executable, creates env/.env"
+                  echo "  with DEMO placeholder values (an existing env/.env is kept), and starts the"
+                  echo "  local Artemis repository stack via scripts/start-local-repo.sh."
+                  exit 0
+                fi
+
+                chmod +x "$SCRIPT_DIR"/*.sh
+                "$SCRIPT_DIR/prepare-env.sh" --demo
+                exec "$SCRIPT_DIR/start-local-repo.sh" "$@"
+                """;
+    }
+
+    /**
      * Builds {@code prepare-env.sh}, which creates {@code env/.env} non-destructively from the example or demo file.
      *
      * @return {@code prepare-env.sh} content.
@@ -102,6 +132,7 @@ public class RuntimeScriptWriter {
                   "deployment/local-repo/docker-compose.override.example.yml"
                   "deployment/local-repo/README.md"
                   "scripts/prepare-env.sh"
+                  "scripts/start-demo.sh"
                   "scripts/validate-package.sh"
                   "scripts/start-local-repo.sh"
                   "scripts/stop-local-repo.sh"
