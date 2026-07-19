@@ -72,7 +72,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   JPA/DataSource auto-configuration and startup fails); an extra
   `feature-model` profile makes Spring load the overlay directly once it is
   copied under its original name into the checkout's config directory, with
-  the developer's `application-local.yml` keeping final precedence. The review page offers a deployment-target picker;
+  the developer's `application-local.yml` keeping final precedence. A
+  `feature-model-demo` profile loads generated demo defaults for the overlay's
+  `${VARIABLE}` placeholders — the dev-ide counterpart of `env/.env.demo` —
+  so a DEMO run starts without manual environment setup; real environment
+  variables override the dummies. The review page offers a deployment-target picker;
   the guided workflow itself has no deployment decisions. Artifact mappings
   only reach the overlay when they target `application-feature-model.yml`.
 - The generated overlay is statically validated against a curated Artemis config
