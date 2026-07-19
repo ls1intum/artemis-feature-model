@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class DevIdeTemplateWriterTest {
 
-    private static final String CI_ACTIVE_PROFILES = "artemis,core,dev,local,scheduling,localci,localvc,buildagent";
+    private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,local";
 
     private final DevIdeTemplateWriter writer = new DevIdeTemplateWriter();
 
