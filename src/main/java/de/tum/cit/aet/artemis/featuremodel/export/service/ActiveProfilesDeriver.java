@@ -24,6 +24,13 @@ import org.springframework.stereotype.Component;
  * {@code entityManagerFactory} bean uncreated and Artemis fails to start.
  *
  * <p>
+ * The extra {@link #FEATURE_MODEL_PROFILE} makes Spring Boot load the generated overlay directly: the overlay file is
+ * named {@code application-feature-model.yml}, so activating a {@code feature-model} profile loads it as
+ * profile-specific configuration once it is copied — under its original name — into the Artemis checkout's
+ * {@code src/main/resources/config/} directory. It sits before {@code local} so a developer's
+ * {@code application-local.yml} keeps the final say for machine-specific settings.
+ *
+ * <p>
  * Seam note: generated feature models since Phase E3 declare {@code SPRING_PROFILES_ACTIVE} token contributions as
  * artifact mappings on technical features. The bundled curated model carries no technical features, so this class
  * derives the profiles by rule; it is the seam where mapping-driven derivation will later replace the rule for models
@@ -32,18 +39,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class ActiveProfilesDeriver {
 
+    /** Profile that makes Spring load the generated {@code application-feature-model.yml} overlay by file name. */
+    static final String FEATURE_MODEL_PROFILE = "feature-model";
+
     /** Feature ids that require a CI trigger bean at runtime and therefore force the local-CI profile family. */
     private static final Set<String> CI_DEPENDENT_FEATURE_IDS = Set.of("programming", "hyperion");
 
     /** Ordered profiles of an IDE development run without CI-dependent features, mirroring Artemis' run configs. */
-    private static final List<String> BASE_RUN_PROFILES = List.of("artemis", "scheduling", "core", "dev", "local");
+    private static final List<String> BASE_RUN_PROFILES = List.of("artemis", "scheduling", "core", "dev", FEATURE_MODEL_PROFILE, "local");
 
     /**
      * Ordered profiles when a CI-dependent feature is selected, mirroring the shipped
      * {@code Artemis_Server__Dev__BuildAgent_LocalCI_.xml}; {@code buildagent} must stay before {@code core} (see
      * class javadoc).
      */
-    private static final List<String> CI_RUN_PROFILES = List.of("artemis", "localci", "localvc", "scheduling", "buildagent", "core", "dev", "local");
+    private static final List<String> CI_RUN_PROFILES = List.of("artemis", "localci", "localvc", "scheduling", "buildagent", "core", "dev", FEATURE_MODEL_PROFILE,
+            "local");
 
     /**
      * Derives the comma-separated {@code ACTIVE_PROFILES} value for a selection.

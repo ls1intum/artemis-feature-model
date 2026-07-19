@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class DevIdeTemplateWriterTest {
 
-    private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,local";
+    private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,local";
 
     private final DevIdeTemplateWriter writer = new DevIdeTemplateWriter();
 
@@ -44,7 +44,9 @@ class DevIdeTemplateWriterTest {
         String readme = writer.devIdeReadme("artemis-functional-features", "1.0.0", "default-artemis-profile", CI_ACTIVE_PROFILES,
                 List.of("ARTEMIS_IRIS_SECRET_TOKEN"));
 
-        assertThat(readme).contains("application-local.yml").contains("SPRING_CONFIG_ADDITIONAL_LOCATION").contains(".idea/runConfigurations/")
+        // The overlay is copied under its original name; the feature-model profile loads it, no rename or merge.
+        assertThat(readme).contains("src/main/resources/config/application-feature-model.yml").contains("keep the file name").contains("`feature-model` Spring profile")
+                .contains("application-local.yml").contains("SPRING_CONFIG_ADDITIONAL_LOCATION").contains(".idea/runConfigurations/")
                 .contains(CI_ACTIVE_PROFILES).contains("`ARTEMIS_IRIS_SECRET_TOKEN`").contains("env/.env.example").contains("DEMO");
         assertThat(readme).doesNotContain("env:ARTEMIS");
     }

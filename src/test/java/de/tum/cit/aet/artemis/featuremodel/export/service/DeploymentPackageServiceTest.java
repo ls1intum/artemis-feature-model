@@ -216,7 +216,7 @@ class DeploymentPackageServiceTest {
                 "metadata/deployment-profile-summary.json", "metadata/generation-report.json", "metadata/package-manifest.json",
                 "metadata/static-config-validation.json");
         String runConfiguration = content(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
-        assertThat(runConfiguration).contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,localci,localvc,scheduling,buildagent,core,dev,local\" />");
+        assertThat(runConfiguration).contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,local\" />");
         assertThat(content(result, "README.md")).contains("application-local.yml").contains(".idea/runConfigurations/");
     }
 

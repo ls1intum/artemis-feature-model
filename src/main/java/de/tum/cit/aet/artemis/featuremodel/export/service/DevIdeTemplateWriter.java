@@ -89,10 +89,16 @@ public class DevIdeTemplateWriter {
 
                 ## 1. Apply the configuration overlay
 
-                Copy `config/application-feature-model.yml` into your Artemis checkout as
-                `src/main/resources/config/application-local.yml` (the `local` profile is part of the run
-                configuration, so Artemis picks the file up automatically). If you already maintain an
-                `application-local.yml`, merge the overlay keys into it instead of replacing the file.
+                Copy `config/application-feature-model.yml` into your Artemis checkout at
+                `src/main/resources/config/application-feature-model.yml` — **keep the file name**. The run
+                configuration activates a `feature-model` Spring profile, so Spring Boot loads the file automatically
+                as profile-specific configuration; no renaming or merging is needed. Your own
+                `src/main/resources/config/application-local.yml` (if you maintain one) is loaded after the overlay
+                and keeps the final say for machine-specific settings.
+
+                Do not commit the copied file: Artemis' `.gitignore` covers only `application-local*.yml`. Consider
+                adding `src/main/resources/config/application-feature-model.yml` to `.git/info/exclude` in your
+                checkout.
 
                 Alternatively, leave the overlay where it is and point Spring Boot at it by adding the environment
                 variable `SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/absolute/path/to/config/application-feature-model.yml`
@@ -112,6 +118,8 @@ public class DevIdeTemplateWriter {
 
                 If your selection includes CI-dependent features (Programming, Hyperion), the `localci`, `localvc`,
                 and `buildagent` profiles are included, because those features require a CI trigger bean at runtime.
+                The profile order mirrors the run configurations Artemis ships and is semantic (`buildagent` must
+                stay before `core`); do not reorder it.
 
                 ## 3. Provide secret values
 
