@@ -65,9 +65,14 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   a controlled 400. `DeploymentPackageService` composes packages per mode from
   shared artifacts; the `dev-ide` mode emits the Level 1 overlay files plus a
   deterministic IntelliJ run configuration whose `ACTIVE_PROFILES` are derived
-  from the selection (`ActiveProfilesDeriver`: base profiles plus the
-  localci/localvc/buildagent family iff programming or hyperion is selected)
-  and a developer README. The review page offers a deployment-target picker;
+  from the selection (`ActiveProfilesDeriver`: the localci/localvc/buildagent
+  family iff programming or hyperion is selected) and a developer README. The
+  profile order mirrors the run configurations Artemis ships and is semantic
+  (buildagent must precede core, or the buildagent config excludes the
+  JPA/DataSource auto-configuration and startup fails); an extra
+  `feature-model` profile makes Spring load the overlay directly once it is
+  copied under its original name into the checkout's config directory, with
+  the developer's `application-local.yml` keeping final precedence. The review page offers a deployment-target picker;
   the guided workflow itself has no deployment decisions. Artifact mappings
   only reach the overlay when they target `application-feature-model.yml`.
 - The generated overlay is statically validated against a curated Artemis config
