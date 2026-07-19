@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -109,6 +110,18 @@ class DeploymentPackageResourceTest {
         mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"cloud-magic\"}")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_UNKNOWN_DEPLOYMENT_MODE"));
+    }
+
+    @Test
+    void previewRejectsADeploymentModeTheProfileDoesNotSupportWithBadRequest() throws Exception {
+        Path profileDirectory = dataRoot.resolve("deployment-profiles");
+        Files.createDirectories(profileDirectory);
+        Files.writeString(profileDirectory.resolve("docker-only-profile.json"),
+                "{\"id\":\"docker-only-profile\",\"name\":\"Docker Only\",\"version\":\"1.0.0\",\"status\":\"published\",\"supportedDeploymentModes\":[\"local-docker\"]}");
+
+        mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"profileId\":\"docker-only-profile\",\"deploymentMode\":\"dev-ide\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_UNSUPPORTED_DEPLOYMENT_MODE"));
     }
 
     @Test
