@@ -385,31 +385,33 @@
                     }
                 </section>
 
-                <section class="review-section" data-testid="artifact-generation">
-                    <h3>Deployment artifacts</h3>
-                    <p class="artifact-demo-note" data-testid="artifact-demo-note">
-                        This artifact uses placeholder deployment parameters. It validates the generation flow, but real service values must be provided before
-                        production deployment.
-                    </p>
-                    @if (activeProfile(); as profile) {
-                        <p class="muted" data-testid="artifact-profile">Deployment context: <strong>{{ profile.name }}</strong></p>
-                    }
-                    <button
-                        type="button"
-                        class="btn btn-primary w-100"
-                        [disabled]="!isValid() || artifactGenerating()"
-                        (click)="generateArtifacts.emit()"
-                        data-testid="generate-artifacts-button"
-                    >
-                        {{ artifactGenerating() ? 'Generating...' : 'Generate and download artifacts' }}
-                    </button>
-                    @if (!isValid()) {
-                        <p class="muted" data-testid="artifact-invalid-note">Resolve the validation issues above before generating artifacts.</p>
-                    }
-                    @if (artifactErrorMessage(); as error) {
-                        <div class="alert alert-danger" role="alert" data-testid="artifact-error">{{ error }}</div>
-                    }
-                </section>
+                @if (showArtifactsOnlyExport) {
+                    <section class="review-section" data-testid="artifact-generation">
+                        <h3>Deployment artifacts</h3>
+                        <p class="artifact-demo-note" data-testid="artifact-demo-note">
+                            This artifact uses placeholder deployment parameters. It validates the generation flow, but real service values must be provided before
+                            production deployment.
+                        </p>
+                        @if (activeProfile(); as profile) {
+                            <p class="muted" data-testid="artifact-profile">Deployment context: <strong>{{ profile.name }}</strong></p>
+                        }
+                        <button
+                            type="button"
+                            class="btn btn-primary w-100"
+                            [disabled]="!isValid() || artifactGenerating()"
+                            (click)="generateArtifacts.emit()"
+                            data-testid="generate-artifacts-button"
+                        >
+                            {{ artifactGenerating() ? 'Generating...' : 'Generate and download artifacts' }}
+                        </button>
+                        @if (!isValid()) {
+                            <p class="muted" data-testid="artifact-invalid-note">Resolve the validation issues above before generating artifacts.</p>
+                        }
+                        @if (artifactErrorMessage(); as error) {
+                            <div class="alert alert-danger" role="alert" data-testid="artifact-error">{{ error }}</div>
+                        }
+                    </section>
+                }
 
                 <section class="review-section" data-testid="deployment-package">
                     <h3>Deployment package</h3>

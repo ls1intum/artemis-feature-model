@@ -21,6 +21,13 @@ import {
     styleUrl: './guided-configurator-workflow.component.scss',
 })
 export class GuidedConfiguratorWorkflowComponent {
+    /**
+     * Temporarily hides the Level 1 artifacts-only export section on the review page; the deployment package with
+     * its target picker is the primary export path. Flip to true to restore the section — the template, bindings,
+     * and download logic behind it are kept intact.
+     */
+    protected readonly showArtifactsOnlyExport = false;
+
     readonly screen = input.required<ConfiguratorScreen>();
     readonly model = input<ModelMetadata | undefined>(undefined);
     readonly selectedCount = input.required<number>();

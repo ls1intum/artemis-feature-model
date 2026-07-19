@@ -395,8 +395,9 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(profileDependent?.textContent).toContain('need');
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
-        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-demo-note"]')?.textContent).toContain('placeholder deployment parameters');
+        // The artifacts-only export section is temporarily hidden; the deployment package picker is the export path.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-generation"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).toBeNull();
     });
 
     it('shows exact missing capability ids in the advanced tree debug view under a restricted override', () => {
@@ -525,13 +526,16 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
     });
 
-    it('generates and downloads the artifact ZIP directly from the review page, with no preview', () => {
+    it('keeps the artifact ZIP download logic working while its review-page section is hidden', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        clickByTestId(fixture, 'generate-artifacts-button');
+        // The artifacts-only section is temporarily hidden from the review page; the download logic is retained.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-generation"]')).toBeNull();
+
+        fixture.componentInstance.onGenerateArtifacts();
         const downloadRequest = httpMock.expectOne(ARTIFACTS_DOWNLOAD_URL);
         expect(downloadRequest.request.method).toBe('POST');
         expect(downloadRequest.request.responseType).toBe('blob');
@@ -645,7 +649,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).not.toBeNull();
     });
 
-    it('disables artifact generation while the selection is invalid', () => {
+    it('still blocks artifact generation for an invalid selection while the section is hidden', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
@@ -670,8 +674,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        const button = rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]') as HTMLButtonElement;
-        expect(button.disabled).toBe(true);
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-invalid-note"]')).not.toBeNull();
+        fixture.componentInstance.onGenerateArtifacts();
+        httpMock.expectNone(ARTIFACTS_DOWNLOAD_URL);
     });
 });
