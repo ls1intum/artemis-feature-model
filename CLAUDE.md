@@ -134,15 +134,15 @@ Run commands from the repository root:
 
 ```bash
 ./gradlew test                    # server tests
-./gradlew bootRun                 # server on http://localhost:8080
+./gradlew bootRun                 # server on http://localhost:8090
 
 npm install                       # install client dependencies
-npm run start                     # Angular dev server on http://localhost:9000
+npm run start                     # Angular dev server on http://localhost:9090
 npm run build                     # Angular build into build/webapp
 npm run test                      # Angular unit tests with Vitest
 ```
 
-The Angular dev server proxies `/api/**` to `http://localhost:8080`.
+The Angular dev server proxies `/api/**` to `http://localhost:8090`. The local ports deliberately avoid the Artemis dev defaults (8080/9000) so both applications can run side by side.
 
 ## Project Structure
 

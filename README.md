@@ -110,7 +110,7 @@ gradlew, gradlew.bat        Gradle wrapper launchers
 package.json                Angular workspace and scripts
 angular.json                Angular CLI workspace
 tsconfig*.json              TypeScript configs
-proxy.conf.json             dev-server proxy for /api -> :8080
+proxy.conf.json             dev-server proxy for /api -> :8090
 src/main/java/...           Spring Boot server (Artemis-style package split)
 src/main/resources/         application.yml and runtime feature-model JSON
 src/main/webapp/            Angular 21 client (standalone components)
@@ -122,7 +122,7 @@ src/test/java/...           Server tests
 ```bash
 ./gradlew test              # run server unit tests
 ./gradlew test --rerun-tasks # force server unit tests to execute again
-./gradlew bootRun           # start the server on http://localhost:8080
+./gradlew bootRun           # start the server on http://localhost:8090
 ./gradlew bootJar           # build the Angular app and package one runnable jar
 ```
 
@@ -134,12 +134,12 @@ force a fresh server test execution.
 
 ```bash
 npm install                 # install Angular and tooling
-npm run start               # start the dev server on http://localhost:9000
+npm run start               # start the dev server on http://localhost:9090
 npm run build               # production-style build into build/webapp
 npm run test                # run Angular unit tests (Vitest + jsdom)
 ```
 
-The dev server proxies `/api/*` to the server on port 8080.
+The dev server proxies `/api/*` to the server on port 8090. The ports deliberately avoid the Artemis dev defaults (8080/9000) so both applications can run side by side.
 
 ## Deployment build
 
@@ -158,7 +158,7 @@ Build the local Docker image with:
 
 ```bash
 docker build -t artemis-feature-model .
-docker run --rm -p 8080:8080 artemis-feature-model
+docker run --rm -p 8090:8090 artemis-feature-model
 ```
 
 The repository CI workflow runs frontend tests, the frontend production build,
