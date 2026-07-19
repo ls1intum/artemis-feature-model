@@ -55,6 +55,21 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   review page generates and downloads directly; there is no preview step.
   Generation is DEMO-mode only and never writes plaintext secrets — secret
   values appear solely as `${VARIABLE}` placeholders.
+- The deployment package supports an export-time deployment-mode axis (D1+D2):
+  `ArtifactGenerationRequest` takes an optional `deploymentMode` (stable string
+  ids in `DeploymentModes`: `local-docker`, `dev-ide`); an omitted mode keeps
+  the local Docker package byte-identical to the pre-axis output (fixture
+  test), while an explicitly chosen mode is recorded in the package manifest.
+  Profiles may declare `supportedDeploymentModes` (absent = all; unknown
+  entries warn, never fail loading), and an unsupported or unknown mode yields
+  a controlled 400. `DeploymentPackageService` composes packages per mode from
+  shared artifacts; the `dev-ide` mode emits the Level 1 overlay files plus a
+  deterministic IntelliJ run configuration whose `ACTIVE_PROFILES` are derived
+  from the selection (`ActiveProfilesDeriver`: base profiles plus the
+  localci/localvc/buildagent family iff programming or hyperion is selected)
+  and a developer README. The review page offers a deployment-target picker;
+  the guided workflow itself has no deployment decisions. Artifact mappings
+  only reach the overlay when they target `application-feature-model.yml`.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
