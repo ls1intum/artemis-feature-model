@@ -144,6 +144,7 @@ public class FeatureModelValidationService {
         List<ValidationViolationDTO> violations = new ArrayList<>();
         violations.addAll(unknownFeatureViolations(request, featuresById));
         violations.addAll(mandatoryRelationViolations(model, featuresById, selectedKnownIds));
+        violations.addAll(alternativeGroupViolations(model, featuresById, selectedKnownIds));
         violations.addAll(constraintViolations(model, selectedKnownIds));
         return List.copyOf(violations);
     }
@@ -264,6 +265,107 @@ public class FeatureModelValidationService {
 
         ValidationRelationDTO relationDTO = ValidationRelationDTO.fromDomain(relation);
         return new ValidationViolationDTO(ValidationCode.MANDATORY_FEATURE_MISSING.name(), message, List.of(child.id()), relationDTO, suggestion);
+    }
+
+    /**
+     * Reports active alternative groups without a selected child. The relation from a parent to a group carries the
+     * alternative-group semantics; the group's outgoing relations identify its choices.
+     *
+     * @param model model to validate against.
+     * @param featuresById known features keyed by id.
+     * @param selectedKnownIds normalized known selected ids.
+     * @return missing alternative-group selection violations.
+     */
+    private List<ValidationViolationDTO> alternativeGroupViolations(FeatureModel model, Map<String, FeatureNode> featuresById,
+            Set<String> selectedKnownIds) {
+        Set<String> activeFeatureIds = activeFeatureIds(model, selectedKnownIds);
+        List<ValidationViolationDTO> violations = new ArrayList<>();
+
+        for (FeatureRelation relation : model.relations()) {
+            if (!isActiveAlternativeGroup(relation, activeFeatureIds)) {
+                continue;
+            }
+            List<FeatureNode> alternatives = alternativeChildren(model, relation.childId(), featuresById);
+            if (hasSelectedAlternative(alternatives, selectedKnownIds)) {
+                continue;
+            }
+            FeatureNode group = featuresById.get(relation.childId());
+            violations.add(alternativeGroupViolation(relation, group, alternatives));
+        }
+
+        return List.copyOf(violations);
+    }
+
+    /**
+     * Checks whether a relation introduces an active alternative group.
+     *
+     * @param relation relation to inspect.
+     * @param activeFeatureIds active feature ids.
+     * @return true if the relation is an alternative group below an active parent path.
+     */
+    private boolean isActiveAlternativeGroup(FeatureRelation relation, Set<String> activeFeatureIds) {
+        return "group".equals(relation.relationType()) && "alternative".equals(relation.groupType()) && activeFeatureIds.contains(relation.parentId());
+    }
+
+    /**
+     * Finds the selectable children belonging to a group in relation order.
+     *
+     * @param model model to inspect.
+     * @param groupId group feature id.
+     * @param featuresById known features keyed by id.
+     * @return selectable alternative features.
+     */
+    private List<FeatureNode> alternativeChildren(FeatureModel model, String groupId, Map<String, FeatureNode> featuresById) {
+        List<FeatureNode> alternatives = new ArrayList<>();
+        for (FeatureRelation childRelation : model.relations()) {
+            if (!groupId.equals(childRelation.parentId())) {
+                continue;
+            }
+            FeatureNode child = featuresById.get(childRelation.childId());
+            if (isSelectableModule(child)) {
+                alternatives.add(child);
+            }
+        }
+        return List.copyOf(alternatives);
+    }
+
+    /**
+     * Checks whether at least one alternative is selected.
+     *
+     * @param alternatives selectable alternative features.
+     * @param selectedKnownIds normalized known selected ids.
+     * @return true if one or more alternatives are selected.
+     */
+    private boolean hasSelectedAlternative(List<FeatureNode> alternatives, Set<String> selectedKnownIds) {
+        for (FeatureNode alternative : alternatives) {
+            if (selectedKnownIds.contains(alternative.id())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Creates a violation for an active alternative group without a selected child.
+     *
+     * @param relation relation introducing the alternative group.
+     * @param group alternative group feature.
+     * @param alternatives selectable alternatives belonging to the group.
+     * @return validation violation.
+     */
+    private ValidationViolationDTO alternativeGroupViolation(FeatureRelation relation, FeatureNode group, List<FeatureNode> alternatives) {
+        List<String> alternativeIds = new ArrayList<>();
+        List<String> alternativeNames = new ArrayList<>();
+        for (FeatureNode alternative : alternatives) {
+            alternativeIds.add(alternative.id());
+            alternativeNames.add(alternative.name());
+        }
+        String groupName = group == null ? relation.childId() : group.name();
+        String message = groupName + " requires at least one selected alternative.";
+        String suggestion = alternativeNames.isEmpty() ? "Select an alternative in " + groupName + "."
+                : "Enable one of: " + String.join(", ", alternativeNames) + ".";
+        ValidationRelationDTO relationDTO = ValidationRelationDTO.fromDomain(relation);
+        return new ValidationViolationDTO(ValidationCode.ALTERNATIVE_GROUP_SELECTION_MISSING.name(), message, alternativeIds, relationDTO, suggestion);
     }
 
     /**
