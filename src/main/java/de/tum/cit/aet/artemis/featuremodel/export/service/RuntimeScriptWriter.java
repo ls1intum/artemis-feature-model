@@ -362,6 +362,14 @@ public class RuntimeScriptWriter {
                 export FM_ARTEMIS_REPO="$ARTEMIS_REPO"
                 export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
                 export FM_ENV_FILE="$ENV_FILE"
+                if [ -z "${FM_DOCKER_GID:-}" ]; then
+                  if [ "$(uname -s)" = "Darwin" ]; then
+                    FM_DOCKER_GID=0
+                  else
+                    FM_DOCKER_GID="$(stat -Lc '%g' /var/run/docker.sock)"
+                  fi
+                fi
+                export FM_DOCKER_GID
                 OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
                 ARTEMIS_ENV_FILE="${FM_ARTEMIS_ENV_FILE:-$ARTEMIS_REPO/.env}"
 

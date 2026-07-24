@@ -130,12 +130,16 @@ public class RuntimeStackWriter {
         if (database.datasourceUsername() != null) {
             yaml.append("            SPRING_DATASOURCE_USERNAME: \"").append(database.datasourceUsername()).append("\"\n");
         }
+        if (ci.dockerAccess()) {
+            yaml.append("            ").append(RuntimePackageConstants.VERSION_CONTROL_URL_ENV).append(": \"")
+                    .append(RuntimePackageConstants.LOCAL_VERSION_CONTROL_URL).append("\"\n");
+        }
         yaml.append("        depends_on:\n");
         yaml.append("            ").append(database.service()).append(":\n");
         yaml.append("                condition: service_healthy\n");
         if (ci.dockerAccess()) {
             yaml.append("        group_add:\n");
-            yaml.append("            - \"999\"\n");
+            yaml.append("            - \"${").append(RuntimePackageConstants.DOCKER_GID_ENV).append(":-999}\"\n");
             yaml.append("        volumes:\n");
             yaml.append("            - /var/run/docker.sock:/var/run/docker.sock\n");
         }

@@ -13,11 +13,12 @@ services:
             SPRING_PROFILES_ACTIVE: "artemis,scheduling,localci,localvc,buildagent,core,dev,docker"
             SPRING_DATASOURCE_URL: "jdbc:postgresql://artemis-feature-model-postgresql:5432/Artemis?sslmode=disable"
             SPRING_DATASOURCE_USERNAME: "Artemis"
+            ARTEMIS_VERSIONCONTROL_URL: "http://localhost:8080"
         depends_on:
             artemis-feature-model-postgresql:
                 condition: service_healthy
         group_add:
-            - "999"
+            - "${FM_DOCKER_GID:-999}"
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
     artemis-feature-model-postgresql:

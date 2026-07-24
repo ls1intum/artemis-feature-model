@@ -177,11 +177,16 @@ class DeploymentPackageTechnicalSelectionTest {
             assertThat(stack).contains("jdbc:postgresql://artemis-feature-model-postgresql:5432/Artemis?sslmode=disable");
         }
         if ("integrated-code-lifecycle".equals(scenario.ciProviderId())) {
-            assertThat(stack).contains("/var/run/docker.sock:/var/run/docker.sock", "group_add:");
+            assertThat(stack).contains("/var/run/docker.sock:/var/run/docker.sock", "group_add:",
+                    "${FM_DOCKER_GID:-999}", "ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
+            String startScript = content(file(result, DeploymentPackageService.START_LOCAL_REPO_SCRIPT_FILE));
+            assertThat(startScript).contains("FM_DOCKER_GID=0", "stat -Lc '%g' /var/run/docker.sock",
+                    "export FM_DOCKER_GID");
             assertRuntimeCheckStatus(result, RuntimeCheck.STATUS_PASS);
         }
         else {
-            assertThat(stack).doesNotContain("/var/run/docker.sock:/var/run/docker.sock", "group_add:");
+            assertThat(stack).doesNotContain("/var/run/docker.sock:/var/run/docker.sock", "group_add:",
+                    "ARTEMIS_VERSIONCONTROL_URL");
             assertRuntimeCheckStatus(result, RuntimeCheck.STATUS_PASS);
             String checks = content(file(result, DeploymentPackageService.RUNTIME_CHECKS_FILE));
             assertThat(checks).contains("\"id\" : \"jenkins-stack-available\"", "\"overallStatus\" : \"FAIL\"");

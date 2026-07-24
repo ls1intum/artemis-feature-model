@@ -85,6 +85,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   database choice and generating actionable MySQL or PostgreSQL instructions.
   `local-docker` generates an extends-based Compose stack for the selected
   database and CI provider, including selection-consistency runtime checks.
+  Its integrated-code-lifecycle stack points LocalVC at the containerized
+  Artemis server and supplies the host Docker socket group through a
+  platform-aware `FM_DOCKER_GID`.
   Jenkins configuration keys are mapping-driven and secret-safe. A
   local-docker Jenkins package deliberately has no Jenkins service yet, so it
   carries a prominent warning and a failing `jenkins-stack-available` check.

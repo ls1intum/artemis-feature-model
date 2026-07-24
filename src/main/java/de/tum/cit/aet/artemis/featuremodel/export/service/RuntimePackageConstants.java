@@ -112,6 +112,15 @@ public final class RuntimePackageConstants {
     /** Environment variable through which the generated stack locates the local Artemis checkout. */
     public static final String ARTEMIS_REPO_ENV = "FM_ARTEMIS_REPO";
 
+    /** Host Docker socket group passed to Compose so the non-root Artemis user can access the daemon. */
+    public static final String DOCKER_GID_ENV = "FM_DOCKER_GID";
+
+    /** Spring environment variable that overrides the LocalVC base URL inside the Artemis container. */
+    public static final String VERSION_CONTROL_URL_ENV = "ARTEMIS_VERSIONCONTROL_URL";
+
+    /** Single-node LocalVC endpoint served by the containerized Artemis application. */
+    public static final String LOCAL_VERSION_CONTROL_URL = "http://localhost:8080";
+
     /** Package-scoped MySQL service name. */
     public static final String MYSQL_SERVICE = "artemis-feature-model-mysql";
 
