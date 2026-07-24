@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { collectExpandableNodeIds } from '../core/feature-model-tree.utils';
 import { buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
-import { FeatureTreeNode } from '../core/feature-model.types';
+import { Feature, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 
 interface FixtureOptions {
@@ -64,6 +64,66 @@ function toggleFor(fixture: ComponentFixture<FeatureModelDiagramComponent>, feat
     return toggle;
 }
 
+function technicalAlternativeTree(): FeatureTreeNode {
+    const mysql = technicalTreeNode('mysql', 'MySQL', 'database', 'optional');
+    const postgresql = technicalTreeNode('postgresql', 'PostgreSQL', 'database', 'optional');
+    const database: FeatureTreeNode = {
+        feature: technicalFeature('database', 'Database', 'group', false),
+        incomingRelation: incomingRelation('artemis', 'database', 'group', 'alternative'),
+        children: [mysql, postgresql],
+    };
+    return {
+        feature: technicalFeature('artemis', 'Artemis', 'root', false),
+        incomingRelation: null,
+        children: [database],
+    };
+}
+
+function technicalTreeNode(
+    id: string,
+    name: string,
+    parentId: string,
+    relationType: 'mandatory' | 'optional',
+): FeatureTreeNode {
+    return {
+        feature: technicalFeature(id, name, 'feature', true),
+        incomingRelation: incomingRelation(parentId, id, relationType),
+        children: [],
+    };
+}
+
+function technicalFeature(
+    id: string,
+    name: string,
+    kind: 'root' | 'group' | 'feature',
+    selectable: boolean,
+): Feature {
+    return {
+        id,
+        name,
+        kind,
+        selectable,
+        description: null,
+        defaultState: selectable ? 'disabled' : 'not_applicable',
+        source: null,
+        category: kind === 'root' ? 'derived' : 'technical',
+        visibleTo: ['maintainer'],
+        configurableBy: selectable ? ['maintainer'] : [],
+        requiresCapabilities: [],
+        artifactMappings: [],
+        extraction: null,
+    };
+}
+
+function incomingRelation(
+    parentId: string,
+    childId: string,
+    relationType: 'mandatory' | 'optional' | 'group',
+    groupType: 'alternative' | null = null,
+): IncomingRelation {
+    return { parentId, childId, relationType, groupType, order: 1 };
+}
+
 describe('FeatureModelDiagramComponent', () => {
     let mvpTree: FeatureTreeNode;
 
@@ -113,6 +173,45 @@ describe('FeatureModelDiagramComponent', () => {
 
         expect(mandatoryMarkers).toHaveLength(mandatoryCount);
         expect(optionalMarkers).toHaveLength(optionalCount);
+    });
+
+    it('renders a hollow arc for an expanded alternative group', () => {
+        const fixture = createFixture(technicalAlternativeTree());
+        const marker = root(fixture).querySelector('.diagram-group-marker--alternative[data-group-id="database"]');
+
+        expect(marker).not.toBeNull();
+        expect(marker?.getAttribute('d')).toContain(' A ');
+        expect(marker?.getAttribute('aria-label')).toBe('Database: choose exactly one alternative');
+    });
+
+    it('omits optional circles from alternative group children', () => {
+        const fixture = createFixture(technicalAlternativeTree());
+        const optionalMarkers = root(fixture).querySelectorAll('.diagram-marker--optional');
+
+        expect(optionalMarkers).toHaveLength(0);
+    });
+
+    it('does not render an alternative arc when the group is collapsed', () => {
+        const fixture = createFixture(technicalAlternativeTree(), { expandedIds: new Set(['artemis']) });
+        const markers = root(fixture).querySelectorAll('.diagram-group-marker--alternative');
+
+        expect(markers).toHaveLength(0);
+    });
+
+    it('does not render an alternative arc for the ordinary feature tree', () => {
+        const fixture = createFixture(mvpTree);
+        const markers = root(fixture).querySelectorAll('.diagram-group-marker--alternative');
+
+        expect(markers).toHaveLength(0);
+    });
+
+    it('shows the relation notation legend', () => {
+        const fixture = createFixture(technicalAlternativeTree());
+        const legend = root(fixture).querySelector('.diagram-legend');
+
+        expect(legend?.textContent).toContain('Mandatory');
+        expect(legend?.textContent).toContain('Optional');
+        expect(legend?.textContent).toContain('Alternative (choose one)');
     });
 
     it('emits selectFeature when a node is clicked', () => {
