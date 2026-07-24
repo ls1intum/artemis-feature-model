@@ -167,6 +167,13 @@ include:
     description: External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.
     artifactMappings:
       - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: jenkins }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.url, valueFromProfile: artemis.continuous-integration.url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.user, valueFromProfile: artemis.continuous-integration.user, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.password, valueFromProfile: artemis.continuous-integration.password, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.token, valueFromProfile: artemis.continuous-integration.token, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.vcs-credentials, valueFromProfile: artemis.continuous-integration.vcs-credentials, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-key, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-key, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-value, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-value, requiredWhenSelected: true, secret: true }
 
   - anchor: profile:localvc
     id: localvc

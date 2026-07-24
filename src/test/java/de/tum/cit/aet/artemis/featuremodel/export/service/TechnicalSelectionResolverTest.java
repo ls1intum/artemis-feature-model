@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -19,6 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelSt
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
 
 class TechnicalSelectionResolverTest {
 
@@ -71,6 +73,47 @@ class TechnicalSelectionResolverTest {
         assertThat(resolver.resolve(model, selectedFeatureIds).isEmpty()).isTrue();
     }
 
+    @Test
+    void identifiesTheCiOwnerAfterItsAlternativeGroupIsRenamed() {
+        FeatureModel original = technicalModel();
+        List<FeatureRelation> renamedRelations = renamedRelations(original, "ci-provider", "build-system");
+        List<FeatureNode> renamedFeatures = renamedFeatures(original, "ci-provider", "build-system");
+        FeatureModel renamed = model(renamedFeatures, renamedRelations);
+
+        TechnicalSelection selection = resolver.resolve(renamed, Set.of("integrated-code-lifecycle", "localvc"));
+
+        assertThat(selection.ciProviderId()).contains("integrated-code-lifecycle");
+    }
+
+    @Test
+    void rejectsAbsentSelectedValues() {
+        assertInvalidMappingValue(null);
+    }
+
+    @Test
+    void rejectsNonTextSelectedValues() {
+        assertInvalidMappingValue(objectMapper.valueToTree(42));
+    }
+
+    @Test
+    void rejectsBlankSelectedValues() {
+        assertInvalidMappingValue(objectMapper.valueToTree("  "));
+    }
+
+    @Test
+    void rejectsTwoSelectedCiOwners() {
+        assertThatThrownBy(() -> resolver.resolve(technicalModel(), Set.of("integrated-code-lifecycle", "jenkins")))
+                .isInstanceOfSatisfying(ArtifactGenerationException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ARTIFACT_GENERATION_CONFLICTING_TECHNICAL_SELECTION"));
+    }
+
+    @Test
+    void rejectsTwoDifferentDatabaseComposeFiles() {
+        assertThatThrownBy(() -> resolver.resolve(technicalModel(), Set.of("mysql", "postgresql")))
+                .isInstanceOfSatisfying(ArtifactGenerationException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ARTIFACT_GENERATION_CONFLICTING_TECHNICAL_SELECTION"));
+    }
+
     private FeatureModel technicalModel() {
         FeatureNode root = feature("artemis", "root", false, List.of());
         FeatureNode database = feature("database", "group", false, List.of());
@@ -79,13 +122,19 @@ class TechnicalSelectionResolverTest {
                 List.of(mapping(TechnicalSelectionResolver.ENV_TARGET, TechnicalSelectionResolver.SPRING_PROFILES_PATH, "localci,buildagent")));
         FeatureNode localvc = feature("localvc", "feature", true,
                 List.of(mapping(TechnicalSelectionResolver.ENV_TARGET, TechnicalSelectionResolver.SPRING_PROFILES_PATH, "localvc")));
+        FeatureNode jenkins = feature("jenkins", "feature", true,
+                List.of(mapping(TechnicalSelectionResolver.ENV_TARGET, TechnicalSelectionResolver.SPRING_PROFILES_PATH, "jenkins")));
         FeatureNode mysql = feature("mysql", "feature", true,
                 List.of(mapping(TechnicalSelectionResolver.COMPOSE_TARGET, TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "docker/mysql.yml")));
-        List<FeatureNode> features = List.of(root, database, ciProvider, integrated, localvc, mysql);
+        FeatureNode postgresql = feature("postgresql", "feature", true,
+                List.of(mapping(TechnicalSelectionResolver.COMPOSE_TARGET, TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "docker/postgres.yml")));
+        List<FeatureNode> features = List.of(root, database, ciProvider, integrated, jenkins, localvc, mysql, postgresql);
         List<FeatureRelation> relations = List.of(new FeatureRelation("artemis", "database", "group", "alternative", 1),
                 new FeatureRelation("database", "mysql", "optional", null, 1),
+                new FeatureRelation("database", "postgresql", "optional", null, 2),
                 new FeatureRelation("artemis", "ci-provider", "group", "alternative", 2),
                 new FeatureRelation("ci-provider", "integrated-code-lifecycle", "optional", null, 1),
+                new FeatureRelation("ci-provider", "jenkins", "optional", null, 2),
                 new FeatureRelation("artemis", "localvc", "mandatory", null, 3));
         return model(features, relations);
     }
@@ -102,5 +151,42 @@ class TechnicalSelectionResolverTest {
 
     private ArtifactMapping mapping(String target, String path, String value) {
         return new ArtifactMapping(target, path, objectMapper.valueToTree(value), null, null, false, false);
+    }
+
+    private void assertInvalidMappingValue(JsonNode value) {
+        FeatureNode root = feature("artemis", "root", false, List.of());
+        ArtifactMapping invalidMapping = new ArtifactMapping(TechnicalSelectionResolver.ENV_TARGET,
+                TechnicalSelectionResolver.SPRING_PROFILES_PATH, value, null, null, false, false);
+        FeatureNode invalid = feature("invalid", "feature", true, List.of(invalidMapping));
+        FeatureModel model = model(List.of(root, invalid), List.of());
+
+        assertThatThrownBy(() -> resolver.resolve(model, Set.of("invalid")))
+                .isInstanceOfSatisfying(ArtifactGenerationException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ARTIFACT_GENERATION_INVALID_TECHNICAL_MAPPING"));
+    }
+
+    private List<FeatureRelation> renamedRelations(FeatureModel model, String currentId, String replacementId) {
+        List<FeatureRelation> renamed = new ArrayList<>();
+        for (FeatureRelation relation : model.relations()) {
+            renamed.add(renameGroup(relation, currentId, replacementId));
+        }
+        return renamed;
+    }
+
+    private List<FeatureNode> renamedFeatures(FeatureModel model, String currentId, String replacementId) {
+        List<FeatureNode> renamed = new ArrayList<>();
+        for (FeatureNode feature : model.features()) {
+            FeatureNode renamedFeature = currentId.equals(feature.id())
+                    ? feature(replacementId, "group", false, List.of())
+                    : feature;
+            renamed.add(renamedFeature);
+        }
+        return renamed;
+    }
+
+    private FeatureRelation renameGroup(FeatureRelation relation, String currentId, String replacementId) {
+        String parentId = currentId.equals(relation.parentId()) ? replacementId : relation.parentId();
+        String childId = currentId.equals(relation.childId()) ? replacementId : relation.childId();
+        return new FeatureRelation(parentId, childId, relation.relationType(), relation.groupType(), relation.order());
     }
 }

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.shared.exception;
 
+import java.util.Collection;
+
 import org.springframework.http.HttpStatus;
 
 /**
@@ -98,6 +100,29 @@ public class ArtifactGenerationException extends RuntimeException {
     public static ArtifactGenerationException conflictingTechnicalSelection(String axis, String currentValue, String nextValue) {
         String message = "Technical selection has conflicting " + axis + " values '" + currentValue + "' and '" + nextValue + "'.";
         return new ArtifactGenerationException("ARTIFACT_GENERATION_CONFLICTING_TECHNICAL_SELECTION", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a profile-token set with no supported writer-owned ordering.
+     *
+     * @param tokens resolved technical profile tokens.
+     * @return unsupported profile-token exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalProfileTokens(Collection<String> tokens) {
+        String message = "Technical selection declares unsupported Spring profile tokens: " + String.join(", ", tokens) + ".";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_PROFILE_TOKENS", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a resolved technical choice no writer supports.
+     *
+     * @param axis technical axis.
+     * @param value resolved value.
+     * @return unsupported technical-choice exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalChoice(String axis, String value) {
+        String message = "Technical selection declares unsupported " + axis + " choice '" + value + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_CHOICE", message, HttpStatus.BAD_REQUEST);
     }
 
     /**

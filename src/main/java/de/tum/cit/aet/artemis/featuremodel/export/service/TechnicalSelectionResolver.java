@@ -37,8 +37,6 @@ public class TechnicalSelectionResolver {
     /** Structural path whose selected value names the database compose file. */
     static final String DATABASE_COMPOSE_FILE_PATH = "database.composeFile";
 
-    private static final String CI_PROVIDER_GROUP_ID = "ci-provider";
-
     /**
      * Resolves technical mappings of selected features in feature-model order.
      *
@@ -49,7 +47,7 @@ public class TechnicalSelectionResolver {
      *             value, or conflicts with another selected owner of the same axis.
      */
     public TechnicalSelection resolve(FeatureModel model, Set<String> selectedFeatureIds) {
-        Set<String> ciProviderFeatureIds = ciProviderFeatureIds(model);
+        Set<String> ciProviderFeatureIds = tokenContributingAlternativeMembers(model);
         ResolutionAccumulator accumulator = new ResolutionAccumulator();
 
         for (FeatureNode feature : model.features()) {
@@ -87,19 +85,31 @@ public class TechnicalSelectionResolver {
     }
 
     /**
-     * Returns the feature ids directly owned by the CI-provider group.
+     * Returns profile-token contributors that belong to an alternative group.
+     *
+     * <p>
+     * This structural rule identifies CI-provider alternatives without coupling resolution to a particular group id.
+     * Database alternatives do not contribute profile tokens, while the mandatory local-VC leaf is not an alternative
+     * member.
      *
      * @param model active feature model.
-     * @return CI-provider alternative feature ids.
+     * @return token-contributing alternative feature ids.
      */
-    private Set<String> ciProviderFeatureIds(FeatureModel model) {
-        Set<String> featureIds = new LinkedHashSet<>();
+    private Set<String> tokenContributingAlternativeMembers(FeatureModel model) {
+        Set<String> alternativeGroupIds = new LinkedHashSet<>();
         for (FeatureRelation relation : model.relations()) {
-            if (CI_PROVIDER_GROUP_ID.equals(relation.parentId())) {
-                featureIds.add(relation.childId());
+            if ("group".equals(relation.relationType()) && "alternative".equals(relation.groupType())) {
+                alternativeGroupIds.add(relation.childId());
             }
         }
-        return Set.copyOf(featureIds);
+
+        Set<String> memberIds = new LinkedHashSet<>();
+        for (FeatureRelation relation : model.relations()) {
+            if (alternativeGroupIds.contains(relation.parentId())) {
+                memberIds.add(relation.childId());
+            }
+        }
+        return Set.copyOf(memberIds);
     }
 
     /**
