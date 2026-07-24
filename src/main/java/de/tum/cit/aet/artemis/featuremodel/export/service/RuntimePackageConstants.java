@@ -121,6 +121,12 @@ public final class RuntimePackageConstants {
     /** Single-node LocalVC endpoint served by the containerized Artemis application. */
     public static final String LOCAL_VERSION_CONTROL_URL = "http://localhost:8080";
 
+    /** LocalVC build-agent username required when the Docker image does not ship {@code application-localvc.yml}. */
+    public static final String VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV = "ARTEMIS_VERSIONCONTROL_BUILDAGENTGITUSERNAME";
+
+    /** LocalVC build-agent password required when the Docker image does not ship {@code application-localvc.yml}. */
+    public static final String VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV = "ARTEMIS_VERSIONCONTROL_BUILDAGENTGITPASSWORD";
+
     /** Package-scoped MySQL service name. */
     public static final String MYSQL_SERVICE = "artemis-feature-model-mysql";
 

@@ -88,9 +88,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   Its integrated-code-lifecycle stack points LocalVC at the containerized
   Artemis server and supplies the host Docker socket group through a
   platform-aware `FM_DOCKER_GID`.
-  Jenkins configuration keys are mapping-driven and secret-safe. A
-  local-docker Jenkins package deliberately has no Jenkins service yet, so it
-  carries a prominent warning and a failing `jenkins-stack-available` check.
+  Jenkins configuration keys are mapping-driven and secret-safe. Its local
+  Docker package also points LocalVC at the containerized Artemis server and
+  declares the build-agent Git credentials that the production image does not
+  supply through `application-localvc.yml`. A local-docker Jenkins package
+  deliberately has no Jenkins service yet, so it carries a prominent warning
+  and a failing `jenkins-stack-available` check.
   The curated model still has no technical subtree and retains byte-identical
   package output.
 - The generated overlay is statically validated against a curated Artemis config

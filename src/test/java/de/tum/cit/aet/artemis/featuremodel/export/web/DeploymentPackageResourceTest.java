@@ -77,7 +77,8 @@ class DeploymentPackageResourceTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,
                 new TechnicalSelectionResolver(), new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
-                new RuntimeStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new RuntimeStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();

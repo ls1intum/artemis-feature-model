@@ -71,7 +71,7 @@ class DeploymentPackageByteIdentityTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
     }
 
     @Test

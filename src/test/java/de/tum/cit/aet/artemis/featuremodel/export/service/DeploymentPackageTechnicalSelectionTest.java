@@ -66,7 +66,7 @@ class DeploymentPackageTechnicalSelectionTest {
                 new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
     }
 
     @Test
@@ -171,6 +171,7 @@ class DeploymentPackageTechnicalSelectionTest {
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/docker/artemis.yml");
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + scenario.databaseComposeFile());
         assertThat(stack).contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"");
+        assertThat(stack).contains("ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
 
         if ("postgresql".equals(scenario.databaseId())) {
             assertThat(stack).contains("SPRING_DATASOURCE_USERNAME: \"Artemis\"");
@@ -182,11 +183,19 @@ class DeploymentPackageTechnicalSelectionTest {
             String startScript = content(file(result, DeploymentPackageService.START_LOCAL_REPO_SCRIPT_FILE));
             assertThat(startScript).contains("FM_DOCKER_GID=0", "stat -Lc '%g' /var/run/docker.sock",
                     "export FM_DOCKER_GID");
+            String envExample = content(file(result, ArtifactGenerationService.ENV_FILE));
+            assertThat(envExample).doesNotContain(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV,
+                    RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV);
             assertRuntimeCheckStatus(result, RuntimeCheck.STATUS_PASS);
         }
         else {
-            assertThat(stack).doesNotContain("/var/run/docker.sock:/var/run/docker.sock", "group_add:",
-                    "ARTEMIS_VERSIONCONTROL_URL");
+            assertThat(stack).doesNotContain("/var/run/docker.sock:/var/run/docker.sock", "group_add:");
+            String envExample = content(file(result, ArtifactGenerationService.ENV_FILE));
+            assertThat(envExample).contains(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV + "=",
+                    RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV + "=");
+            String envDemo = content(file(result, DeploymentPackageService.ENV_DEMO_FILE));
+            assertThat(envDemo).contains(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV + "=demo-change-me",
+                    RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV + "=demo-change-me");
             assertRuntimeCheckStatus(result, RuntimeCheck.STATUS_PASS);
             String checks = content(file(result, DeploymentPackageService.RUNTIME_CHECKS_FILE));
             assertThat(checks).contains("\"id\" : \"jenkins-stack-available\"", "\"overallStatus\" : \"FAIL\"");

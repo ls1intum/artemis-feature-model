@@ -252,7 +252,7 @@ class GeneratedModelImportParityTest {
                 new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
     }
 
     private ArtifactGenerationRequest packageRequest(List<String> selectedFeatureIds, String deploymentMode) {

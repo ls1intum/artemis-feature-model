@@ -138,6 +138,8 @@ public class DeploymentPackageService {
 
     private final DevIdeTemplateWriter devIdeTemplateWriter;
 
+    private final EnvExampleWriter envExampleWriter;
+
     private final ObjectMapper objectMapper;
 
     /**
@@ -153,13 +155,14 @@ public class DeploymentPackageService {
      * @param scriptWriter writer for the local-docker helper scripts.
      * @param activeProfilesDeriver deriver of the dev-ide {@code ACTIVE_PROFILES} value from the selection.
      * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
+     * @param envExampleWriter writer for local-docker environment declarations.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
     public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, FeatureModelCatalogService featureModelCatalogService,
             DeploymentProfileService deploymentProfileService, TechnicalSelectionResolver technicalSelectionResolver,
             StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeStackWriter stackWriter,
             RuntimeScriptWriter scriptWriter, ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter,
-            ObjectMapper objectMapper) {
+            EnvExampleWriter envExampleWriter, ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
         this.featureModelCatalogService = featureModelCatalogService;
         this.deploymentProfileService = deploymentProfileService;
@@ -170,6 +173,7 @@ public class DeploymentPackageService {
         this.scriptWriter = scriptWriter;
         this.activeProfilesDeriver = activeProfilesDeriver;
         this.devIdeTemplateWriter = devIdeTemplateWriter;
+        this.envExampleWriter = envExampleWriter;
         this.objectMapper = objectMapper;
     }
 
@@ -347,11 +351,12 @@ public class DeploymentPackageService {
      */
     private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {
         GenerationReport report = shared.report();
-        List<String> requiredEnvVars = shared.requiredEnvVars();
         TechnicalSelection selection = shared.technicalSelection();
+        List<String> requiredEnvVars = localDockerEnvironmentVariables(shared.requiredEnvVars(), selection);
         boolean technicalStack = !selection.isEmpty();
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection);
+        String envExample = envExampleWriter.write(requiredEnvVars);
         String envDemo = templateWriter.envDemo(requiredEnvVars);
         String stackContent = technicalStack ? stackWriter.write(selection) : null;
 
@@ -363,7 +368,7 @@ public class DeploymentPackageService {
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, packageReadme));
         files.add(shared.overlay());
-        files.add(shared.envExample());
+        files.add(new GeneratedArtifactFile(shared.envExample().path(), shared.envExample().contentType(), envExample));
         files.add(new GeneratedArtifactFile(ENV_DEMO_FILE, CONTENT_TYPE_TEXT, envDemo));
         files.add(new GeneratedArtifactFile(ENV_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.envReadme()));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
@@ -386,6 +391,22 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript(technicalStack)));
         files.add(new GeneratedArtifactFile(PRINT_SUMMARY_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.printRuntimeSummaryScript()));
         return files;
+    }
+
+    /**
+     * Adds the LocalVC build credentials required by the Jenkins Docker profile family.
+     *
+     * @param overlayEnvironmentVariables environment variables referenced by the generated overlay.
+     * @param selection resolved technical selection.
+     * @return sorted local-docker environment variables.
+     */
+    private List<String> localDockerEnvironmentVariables(List<String> overlayEnvironmentVariables, TechnicalSelection selection) {
+        TreeSet<String> environmentVariables = new TreeSet<>(overlayEnvironmentVariables);
+        if ("jenkins".equals(selection.ciProviderId().orElse(null))) {
+            environmentVariables.add(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV);
+            environmentVariables.add(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV);
+        }
+        return List.copyOf(environmentVariables);
     }
 
     /**
