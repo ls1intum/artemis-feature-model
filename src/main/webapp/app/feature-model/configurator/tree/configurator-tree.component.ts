@@ -92,9 +92,30 @@ export class ConfiguratorTreeComponent {
     });
     readonly selectedFeature = computed<Feature | null>(() => this.selectedNode()?.feature ?? null);
     readonly selectedIncomingRelation = computed<IncomingRelation | null>(() => this.selectedNode()?.incomingRelation ?? null);
+    readonly treeToggleableFeatureIds = computed<ReadonlySet<string>>(() => {
+        const toggleable = new Set(this.selectableFeatureIds());
+        collectLockedTechnicalFeatureIds(this.tree(), toggleable);
+        return toggleable;
+    });
     readonly isSelectedFeatureToggleable = computed(() => {
         const feature = this.selectedFeature();
-        return Boolean(feature && this.selectableFeatureIds().has(feature.id));
+        return Boolean(feature && this.treeToggleableFeatureIds().has(feature.id));
+    });
+    readonly isSelectedFeatureLocked = computed(() => {
+        const feature = this.selectedFeature();
+        return Boolean(feature && this.selectableFeatureIds().has(feature.id) && !this.treeToggleableFeatureIds().has(feature.id));
+    });
+    readonly selectedAlternativeGroup = computed<FeatureTreeNode | null>(() => {
+        const selectedId = this.selectedFeatureId();
+        return selectedId ? findAlternativeGroup(this.tree(), selectedId) : null;
+    });
+    readonly isSelectedFeatureAlternative = computed(() => this.selectedAlternativeGroup() !== null);
+    readonly canClearSelectedFeature = computed(() => {
+        const group = this.selectedAlternativeGroup();
+        if (!group || !this.isSelectedFeatureEnabled()) {
+            return true;
+        }
+        return group.children.some((child) => child.feature.id !== this.selectedFeatureId() && this.selectedFeatureIds().has(child.feature.id));
     });
     readonly isSelectedFeatureEnabled = computed(() => {
         const id = this.selectedFeatureId();
@@ -140,16 +161,41 @@ export class ConfiguratorTreeComponent {
 
     /** Emits a complete replacement set because selection ownership stays in the parent configurator. */
     onToggleSelection(id: string): void {
-        if (!this.selectableFeatureIds().has(id)) {
+        if (!this.treeToggleableFeatureIds().has(id)) {
             return;
         }
         const next = new Set(this.selectedFeatureIds());
+        const alternativeGroup = findAlternativeGroup(this.tree(), id);
+        if (alternativeGroup) {
+            this.toggleAlternative(next, alternativeGroup, id);
+            return;
+        }
         if (next.has(id)) {
             next.delete(id);
         } else {
             next.add(id);
         }
         this.selectionChange.emit(next);
+    }
+
+    /** Applies radio-style selection within an alternative group. */
+    private toggleAlternative(selection: Set<string>, group: FeatureTreeNode, featureId: string): void {
+        if (selection.has(featureId)) {
+            const anotherAlternativeSelected = group.children.some(
+                (child) => child.feature.id !== featureId && selection.has(child.feature.id),
+            );
+            if (!anotherAlternativeSelected) {
+                return;
+            }
+            selection.delete(featureId);
+            this.selectionChange.emit(selection);
+            return;
+        }
+        for (const alternative of group.children) {
+            selection.delete(alternative.feature.id);
+        }
+        selection.add(featureId);
+        this.selectionChange.emit(selection);
     }
 
     onToggleExpand(id: string): void {
@@ -196,4 +242,40 @@ export class ConfiguratorTreeComponent {
             this.selectedFeatureId.set(firstMatch);
         }
     }
+}
+
+/** Removes mandatory technical leaves from the diagram's toggleable id set. */
+function collectLockedTechnicalFeatureIds(node: FeatureTreeNode | null, toggleableIds: Set<string>): void {
+    if (!node) {
+        return;
+    }
+    const mandatoryTechnicalLeaf =
+        node.feature.category === 'technical' &&
+        node.feature.selectable &&
+        node.incomingRelation?.relationType === 'mandatory';
+    if (mandatoryTechnicalLeaf) {
+        toggleableIds.delete(node.feature.id);
+    }
+    for (const child of node.children) {
+        collectLockedTechnicalFeatureIds(child, toggleableIds);
+    }
+}
+
+/** Finds the alternative group that directly owns a feature id. */
+function findAlternativeGroup(node: FeatureTreeNode | null, featureId: string): FeatureTreeNode | null {
+    if (!node) {
+        return null;
+    }
+    const isAlternativeGroup = node.incomingRelation?.groupType === 'alternative';
+    const ownsFeature = node.children.some((child) => child.feature.id === featureId);
+    if (isAlternativeGroup && ownsFeature) {
+        return node;
+    }
+    for (const child of node.children) {
+        const match = findAlternativeGroup(child, featureId);
+        if (match) {
+            return match;
+        }
+    }
+    return null;
 }

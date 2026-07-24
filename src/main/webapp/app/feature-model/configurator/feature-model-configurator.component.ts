@@ -412,7 +412,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
      * active profile does not support are reconciled out with a clear note instead of being silently configured.
      */
     onReplaceSelection(nextSelection: ReadonlySet<string>): void {
-        const { selection, removed } = this.withoutUnavailableFeatures(nextSelection);
+        const { selection, removed } = this.withoutCapabilityUnavailableFeatures(nextSelection);
         const inferred = cloneDecisionOptionMap(this.inferSelectedDecisionOptions(selection));
         this.removeHiddenOptionSelections(selection, inferred);
         this.selectedFeatureIds.set(selection);
@@ -529,13 +529,13 @@ export class FeatureModelConfiguratorComponent implements OnInit {
      * names. With the bundled prototype profile every capability is provided, so this only filters when a maintainer
      * local override restricts capabilities.
      */
-    private withoutUnavailableFeatures(selection: ReadonlySet<string>): { selection: Set<string>; removed: string[] } {
+    private withoutCapabilityUnavailableFeatures(selection: ReadonlySet<string>): { selection: Set<string>; removed: string[] } {
         const availabilityById = this.featureAvailabilityById();
         const kept = new Set<string>();
         const removed: string[] = [];
         for (const id of selection) {
             const availability = availabilityById.get(id);
-            if (availability && !availability.available) {
+            if (availability && availability.missingCapabilities.length > 0) {
                 removed.push(availability.featureName);
             } else {
                 kept.add(id);
@@ -553,12 +553,15 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     }
 
     /**
-     * Creates the starting feature set for a template while respecting model defaults, selectable nodes, and the active
-     * deployment profile. Features the active profile does not support are dropped so the guided flow never starts with
-     * an unavailable selection.
+     * Creates the starting feature set for a template as a delta over features addressed by the guided workflow.
+     * Guided functional features keep the existing preset semantics, while technical features retain their
+     * current/default state. Features missing a deployment capability are dropped.
      */
     private initialSelectionForTemplate(template: UseCaseTemplate): ReadonlySet<string> {
-        const selected = template.selectedFeatureIds.length > 0 ? new Set<string>(template.selectedFeatureIds) : new Set<string>(this.response()?.defaultSelectedFeatureIds ?? []);
+        const selected = this.templateSelectionBaseline();
+        if (template.selectedFeatureIds.length > 0) {
+            this.replaceFunctionalTemplateSelection(selected, template.selectedFeatureIds);
+        }
         for (const id of template.deselectedFeatureIds) {
             selected.delete(id);
         }
@@ -567,7 +570,36 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                 selected.delete(id);
             }
         }
-        return this.withoutUnavailableFeatures(selected).selection;
+        return this.withoutCapabilityUnavailableFeatures(selected).selection;
+    }
+
+    /** Starts a template from model defaults while retaining the current state of technical features. */
+    private templateSelectionBaseline(): Set<string> {
+        const baseline = new Set(this.response()?.defaultSelectedFeatureIds ?? []);
+        const current = this.selectedFeatureIds();
+        for (const feature of this.response()?.features ?? []) {
+            if (!feature.selectable || feature.category !== 'technical') {
+                continue;
+            }
+            if (current.has(feature.id)) {
+                baseline.add(feature.id);
+            } else if (current.size > 0) {
+                baseline.delete(feature.id);
+            }
+        }
+        return baseline;
+    }
+
+    /** Replaces the guided functional portion of a template while leaving technical selections unchanged. */
+    private replaceFunctionalTemplateSelection(selection: Set<string>, selectedFeatureIds: string[]): void {
+        for (const feature of this.response()?.features ?? []) {
+            if (feature.selectable && feature.category !== 'technical') {
+                selection.delete(feature.id);
+            }
+        }
+        for (const id of selectedFeatureIds) {
+            selection.add(id);
+        }
     }
 
     /** Resolves the workflow steps that should be shown for a template, sorted by authored order. */

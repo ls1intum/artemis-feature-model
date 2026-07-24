@@ -70,7 +70,7 @@
                     [selectedFeatureIds]="selectedFeatureIds()"
                     [violationIds]="violationIds()"
                     [warningIds]="warningIds()"
-                    [toggleableIds]="selectableFeatureIds()"
+                    [toggleableIds]="treeToggleableFeatureIds()"
                     [configurationMode]="true"
                     (selectFeature)="onSelectFeature($event)"
                     (toggleExpand)="onToggleExpand($event)"
@@ -114,14 +114,33 @@
                         <div class="form-check form-switch">
                             <input
                                 class="form-check-input"
-                                type="checkbox"
-                                role="switch"
+                                [type]="isSelectedFeatureAlternative() ? 'radio' : 'checkbox'"
+                                [attr.role]="isSelectedFeatureAlternative() ? null : 'switch'"
                                 [id]="'tree-toggle-' + node.feature.id"
                                 [checked]="isSelectedFeatureEnabled()"
+                                [disabled]="isSelectedFeatureEnabled() && !canClearSelectedFeature()"
                                 (change)="onToggleSelection(node.feature.id)"
                                 data-testid="tree-details-toggle"
                             />
                             <label class="form-check-label" [for]="'tree-toggle-' + node.feature.id">Enable {{ node.feature.name }}</label>
+                        </div>
+                    </section>
+                } @else if (isSelectedFeatureLocked()) {
+                    <section class="details-section">
+                        <h4>Configuration</h4>
+                        <div class="form-check form-switch">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                                [id]="'tree-toggle-' + node.feature.id"
+                                [checked]="isSelectedFeatureEnabled()"
+                                disabled
+                                data-testid="tree-details-toggle"
+                            />
+                            <label class="form-check-label" [for]="'tree-toggle-' + node.feature.id">
+                                {{ node.feature.name }} is mandatory
+                            </label>
                         </div>
                     </section>
                 } @else {
