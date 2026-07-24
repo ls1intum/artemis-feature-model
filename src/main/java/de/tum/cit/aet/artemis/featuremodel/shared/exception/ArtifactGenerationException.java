@@ -62,6 +62,45 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for a selected structural mapping this stage does not recognize.
+     *
+     * @param featureId mapping owner.
+     * @param target mapping target.
+     * @param path mapping path.
+     * @return unsupported technical-mapping exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalMapping(String featureId, String target, String path) {
+        String message = "Feature '" + featureId + "' declares unsupported technical mapping '" + target + ":" + path + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_MAPPING", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a structural mapping without a usable selected text value.
+     *
+     * @param featureId mapping owner.
+     * @param target mapping target.
+     * @param path mapping path.
+     * @return invalid technical-mapping value exception.
+     */
+    public static ArtifactGenerationException invalidTechnicalMappingValue(String featureId, String target, String path) {
+        String message = "Feature '" + featureId + "' must declare a non-blank text value for technical mapping '" + target + ":" + path + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_INVALID_TECHNICAL_MAPPING", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception when more than one selected feature owns the same technical axis.
+     *
+     * @param axis technical axis label.
+     * @param currentValue first selected owner or value.
+     * @param nextValue conflicting selected owner or value.
+     * @return conflicting technical-selection exception.
+     */
+    public static ArtifactGenerationException conflictingTechnicalSelection(String axis, String currentValue, String nextValue) {
+        String message = "Technical selection has conflicting " + axis + " values '" + currentValue + "' and '" + nextValue + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_CONFLICTING_TECHNICAL_SELECTION", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Returns the stable error code for this failure.
      *
      * @return error code.

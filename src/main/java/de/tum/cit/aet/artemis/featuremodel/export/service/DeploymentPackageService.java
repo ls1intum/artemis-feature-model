@@ -1,18 +1,21 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
@@ -24,6 +27,8 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelectionMetadata;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import tools.jackson.databind.ObjectMapper;
@@ -40,8 +45,8 @@ import tools.jackson.databind.ObjectMapper;
  * the local-repo Compose override and its README, and the helper scripts. A default-mode request and an explicit
  * local-docker request produce the same package except for the deployment mode recorded in the manifest; a recorded
  * fixture test guards the package bytes against accidental drift, so deliberate content changes must re-baseline the
- * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and the report is
- * the unchanged Phase 5 report.
+ * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and its Phase 5
+ * report gains technical-selection recording only when the active model declares selected structural mappings.
  */
 @Service
 public class DeploymentPackageService {
@@ -109,7 +114,11 @@ public class DeploymentPackageService {
 
     private final ArtifactGenerationService artifactGenerationService;
 
+    private final FeatureModelCatalogService featureModelCatalogService;
+
     private final DeploymentProfileService deploymentProfileService;
+
+    private final TechnicalSelectionResolver technicalSelectionResolver;
 
     private final StaticConfigValidationService staticConfigValidationService;
 
@@ -127,7 +136,9 @@ public class DeploymentPackageService {
      * Creates the deployment package service.
      *
      * @param artifactGenerationService Phase 5 service used to generate the base configuration artifacts.
+     * @param featureModelCatalogService service used to re-read the active feature model for technical resolution.
      * @param deploymentProfileService service used to resolve the active profile for the deployment-mode support check.
+     * @param technicalSelectionResolver resolver for selected structural technical mappings.
      * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
      * @param templateWriter writer for the local-docker runtime template files.
      * @param scriptWriter writer for the local-docker helper scripts.
@@ -135,11 +146,14 @@ public class DeploymentPackageService {
      * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
-    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, DeploymentProfileService deploymentProfileService,
+    public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, FeatureModelCatalogService featureModelCatalogService,
+            DeploymentProfileService deploymentProfileService, TechnicalSelectionResolver technicalSelectionResolver,
             StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter,
             ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter, ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
+        this.featureModelCatalogService = featureModelCatalogService;
         this.deploymentProfileService = deploymentProfileService;
+        this.technicalSelectionResolver = technicalSelectionResolver;
         this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
         this.scriptWriter = scriptWriter;
@@ -158,9 +172,11 @@ public class DeploymentPackageService {
      * @param envExample generated {@code .env.example} file.
      * @param requiredEnvVars environment variable names the overlay references.
      * @param staticValidation static overlay validation result against the Artemis config key catalog.
+     * @param technicalSelection resolved structural technical mappings.
      */
     private record SharedArtifacts(GenerationReport report, Map<String, GeneratedArtifactFile> baseByPath, GeneratedArtifactFile overlay,
-            GeneratedArtifactFile envExample, List<String> requiredEnvVars, StaticConfigValidationReport staticValidation) {
+            GeneratedArtifactFile envExample, List<String> requiredEnvVars, StaticConfigValidationReport staticValidation,
+            TechnicalSelection technicalSelection) {
     }
 
     /**
@@ -168,7 +184,7 @@ public class DeploymentPackageService {
      * deployment mode produces the default local Docker runtime package.
      *
      * @param request artifact generation request (selection, optional profile, optional deployment mode).
-     * @return generated package for the requested mode, with the unchanged Phase 5 report.
+     * @return generated package for the requested mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is invalid, the deployment mode is unknown, or the
      *             active profile does not support the requested mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException if the profile cannot be resolved.
@@ -215,12 +231,61 @@ public class DeploymentPackageService {
      */
     private SharedArtifacts generateSharedArtifacts(ArtifactGenerationRequest request) {
         GeneratedArtifactPackage base = artifactGenerationService.generate(request);
-        Map<String, GeneratedArtifactFile> baseByPath = base.files().stream().collect(Collectors.toMap(GeneratedArtifactFile::path, Function.identity()));
+        FeatureModel model = featureModelCatalogService.loadActiveModel();
+        Set<String> selectedFeatureIds = new LinkedHashSet<>(base.report().selectedFeatureIds());
+        TechnicalSelection technicalSelection = technicalSelectionResolver.resolve(model, selectedFeatureIds);
+        TechnicalSelectionMetadata technicalMetadata = TechnicalSelectionMetadata.from(technicalSelection);
+        GenerationReport report = reportWithTechnicalSelection(base.report(), technicalMetadata);
+
+        Map<String, GeneratedArtifactFile> baseByPath = filesByPath(base.files());
+        replaceGenerationReport(baseByPath, report, technicalMetadata);
         GeneratedArtifactFile overlay = baseByPath.get(ArtifactGenerationService.OVERLAY_FILE);
         GeneratedArtifactFile envExample = baseByPath.get(ArtifactGenerationService.ENV_FILE);
         List<String> requiredEnvVars = parseEnvNames(envExample.content());
         StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
-        return new SharedArtifacts(base.report(), baseByPath, overlay, envExample, requiredEnvVars, staticValidation);
+        return new SharedArtifacts(report, baseByPath, overlay, envExample, requiredEnvVars, staticValidation, technicalSelection);
+    }
+
+    /**
+     * Returns the original Phase 5 report for an empty technical selection, preserving its object and serialized bytes.
+     *
+     * @param report Phase 5 report.
+     * @param metadata technical-selection metadata, or {@code null}.
+     * @return original or augmented report.
+     */
+    private GenerationReport reportWithTechnicalSelection(GenerationReport report, TechnicalSelectionMetadata metadata) {
+        return metadata == null ? report : report.withTechnicalSelection(metadata);
+    }
+
+    /**
+     * Indexes generated files by path without changing their content.
+     *
+     * @param files generated files.
+     * @return files keyed by path.
+     */
+    private Map<String, GeneratedArtifactFile> filesByPath(List<GeneratedArtifactFile> files) {
+        Map<String, GeneratedArtifactFile> filesByPath = new LinkedHashMap<>();
+        for (GeneratedArtifactFile file : files) {
+            filesByPath.put(file.path(), file);
+        }
+        return filesByPath;
+    }
+
+    /**
+     * Replaces the package report file only when technical metadata is present. Curated-model bytes remain untouched.
+     *
+     * @param filesByPath Phase 5 files keyed by path.
+     * @param report report to record.
+     * @param metadata technical-selection metadata, or {@code null}.
+     */
+    private void replaceGenerationReport(Map<String, GeneratedArtifactFile> filesByPath, GenerationReport report,
+            TechnicalSelectionMetadata metadata) {
+        if (metadata == null) {
+            return;
+        }
+        GeneratedArtifactFile current = filesByPath.get(ArtifactGenerationService.REPORT_FILE);
+        GeneratedArtifactFile replacement = new GeneratedArtifactFile(current.path(), current.contentType(), writeJson(report));
+        filesByPath.put(replacement.path(), replacement);
     }
 
     /**
@@ -312,8 +377,8 @@ public class DeploymentPackageService {
                 "Configuration-only package for IDE development; generated in DEMO mode and never resolves real secrets.");
         return new DeploymentPackageManifest(DEV_IDE_PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 DeploymentModes.DEV_IDE, List.of(), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
-                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, null, devIdePackageFilePaths(), requiredEnvVars,
-                readiness);
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, null, report.technicalSelection(),
+                devIdePackageFilePaths(), requiredEnvVars, readiness);
     }
 
     /**
@@ -361,7 +426,8 @@ public class DeploymentPackageService {
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 requestedDeploymentMode, List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO),
                 new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
-                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, packagePaths, requiredEnvVars, readiness);
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, report.technicalSelection(), packagePaths,
+                requiredEnvVars, readiness);
     }
 
     /**

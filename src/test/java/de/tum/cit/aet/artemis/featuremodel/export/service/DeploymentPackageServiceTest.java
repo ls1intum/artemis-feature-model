@@ -57,8 +57,9 @@ class DeploymentPackageServiceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        service = new DeploymentPackageService(artifactGenerationService, profileService, new StaticConfigValidationService(resourceLoader, objectMapper),
-                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+        service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(),
+                new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
     }
 
     @Test
@@ -240,6 +241,18 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.readiness().localRuntimeReady()).isFalse();
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.generatedFiles()).hasSize(10);
+    }
+
+    @Test
+    void omitsTechnicalSelectionMetadataForTheCuratedModelInBothModes() {
+        GeneratedArtifactPackage localDocker = service.generate(request(MINIMAL_SELECTION, null));
+        GeneratedArtifactPackage devIde = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "dev-ide"));
+
+        for (GeneratedArtifactPackage result : List.of(localDocker, devIde)) {
+            assertThat(result.report().technicalSelection()).isNull();
+            assertThat(content(result, ArtifactGenerationService.REPORT_FILE)).doesNotContain("\"technicalSelection\"");
+            assertThat(content(result, DeploymentPackageService.MANIFEST_FILE)).doesNotContain("\"technicalSelection\"");
+        }
     }
 
     @Test

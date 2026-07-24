@@ -25,6 +25,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.CapabilityResolutionService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
@@ -32,6 +33,23 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.FeatureAvailabilityDTO
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.OptionAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelectionMetadata;
+import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
@@ -55,6 +73,7 @@ import de.tum.cit.aet.artemis.featuremodel.validation.dto.ValidationRequest;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Opt-in end-to-end proof on a real Artemis checkout: run the full extraction and generation pipeline, import the
@@ -184,6 +203,23 @@ class GeneratedModelImportParityTest {
         }
     }
 
+    @Test
+    void deploymentPackagesRecordGeneratedModelDefaultsWithoutOtherContentChanges() {
+        SnapshotProperties properties = new SnapshotProperties(dataRoot.toString(), snapshotId);
+        FeatureModelCatalogService generatedCatalog = catalogService(properties);
+        FeatureModel generatedModel = generatedCatalog.loadActiveModel();
+        List<String> defaultSelection = generatedCatalog.defaultSelectedFeatureIds(generatedModel);
+
+        for (String deploymentMode : List.of(DeploymentModes.LOCAL_DOCKER, DeploymentModes.DEV_IDE)) {
+            ArtifactGenerationRequest request = packageRequest(defaultSelection, deploymentMode);
+            GeneratedArtifactPackage recorded = deploymentPackageService(properties, new TechnicalSelectionResolver()).generate(request);
+            GeneratedArtifactPackage unrecorded = deploymentPackageService(properties, new EmptyTechnicalSelectionResolver()).generate(request);
+
+            assertRecordedTechnicalDefaults(recorded);
+            assertOnlyTechnicalMetadataChanged(recorded, unrecorded);
+        }
+    }
+
     private FeatureModelCatalogService catalogService(SnapshotProperties properties) {
         LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper, snapshotRepository);
@@ -203,6 +239,66 @@ class GeneratedModelImportParityTest {
                 new GuidedWorkflowDiagnosticsService());
     }
 
+    private DeploymentPackageService deploymentPackageService(SnapshotProperties properties, TechnicalSelectionResolver technicalSelectionResolver) {
+        FeatureModelCatalogService catalogService = catalogService(properties);
+        FeatureModelTreeService treeService = new FeatureModelTreeService();
+        FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
+        DeploymentProfileRepository profileRepository = new DeploymentProfileRepository(new SnapshotProperties(workingDirectory.toString(), null), objectMapper);
+        DeploymentProfileService profileService = new DeploymentProfileService(profileRepository);
+        ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
+                new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
+        return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(),
+                new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+    }
+
+    private ArtifactGenerationRequest packageRequest(List<String> selectedFeatureIds, String deploymentMode) {
+        if (DeploymentModes.LOCAL_DOCKER.equals(deploymentMode)) {
+            return new ArtifactGenerationRequest(selectedFeatureIds, null, null);
+        }
+        return new ArtifactGenerationRequest(selectedFeatureIds, null, null, deploymentMode);
+    }
+
+    private void assertRecordedTechnicalDefaults(GeneratedArtifactPackage result) {
+        TechnicalSelectionMetadata metadata = result.report().technicalSelection();
+        assertThat(metadata.databaseId()).isEqualTo("mysql");
+        assertThat(metadata.databaseComposeFile()).isEqualTo("docker/mysql.yml");
+        assertThat(metadata.ciProviderId()).isEqualTo("integrated-code-lifecycle");
+        assertThat(metadata.springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
+        assertThat(metadata.databaseDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_RECORDED_NOT_CONSUMED);
+        assertThat(metadata.ciProviderDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_RECORDED_NOT_CONSUMED);
+    }
+
+    private void assertOnlyTechnicalMetadataChanged(GeneratedArtifactPackage recorded, GeneratedArtifactPackage unrecorded) {
+        Map<String, String> unrecordedContent = fileContentByPath(unrecorded);
+        for (GeneratedArtifactFile file : recorded.files()) {
+            String expected = unrecordedContent.get(file.path());
+            if (isTechnicalMetadataFile(file.path())) {
+                assertThat(withoutTechnicalSelection(file.content())).isEqualTo(expected);
+            } else {
+                assertThat(file.content()).as("unchanged content of %s", file.path()).isEqualTo(expected);
+            }
+        }
+    }
+
+    private Map<String, String> fileContentByPath(GeneratedArtifactPackage generatedPackage) {
+        Map<String, String> contentByPath = new LinkedHashMap<>();
+        for (GeneratedArtifactFile file : generatedPackage.files()) {
+            contentByPath.put(file.path(), file.content());
+        }
+        return contentByPath;
+    }
+
+    private boolean isTechnicalMetadataFile(String path) {
+        return "metadata/generation-report.json".equals(path) || "metadata/package-manifest.json".equals(path);
+    }
+
+    private String withoutTechnicalSelection(String json) {
+        ObjectNode root = (ObjectNode) objectMapper.readTree(json);
+        root.remove("technicalSelection");
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+    }
+
     private Map<String, GuidedDecisionOption> optionsById(GuidedWorkflow workflow) {
         Map<String, GuidedDecisionOption> optionsById = new LinkedHashMap<>();
         for (GuidedWorkflowStep step : workflow.steps()) {
@@ -218,6 +314,14 @@ class GeneratedModelImportParityTest {
     private <T> T readResource(String location, Class<T> type) throws Exception {
         try (InputStream inputStream = resourceLoader.getResource(location).getInputStream()) {
             return objectMapper.readValue(inputStream, type);
+        }
+    }
+
+    private static final class EmptyTechnicalSelectionResolver extends TechnicalSelectionResolver {
+
+        @Override
+        public TechnicalSelection resolve(FeatureModel model, Set<String> selectedFeatureIds) {
+            return TechnicalSelection.empty();
         }
     }
 }
