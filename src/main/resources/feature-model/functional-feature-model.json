@@ -1030,6 +1030,84 @@
         "confidence": "high",
         "status": "manually_confirmed"
       }
+    },
+    {
+      "id": "global-search",
+      "name": "Global Search",
+      "kind": "module",
+      "selectable": true,
+      "description": "Optional Weaviate-backed semantic search across courses, exercises, lectures, exams, FAQs, and communication content.",
+      "defaultState": "disabled",
+      "source": {
+        "configKey": "artemis.weaviate.enabled",
+        "frontendConstant": "FeatureToggle.GlobalSearch",
+        "backendConditionClass": "WeaviateEnabled",
+        "evidence": [
+          "Constants.java:576",
+          "WeaviateEnabled.java:13,23",
+          "FeatureToggleService.java:53,123-125",
+          "GlobalSearchResource.java:60,75",
+          "navbar.component.ts:213",
+          "application.yml:166-167"
+        ]
+      },
+      "category": "functional",
+      "visibleTo": [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy": [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities": [
+        "weaviate-service"
+      ],
+      "artifactMappings": [
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.weaviate.enabled",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.global-search.enable",
+          "valueWhenSelected": true,
+          "valueWhenDeselected": false,
+          "valueFromProfile": null
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.weaviate.http-host",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.weaviate.http-host",
+          "requiredWhenSelected": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.weaviate.scheme",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.weaviate.scheme",
+          "requiredWhenSelected": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.weaviate.vectorizer-module",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.weaviate.vectorizer-module",
+          "requiredWhenSelected": true
+        }
+      ],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
     }
   ],
   "relations": [
@@ -1187,6 +1265,12 @@
       "childId": "sharing",
       "relationType": "optional",
       "order": 4
+    },
+    {
+      "parentId": "platform-integrations",
+      "childId": "global-search",
+      "relationType": "optional",
+      "order": 5
     }
   ],
   "constraints": [

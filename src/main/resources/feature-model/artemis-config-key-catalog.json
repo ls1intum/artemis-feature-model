@@ -12,6 +12,7 @@
     { "key": "artemis.atlas.enabled", "type": "boolean" },
     { "key": "artemis.exam.enabled", "type": "boolean" },
     { "key": "artemis.fileupload.enabled", "type": "boolean" },
+    { "key": "artemis.global-search.enable", "type": "boolean" },
     { "key": "artemis.hyperion.enabled", "type": "boolean" },
     { "key": "artemis.iris.enabled", "type": "boolean" },
     { "key": "artemis.iris.secret-token", "type": "string" },
@@ -27,6 +28,10 @@
     { "key": "artemis.theia.enabled", "type": "boolean" },
     { "key": "artemis.theia.portal-url", "type": "url" },
     { "key": "artemis.tutorialgroup.enabled", "type": "boolean" },
+    { "key": "artemis.weaviate.enabled", "type": "boolean" },
+    { "key": "artemis.weaviate.http-host", "type": "string" },
+    { "key": "artemis.weaviate.scheme", "type": "string" },
+    { "key": "artemis.weaviate.vectorizer-module", "type": "string" },
     { "key": "spring.ai.openai.api-key", "type": "string" },
     { "key": "spring.ai.openai.base-url", "type": "url" }
   ]

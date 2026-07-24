@@ -27,7 +27,8 @@
         "lti",
         "theia",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -61,7 +62,8 @@
         "hyperion",
         "lti",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -99,7 +101,8 @@
         "lti",
         "theia",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -135,7 +138,8 @@
         "lti",
         "theia",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -169,7 +173,8 @@
       "deselectedFeatureIds": [
         "lti",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ],
       "recommendedStepIds": [
         "configuration-goal",
@@ -518,7 +523,7 @@
       "id": "ai-and-integrations",
       "title": "AI and Integrations",
       "order": 5,
-      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, modeling conversion, and sharing integration features.",
+      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, modeling conversion, sharing, and global search features.",
       "decisions": [
         {
           "id": "ai-feature-selection",
@@ -630,7 +635,7 @@
         {
           "id": "integration-feature-selection",
           "question": "Which platform integrations should be enabled?",
-          "description": "Integration choices connect Artemis to external learning tools, IDE services, modeling conversion, or exercise sharing platforms.",
+          "description": "Integration choices connect Artemis to external learning tools, IDE services, modeling conversion, exercise sharing, or semantic search platforms.",
           "selectionMode": "multiple",
           "reviewGroupId": "integrations",
           "options": [
@@ -766,6 +771,41 @@
                 "Sharing focuses on programming exercise exchange, not general course content synchronization.",
                 "The integration is useful only when a compatible external Sharing Platform is available."
               ]
+            },
+            {
+              "id": "enable-global-search",
+              "label": "Enable Global Search",
+              "description": "Enable Weaviate-backed semantic search across Artemis content.",
+              "selects": [
+                "global-search"
+              ],
+              "deselects": [],
+              "requiresCapabilities": [
+                "weaviate-service"
+              ],
+              "consequences": [
+                "Adds semantic search across courses, exercises, lectures, exams, FAQs, and communication content.",
+                "Requires a reachable Weaviate service in the active deployment profile."
+              ],
+              "artifactImpacts": [
+                "Enables the Artemis Global Search feature toggle and Weaviate integration in the generated external configuration overlay.",
+                "Adds the Weaviate host, scheme, and vectorizer configuration supplied by the deployment profile."
+              ],
+              "warnings": [
+                "Only available when the active deployment profile provides a Weaviate service."
+              ],
+              "enabledOutcome": [
+                "Students and instructors can search across supported Artemis content from the global navigation.",
+                "Search results can span course material, exercises, exams, FAQs, and public communication content while respecting access rules."
+              ],
+              "recommendedWhen": [
+                "Users need one search entry point across several courses and content types.",
+                "Administrators can provide and operate a Weaviate service."
+              ],
+              "thingsToKnow": [
+                "Global Search depends on an external Weaviate deployment and its indexing lifecycle.",
+                "Iris-enhanced search answers remain optional and require Iris separately."
+              ]
             }
           ]
         }
@@ -839,7 +879,8 @@
         "lti",
         "theia",
         "apollon",
-        "sharing"
+        "sharing",
+        "global-search"
       ]
     }
   ]
