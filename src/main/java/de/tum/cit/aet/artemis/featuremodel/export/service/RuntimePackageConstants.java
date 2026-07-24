@@ -111,5 +111,5 @@ public final class RuntimePackageConstants {
      * {@code devdocs/plan/phase-5/parameter-alignment-audit.md}). Recorded so a user running Layer 1 against a
      * different local checkout is warned about a possible key mismatch.
      */
-    public static final String VERIFIED_ARTEMIS_COMMIT = "51caf4c1eb";
+    public static final String VERIFIED_ARTEMIS_COMMIT = "b1e27eeaaa";
 }

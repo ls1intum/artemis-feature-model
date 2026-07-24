@@ -86,7 +86,7 @@ public class RuntimeTemplateWriter {
                 names and volumes so it does not disturb an existing local Artemis dev environment. Artemis then starts at
                 http://localhost:8080.
 
-                > The overlay keys were verified against Artemis commit `51caf4c1eb`. A local checkout at a very different
+                > The overlay keys were verified against Artemis commit `%s`. A local checkout at a very different
                 > commit may not match every key; review `metadata/generation-report.json` and `metadata/runtime-checks.json`.
 
                 ## Package contents
@@ -100,7 +100,7 @@ public class RuntimeTemplateWriter {
 
                 Run `./scripts/validate-package.sh` to check the package structure and `./scripts/print-runtime-summary.sh`
                 for a quick overview.
-                """.formatted(modelId, modelVersion, profileId, profileVersion);
+                """.formatted(modelId, modelVersion, profileId, profileVersion, RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
     }
 
     /**

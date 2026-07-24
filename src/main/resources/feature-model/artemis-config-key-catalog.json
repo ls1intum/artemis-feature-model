@@ -1,6 +1,6 @@
 {
   "catalogVersion": "1.0.0",
-  "verifiedAgainstArtemisCommit": "51caf4c1eb",
+  "verifiedAgainstArtemisCommit": "b1e27eeaaa",
   "source": "Curated from the Phase 5 parameter alignment audit and re-checked read-only against the Artemis checkout at the referenced commit. Module toggle keys are declared in Artemis core/config/Constants.java; value keys are declared in application*.yml or at their @Value injection sites.",
   "keys": [
     { "key": "artemis.apollon.conversion-service-url", "type": "url" },

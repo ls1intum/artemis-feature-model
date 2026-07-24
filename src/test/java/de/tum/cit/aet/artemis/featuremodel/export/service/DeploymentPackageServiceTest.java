@@ -84,7 +84,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
         assertThat(manifest.generatedFiles()).hasSize(19);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
-        assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo("51caf4c1eb");
+        assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
         assertThat(manifest.database().type()).isEqualTo("mysql");
         assertThat(manifest.database().mode()).isEqualTo("local-container");
     }
