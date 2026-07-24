@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
+
 /**
  * Writes the static and near-static text files that turn the Phase 5 configuration artifacts into a local runtime
  * deployment package: the package README, the demo/README env files, and the Layer 1 (local Artemis repository)
@@ -104,6 +106,52 @@ public class RuntimeTemplateWriter {
     }
 
     /**
+     * Builds the selection-aware package README while preserving the frozen curated-model output.
+     *
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param profileVersion active deployment profile version.
+     * @param selection resolved technical selection.
+     * @return package README.
+     */
+    public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
+            TechnicalSelection selection) {
+        if (selection.isEmpty()) {
+            return packageReadme(modelId, modelVersion, profileId, profileVersion);
+        }
+        String database = selection.databaseId().orElseThrow();
+        String ciProvider = selection.ciProviderId().orElseThrow();
+        String jenkinsWarning = "jenkins".equals(ciProvider)
+                ? "\n> **Jenkins limitation:** configuration is generated, but this package contains no Jenkins service and cannot DEMO-boot a Jenkins stack.\n"
+                : "";
+        return """
+                # Artemis Feature Model — Local Runtime Deployment Package
+
+                Generated from feature model `%s` version `%s` and deployment context `%s` version `%s` in DEMO mode.
+
+                The generated Compose stack applies the selected technical axes:
+
+                - Database: `%s`
+                - CI provider: `%s`
+                - Stack: `deployment/local-repo/artemis-feature-model-stack.yml`
+                %s
+                ## Quick start
+
+                ```bash
+                bash scripts/start-demo.sh /path/to/Artemis
+                ```
+
+                The stack extends `docker/artemis.yml` and the selected database file from that read-only local Artemis
+                checkout. `docker-compose.override.example.yml` adds the generated overlay and package environment file.
+                Set `FM_ARTEMIS_COMPOSE_FILE` to use a different Compose file explicitly.
+
+                This is a local validation artifact, not a production deployment. Secrets remain `${VARIABLE}`
+                placeholders and DEMO values are intentionally unsafe.
+                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, jenkinsWarning);
+    }
+
+    /**
      * Builds the demo env file with dummy values for every referenced environment variable. Clearly labeled as
      * demo-only so it is never mistaken for a real secret store.
      *
@@ -188,6 +236,25 @@ public class RuntimeTemplateWriter {
     }
 
     /**
+     * Builds the overlay-only override used on top of a generated technical stack.
+     *
+     * @return technical-model Compose override.
+     */
+    public String technicalLocalRepoOverride() {
+        return """
+                # Layers package-owned configuration onto the selection-driven stack.
+                services:
+                    artemis-app:
+                        volumes:
+                            - "${FM_OVERLAY_HOST_PATH}:/opt/artemis/config/application-feature-model.yml:ro"
+                        env_file:
+                            - "${FM_ENV_FILE}"
+                        environment:
+                            SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/opt/artemis/config/application-feature-model.yml"
+                """;
+    }
+
+    /**
      * Builds the local-repo README explaining the override, the env vars the start script injects, and the caveats.
      *
      * @return local-repo README markdown text.
@@ -258,5 +325,43 @@ public class RuntimeTemplateWriter {
                   Theia, Apollon, Sharing) may be placeholders; and running actual CI builds (for example Hyperion code
                   generation) needs the Docker socket the base stack mounts, which on macOS may need group/permission tweaks.
                 """;
+    }
+
+    /**
+     * Builds selection-aware local-repository instructions.
+     *
+     * @param selection resolved technical selection.
+     * @return local-repository README.
+     */
+    public String technicalLocalRepoReadme(TechnicalSelection selection) {
+        String database = selection.databaseId().orElseThrow();
+        String databaseFile = selection.databaseComposeFile().orElseThrow();
+        String ciProvider = selection.ciProviderId().orElseThrow();
+        String ciNote = technicalCiNote(ciProvider);
+        return """
+                # Local repository runtime
+
+                `artemis-feature-model-stack.yml` applies `%s` with `%s`. It extends the local checkout's
+                `docker/artemis.yml` and `%s`; the adjacent override only mounts the generated overlay and environment.
+
+                The start script exports `FM_ARTEMIS_REPO`, `FM_OVERLAY_HOST_PATH`, and `FM_ENV_FILE`, then composes both
+                package files. `FM_ARTEMIS_COMPOSE_FILE` remains an explicit escape hatch.
+
+                %s
+                """.formatted(database, ciProvider, databaseFile, ciNote);
+    }
+
+    /**
+     * Describes the local-docker CI-specific behavior.
+     *
+     * @param ciProvider selected CI provider.
+     * @return CI note.
+     */
+    private String technicalCiNote(String ciProvider) {
+        if ("jenkins".equals(ciProvider)) {
+            return "**Warning:** no Jenkins service is generated. This selection is configuration-complete but not "
+                    + "DEMO-bootable as a Jenkins stack.";
+        }
+        return "The integrated code lifecycle stack mounts the Docker socket and adds the Docker group for local CI builds.";
     }
 }

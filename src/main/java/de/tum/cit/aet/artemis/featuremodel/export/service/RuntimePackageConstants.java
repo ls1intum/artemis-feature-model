@@ -106,6 +106,18 @@ public final class RuntimePackageConstants {
     /** Path of the local-repo Compose override inside the package. */
     public static final String LOCAL_REPO_OVERRIDE_PACKAGE_PATH = "deployment/local-repo/docker-compose.override.example.yml";
 
+    /** Selection-driven Compose stack generated for models with technical mappings. */
+    public static final String TECHNICAL_STACK_PACKAGE_PATH = "deployment/local-repo/artemis-feature-model-stack.yml";
+
+    /** Environment variable through which the generated stack locates the local Artemis checkout. */
+    public static final String ARTEMIS_REPO_ENV = "FM_ARTEMIS_REPO";
+
+    /** Package-scoped MySQL service name. */
+    public static final String MYSQL_SERVICE = "artemis-feature-model-mysql";
+
+    /** Package-scoped PostgreSQL service name. */
+    public static final String POSTGRES_SERVICE = "artemis-feature-model-postgresql";
+
     /**
      * Abbreviated Artemis commit the Phase 5 profile keys were verified against (see
      * {@code devdocs/plan/phase-5/parameter-alignment-audit.md}). Recorded so a user running Layer 1 against a

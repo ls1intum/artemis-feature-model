@@ -23,6 +23,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ConsumedParameter;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManifest;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationMessage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
@@ -68,6 +69,8 @@ public class DeploymentPackageService {
 
     static final String LOCAL_REPO_OVERRIDE_FILE = "deployment/local-repo/docker-compose.override.example.yml";
 
+    static final String TECHNICAL_STACK_FILE = RuntimePackageConstants.TECHNICAL_STACK_PACKAGE_PATH;
+
     static final String LOCAL_REPO_README_FILE = "deployment/local-repo/README.md";
 
     static final String PREPARE_ENV_SCRIPT_FILE = "scripts/prepare-env.sh";
@@ -112,6 +115,9 @@ public class DeploymentPackageService {
     /** Matches a leaked {@code env:NAME} reference value that should have been rendered as {@code ${NAME}}. */
     private static final Pattern ENV_LEAK_PATTERN = Pattern.compile("env:[A-Za-z_]");
 
+    private static final String JENKINS_LOCAL_DOCKER_WARNING = "Jenkins configuration was generated, but this package cannot DEMO-boot a Jenkins stack because "
+            + "no Jenkins service is included.";
+
     private final ArtifactGenerationService artifactGenerationService;
 
     private final FeatureModelCatalogService featureModelCatalogService;
@@ -123,6 +129,8 @@ public class DeploymentPackageService {
     private final StaticConfigValidationService staticConfigValidationService;
 
     private final RuntimeTemplateWriter templateWriter;
+
+    private final RuntimeStackWriter stackWriter;
 
     private final RuntimeScriptWriter scriptWriter;
 
@@ -141,6 +149,7 @@ public class DeploymentPackageService {
      * @param technicalSelectionResolver resolver for selected structural technical mappings.
      * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
      * @param templateWriter writer for the local-docker runtime template files.
+     * @param stackWriter writer for selection-driven local-docker stacks.
      * @param scriptWriter writer for the local-docker helper scripts.
      * @param activeProfilesDeriver deriver of the dev-ide {@code ACTIVE_PROFILES} value from the selection.
      * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
@@ -148,14 +157,16 @@ public class DeploymentPackageService {
      */
     public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, FeatureModelCatalogService featureModelCatalogService,
             DeploymentProfileService deploymentProfileService, TechnicalSelectionResolver technicalSelectionResolver,
-            StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeScriptWriter scriptWriter,
-            ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter, ObjectMapper objectMapper) {
+            StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeStackWriter stackWriter,
+            RuntimeScriptWriter scriptWriter, ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter,
+            ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
         this.featureModelCatalogService = featureModelCatalogService;
         this.deploymentProfileService = deploymentProfileService;
         this.technicalSelectionResolver = technicalSelectionResolver;
         this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
+        this.stackWriter = stackWriter;
         this.scriptWriter = scriptWriter;
         this.activeProfilesDeriver = activeProfilesDeriver;
         this.devIdeTemplateWriter = devIdeTemplateWriter;
@@ -201,6 +212,7 @@ public class DeploymentPackageService {
         }
 
         SharedArtifacts shared = generateSharedArtifacts(request);
+        shared = applyModeMetadata(shared, deploymentMode);
         List<GeneratedArtifactFile> files = DeploymentModes.DEV_IDE.equals(deploymentMode) ? composeDevIdeFiles(shared)
                 : composeLocalDockerFiles(shared, requestedDeploymentMode);
 
@@ -234,27 +246,68 @@ public class DeploymentPackageService {
         FeatureModel model = featureModelCatalogService.loadActiveModel();
         Set<String> selectedFeatureIds = new LinkedHashSet<>(base.report().selectedFeatureIds());
         TechnicalSelection technicalSelection = technicalSelectionResolver.resolve(model, selectedFeatureIds);
-        TechnicalSelectionMetadata technicalMetadata = TechnicalSelectionMetadata.from(technicalSelection);
-        GenerationReport report = reportWithTechnicalSelection(base.report(), technicalMetadata);
-
         Map<String, GeneratedArtifactFile> baseByPath = filesByPath(base.files());
-        replaceGenerationReport(baseByPath, report, technicalMetadata);
         GeneratedArtifactFile overlay = baseByPath.get(ArtifactGenerationService.OVERLAY_FILE);
         GeneratedArtifactFile envExample = baseByPath.get(ArtifactGenerationService.ENV_FILE);
         List<String> requiredEnvVars = parseEnvNames(envExample.content());
         StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
-        return new SharedArtifacts(report, baseByPath, overlay, envExample, requiredEnvVars, staticValidation, technicalSelection);
+        return new SharedArtifacts(base.report(), baseByPath, overlay, envExample, requiredEnvVars, staticValidation, technicalSelection);
     }
 
     /**
-     * Returns the original Phase 5 report for an empty technical selection, preserving its object and serialized bytes.
+     * Applies mode-specific technical dispositions and rewrites the report only for a technical model.
+     *
+     * @param shared shared artifacts with the Phase 5 report.
+     * @param deploymentMode resolved deployment mode.
+     * @return shared artifacts carrying the mode-specific report.
+     */
+    private SharedArtifacts applyModeMetadata(SharedArtifacts shared, String deploymentMode) {
+        TechnicalSelection selection = shared.technicalSelection();
+        if (selection.isEmpty()) {
+            return shared;
+        }
+
+        TechnicalSelectionMetadata metadata = technicalMetadata(selection, deploymentMode);
+        GenerationReport report = reportWithTechnicalSelection(shared.report(), metadata, deploymentMode, selection);
+        replaceGenerationReport(shared.baseByPath(), report);
+        return new SharedArtifacts(report, shared.baseByPath(), shared.overlay(), shared.envExample(), shared.requiredEnvVars(),
+                shared.staticValidation(), selection);
+    }
+
+    /**
+     * Builds dispositions for the mode that owns each technical axis.
+     *
+     * @param selection resolved technical selection.
+     * @param deploymentMode resolved deployment mode.
+     * @return mode-specific technical metadata.
+     */
+    private TechnicalSelectionMetadata technicalMetadata(TechnicalSelection selection, String deploymentMode) {
+        String databaseDisposition = DeploymentModes.DEV_IDE.equals(deploymentMode)
+                ? TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE
+                : TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+        return TechnicalSelectionMetadata.from(selection, databaseDisposition, TechnicalSelectionMetadata.DISPOSITION_APPLIED);
+    }
+
+    /**
+     * Adds the controlled local-docker Jenkins warning when applicable.
      *
      * @param report Phase 5 report.
-     * @param metadata technical-selection metadata, or {@code null}.
-     * @return original or augmented report.
+     * @param metadata technical metadata.
+     * @param deploymentMode resolved deployment mode.
+     * @param selection resolved technical selection.
+     * @return augmented generation report.
      */
-    private GenerationReport reportWithTechnicalSelection(GenerationReport report, TechnicalSelectionMetadata metadata) {
-        return metadata == null ? report : report.withTechnicalSelection(metadata);
+    private GenerationReport reportWithTechnicalSelection(GenerationReport report, TechnicalSelectionMetadata metadata, String deploymentMode,
+            TechnicalSelection selection) {
+        boolean localDocker = DeploymentModes.LOCAL_DOCKER.equals(deploymentMode);
+        String ciProviderId = selection.ciProviderId().orElse(null);
+        boolean jenkinsSelected = "jenkins".equals(ciProviderId);
+        boolean localDockerJenkins = localDocker && jenkinsSelected;
+        if (!localDockerJenkins) {
+            return report.withTechnicalSelection(metadata);
+        }
+        GenerationMessage warning = GenerationMessage.warning("jenkins", null, JENKINS_LOCAL_DOCKER_WARNING);
+        return report.withTechnicalSelectionAndWarning(metadata, warning);
     }
 
     /**
@@ -276,13 +329,8 @@ public class DeploymentPackageService {
      *
      * @param filesByPath Phase 5 files keyed by path.
      * @param report report to record.
-     * @param metadata technical-selection metadata, or {@code null}.
      */
-    private void replaceGenerationReport(Map<String, GeneratedArtifactFile> filesByPath, GenerationReport report,
-            TechnicalSelectionMetadata metadata) {
-        if (metadata == null) {
-            return;
-        }
+    private void replaceGenerationReport(Map<String, GeneratedArtifactFile> filesByPath, GenerationReport report) {
         GeneratedArtifactFile current = filesByPath.get(ArtifactGenerationService.REPORT_FILE);
         GeneratedArtifactFile replacement = new GeneratedArtifactFile(current.path(), current.contentType(), writeJson(report));
         filesByPath.put(replacement.path(), replacement);
@@ -300,13 +348,17 @@ public class DeploymentPackageService {
     private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {
         GenerationReport report = shared.report();
         List<String> requiredEnvVars = shared.requiredEnvVars();
+        TechnicalSelection selection = shared.technicalSelection();
+        boolean technicalStack = !selection.isEmpty();
 
-        String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion());
+        String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection);
         String envDemo = templateWriter.envDemo(requiredEnvVars);
+        String stackContent = technicalStack ? stackWriter.write(selection) : null;
 
-        List<String> packagePaths = packageFilePaths();
+        List<String> packagePaths = packageFilePaths(technicalStack);
         String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars, requestedDeploymentMode));
-        String checksJson = writeJson(buildRuntimeChecks(shared.overlay().content(), requiredEnvVars, report, packagePaths.size(), shared.staticValidation()));
+        String checksJson = writeJson(buildRuntimeChecks(shared.overlay().content(), requiredEnvVars, report, packagePaths.size(),
+                shared.staticValidation(), stackContent, manifestJson));
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, packageReadme));
@@ -320,13 +372,18 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
         files.add(new GeneratedArtifactFile(RUNTIME_CHECKS_FILE, CONTENT_TYPE_JSON, checksJson));
         files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(shared.staticValidation())));
-        files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, templateWriter.localRepoOverride()));
-        files.add(new GeneratedArtifactFile(LOCAL_REPO_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.localRepoReadme()));
+        if (technicalStack) {
+            files.add(new GeneratedArtifactFile(TECHNICAL_STACK_FILE, CONTENT_TYPE_YAML, stackContent));
+        }
+        String override = technicalStack ? templateWriter.technicalLocalRepoOverride() : templateWriter.localRepoOverride();
+        String localReadme = technicalStack ? templateWriter.technicalLocalRepoReadme(selection) : templateWriter.localRepoReadme();
+        files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, override));
+        files.add(new GeneratedArtifactFile(LOCAL_REPO_README_FILE, CONTENT_TYPE_MARKDOWN, localReadme));
         files.add(new GeneratedArtifactFile(PREPARE_ENV_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.prepareEnvScript()));
         files.add(new GeneratedArtifactFile(START_DEMO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startDemoScript()));
-        files.add(new GeneratedArtifactFile(VALIDATE_PACKAGE_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.validatePackageScript()));
-        files.add(new GeneratedArtifactFile(START_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startLocalRepoScript()));
-        files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript()));
+        files.add(new GeneratedArtifactFile(VALIDATE_PACKAGE_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.validatePackageScript(technicalStack)));
+        files.add(new GeneratedArtifactFile(START_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startLocalRepoScript(technicalStack)));
+        files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript(technicalStack)));
         files.add(new GeneratedArtifactFile(PRINT_SUMMARY_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.printRuntimeSummaryScript()));
         return files;
     }
@@ -341,8 +398,9 @@ public class DeploymentPackageService {
      */
     private List<GeneratedArtifactFile> composeDevIdeFiles(SharedArtifacts shared) {
         GenerationReport report = shared.report();
-        String activeProfiles = activeProfilesDeriver.deriveActiveProfiles(report.selectedFeatureIds());
-        String readme = devIdeTemplateWriter.devIdeReadme(report.modelId(), report.modelVersion(), report.profileId(), activeProfiles, shared.requiredEnvVars());
+        String activeProfiles = activeProfilesDeriver.deriveActiveProfiles(report.selectedFeatureIds(), shared.technicalSelection().springProfileTokens());
+        String readme = devIdeTemplateWriter.devIdeReadme(report.modelId(), report.modelVersion(), report.profileId(), activeProfiles,
+                shared.requiredEnvVars(), shared.technicalSelection());
         String runConfigurationXml = devIdeTemplateWriter.runConfigurationXml(activeProfiles);
         String manifestJson = writeJson(buildDevIdeManifest(report, shared.requiredEnvVars()));
 
@@ -375,9 +433,12 @@ public class DeploymentPackageService {
                         + "referenced Artemis commit; a checkout at a different commit may not match all keys.");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
                 "Configuration-only package for IDE development; generated in DEMO mode and never resolves real secrets.");
+        DeploymentPackageManifest.Database database = selectedDatabase(report, "developer-managed");
+        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report);
         return new DeploymentPackageManifest(DEV_IDE_PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 DeploymentModes.DEV_IDE, List.of(), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
-                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, null, report.technicalSelection(),
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, ciProvider,
+                report.technicalSelection(),
                 devIdePackageFilePaths(), requiredEnvVars, readiness);
     }
 
@@ -398,11 +459,19 @@ public class DeploymentPackageService {
      *
      * @return ordered package file paths.
      */
-    private List<String> packageFilePaths() {
-        return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE, ENV_DEMO_FILE, ENV_README_FILE,
-                ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE,
-                RUNTIME_CHECKS_FILE, STATIC_VALIDATION_FILE, LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, START_DEMO_SCRIPT_FILE,
-                VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE, PRINT_SUMMARY_SCRIPT_FILE);
+    private List<String> packageFilePaths(boolean technicalStack) {
+        List<String> paths = new ArrayList<>();
+        paths.addAll(List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, ArtifactGenerationService.ENV_FILE,
+                ENV_DEMO_FILE, ENV_README_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE,
+                ArtifactGenerationService.PROFILE_SUMMARY_FILE, ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE,
+                RUNTIME_CHECKS_FILE, STATIC_VALIDATION_FILE));
+        if (technicalStack) {
+            paths.add(TECHNICAL_STACK_FILE);
+        }
+        paths.addAll(List.of(LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, START_DEMO_SCRIPT_FILE,
+                VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE,
+                PRINT_SUMMARY_SCRIPT_FILE));
+        return List.copyOf(paths);
     }
 
     /**
@@ -416,18 +485,84 @@ public class DeploymentPackageService {
      */
     private DeploymentPackageManifest buildManifest(GenerationReport report, List<String> packagePaths, List<String> requiredEnvVars,
             String requestedDeploymentMode) {
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT,
-                "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including CI-dependent features such as "
-                        + "Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a different commit may not match all "
-                        + "keys.");
-        DeploymentPackageManifest.Database database = new DeploymentPackageManifest.Database(RuntimePackageConstants.DATABASE_TYPE, "local-container");
-        DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(true, false,
-                "Generated in DEMO mode for local validation only; may contain placeholder values and never resolves real secrets.");
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = localDockerRuntimeInfo(report);
+        DeploymentPackageManifest.Database database = selectedDatabase(report, "local-container");
+        if (database == null) {
+            database = new DeploymentPackageManifest.Database(RuntimePackageConstants.DATABASE_TYPE, "local-container");
+        }
+        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report);
+        boolean jenkinsSelected = ciProvider != null && "jenkins".equals(ciProvider.type());
+        DeploymentPackageManifest.Readiness readiness = localDockerReadiness(jenkinsSelected);
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 requestedDeploymentMode, List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO),
                 new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
-                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, report.technicalSelection(), packagePaths,
-                requiredEnvVars, readiness);
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, ciProvider,
+                report.technicalSelection(), packagePaths, requiredEnvVars, readiness);
+    }
+
+    /**
+     * Builds a selection-aware Artemis runtime note.
+     *
+     * @param report generation report.
+     * @return runtime information.
+     */
+    private DeploymentPackageManifest.ArtemisRuntimeInfo localDockerRuntimeInfo(GenerationReport report) {
+        TechnicalSelectionMetadata metadata = report.technicalSelection();
+        if (metadata == null) {
+            String curatedNote = "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including "
+                    + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a "
+                    + "different commit may not match all keys.";
+            return new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT, curatedNote);
+        }
+
+        String runtimeDescription = "a generated stack for database '" + metadata.databaseId() + "' and CI provider '"
+                + metadata.ciProviderId() + "'";
+        String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the "
+                + "referenced Artemis commit; a checkout at a different commit may not match all keys.";
+        return new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT, note);
+    }
+
+    /**
+     * Reads the selected database from technical metadata.
+     *
+     * @param report generation report.
+     * @param mode manifest database mode.
+     * @return selected database, or {@code null} without a technical database choice.
+     */
+    private DeploymentPackageManifest.Database selectedDatabase(GenerationReport report, String mode) {
+        TechnicalSelectionMetadata metadata = report.technicalSelection();
+        if (metadata == null || metadata.databaseId() == null) {
+            return null;
+        }
+        return new DeploymentPackageManifest.Database(metadata.databaseId(), mode);
+    }
+
+    /**
+     * Reads the selected CI provider from technical metadata.
+     *
+     * @param report generation report.
+     * @return selected CI provider, or {@code null}.
+     */
+    private DeploymentPackageManifest.CiProvider selectedCiProvider(GenerationReport report) {
+        TechnicalSelectionMetadata metadata = report.technicalSelection();
+        if (metadata == null || metadata.ciProviderId() == null) {
+            return null;
+        }
+        return new DeploymentPackageManifest.CiProvider(metadata.ciProviderId(), "spring-profiles");
+    }
+
+    /**
+     * Builds local-docker readiness, making the Jenkins limitation explicit.
+     *
+     * @param jenkinsSelected whether Jenkins is the selected provider.
+     * @return readiness metadata.
+     */
+    private DeploymentPackageManifest.Readiness localDockerReadiness(boolean jenkinsSelected) {
+        if (jenkinsSelected) {
+            return new DeploymentPackageManifest.Readiness(false, false, JENKINS_LOCAL_DOCKER_WARNING);
+        }
+        return new DeploymentPackageManifest.Readiness(true, false,
+                "Generated in DEMO mode for local validation only; may contain placeholder values and never resolves real secrets.");
     }
 
     /**
@@ -439,10 +574,12 @@ public class DeploymentPackageService {
      * @param report Phase 5 generation report.
      * @param fileCount number of files in the package.
      * @param staticValidation static overlay validation result against the Artemis config key catalog.
+     * @param stackContent generated technical stack, or {@code null}.
+     * @param manifestJson serialized package manifest.
      * @return runtime checks report.
      */
     private RuntimeChecksReport buildRuntimeChecks(String overlayContent, List<String> requiredEnvVars, GenerationReport report, int fileCount,
-            StaticConfigValidationReport staticValidation) {
+            StaticConfigValidationReport staticValidation, String stackContent, String manifestJson) {
         List<RuntimeCheck> checks = new ArrayList<>();
 
         checks.add(new RuntimeCheck("required-files-present", "All expected package files were generated.", RuntimeCheck.STATUS_PASS,
@@ -480,8 +617,79 @@ public class DeploymentPackageService {
         checks.add(new RuntimeCheck("placeholder-values-reported", "Placeholder and integration notes are reported for review.", RuntimeCheck.STATUS_INFO,
                 warningCount + " warning(s)/note(s) recorded in metadata/generation-report.json; review before real use."));
 
+        if (stackContent != null) {
+            TechnicalSelectionMetadata metadata = report.technicalSelection();
+            checks.add(technicalSelectionCheck(metadata, stackContent, manifestJson));
+            if ("jenkins".equals(metadata.ciProviderId())) {
+                checks.add(jenkinsStackAvailabilityCheck());
+            }
+        }
+
         boolean anyFailed = checks.stream().anyMatch(check -> RuntimeCheck.STATUS_FAIL.equals(check.status()));
         return new RuntimeChecksReport(RuntimePackageConstants.MODE_DEMO, anyFailed ? RuntimeCheck.STATUS_FAIL : RuntimeCheck.STATUS_PASS, checks);
+    }
+
+    /**
+     * Checks that technical metadata and the rendered stack agree.
+     *
+     * @param metadata technical metadata.
+     * @param stackContent generated stack.
+     * @param manifestJson serialized manifest.
+     * @return technical-selection consistency check.
+     */
+    private RuntimeCheck technicalSelectionCheck(TechnicalSelectionMetadata metadata, String stackContent, String manifestJson) {
+        boolean databaseMatches = stackContent.contains(metadata.databaseComposeFile())
+                && manifestJson.contains("\"type\" : \"" + metadata.databaseId() + "\"");
+        boolean ciMatches = manifestJson.contains("\"type\" : \"" + metadata.ciProviderId() + "\"")
+                && stackContainsExpectedProfiles(stackContent, metadata.ciProviderId());
+        boolean consistent = databaseMatches && ciMatches;
+        String detail = consistent
+                ? "Manifest, generated stack, database mapping, and Docker profile list agree."
+                : technicalSelectionFailureDetail(databaseMatches, ciMatches);
+        return new RuntimeCheck("technical-selection-consistent",
+                "Manifest, stack file, and Docker profile environment agree with the technical selection.",
+                consistent ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL, detail);
+    }
+
+    /**
+     * Records the deliberate local-docker Jenkins limitation as a failing runtime check.
+     *
+     * @return failing Jenkins availability check.
+     */
+    private RuntimeCheck jenkinsStackAvailabilityCheck() {
+        return new RuntimeCheck("jenkins-stack-available", "A Jenkins service is available for the selected Jenkins profiles.",
+                RuntimeCheck.STATUS_FAIL, JENKINS_LOCAL_DOCKER_WARNING);
+    }
+
+    /**
+     * Checks the writer-owned Docker profile list for a CI provider.
+     *
+     * @param stackContent generated stack.
+     * @param ciProviderId selected CI provider.
+     * @return whether the expected exact profile list is present.
+     */
+    private boolean stackContainsExpectedProfiles(String stackContent, String ciProviderId) {
+        String expectedProfiles = "jenkins".equals(ciProviderId)
+                ? RuntimeStackWriter.JENKINS_DOCKER_PROFILES
+                : RuntimeStackWriter.ICL_DOCKER_PROFILES;
+        return stackContent.contains("SPRING_PROFILES_ACTIVE: \"" + expectedProfiles + "\"");
+    }
+
+    /**
+     * Builds a focused consistency failure detail.
+     *
+     * @param databaseMatches database agreement.
+     * @param ciMatches CI agreement.
+     * @return failure detail.
+     */
+    private String technicalSelectionFailureDetail(boolean databaseMatches, boolean ciMatches) {
+        if (!databaseMatches) {
+            return "Database metadata and generated stack disagree.";
+        }
+        if (!ciMatches) {
+            return "CI-provider metadata and Docker profile list disagree.";
+        }
+        return "Technical selection is inconsistent.";
     }
 
     /**

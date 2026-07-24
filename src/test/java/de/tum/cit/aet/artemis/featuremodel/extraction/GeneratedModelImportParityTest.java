@@ -3,7 +3,9 @@ package de.tum.cit.aet.artemis.featuremodel.extraction;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,6 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDT
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelectionMetadata;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
@@ -46,6 +47,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
@@ -73,7 +75,6 @@ import de.tum.cit.aet.artemis.featuremodel.validation.dto.ValidationRequest;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Opt-in end-to-end proof on a real Artemis checkout: run the full extraction and generation pipeline, import the
@@ -204,19 +205,21 @@ class GeneratedModelImportParityTest {
     }
 
     @Test
-    void deploymentPackagesRecordGeneratedModelDefaultsWithoutOtherContentChanges() {
+    void deploymentPackagesConsumeAllTechnicalCombinations() {
         SnapshotProperties properties = new SnapshotProperties(dataRoot.toString(), snapshotId);
         FeatureModelCatalogService generatedCatalog = catalogService(properties);
         FeatureModel generatedModel = generatedCatalog.loadActiveModel();
         List<String> defaultSelection = generatedCatalog.defaultSelectedFeatureIds(generatedModel);
+        DeploymentPackageService packageService = deploymentPackageService(properties, new TechnicalSelectionResolver());
 
-        for (String deploymentMode : List.of(DeploymentModes.LOCAL_DOCKER, DeploymentModes.DEV_IDE)) {
-            ArtifactGenerationRequest request = packageRequest(defaultSelection, deploymentMode);
-            GeneratedArtifactPackage recorded = deploymentPackageService(properties, new TechnicalSelectionResolver()).generate(request);
-            GeneratedArtifactPackage unrecorded = deploymentPackageService(properties, new EmptyTechnicalSelectionResolver()).generate(request);
-
-            assertRecordedTechnicalDefaults(recorded);
-            assertOnlyTechnicalMetadataChanged(recorded, unrecorded);
+        for (String databaseId : List.of("mysql", "postgresql")) {
+            for (String ciProviderId : List.of("integrated-code-lifecycle", "jenkins")) {
+                List<String> selection = technicalSelection(defaultSelection, databaseId, ciProviderId);
+                for (String deploymentMode : List.of(DeploymentModes.LOCAL_DOCKER, DeploymentModes.DEV_IDE)) {
+                    GeneratedArtifactPackage result = packageService.generate(packageRequest(selection, deploymentMode));
+                    assertTechnicalPackage(result, deploymentMode, databaseId, ciProviderId);
+                }
+            }
         }
     }
 
@@ -248,8 +251,8 @@ class GeneratedModelImportParityTest {
         ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
                 new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
-                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(),
-                new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
+                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
     }
 
     private ArtifactGenerationRequest packageRequest(List<String> selectedFeatureIds, String deploymentMode) {
@@ -259,44 +262,60 @@ class GeneratedModelImportParityTest {
         return new ArtifactGenerationRequest(selectedFeatureIds, null, null, deploymentMode);
     }
 
-    private void assertRecordedTechnicalDefaults(GeneratedArtifactPackage result) {
-        TechnicalSelectionMetadata metadata = result.report().technicalSelection();
-        assertThat(metadata.databaseId()).isEqualTo("mysql");
-        assertThat(metadata.databaseComposeFile()).isEqualTo("docker/mysql.yml");
-        assertThat(metadata.ciProviderId()).isEqualTo("integrated-code-lifecycle");
-        assertThat(metadata.springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
-        assertThat(metadata.databaseDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_RECORDED_NOT_CONSUMED);
-        assertThat(metadata.ciProviderDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_RECORDED_NOT_CONSUMED);
+    private List<String> technicalSelection(List<String> defaultSelection, String databaseId, String ciProviderId) {
+        List<String> selection = new ArrayList<>(defaultSelection);
+        selection.removeAll(List.of("mysql", "postgresql", "integrated-code-lifecycle", "jenkins"));
+        selection.add(databaseId);
+        selection.add(ciProviderId);
+        return List.copyOf(selection);
     }
 
-    private void assertOnlyTechnicalMetadataChanged(GeneratedArtifactPackage recorded, GeneratedArtifactPackage unrecorded) {
-        Map<String, String> unrecordedContent = fileContentByPath(unrecorded);
-        for (GeneratedArtifactFile file : recorded.files()) {
-            String expected = unrecordedContent.get(file.path());
-            if (isTechnicalMetadataFile(file.path())) {
-                assertThat(withoutTechnicalSelection(file.content())).isEqualTo(expected);
-            } else {
-                assertThat(file.content()).as("unchanged content of %s", file.path()).isEqualTo(expected);
+    private void assertTechnicalPackage(GeneratedArtifactPackage result, String deploymentMode, String databaseId,
+            String ciProviderId) {
+        TechnicalSelectionMetadata metadata = result.report().technicalSelection();
+        String databaseComposeFile = "postgresql".equals(databaseId) ? "docker/postgres.yml" : "docker/mysql.yml";
+        assertThat(metadata.databaseId()).isEqualTo(databaseId);
+        assertThat(metadata.databaseComposeFile()).isEqualTo(databaseComposeFile);
+        assertThat(metadata.ciProviderId()).isEqualTo(ciProviderId);
+        String databaseDisposition = DeploymentModes.DEV_IDE.equals(deploymentMode)
+                ? TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE
+                : TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+        assertThat(metadata.databaseDisposition()).isEqualTo(databaseDisposition);
+        assertThat(metadata.ciProviderDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_APPLIED);
+        assertThat(fileContent(result, "metadata/static-config-validation.json"))
+                .contains("\"overallStatus\" : \"PASS\"");
+
+        if (DeploymentModes.DEV_IDE.equals(deploymentMode)) {
+            assertDevIdeProfiles(result, ciProviderId);
+            return;
+        }
+        assertLocalDockerReferences(result, databaseComposeFile);
+    }
+
+    private void assertDevIdeProfiles(GeneratedArtifactPackage result, String ciProviderId) {
+        String expectedProfiles = "jenkins".equals(ciProviderId)
+                ? "jenkins,localvc,artemis,scheduling,core,dev,feature-model,feature-model-demo,local"
+                : "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
+        String runConfiguration = fileContent(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
+        assertThat(runConfiguration).contains("ACTIVE_PROFILES\" value=\"" + expectedProfiles + "\"");
+    }
+
+    private void assertLocalDockerReferences(GeneratedArtifactPackage result, String databaseComposeFile) {
+        String stack = fileContent(result, "deployment/local-repo/artemis-feature-model-stack.yml");
+        Path artemisCheckout = Path.of(System.getProperty("artemisPath"));
+        assertThat(Files.isRegularFile(artemisCheckout.resolve("docker/artemis.yml"))).isTrue();
+        assertThat(Files.isRegularFile(artemisCheckout.resolve(databaseComposeFile))).isTrue();
+        assertThat(stack).contains("${FM_ARTEMIS_REPO}/docker/artemis.yml");
+        assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + databaseComposeFile);
+    }
+
+    private String fileContent(GeneratedArtifactPackage generatedPackage, String path) {
+        for (GeneratedArtifactFile file : generatedPackage.files()) {
+            if (path.equals(file.path())) {
+                return file.content();
             }
         }
-    }
-
-    private Map<String, String> fileContentByPath(GeneratedArtifactPackage generatedPackage) {
-        Map<String, String> contentByPath = new LinkedHashMap<>();
-        for (GeneratedArtifactFile file : generatedPackage.files()) {
-            contentByPath.put(file.path(), file.content());
-        }
-        return contentByPath;
-    }
-
-    private boolean isTechnicalMetadataFile(String path) {
-        return "metadata/generation-report.json".equals(path) || "metadata/package-manifest.json".equals(path);
-    }
-
-    private String withoutTechnicalSelection(String json) {
-        ObjectNode root = (ObjectNode) objectMapper.readTree(json);
-        root.remove("technicalSelection");
-        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        throw new IllegalArgumentException("Missing generated file " + path);
     }
 
     private Map<String, GuidedDecisionOption> optionsById(GuidedWorkflow workflow) {
@@ -317,11 +336,4 @@ class GeneratedModelImportParityTest {
         }
     }
 
-    private static final class EmptyTechnicalSelectionResolver extends TechnicalSelectionResolver {
-
-        @Override
-        public TechnicalSelection resolve(FeatureModel model, Set<String> selectedFeatureIds) {
-            return TechnicalSelection.empty();
-        }
-    }
 }

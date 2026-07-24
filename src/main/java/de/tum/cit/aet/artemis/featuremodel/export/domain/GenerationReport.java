@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -95,5 +96,19 @@ public record GenerationReport(String status, String mode, String modelId, Strin
     public GenerationReport withTechnicalSelection(TechnicalSelectionMetadata metadata) {
         return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, consumedParameters,
                 omittedMappings, warnings, errors, metadata);
+    }
+
+    /**
+     * Copies this report with technical metadata and one additional warning.
+     *
+     * @param metadata technical-selection metadata.
+     * @param warning mode-specific generation warning.
+     * @return copied report with warning status.
+     */
+    public GenerationReport withTechnicalSelectionAndWarning(TechnicalSelectionMetadata metadata, GenerationMessage warning) {
+        List<GenerationMessage> updatedWarnings = new ArrayList<>(warnings);
+        updatedWarnings.add(warning);
+        return new GenerationReport(STATUS_GENERATED_WITH_WARNINGS, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds,
+                generatedFiles, consumedParameters, omittedMappings, updatedWarnings, errors, metadata);
     }
 }

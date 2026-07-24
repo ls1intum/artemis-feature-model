@@ -43,6 +43,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageServi
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
@@ -76,7 +77,7 @@ class DeploymentPackageResourceTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,
                 new TechnicalSelectionResolver(), new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
+                new RuntimeStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();

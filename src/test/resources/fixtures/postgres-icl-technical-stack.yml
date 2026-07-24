@@ -1,0 +1,37 @@
+# Generated feature-model stack: postgres database.
+# Extends the matching files in the local Artemis checkout through ${FM_ARTEMIS_REPO}.
+services:
+    artemis-app:
+        extends:
+            file: "${FM_ARTEMIS_REPO}/docker/artemis.yml"
+            service: artemis-app
+        container_name: artemis-feature-model-local-app
+        ports:
+            - "8080:8080"
+            - "5005:5005"
+        environment:
+            SPRING_PROFILES_ACTIVE: "artemis,scheduling,localci,localvc,buildagent,core,dev,docker"
+            SPRING_DATASOURCE_URL: "jdbc:postgresql://artemis-feature-model-postgresql:5432/Artemis?sslmode=disable"
+            SPRING_DATASOURCE_USERNAME: "Artemis"
+        depends_on:
+            artemis-feature-model-postgresql:
+                condition: service_healthy
+        group_add:
+            - "999"
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+    artemis-feature-model-postgresql:
+        extends:
+            file: "${FM_ARTEMIS_REPO}/docker/postgres.yml"
+            service: postgres
+        container_name: artemis-feature-model-local-postgres
+        volumes:
+            - "artemis-feature-model-local-postgresdata:/var/lib/postgresql"
+networks:
+    artemis:
+        name: artemis-feature-model-local
+volumes:
+    artemis-data:
+        name: artemis-feature-model-local-data
+    artemis-feature-model-local-postgresdata:
+        name: artemis-feature-model-local-postgresdata
