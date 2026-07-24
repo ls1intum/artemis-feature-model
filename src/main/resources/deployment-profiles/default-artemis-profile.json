@@ -22,9 +22,6 @@
     "sharing-secret"
   ],
   "parameters": {
-    "database.type": "postgresql",
-    "deployment.mode": "docker-compose",
-    "ci.provider": "localci",
     "artemis.iris.url": "https://pyris.example.com",
     "artemis.iris.secret-token": "env:ARTEMIS_IRIS_SECRET_TOKEN",
     "artemis.iris.ratelimit.default-limit": "-1",
@@ -70,7 +67,7 @@
     "Phase 5 aligned parameter keys to current Artemis configuration paths; see devdocs/plan/phase-5/parameter-alignment-audit.md for the canonical-key evidence table.",
     "Spring AI settings (spring.ai.*) are shared by Hyperion and Atlas; do not model them as Hyperion-only endpoint data.",
     "Secret values are env: references only (artemis.iris.secret-token, artemis.athena.secret, spring.ai.openai.api-key, artemis.atlas.atlasml.auth-token, artemis.sharing.apikey) and are never stored as plaintext.",
-    "database.type, deployment.mode, and ci.provider are deployment-context metadata with no Artemis Spring config key; Artemis selects these via spring.datasource.*, Spring profiles, and artemis.continuous-integration.*. They are not used as artifact-generation targets.",
+    "Technical axes are selected by feature-model features. The legacy database.type, deployment.mode, and ci.provider parameters were removed and are never authoritative.",
     "lti.registrationMode records that LTI platform registration is database-managed in Artemis; it has no canonical YAML key and is not generated. artemis.lti.trustExternalLTISystems is property-injected (LtiService) and keeps its camelCase form.",
     "AtlasML (artemis.atlas.atlasml.*) is optional and disabled by default unless the feature model adds a dedicated AtlasML capability.",
     "artemis.theia.images is environment-specific; the dotted java.java17 key is a flat-map compromise for structured Theia image values.",
