@@ -77,6 +77,9 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A directed relation candidate connects included features without a matching declared constraint. */
     public static final String CODE_RELATION_CANDIDATE_UNDECLARED = "RELATION_CANDIDATE_UNDECLARED";
 
+    /** A manifest constraint references a feature that was not emitted into the generated model. */
+    public static final String CODE_DANGLING_GENERATED_CONSTRAINT = "DANGLING_GENERATED_CONSTRAINT";
+
     /** The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json. */
     public static final String CODE_GUIDED_WORKFLOW_FINDINGS = "GUIDED_WORKFLOW_FINDINGS";
 

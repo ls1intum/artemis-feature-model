@@ -44,6 +44,8 @@ public class FeatureExtractionService {
             Map.entry(ReportItem.CODE_TECHNICAL_FEATURE_ROLE_LEAK, "A technical feature of the generated model is visible or configurable for teachers."),
             Map.entry(ReportItem.CODE_PROFILE_CAPABILITY_MISMATCH, "An included technical feature provides a capability the bundled deployment profile does not list."),
             Map.entry(ReportItem.CODE_RELATION_CANDIDATE_UNDECLARED, "A directed relation candidate connects included features without a matching declared constraint."),
+            Map.entry(ReportItem.CODE_DANGLING_GENERATED_CONSTRAINT,
+                    "A manifest constraint references a feature that was not emitted into the generated model."),
             Map.entry(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, "The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json."),
             Map.entry(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL, "A module or toggle candidate found in Artemis has no matching feature in the active curated model."),
             Map.entry(ReportItem.CODE_CURATED_ANCHOR_MISSING, "A curated feature references a config key, condition class, or frontend constant the scan did not find."),

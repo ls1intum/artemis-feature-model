@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
@@ -43,6 +44,41 @@ class FeatureModelIntegrityServiceTest {
 
         assertThatThrownBy(() -> validateModelWithRelation(invalidRelation)).isInstanceOf(FeatureModelIntegrityException.class)
                 .hasFieldOrPropertyWithValue("code", ValidationCode.MISSING_RELATION_CHILD.name());
+    }
+
+    @Test
+    void acceptsValidRequiresConstraint() {
+        assertThatCode(() -> service.validate(TestFeatureModels.withConstraints(TestFeatureModels.requires("programming", "athena"))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void acceptsValidExcludesConstraint() {
+        assertThatCode(() -> service.validate(TestFeatureModels.withConstraints(TestFeatureModels.excludes("programming", "quiz"))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsMissingConstraintSource() {
+        FeatureConstraint invalidConstraint = new FeatureConstraint("missing-source", "requires", null, "programming", null, "Synthetic invalid constraint.");
+
+        assertThatThrownBy(() -> service.validate(TestFeatureModels.withConstraints(invalidConstraint))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.MISSING_CONSTRAINT_SOURCE.name()).hasMessageContaining("missing-source");
+    }
+
+    @Test
+    void rejectsMissingConstraintTarget() {
+        FeatureConstraint invalidConstraint = TestFeatureModels.requires("programming", "missing-target");
+
+        assertThatThrownBy(() -> service.validate(TestFeatureModels.withConstraints(invalidConstraint))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.MISSING_CONSTRAINT_TARGET.name()).hasMessageContaining("missing-target");
+    }
+
+    @Test
+    void leavesExpressionConstraintEndpointsToExpressionValidation() {
+        FeatureConstraint expression = new FeatureConstraint("expression", "expression", null, null, null, "Synthetic expression constraint.");
+
+        assertThatCode(() -> service.validate(TestFeatureModels.withConstraints(expression))).doesNotThrowAnyException();
     }
 
     @Test

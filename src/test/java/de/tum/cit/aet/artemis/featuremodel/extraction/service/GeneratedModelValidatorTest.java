@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
@@ -51,6 +52,24 @@ class GeneratedModelValidatorTest {
         assertThat(result.artifactValidation().modelIntegrityValid()).isFalse();
         assertThat(result.artifactValidation().snapshotEligible()).isFalse();
         assertThat(result.items()).anySatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_GENERATED_MODEL_INVALID));
+    }
+
+    @Test
+    void danglingConstraintMakesSnapshotIneligible() {
+        FeatureModel valid = model(technicalFeature(List.of("maintainer"), List.of("maintainer")));
+        FeatureConstraint dangling = new FeatureConstraint("alpha-requires-ghost", "requires", "alpha", "ghost", null, "Synthetic invalid constraint.");
+        FeatureModel withDanglingConstraint = new FeatureModel(valid.model(), valid.features(), valid.relations(), List.of(dangling));
+
+        GeneratedModelValidator.Result result = validator.validate(withDanglingConstraint, includes(), coveringWorkflow(),
+                profile(List.of("alpha-service", "tech-capability")));
+
+        assertThat(result.artifactValidation().modelIntegrityValid()).isFalse();
+        assertThat(result.artifactValidation().snapshotEligible()).isFalse();
+        assertThat(result.items()).anySatisfy(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_GENERATED_MODEL_INVALID);
+            assertThat(item.subject()).isEqualTo("MISSING_CONSTRAINT_TARGET");
+            assertThat(item.message()).contains("alpha-requires-ghost").contains("ghost");
+        });
     }
 
     @Test

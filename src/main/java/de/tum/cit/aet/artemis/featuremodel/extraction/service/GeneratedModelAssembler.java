@@ -116,7 +116,7 @@ class GeneratedModelAssembler {
             Map<String, List<ModelNode>> childrenByParent = childrenByParent(nodesById);
             emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
         }
-        List<FeatureConstraint> constraints = assembleConstraints(manifest);
+        List<FeatureConstraint> constraints = assembleConstraints(manifest, features, items);
         reportUndeclaredRelationCandidates(manifest, includedFeatures, relationCandidates, items);
 
         ModelMetadata metadata = new ModelMetadata(GENERATED_MODEL_ID, GENERATED_MODEL_NAME, generatedVersion(artemisCommit), "generated", artemisCommit);
@@ -401,14 +401,37 @@ class GeneratedModelAssembler {
      * Converts the declared manifest constraints into model constraints.
      *
      * @param manifest loaded manifest.
+     * @param emittedFeatures features actually emitted by the hierarchy traversal.
+     * @param items diagnostics sink.
      * @return model constraints in declaration order.
      */
-    private List<FeatureConstraint> assembleConstraints(FeatureScopeManifest manifest) {
+    private List<FeatureConstraint> assembleConstraints(FeatureScopeManifest manifest, List<FeatureNode> emittedFeatures, List<ReportItem> items) {
+        Set<String> emittedIds = new LinkedHashSet<>();
+        emittedFeatures.forEach(feature -> emittedIds.add(feature.id()));
         List<FeatureConstraint> constraints = new ArrayList<>();
         for (ConstraintEntry entry : manifest.constraints()) {
             constraints.add(new FeatureConstraint(entry.id(), entry.type(), entry.source(), entry.target(), null, entry.description()));
+            reportMissingConstraintEndpoint(entry, "source", entry.source(), emittedIds, items);
+            reportMissingConstraintEndpoint(entry, "target", entry.target(), emittedIds, items);
         }
         return List.copyOf(constraints);
+    }
+
+    /**
+     * Reports one constraint endpoint omitted from the generated traversal without silently dropping the constraint.
+     *
+     * @param constraint manifest constraint.
+     * @param endpointName source or target.
+     * @param endpointId referenced feature id.
+     * @param emittedIds ids of features actually emitted into the model.
+     * @param items diagnostics sink.
+     */
+    private void reportMissingConstraintEndpoint(ConstraintEntry constraint, String endpointName, String endpointId, Set<String> emittedIds,
+            List<ReportItem> items) {
+        if (!emittedIds.contains(endpointId)) {
+            items.add(ReportItem.error(ReportItem.CODE_DANGLING_GENERATED_CONSTRAINT, constraint.id(),
+                    "Constraint '" + constraint.id() + "' " + endpointName + " '" + endpointId + "' was not emitted into the generated model."));
+        }
     }
 
     /**

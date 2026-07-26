@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
@@ -28,6 +29,7 @@ public class FeatureModelIntegrityService {
         Map<String, FeatureNode> featuresById = model.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
         validateRootCount(model);
         validateRelationEndpoints(model, featuresById);
+        validateConstraintEndpoints(model, featuresById);
     }
 
     /**
@@ -98,6 +100,30 @@ public class FeatureModelIntegrityService {
             if (!featuresById.containsKey(relation.childId())) {
                 throw new FeatureModelIntegrityException(ValidationCode.MISSING_RELATION_CHILD.name(),
                         "Relation child '" + relation.childId() + "' does not exist.");
+            }
+        }
+    }
+
+    /**
+     * Checks that requires and excludes constraints reference existing source and target feature ids. Expression
+     * constraints retain their expression-owned endpoint contract.
+     *
+     * @param model model containing constraints to validate.
+     * @param featuresById known features keyed by id.
+     * @throws FeatureModelIntegrityException if a non-expression constraint references a missing feature.
+     */
+    private void validateConstraintEndpoints(FeatureModel model, Map<String, FeatureNode> featuresById) {
+        for (FeatureConstraint constraint : model.constraints()) {
+            if (!constraint.isRequires() && !constraint.isExcludes()) {
+                continue;
+            }
+            if (constraint.source() == null || !featuresById.containsKey(constraint.source())) {
+                throw new FeatureModelIntegrityException(ValidationCode.MISSING_CONSTRAINT_SOURCE.name(),
+                        "Constraint '" + constraint.id() + "' source '" + constraint.source() + "' does not exist.");
+            }
+            if (constraint.target() == null || !featuresById.containsKey(constraint.target())) {
+                throw new FeatureModelIntegrityException(ValidationCode.MISSING_CONSTRAINT_TARGET.name(),
+                        "Constraint '" + constraint.id() + "' target '" + constraint.target() + "' does not exist.");
             }
         }
     }

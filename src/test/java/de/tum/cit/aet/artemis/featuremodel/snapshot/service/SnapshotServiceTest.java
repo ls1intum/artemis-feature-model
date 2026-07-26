@@ -126,6 +126,26 @@ class SnapshotServiceTest {
     }
 
     @Test
+    void importRejectsConstraintWithMissingTarget() throws Exception {
+        Path source = SnapshotTestFixtures.writeValidSnapshot(sourceRoot.resolve("dangling-constraint"));
+        Path modelFile = source.resolve(SnapshotTestFixtures.MODEL_FILE);
+        String modelJson = Files.readString(modelFile).replace("\"constraints\": []", """
+                "constraints": [
+                    {
+                      "id": "lecture-requires-ghost",
+                      "type": "requires",
+                      "source": "lecture",
+                      "target": "ghost"
+                    }
+                  ]""");
+        Files.writeString(modelFile, modelJson);
+        Files.writeString(source.resolve(SnapshotTestFixtures.CHECKSUM_FILE), "sha256:" + SnapshotTestFixtures.sha256Hex(modelFile) + "\n");
+
+        assertThatThrownBy(() -> service(null).importSnapshot(new ImportSnapshotRequest(source.toString(), null, false))).isInstanceOf(SnapshotException.class)
+                .satisfies(error -> assertThat(((SnapshotException) error).getCode()).isEqualTo("MISSING_CONSTRAINT_TARGET"));
+    }
+
+    @Test
     void importRejectsMetadataModelMismatch() throws Exception {
         Path source = SnapshotTestFixtures.writeValidSnapshot(sourceRoot.resolve("bad-metadata"));
         Files.writeString(source.resolve(SnapshotTestFixtures.METADATA_FILE), "{ \"modelId\": \"other-model\", \"version\": \"1.0.0\" }");
