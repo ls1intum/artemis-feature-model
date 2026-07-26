@@ -100,7 +100,7 @@ public class FeatureExtractionService {
      */
     public Outcome extract(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog) {
         FeatureScopeManifest emptyManifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, source.commit(), List.of(), List.of(), List.of(),
-                List.of());
+                List.of(), List.of());
         return extract(source, curatedModel, catalog, emptyManifest);
     }
 

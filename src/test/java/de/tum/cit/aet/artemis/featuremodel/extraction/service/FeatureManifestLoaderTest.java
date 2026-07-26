@@ -191,6 +191,94 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
+    void loadsExplicitRenameWithRationale() {
+        FeatureScopeManifest manifest = load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include: [{ anchor: module:alpha, id: alpha-renamed }]
+                renames:
+                  - from: alpha
+                    to: alpha-renamed
+                    rationale: The module kept its semantics.
+                """);
+
+        assertThat(manifest.renames()).singleElement().satisfies(rename -> {
+            assertThat(rename.from()).isEqualTo("alpha");
+            assertThat(rename.to()).isEqualTo("alpha-renamed");
+            assertThat(rename.rationale()).isEqualTo("The module kept its semantics.");
+        });
+    }
+
+    @Test
+    void rejectsRenameWithoutRationale() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include: [{ anchor: module:alpha, id: alpha-renamed }]
+                renames: [{ from: alpha, to: alpha-renamed }]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("renames[0].rationale");
+    }
+
+    @Test
+    void rejectsDuplicateRenameSource() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include:
+                  - { anchor: module:alpha, id: alpha-renamed }
+                  - { anchor: module:beta, id: beta-renamed }
+                renames:
+                  - { from: old, to: alpha-renamed, rationale: First }
+                  - { from: old, to: beta-renamed, rationale: Second }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate rename source 'old'");
+    }
+
+    @Test
+    void rejectsConflictingRenameTarget() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include: [{ anchor: module:alpha, id: alpha-renamed }]
+                renames:
+                  - { from: old-alpha, to: alpha-renamed, rationale: First }
+                  - { from: other-alpha, to: alpha-renamed, rationale: Second }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate rename target 'alpha-renamed'");
+    }
+
+    @Test
+    void rejectsSelfRename() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include: [{ anchor: module:alpha, id: alpha }]
+                renames: [{ from: alpha, to: alpha, rationale: Invalid }]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source and target must differ");
+    }
+
+    @Test
+    void rejectsUnknownRenameTarget() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                renames: [{ from: alpha, to: ghost, rationale: Invalid }]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("target 'ghost' is not a current manifest-declared id");
+    }
+
+    @Test
+    void rejectsRenameFromCurrentIdAndChainedMappings() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 1
+                verifiedAgainstArtemisCommit: abc123
+                include:
+                  - { anchor: module:alpha, id: alpha }
+                  - { anchor: module:beta, id: beta }
+                renames:
+                  - { from: old-alpha, to: alpha, rationale: First }
+                  - { from: alpha, to: beta, rationale: Chained }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source 'alpha' is still a current manifest-declared id");
+    }
+
+    @Test
     void rejectsNonPositiveOrder() {
         assertThatThrownBy(() -> load("""
                 manifestVersion: 1

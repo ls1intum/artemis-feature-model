@@ -13,9 +13,10 @@ import java.util.List;
  * @param exclude explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
  * @param constraints declared cross-tree constraints of the generated model.
+ * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
 public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstArtemisCommit, List<IncludeEntry> include, List<ExcludeEntry> exclude,
-        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints) {
+        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<RenameEntry> renames) {
 
     /** Current manifest schema version. */
     public static final int CURRENT_VERSION = 1;
@@ -40,6 +41,7 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
         exclude = exclude == null ? List.of() : List.copyOf(exclude);
         conceptualNodes = conceptualNodes == null ? List.of() : List.copyOf(conceptualNodes);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        renames = renames == null ? List.of() : List.copyOf(renames);
     }
 
     /**
@@ -118,6 +120,16 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
      * @param description human-readable constraint description, or null.
      */
     public record ConstraintEntry(String id, String type, String source, String target, String description) {
+    }
+
+    /**
+     * Explicitly authorized workflow feature-id rename.
+     *
+     * @param from former feature id referenced by the workflow.
+     * @param to current manifest-declared feature id.
+     * @param rationale maintainer-authored reason why the feature semantics are unchanged.
+     */
+    public record RenameEntry(String from, String to, String rationale) {
     }
 
     /**

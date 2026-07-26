@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 
 /**
  * Loads the relocatable YAML feature scope manifest and fails fast on authoring errors that are wrong regardless of
@@ -28,7 +29,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 public class FeatureManifestLoader {
 
     private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "verifiedAgainstArtemisCommit", "include", "exclude", "conceptualNodes",
-            "constraints");
+            "constraints", "renames");
 
     private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
             "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
@@ -38,6 +39,8 @@ public class FeatureManifestLoader {
     private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "category", "groupType", "order", "name", "description");
 
     private static final Set<String> CONSTRAINT_FIELDS = Set.of("id", "type", "source", "target", "description");
+
+    private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
 
     private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "valueWhenSelected", "valueWhenDeselected", "valueFromProfile",
             "requiredWhenSelected", "secret");
@@ -93,10 +96,12 @@ public class FeatureManifestLoader {
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
         List<ConstraintEntry> constraints = parseConstraints(root.get("constraints"));
+        List<RenameEntry> renames = parseRenames(root.get("renames"));
         validateUniqueness(includes, excludes, conceptualNodes);
         validateInternalReferences(includes, conceptualNodes);
         validateConstraintReferences(constraints, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, verifiedCommit, includes, excludes, conceptualNodes, constraints);
+        validateRenames(renames, includes, conceptualNodes);
+        return new FeatureScopeManifest(manifestVersion, verifiedCommit, includes, excludes, conceptualNodes, constraints, renames);
     }
 
     /**
@@ -197,6 +202,27 @@ public class FeatureManifestLoader {
     }
 
     /**
+     * Parses the explicit workflow rename section.
+     *
+     * @param value raw YAML value of the renames section, or null when absent.
+     * @return parsed rename entries in declaration order.
+     * @throws FeatureManifestException if a rename is malformed.
+     */
+    private List<RenameEntry> parseRenames(Object value) {
+        List<RenameEntry> entries = new ArrayList<>();
+        int index = 0;
+        for (Object item : asList(value, "renames")) {
+            String location = "renames[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, RENAME_FIELDS, location);
+            entries.add(new RenameEntry(requiredString(entry, "from", location), requiredString(entry, "to", location),
+                    requiredString(entry, "rationale", location)));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
      * Parses the artifact mapping hints of an include entry.
      *
      * @param value raw YAML value of the artifactMappings field, or null when absent.
@@ -283,6 +309,35 @@ public class FeatureManifestLoader {
             requireUnique(constraintIds, constraint.id(), "Duplicate constraint id '" + constraint.id() + "'.");
             requireKnownReference(knownIds, constraint.id(), constraint.source());
             requireKnownReference(knownIds, constraint.id(), constraint.target());
+        }
+    }
+
+    /**
+     * Rejects ambiguous, chained, self-referential, and unknown-target workflow renames.
+     *
+     * @param renames parsed rename entries.
+     * @param includes parsed include entries.
+     * @param conceptualNodes parsed conceptual nodes.
+     * @throws FeatureManifestException if a rename is unsafe or ambiguous.
+     */
+    private void validateRenames(List<RenameEntry> renames, List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
+        Set<String> currentIds = new LinkedHashSet<>();
+        includes.forEach(entry -> currentIds.add(entry.id()));
+        conceptualNodes.forEach(node -> currentIds.add(node.id()));
+        Set<String> sources = new LinkedHashSet<>();
+        Set<String> targets = new LinkedHashSet<>();
+        for (RenameEntry rename : renames) {
+            if (rename.from().equals(rename.to())) {
+                throw new FeatureManifestException("Rename source and target must differ: '" + rename.from() + "'.");
+            }
+            requireUnique(sources, rename.from(), "Duplicate rename source '" + rename.from() + "'.");
+            requireUnique(targets, rename.to(), "Duplicate rename target '" + rename.to() + "'.");
+            if (!currentIds.contains(rename.to())) {
+                throw new FeatureManifestException("Rename target '" + rename.to() + "' is not a current manifest-declared id.");
+            }
+            if (currentIds.contains(rename.from())) {
+                throw new FeatureManifestException("Rename source '" + rename.from() + "' is still a current manifest-declared id.");
+            }
         }
     }
 

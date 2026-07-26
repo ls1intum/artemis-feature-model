@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 import tools.jackson.core.util.DefaultIndenter;
 import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.core.util.Separators;
@@ -21,8 +23,9 @@ import tools.jackson.databind.node.ObjectNode;
  * Keeps the authored guided workflow structurally in sync with the manifest include set without ever touching prose.
  * The sync is an incremental diff, not a regeneration: covered features cause zero writes, a newly included functional
  * feature gains a stub option with filled wiring and TODO prose, an orphan reference is flagged but never deleted, and
- * a single id rename is rewritten mechanically across all id reference lists. A run without changes leaves the file
- * byte-identical, which is the idempotence contract of the {@code syncGuidedWorkflowScaffold} task.
+ * only an explicitly declared id rename is rewritten mechanically across all id reference locations. A run without
+ * changes leaves the file byte-identical, which is the idempotence contract of the
+ * {@code syncGuidedWorkflowScaffold} task.
  */
 public class GuidedWorkflowScaffoldService {
 
@@ -79,7 +82,7 @@ public class GuidedWorkflowScaffoldService {
         Map<String, EligibleFeature> eligibleById = eligibleFeatures(manifest);
         Set<String> knownIds = knownIds(manifest);
 
-        List<String> renames = applySingleRename(workflow, eligibleById, knownIds);
+        List<String> renames = applyDeclaredRenames(workflow, manifest.renames());
         Set<String> coveredIds = coveredFeatureIds(workflow);
         List<String> orphanReferences = referencedIds(workflow).stream().filter(id -> !knownIds.contains(id)).toList();
 
@@ -158,26 +161,28 @@ public class GuidedWorkflowScaffoldService {
     }
 
     /**
-     * Applies the mechanical id rename when the workflow references exactly one unknown id and the manifest has
-     * exactly one uncovered eligible feature: every id reference list is rewritten, prose stays untouched. Any other
-     * combination is ambiguous and handled as orphan flags plus stubs instead.
+     * Applies only maintainer-declared mechanical id renames. A referenced source cannot be rewritten onto a target
+     * the workflow already references because that would merge two independently authored meanings.
      *
      * @param workflow workflow document.
-     * @param eligibleById eligible features by id.
-     * @param knownIds all manifest-declared ids.
+     * @param declaredRenames explicit manifest rename declarations.
      * @return applied renames as {@code old->new} entries.
+     * @throws FeatureManifestException if a referenced rename target is already covered by the workflow.
      */
-    private List<String> applySingleRename(ObjectNode workflow, Map<String, EligibleFeature> eligibleById, Set<String> knownIds) {
-        List<String> unknownReferences = referencedIds(workflow).stream().filter(id -> !knownIds.contains(id)).toList();
-        Set<String> covered = coveredFeatureIds(workflow);
-        List<String> uncovered = eligibleById.keySet().stream().filter(id -> !covered.contains(id)).toList();
-        if (unknownReferences.size() != 1 || uncovered.size() != 1) {
-            return List.of();
+    private List<String> applyDeclaredRenames(ObjectNode workflow, List<RenameEntry> declaredRenames) {
+        List<String> applied = new ArrayList<>();
+        for (RenameEntry rename : declaredRenames) {
+            Set<String> referenced = new LinkedHashSet<>(referencedIds(workflow));
+            if (!referenced.contains(rename.from())) {
+                continue;
+            }
+            if (referenced.contains(rename.to())) {
+                throw new FeatureManifestException("Cannot rename workflow id '" + rename.from() + "' to already-covered target '" + rename.to() + "'.");
+            }
+            rewriteIdReferences(workflow, rename.from(), rename.to());
+            applied.add(rename.from() + "->" + rename.to());
         }
-        String oldId = unknownReferences.getFirst();
-        String newId = uncovered.getFirst();
-        rewriteIdReferences(workflow, oldId, newId);
-        return List.of(oldId + "->" + newId);
+        return List.copyOf(applied);
     }
 
     /**
@@ -198,6 +203,11 @@ public class GuidedWorkflowScaffoldService {
                     rewriteIdList(option.withArrayProperty("selects"), oldId, newId);
                     rewriteIdList(option.withArrayProperty("deselects"), oldId, newId);
                 }
+            }
+        }
+        for (ObjectNode reviewGroup : objectElements(workflow.withArrayProperty("finalReviewGroups"))) {
+            if (oldId.equals(reviewGroup.path("groupNodeId").asString(null))) {
+                reviewGroup.put("groupNodeId", newId);
             }
         }
     }
@@ -370,7 +380,7 @@ public class GuidedWorkflowScaffoldService {
     }
 
     /**
-     * Collects every feature id the workflow references in selects, deselects, and template lists.
+     * Collects every model id the workflow references in selects, deselects, template lists, and review groups.
      *
      * @param workflow workflow document.
      * @return referenced feature ids in document order.
@@ -387,6 +397,12 @@ public class GuidedWorkflowScaffoldService {
                     option.withArrayProperty("selects").forEach(id -> referenced.add(id.asString()));
                     option.withArrayProperty("deselects").forEach(id -> referenced.add(id.asString()));
                 }
+            }
+        }
+        for (ObjectNode reviewGroup : objectElements(workflow.withArrayProperty("finalReviewGroups"))) {
+            String groupNodeId = reviewGroup.path("groupNodeId").asString(null);
+            if (groupNodeId != null) {
+                referenced.add(groupNodeId);
             }
         }
         return List.copyOf(referenced);
