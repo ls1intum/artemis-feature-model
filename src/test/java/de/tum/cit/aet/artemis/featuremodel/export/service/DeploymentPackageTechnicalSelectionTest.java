@@ -173,6 +173,9 @@ class DeploymentPackageTechnicalSelectionTest {
         assertThat(stack).contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"");
         assertThat(stack).contains("ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
 
+        String readme = content(file(result, DeploymentPackageService.PACKAGE_README_FILE));
+        assertDetailedDockerReadme(readme, scenario);
+
         if ("postgresql".equals(scenario.databaseId())) {
             assertThat(stack).contains("SPRING_DATASOURCE_USERNAME: \"Artemis\"");
             assertThat(stack).contains("jdbc:postgresql://artemis-feature-model-postgresql:5432/Artemis?sslmode=disable");
@@ -200,6 +203,22 @@ class DeploymentPackageTechnicalSelectionTest {
             String checks = content(file(result, DeploymentPackageService.RUNTIME_CHECKS_FILE));
             assertThat(checks).contains("\"id\" : \"jenkins-stack-available\"", "\"overallStatus\" : \"FAIL\"");
             assertThat(result.report().warnings()).anyMatch(warning -> warning.message().contains("cannot DEMO-boot a Jenkins stack"));
+        }
+    }
+
+    private void assertDetailedDockerReadme(String readme, TechnicalScenario scenario) {
+        assertThat(readme).contains("## Prerequisites", "## Step 1 — Inspect and validate the package",
+                "## Step 2A — Quick start with DEMO values", "## Step 2B — Start with your own integration values",
+                "## Step 3 — Follow startup and verify Artemis", "## Step 4 — Stop or reset the stack",
+                "## Troubleshooting", "./scripts/prepare-env.sh --demo --force",
+                "docker compose -p artemis-feature-model-local logs -f artemis-app", scenario.databaseComposeFile());
+
+        if ("jenkins".equals(scenario.ciProviderId())) {
+            assertThat(readme).contains("### External Jenkins required", "contains no Jenkins", "http://jenkins:8080",
+                    "http://host.docker.internal:8082", "`localhost` inside that container");
+        }
+        else {
+            assertThat(readme).contains("### Integrated Code Lifecycle", "mounted host Docker", "FM_DOCKER_GID");
         }
     }
 

@@ -121,34 +121,247 @@ public class RuntimeTemplateWriter {
             return packageReadme(modelId, modelVersion, profileId, profileVersion);
         }
         String database = selection.databaseId().orElseThrow();
+        String databaseFile = selection.databaseComposeFile().orElseThrow();
         String ciProvider = selection.ciProviderId().orElseThrow();
-        String jenkinsWarning = "jenkins".equals(ciProvider)
-                ? "\n> **Jenkins limitation:** configuration is generated, but this package contains no Jenkins service and cannot DEMO-boot a Jenkins stack.\n"
-                : "";
+        String ciGuide = packageCiGuide(ciProvider);
         return """
                 # Artemis Feature Model — Local Runtime Deployment Package
 
                 Generated from feature model `%s` version `%s` and deployment context `%s` version `%s` in DEMO mode.
 
+                This package combines the generated Spring configuration overlay with a selection-driven Docker Compose
+                stack and helper scripts. Its purpose is **local validation**: confirming that Artemis starts with the
+                selected database, CI profile family, and feature configuration. It is **not** a production deployment.
+
+                ## Selected technical stack
+
                 The generated Compose stack applies the selected technical axes:
 
                 - Database: `%s`
+                - Database Compose source: `%s`
                 - CI provider: `%s`
                 - Stack: `deployment/local-repo/artemis-feature-model-stack.yml`
+
                 %s
-                ## Quick start
+
+                ## What this package does not provide
+
+                - Production-ready credentials, TLS, backups, monitoring, or high availability.
+                - Working implementations of optional external services such as Iris, Athena, Theia, Apollon, or Sharing.
+                - A standalone remote-image runtime. The package still needs a local Artemis checkout because its stack
+                  extends Compose services from that checkout.
+
+                ## Prerequisites
+
+                Before starting, make sure you have:
+
+                1. Docker with Docker Compose v2 (`docker compose version`).
+                2. A local Artemis checkout containing `docker/artemis.yml`, `%s`, and a repository-root `.env`.
+                3. Free host ports `8080` for Artemis and `5005` for remote debugging.
+                4. Enough disk space for the Artemis image, the selected database image, build images, and named volumes.
+
+                Run every command below from this extracted package directory. Use an absolute path for the Artemis
+                checkout when possible.
+
+                ## Step 1 — Inspect and validate the package
+
+                Make the scripts executable, print the generated summary, and run the static package checks:
 
                 ```bash
-                bash scripts/start-demo.sh /path/to/Artemis
+                chmod +x scripts/*.sh
+                ./scripts/print-runtime-summary.sh
+                ./scripts/validate-package.sh
                 ```
 
-                The stack extends `docker/artemis.yml` and the selected database file from that read-only local Artemis
-                checkout. `docker-compose.override.example.yml` adds the generated overlay and package environment file.
-                Set `FM_ARTEMIS_COMPOSE_FILE` to use a different Compose file explicitly.
+                `validate-package.sh` checks required files, secret placeholder declarations, and the static Artemis
+                configuration-key verdict. It does not contact Docker, Artemis, the database, or an external CI server.
+                Review these files if a check fails:
 
-                This is a local validation artifact, not a production deployment. Secrets remain `${VARIABLE}`
-                placeholders and DEMO values are intentionally unsafe.
-                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, jenkinsWarning);
+                - `metadata/generation-report.json`
+                - `metadata/runtime-checks.json`
+                - `metadata/static-config-validation.json`
+
+                ## Step 2A — Quick start with DEMO values
+
+                For local startup testing, run:
+
+                ```bash
+                bash scripts/start-demo.sh /absolute/path/to/Artemis
+                ```
+
+                This command:
+
+                1. makes all package scripts executable;
+                2. copies `env/.env.demo` to `env/.env` if `env/.env` does not already exist; and
+                3. starts the selection-driven Compose stack in the background.
+
+                DEMO values such as `demo-change-me` are intentionally unsafe. They are suitable only for local startup
+                validation. If `env/.env` already exists, the script preserves it. To deliberately recreate it from the
+                latest DEMO template, run:
+
+                ```bash
+                ./scripts/prepare-env.sh --demo --force
+                ```
+
+                `--force` overwrites `env/.env`, so review or back up any values you want to keep.
+
+                ## Step 2B — Start with your own integration values
+
+                Use this path when selected features connect to real services:
+
+                ```bash
+                ./scripts/prepare-env.sh
+                # Edit env/.env and replace every empty value.
+                ./scripts/validate-package.sh
+                ./scripts/start-local-repo.sh /absolute/path/to/Artemis
+                ```
+
+                `prepare-env.sh` copies `env/.env.example` and never overwrites an existing `env/.env` unless `--force`
+                is provided. The generated Spring overlay contains `${VARIABLE}` references; Docker loads their values
+                from `env/.env`. Do not commit that file or use DEMO credentials outside local testing.
+
+                ## Step 3 — Follow startup and verify Artemis
+
+                The first start can take several minutes while Docker pulls images, PostgreSQL/MySQL initializes, and
+                Artemis applies database migrations. Check the stack and follow the application logs with:
+
+                ```bash
+                docker compose -p artemis-feature-model-local ps
+                docker compose -p artemis-feature-model-local logs -f artemis-app
+                ```
+
+                Successful startup includes a log entry containing `Started ArtemisApp`. Then open:
+
+                - Artemis: http://localhost:8080
+                - Readiness endpoint: http://localhost:8080/management/health/readiness
+
+                The database health check only proves that the database accepts connections. Artemis can still be
+                starting, applying migrations, or waiting for a selected external integration.
+
+                ## Step 4 — Stop or reset the stack
+
+                Stop containers while keeping the package-owned database and Artemis data volumes:
+
+                ```bash
+                ./scripts/stop-local-repo.sh /absolute/path/to/Artemis
+                ```
+
+                To remove the named volumes as well:
+
+                ```bash
+                ./scripts/stop-local-repo.sh /absolute/path/to/Artemis --volumes
+                ```
+
+                The second command permanently deletes the local database and Artemis data created by this package.
+
+                ## How the generated stack is assembled
+
+                `artemis-feature-model-stack.yml` extends `docker/artemis.yml` and `%s` from the local Artemis checkout.
+                `docker-compose.override.example.yml` then:
+
+                - mounts `config/application-feature-model.yml` read-only at
+                  `/opt/artemis/config/application-feature-model.yml`;
+                - loads `env/.env` into the Artemis container; and
+                - sets `SPRING_CONFIG_ADDITIONAL_LOCATION` so Spring loads the generated overlay.
+
+                The start script exports absolute package and checkout paths before invoking Compose. The stack uses the
+                project name `artemis-feature-model-local`, package-specific container names, and package-specific named
+                volumes to avoid colliding with a normal Artemis development stack.
+
+                The Artemis repository-root `.env` is used separately for Compose interpolation, including image-version
+                variables such as `POSTGRES_VERSION` or `MYSQL_VERSION`. Set `FM_ARTEMIS_ENV_FILE` when that file is stored
+                elsewhere.
+
+                ## Environment files
+
+                - `env/.env.example` lists required variables with empty values.
+                - `env/.env.demo` contains dummy local values.
+                - `env/.env` is the runtime file created by `prepare-env.sh`; it is not included in the ZIP.
+
+                The package never writes real plaintext secrets. Values in `.env.demo` are explicit dummy placeholders,
+                not generated credentials.
+
+                ## Supported overrides
+
+                - `FM_ARTEMIS_ENV_FILE=/path/to/.env` selects the Artemis Compose interpolation file.
+                - `FM_ARTEMIS_COMPOSE_FILE=/path/to/stack.yml` replaces the generated stack explicitly.
+                - `FM_DOCKER_GID=<gid>` overrides the Docker socket group used by the integrated code lifecycle stack.
+
+                Prefer the generated stack unless you are intentionally adapting the package to a different Artemis
+                checkout. An override must still define compatible `artemis-app` and database services.
+
+                ## Troubleshooting
+
+                ### `env/.env` is missing or contains stale variables
+
+                Run `./scripts/prepare-env.sh --demo` for DEMO values or `./scripts/prepare-env.sh` for empty real-service
+                values. If the file came from an older package, use `--force` only after reviewing the existing secrets.
+
+                ### An image name is empty or Docker reports `invalid reference format`
+
+                Confirm that the Artemis checkout contains its repository-root `.env`. If it lives elsewhere, export
+                `FM_ARTEMIS_ENV_FILE` before starting.
+
+                ### Port `8080` or `5005` is already allocated
+
+                Stop the conflicting local stack before starting this package. The generated stack deliberately uses
+                fixed development ports so its URLs and debugging instructions remain deterministic.
+
+                ### Artemis starts but a selected external feature fails
+
+                DEMO values only satisfy configuration placeholders. Replace the corresponding values in `env/.env` and,
+                where the generated overlay contains a literal endpoint, update the deployment profile and regenerate the
+                package. Use `metadata/generation-report.json` to trace each generated value to its selected feature.
+
+                ### The local checkout is incompatible
+
+                The generated keys were verified against Artemis commit `%s`. A substantially different checkout can
+                rename configuration keys, Compose services, or environment variables. Review
+                `metadata/static-config-validation.json` and regenerate against a matching snapshot.
+
+                ## Package contents
+
+                - `config/application-feature-model.yml` — generated Spring configuration overlay.
+                - `env/` — example, DEMO, and environment-file instructions.
+                - `metadata/` — selected features, deployment profile, generation report, runtime checks, and manifest.
+                - `deployment/local-repo/artemis-feature-model-stack.yml` — selected database and CI profile stack.
+                - `deployment/local-repo/docker-compose.override.example.yml` — package overlay and environment mount.
+                - `deployment/local-repo/README.md` — lower-level Compose details.
+                - `scripts/` — environment preparation, validation, start, stop, and summary helpers.
+                """.formatted(modelId, modelVersion, profileId, profileVersion, database, databaseFile, ciProvider, ciGuide,
+                databaseFile, databaseFile, RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
+    }
+
+    /**
+     * Describes the runtime requirements of the selected CI provider.
+     *
+     * @param ciProvider selected CI provider.
+     * @return CI-specific package instructions.
+     */
+    private String packageCiGuide(String ciProvider) {
+        if ("jenkins".equals(ciProvider)) {
+            return """
+                    ### External Jenkins required
+
+                    > **Jenkins limitation:** this package configures the Artemis Jenkins profile but contains no Jenkins
+                    > service. Artemis can start, but creating programming exercises and executing builds require a
+                    > separately managed Jenkins instance.
+
+                    The Jenkins URL must be reachable **from the Artemis container**. `localhost` inside that container
+                    refers to Artemis itself, not to the Docker host. Typical addresses are `http://jenkins:8080` for a
+                    Jenkins service on the same Docker network or `http://host.docker.internal:8082` for Jenkins running
+                    on Docker Desktop's host. Configure matching Jenkins credentials, notification tokens, and LocalVC
+                    credentials before testing programming-exercise creation.
+                    """;
+        }
+        return """
+                ### Integrated Code Lifecycle
+
+                No separate CI service is required. Artemis creates build containers through the mounted host Docker
+                socket. The start script derives `FM_DOCKER_GID` automatically (`0` on macOS; the socket group on Linux).
+                If builds report Docker socket permission errors, set `FM_DOCKER_GID` explicitly and restart the stack.
+                Build images still need to be available locally or pullable by the host Docker daemon.
+                """;
     }
 
     /**
