@@ -426,7 +426,7 @@
                                 (change)="selectDeploymentMode.emit('local-docker')"
                                 data-testid="deployment-mode-local-docker"
                             />
-                            <span>Local Docker runtime <small class="muted">(default)</small></span>
+                            <span>Docker runtime <small class="muted">(default)</small></span>
                         </label>
                         <label class="deployment-target-option">
                             <input
@@ -447,8 +447,8 @@
                         </p>
                     } @else {
                         <p class="artifact-demo-note" data-testid="deployment-package-note">
-                            A local validation package that wraps the configuration artifacts above with a Docker Compose override and helper scripts, so you can run
-                            Artemis locally from an existing checkout and confirm the generated overlay loads. It is for local validation only, not production.
+                            A validation package that wraps the configuration artifacts above with a Docker Compose override and helper scripts, so you can run Artemis
+                            with Docker Compose from an existing checkout and confirm the generated overlay loads. It is for validation only, not production.
                         </p>
                     }
                     <button
@@ -463,7 +463,7 @@
                                 ? 'Preparing ZIP...'
                                 : selectedDeploymentMode() === 'dev-ide'
                                   ? 'Download IDE setup package'
-                                  : 'Download local runtime package'
+                                  : 'Download Docker runtime package'
                         }}
                     </button>
                     @if (!isValid()) {

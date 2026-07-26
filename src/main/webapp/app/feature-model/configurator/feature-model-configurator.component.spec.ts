@@ -664,14 +664,16 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).toBeNull();
     });
 
-    it('renders the local runtime package section and downloads it as a blob', () => {
+    it('renders the Docker runtime package section without local wording and downloads it as a blob', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('[data-testid="deployment-package"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('local validation');
+        const packageSection = rootEl(fixture).querySelector('[data-testid="deployment-package"]');
+        expect(packageSection).not.toBeNull();
+        expect(packageSection?.textContent).toContain('Docker runtime');
+        expect(packageSection?.textContent?.toLowerCase()).not.toContain('local');
         const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
         expect(button).not.toBeNull();
         expect(button.disabled).toBe(false);
