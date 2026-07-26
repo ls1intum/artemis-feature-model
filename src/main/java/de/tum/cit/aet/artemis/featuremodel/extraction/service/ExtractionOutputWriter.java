@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.UUID;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.SnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
@@ -100,15 +103,44 @@ public class ExtractionOutputWriter {
      * @param workflowResourceBytes bytes of the bundled lean guided workflow resource.
      * @param artemisPath scanned checkout path recorded as the snapshot source repository.
      * @param artemisCommit resolved commit of the scanned checkout.
+     * @return true when an eligible snapshot was published; false when generation was skipped or hard validation failed.
      * @throws IOException if a file cannot be written.
      */
-    public void writeSnapshot(Path outputDirectory, FeatureExtractionService.Outcome outcome, byte[] workflowResourceBytes, String artemisPath,
+    public boolean writeSnapshot(Path outputDirectory, FeatureExtractionService.Outcome outcome, byte[] workflowResourceBytes, String artemisPath,
             String artemisCommit) throws IOException {
         if (outcome.generatedModel() == null) {
-            return;
+            return false;
         }
         Path snapshotDirectory = outputDirectory.resolve(SNAPSHOT_DIRECTORY);
-        Files.createDirectories(snapshotDirectory);
+        if (outcome.artifactValidation() == null || !outcome.artifactValidation().snapshotEligible()) {
+            removePublishedSnapshot(snapshotDirectory);
+            return false;
+        }
+
+        Files.createDirectories(outputDirectory);
+        Path temporaryDirectory = Files.createTempDirectory(outputDirectory, ".snapshot-");
+        try {
+            writeSnapshotContents(temporaryDirectory, outcome, workflowResourceBytes, artemisPath, artemisCommit);
+            publishSnapshot(temporaryDirectory, snapshotDirectory);
+            return true;
+        }
+        finally {
+            deleteRecursively(temporaryDirectory);
+        }
+    }
+
+    /**
+     * Writes every file of a snapshot into an unpublished temporary directory.
+     *
+     * @param snapshotDirectory temporary snapshot directory.
+     * @param outcome extraction outcome carrying the eligible generated model.
+     * @param workflowResourceBytes bytes of the bundled lean guided workflow resource.
+     * @param artemisPath scanned checkout path.
+     * @param artemisCommit resolved scanned commit.
+     * @throws IOException if a snapshot file cannot be written.
+     */
+    private void writeSnapshotContents(Path snapshotDirectory, FeatureExtractionService.Outcome outcome, byte[] workflowResourceBytes, String artemisPath,
+            String artemisCommit) throws IOException {
         Path modelFile = snapshotDirectory.resolve(SNAPSHOT_MODEL_FILE);
         writeJson(modelFile, outcome.generatedModel());
         Files.write(snapshotDirectory.resolve(SNAPSHOT_WORKFLOW_FILE), workflowResourceBytes);
@@ -119,6 +151,68 @@ public class ExtractionOutputWriter {
         writeJson(snapshotDirectory.resolve(SNAPSHOT_METADATA_FILE), snapshotMetadata);
         Files.write(snapshotDirectory.resolve(SNAPSHOT_CHECKSUM_FILE),
                 ("sha256:" + sha256Hex(modelFile) + "  " + SNAPSHOT_MODEL_FILE + LINE_FEED).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Atomically switches a complete temporary snapshot into the public snapshot path. An existing snapshot is first
+     * moved aside and restored if publication fails.
+     *
+     * @param temporaryDirectory complete unpublished snapshot directory.
+     * @param snapshotDirectory public snapshot directory.
+     * @throws IOException if the atomic directory moves fail.
+     */
+    private void publishSnapshot(Path temporaryDirectory, Path snapshotDirectory) throws IOException {
+        Path previousSnapshot = snapshotDirectory.resolveSibling(".snapshot-previous-" + UUID.randomUUID());
+        boolean previousMoved = false;
+        if (Files.exists(snapshotDirectory)) {
+            Files.move(snapshotDirectory, previousSnapshot, StandardCopyOption.ATOMIC_MOVE);
+            previousMoved = true;
+        }
+        try {
+            Files.move(temporaryDirectory, snapshotDirectory, StandardCopyOption.ATOMIC_MOVE);
+        }
+        catch (IOException e) {
+            if (previousMoved) {
+                Files.move(previousSnapshot, snapshotDirectory, StandardCopyOption.ATOMIC_MOVE);
+            }
+            throw e;
+        }
+        if (previousMoved) {
+            deleteRecursively(previousSnapshot);
+        }
+    }
+
+    /**
+     * Removes a stale published snapshot after an ineligible rerun. The directory is first moved out of the public
+     * path so deletion cannot expose a partially removed snapshot.
+     *
+     * @param snapshotDirectory public snapshot directory.
+     * @throws IOException if the snapshot cannot be invalidated or removed.
+     */
+    private void removePublishedSnapshot(Path snapshotDirectory) throws IOException {
+        if (!Files.exists(snapshotDirectory)) {
+            return;
+        }
+        Path invalidSnapshot = snapshotDirectory.resolveSibling(".snapshot-ineligible-" + UUID.randomUUID());
+        Files.move(snapshotDirectory, invalidSnapshot, StandardCopyOption.ATOMIC_MOVE);
+        deleteRecursively(invalidSnapshot);
+    }
+
+    /**
+     * Deletes one file tree from children to root. Missing paths are ignored.
+     *
+     * @param path file tree to delete.
+     * @throws IOException if a path cannot be deleted.
+     */
+    private void deleteRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var paths = Files.walk(path)) {
+            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(entry);
+            }
+        }
     }
 
     /**

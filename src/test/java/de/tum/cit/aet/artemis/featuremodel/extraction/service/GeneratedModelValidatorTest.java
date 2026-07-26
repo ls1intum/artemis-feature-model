@@ -34,8 +34,23 @@ class GeneratedModelValidatorTest {
                 coveringWorkflow(), profile(List.of("alpha-service", "tech-capability")));
 
         assertThat(result.items()).isEmpty();
+        assertThat(result.artifactValidation().snapshotEligible()).isTrue();
         assertThat(result.guidedValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
         assertThat(result.guidedValidation().findings()).isEmpty();
+    }
+
+    @Test
+    void marksInvalidGeneratedModelAsSnapshotIneligible() {
+        FeatureModel valid = model(technicalFeature(List.of("maintainer"), List.of("maintainer")));
+        FeatureModel withoutRoot = new FeatureModel(valid.model(), valid.features().stream().filter(feature -> !feature.isRoot()).toList(), valid.relations(),
+                valid.constraints());
+
+        GeneratedModelValidator.Result result = validator.validate(withoutRoot, includes(), coveringWorkflow(),
+                profile(List.of("alpha-service", "tech-capability")));
+
+        assertThat(result.artifactValidation().modelIntegrityValid()).isFalse();
+        assertThat(result.artifactValidation().snapshotEligible()).isFalse();
+        assertThat(result.items()).anySatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_GENERATED_MODEL_INVALID));
     }
 
     @Test
@@ -76,6 +91,8 @@ class GeneratedModelValidatorTest {
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.message()).contains("ghost");
         });
+        assertThat(result.artifactValidation().workflowIntegrityValid()).isFalse();
+        assertThat(result.artifactValidation().snapshotEligible()).isFalse();
     }
 
     @Test
@@ -91,6 +108,7 @@ class GeneratedModelValidatorTest {
         assertThat(result.guidedValidation().findings()).extracting(GuidedWorkflowFinding::code).contains(GuidedWorkflowFinding.CODE_COVERAGE_GAP);
         assertThat(result.guidedValidation().codeCounts()).containsKey(GuidedWorkflowFinding.CODE_COVERAGE_GAP);
         assertThat(result.items()).anySatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS));
+        assertThat(result.artifactValidation().snapshotEligible()).isTrue();
         // Technical features never count as coverage gaps.
         assertThat(result.guidedValidation().findings()).extracting(GuidedWorkflowFinding::subject).doesNotContain("tech-a");
     }

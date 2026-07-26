@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedArtifactValidation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
@@ -84,10 +85,11 @@ public class FeatureExtractionService {
      * @param generatedCatalog regenerated config-key catalog, or null.
      * @param modelDiff classified generated-versus-curated diff report, or null.
      * @param guidedWorkflowValidation guided workflow validation against the generated model, or null.
+     * @param artifactValidation hard generated-model and workflow integrity state, or null when generation was skipped.
      */
     public record Outcome(List<FeatureCandidate> candidates, List<EvidenceItem> evidence, List<RelationCandidate> relationCandidates, ExtractionReport report,
             List<ResolvedFeatureScope> includedFeatures, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, ModelDiffReport modelDiff,
-            GuidedWorkflowValidationReport guidedWorkflowValidation) {
+            GuidedWorkflowValidationReport guidedWorkflowValidation, GeneratedArtifactValidation artifactValidation) {
     }
 
     /**
@@ -167,7 +169,8 @@ public class FeatureExtractionService {
         Generation generation = generate(source, curatedModel, catalog, manifest, curation, assembly, yamlScan, bundledWorkflow, bundledProfile, items);
         ExtractionReport report = assembleReport(curatedModel, source.commit(), curation.report(), items);
         return new Outcome(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), report, curation.includedFeatures(),
-                generation.generatedModel(), generation.generatedCatalog(), generation.modelDiff(), generation.guidedWorkflowValidation());
+                generation.generatedModel(), generation.generatedCatalog(), generation.modelDiff(), generation.guidedWorkflowValidation(),
+                generation.artifactValidation());
     }
 
     /**
@@ -177,12 +180,13 @@ public class FeatureExtractionService {
      * @param generatedCatalog regenerated config-key catalog.
      * @param modelDiff classified diff report.
      * @param guidedWorkflowValidation guided workflow validation report.
+     * @param artifactValidation hard generated artifact integrity state.
      */
     private record Generation(FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, ModelDiffReport modelDiff,
-            GuidedWorkflowValidationReport guidedWorkflowValidation) {
+            GuidedWorkflowValidationReport guidedWorkflowValidation, GeneratedArtifactValidation artifactValidation) {
 
         private static Generation skipped() {
-            return new Generation(null, null, null, null);
+            return new Generation(null, null, null, null, null);
         }
     }
 
@@ -220,7 +224,7 @@ public class FeatureExtractionService {
         items.addAll(validation.items());
         ModelDiffReport modelDiff = new ModelDiffService().compare(curatedModel, generated.model(), catalogAssembler.diff(catalog, generatedCatalog.catalog()),
                 source.commit());
-        return new Generation(generated.model(), generatedCatalog.catalog(), modelDiff, validation.guidedValidation());
+        return new Generation(generated.model(), generatedCatalog.catalog(), modelDiff, validation.guidedValidation(), validation.artifactValidation());
     }
 
     /**

@@ -12,6 +12,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedArtifactValidation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
@@ -34,10 +35,11 @@ class GeneratedModelValidator {
     /**
      * Validation result.
      *
+     * @param artifactValidation hard model and workflow integrity state controlling snapshot eligibility.
      * @param guidedValidation coverage and consistency findings of the workflow against the generated model.
      * @param items validation diagnostics for the extraction report.
      */
-    record Result(GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
+    record Result(GeneratedArtifactValidation artifactValidation, GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
     }
 
     /**
@@ -51,12 +53,13 @@ class GeneratedModelValidator {
      */
     Result validate(FeatureModel generatedModel, List<ResolvedFeatureScope> includedFeatures, GuidedWorkflow bundledWorkflow, DeploymentProfile bundledProfile) {
         List<ReportItem> items = new ArrayList<>();
-        validateModelIntegrity(generatedModel, items);
-        validateWorkflowReferences(generatedModel, bundledWorkflow, items);
+        boolean modelIntegrityValid = validateModelIntegrity(generatedModel, items);
+        boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, bundledWorkflow, items);
         validateRoleVisibility(generatedModel, items);
         validateProvidedCapabilities(includedFeatures, bundledProfile, items);
         GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, bundledWorkflow, bundledProfile, items);
-        return new Result(guidedValidation, List.copyOf(items));
+        GeneratedArtifactValidation artifactValidation = new GeneratedArtifactValidation(modelIntegrityValid, workflowIntegrityValid);
+        return new Result(artifactValidation, guidedValidation, List.copyOf(items));
     }
 
     /**
@@ -64,13 +67,16 @@ class GeneratedModelValidator {
      *
      * @param generatedModel assembled generated model.
      * @param items diagnostics sink.
+     * @return true when shared model integrity validation passes.
      */
-    private void validateModelIntegrity(FeatureModel generatedModel, List<ReportItem> items) {
+    private boolean validateModelIntegrity(FeatureModel generatedModel, List<ReportItem> items) {
         try {
             new FeatureModelIntegrityService().validate(generatedModel);
+            return true;
         }
         catch (FeatureModelIntegrityException e) {
             items.add(ReportItem.error(ReportItem.CODE_GENERATED_MODEL_INVALID, e.getCode(), "Generated model failed integrity validation: " + e.getMessage()));
+            return false;
         }
     }
 
@@ -80,14 +86,17 @@ class GeneratedModelValidator {
      * @param generatedModel assembled generated model.
      * @param bundledWorkflow lean bundled guided workflow.
      * @param items diagnostics sink.
+     * @return true when hard workflow reference validation passes.
      */
-    private void validateWorkflowReferences(FeatureModel generatedModel, GuidedWorkflow bundledWorkflow, List<ReportItem> items) {
+    private boolean validateWorkflowReferences(FeatureModel generatedModel, GuidedWorkflow bundledWorkflow, List<ReportItem> items) {
         try {
             new GuidedWorkflowIntegrityService().validate(bundledWorkflow, generatedModel);
+            return true;
         }
         catch (FeatureModelIntegrityException e) {
             items.add(ReportItem.error(ReportItem.CODE_GENERATED_WORKFLOW_INVALID, e.getCode(),
                     "Bundled guided workflow failed validation against the generated model: " + e.getMessage()));
+            return false;
         }
     }
 

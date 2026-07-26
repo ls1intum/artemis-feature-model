@@ -70,9 +70,11 @@ public final class FeatureExtractionRunner {
         Path outputDirectory = Path.of(args[1]).resolve(source.commit());
         ExtractionOutputWriter writer = new ExtractionOutputWriter(objectMapper);
         writer.writeAll(outputDirectory, metadata, outcome);
-        writer.writeSnapshot(outputDirectory, outcome, readResourceBytes(resourceLoader, WORKFLOW_RESOURCE), source.root().toString(), source.commit());
+        boolean snapshotPublished = writer.writeSnapshot(outputDirectory, outcome, readResourceBytes(resourceLoader, WORKFLOW_RESOURCE),
+                source.root().toString(), source.commit());
 
-        printSummary(outcome, outputDirectory);
+        printSummary(outcome, outputDirectory, snapshotPublished);
+        failIfSnapshotIneligible(outcome);
     }
 
     /**
@@ -111,8 +113,9 @@ public final class FeatureExtractionRunner {
      *
      * @param outcome extraction outcome.
      * @param outputDirectory directory the outputs were written to.
+     * @param snapshotPublished whether an importable snapshot was published.
      */
-    private static void printSummary(FeatureExtractionService.Outcome outcome, Path outputDirectory) {
+    private static void printSummary(FeatureExtractionService.Outcome outcome, Path outputDirectory, boolean snapshotPublished) {
         System.out.println("Feature extraction finished.");
         System.out.println("  Candidates: " + outcome.candidates().size());
         System.out.println("  Evidence items: " + outcome.evidence().size());
@@ -126,8 +129,23 @@ public final class FeatureExtractionRunner {
             System.out.println("  Generated catalog: " + outcome.generatedCatalog().keys().size() + " keys");
             System.out.println("  Model diff: " + outcome.modelDiff().classificationCounts());
             System.out.println("  Guided workflow validation: " + outcome.guidedWorkflowValidation().status());
+            String snapshotStatus = snapshotPublished ? outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY).toString() : "not published";
+            System.out.println("  Importable snapshot: " + snapshotStatus);
         }
         System.out.println("  Output: " + outputDirectory);
+    }
+
+    /**
+     * Makes a hard generated-artifact validation failure fail the command after diagnostic outputs have been written.
+     *
+     * @param outcome extraction outcome carrying the hard validation state.
+     * @throws IllegalStateException if generation ran but the snapshot is ineligible.
+     */
+    static void failIfSnapshotIneligible(FeatureExtractionService.Outcome outcome) {
+        if (outcome.generatedModel() != null && (outcome.artifactValidation() == null || !outcome.artifactValidation().snapshotEligible())) {
+            throw new IllegalStateException("Generated model or workflow failed hard integrity validation. Diagnostics were written, but no importable "
+                    + "snapshot was published.");
+        }
     }
 
     /**
