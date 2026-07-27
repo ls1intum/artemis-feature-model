@@ -92,6 +92,7 @@
                 [artifactErrorMessage]="artifactErrorMessage()"
                 [deploymentPackageDownloading]="deploymentPackageDownloading()"
                 [deploymentPackageErrorMessage]="deploymentPackageErrorMessage()"
+                [selectedDeploymentMode]="selectedDeploymentMode()"
                 (selectTemplate)="onSelectTemplate($event)"
                 (startWorkflow)="onStartWorkflow()"
                 (returnToTemplates)="onReturnToTemplates()"
@@ -105,6 +106,7 @@
                 (openTree)="onOpenTree()"
                 (generateArtifacts)="onGenerateArtifacts()"
                 (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
+                (selectDeploymentMode)="onSelectDeploymentMode($event)"
             />
         }
     }

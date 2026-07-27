@@ -11,13 +11,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationMessage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.OverlayEntry;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ResolutionResult;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 class ArtifactMappingResolverTest {
 
@@ -109,6 +113,24 @@ class ArtifactMappingResolverTest {
         assertThat(value(result, "artemis.atlas.enabled")).isEqualTo(Boolean.TRUE);
         assertThat(result.omittedMappings()).noneMatch(omitted -> omitted.targetPath().equals("artemis.atlas.chat-model"));
         assertThat(messages(result)).noneMatch(message -> message.contains("artemis.atlas.chat-model"));
+    }
+
+    @Test
+    void ignoresMappingsThatDoNotTargetTheOverlayFile() {
+        List<ArtifactMapping> mappings = List.of(
+                new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", JsonNodeFactory.instance.booleanNode(true),
+                        JsonNodeFactory.instance.booleanNode(false), null, null, null),
+                new ArtifactMapping(".env", "DEMO_FLAG", JsonNodeFactory.instance.booleanNode(true), null, null, null, null),
+                new ArtifactMapping(".env", "DEMO_SECRET", null, null, "demo.secret", true, true));
+        FeatureNode feature = new FeatureNode("demo", "Demo", "feature", true, null, "disabled", null, null, List.of(), List.of(), List.of(), mappings, null);
+        FeatureModel syntheticModel = new FeatureModel(new ModelMetadata("test-model", "Test Model", "1.0.0", "draft", null), List.of(feature), List.of(), List.of());
+
+        ResolutionResult result = resolver.resolve(syntheticModel, Set.of("demo"), profile(Map.of("demo.secret", "env:DEMO_SECRET")));
+
+        assertThat(result.entries()).extracting(OverlayEntry::path).containsExactly("artemis.demo.enabled");
+        assertThat(result.environmentVariables()).isEmpty();
+        assertThat(result.consumedParameters()).isEmpty();
+        assertThat(result.omittedMappings()).isEmpty();
     }
 
     @Test

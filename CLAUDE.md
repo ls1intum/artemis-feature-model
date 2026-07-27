@@ -55,6 +55,30 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   review page generates and downloads directly; there is no preview step.
   Generation is DEMO-mode only and never writes plaintext secrets — secret
   values appear solely as `${VARIABLE}` placeholders.
+- The deployment package supports an export-time deployment-mode axis (D1+D2):
+  `ArtifactGenerationRequest` takes an optional `deploymentMode` (stable string
+  ids in `DeploymentModes`: `local-docker`, `dev-ide`); an omitted mode keeps
+  the local Docker package byte-identical to the pre-axis output (fixture
+  test), while an explicitly chosen mode is recorded in the package manifest.
+  Profiles may declare `supportedDeploymentModes` (absent = all; unknown
+  entries warn, never fail loading), and an unsupported or unknown mode yields
+  a controlled 400. `DeploymentPackageService` composes packages per mode from
+  shared artifacts; the `dev-ide` mode emits the Level 1 overlay files plus a
+  deterministic IntelliJ run configuration whose `ACTIVE_PROFILES` are derived
+  from the selection (`ActiveProfilesDeriver`: the localci/localvc/buildagent
+  family iff programming or hyperion is selected) and a developer README. The
+  profile order mirrors the run configurations Artemis ships and is semantic
+  (buildagent must precede core, or the buildagent config excludes the
+  JPA/DataSource auto-configuration and startup fails); an extra
+  `feature-model` profile makes Spring load the overlay directly once it is
+  copied under its original name into the checkout's config directory, with
+  the developer's `application-local.yml` keeping final precedence. A
+  `feature-model-demo` profile loads generated demo defaults for the overlay's
+  `${VARIABLE}` placeholders — the dev-ide counterpart of `env/.env.demo` —
+  so a DEMO run starts without manual environment setup; real environment
+  variables override the dummies. The review page offers a deployment-target picker;
+  the guided workflow itself has no deployment decisions. Artifact mappings
+  only reach the overlay when they target `application-feature-model.yml`.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
@@ -110,15 +134,15 @@ Run commands from the repository root:
 
 ```bash
 ./gradlew test                    # server tests
-./gradlew bootRun                 # server on http://localhost:8080
+./gradlew bootRun                 # server on http://localhost:8090
 
 npm install                       # install client dependencies
-npm run start                     # Angular dev server on http://localhost:9000
+npm run start                     # Angular dev server on http://localhost:9090
 npm run build                     # Angular build into build/webapp
 npm run test                      # Angular unit tests with Vitest
 ```
 
-The Angular dev server proxies `/api/**` to `http://localhost:8080`.
+The Angular dev server proxies `/api/**` to `http://localhost:8090`. The local ports deliberately avoid the Artemis dev defaults (8080/9000) so both applications can run side by side.
 
 ## Project Structure
 

@@ -21,6 +21,13 @@ import {
     styleUrl: './guided-configurator-workflow.component.scss',
 })
 export class GuidedConfiguratorWorkflowComponent {
+    /**
+     * Temporarily hides the Level 1 artifacts-only export section on the review page; the deployment package with
+     * its target picker is the primary export path. Flip to true to restore the section — the template, bindings,
+     * and download logic behind it are kept intact.
+     */
+    protected readonly showArtifactsOnlyExport = false;
+
     readonly screen = input.required<ConfiguratorScreen>();
     readonly model = input<ModelMetadata | undefined>(undefined);
     readonly selectedCount = input.required<number>();
@@ -50,6 +57,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly artifactErrorMessage = input<string | undefined>(undefined);
     readonly deploymentPackageDownloading = input<boolean>(false);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
+    readonly selectedDeploymentMode = input.required<string>();
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();
@@ -64,6 +72,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly openTree = output<void>();
     readonly generateArtifacts = output<void>();
     readonly downloadDeploymentPackage = output<void>();
+    readonly selectDeploymentMode = output<string>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 

@@ -1,0 +1,22 @@
+{
+  "README.md": "bafb4b82494634a9aaa166bf8cb8cb83eb6e5c7b0ef5e139000edc1b7feea5e5",
+  "config/application-feature-model.yml": "e90f705053af68a89bdc56b377c2ab8f2b3cf8285fd482abac649fde5c1d186e",
+  "env/.env.example": "cb269b1c2b92064ae93f393bc9cfa4238f9470d1cb1b1545c95ef24ee53e104c",
+  "env/.env.demo": "854193064d790db49ac66f353963fd8e712fb512d898bf856c11353308ff1149",
+  "env/README.md": "218a40856e793337dcb241c6f791bc545982fdc69c1245dc620e572613ed92f9",
+  "metadata/selected-features.json": "b27ad954c7c922c389eb6deb95eb26140d3a1f7bc11bfd3aa8f61d9f5cfc4be4",
+  "metadata/deployment-profile-summary.json": "9f24468143cf251b5887b3d416ec5a09aff7eb35cd5557f4443c58fc960e7db9",
+  "metadata/generation-report.json": "4166e4db6ebd9cc1bc74833fdc1022ed06aab0f931282396f846e58a05989e52",
+  "metadata/package-manifest.json": "71683e1bdf4ebc56be1efc0dfa76596573554d8f56602fe346a8ddd04ae36bdc",
+  "metadata/runtime-checks.json": "ea4bd550de5a40526798cdb7e376a714daf04dfc6d32f94a03243b22de288e8b",
+  "metadata/static-config-validation.json": "04ac2e53084fb2506a1998afb418528b7dd275ff0fa603e836cd0a339a668caa",
+  "deployment/local-repo/docker-compose.override.example.yml": "ad30ee8d4ab1dc8c4c928e3906dc13cf9dc1ac8f09b24bf8d6b2e386a02de44f",
+  "deployment/local-repo/README.md": "f229a9b795fb554521ab66e64b88ff08543eb9425a224a69eca3bbc7e8dd85dd",
+  "scripts/prepare-env.sh": "65a09e4d9fd15b21e95c44202ed84537c6e9354e247051d4c219f1c5b63c4ce0",
+  "scripts/start-demo.sh": "1ae59a3212212425b902f2e899ef926cc5dd64c2ba9af5e129765e667e451ed1",
+  "scripts/validate-package.sh": "cb05f398a3c86169d85ce5416511c9930863926c16a09002bb07e123dad1313b",
+  "scripts/start-local-repo.sh": "20cfde5bfd384bb2c7cc4388cd74a58adec3fd655d334cdcee62e07c7927906b",
+  "scripts/stop-local-repo.sh": "6b81d671dc300b03cd27dc0a0830146b955bc516722dcd1130cb51a94252ca3b",
+  "scripts/print-runtime-summary.sh": "e6d8f271f35bcd64ab3748a688caa54629f322948f77ff7859bd800e2e2f64e7",
+  "__zip__": "05edf141d23191c4e386dd4aba47dda2d2d55970553ad084fe89de3b45da2594"
+}

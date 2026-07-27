@@ -57,8 +57,8 @@ class DeploymentPackageServiceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        service = new DeploymentPackageService(artifactGenerationService, new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
-                new RuntimeScriptWriter(), objectMapper);
+        service = new DeploymentPackageService(artifactGenerationService, profileService, new StaticConfigValidationService(resourceLoader, objectMapper),
+                new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), objectMapper);
     }
 
     @Test
@@ -68,8 +68,8 @@ class DeploymentPackageServiceTest {
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
                 "env/README.md", "metadata/selected-features.json", "metadata/deployment-profile-summary.json", "metadata/generation-report.json",
                 "metadata/package-manifest.json", "metadata/runtime-checks.json", "metadata/static-config-validation.json",
-                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/validate-package.sh",
-                "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
+                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/start-demo.sh",
+                "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
     }
 
     @Test
@@ -82,7 +82,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
-        assertThat(manifest.generatedFiles()).hasSize(18);
+        assertThat(manifest.generatedFiles()).hasSize(19);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo("51caf4c1eb");
         assertThat(manifest.database().type()).isEqualTo("mysql");
@@ -152,10 +152,14 @@ class DeploymentPackageServiceTest {
     void generatesHelperScriptsWithSafeDefaults() {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
-        for (String script : List.of("scripts/prepare-env.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh",
-                "scripts/print-runtime-summary.sh")) {
+        for (String script : List.of("scripts/prepare-env.sh", "scripts/start-demo.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh",
+                "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh")) {
             assertThat(content(result, script)).startsWith("#!/usr/bin/env bash").contains("set -euo pipefail");
         }
+        // The single-command DEMO entry point chains chmod, demo env preparation, and the local-repo start.
+        String startDemo = content(result, "scripts/start-demo.sh");
+        assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh");
+        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /path/to/Artemis");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the
@@ -189,6 +193,80 @@ class DeploymentPackageServiceTest {
             assertThat(file.content()).doesNotContain("env:ARTEMIS").doesNotContain("env:SPRING");
         }
         assertThat(content(result, "config/application-feature-model.yml")).doesNotContain("env:");
+    }
+
+    @Test
+    void omitsTheDeploymentModeFromTheManifestForADefaultRequest() {
+        GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
+
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("deploymentMode");
+    }
+
+    @Test
+    void recordsAnExplicitlyChosenDeploymentModeInTheManifest() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "local-docker"));
+
+        DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
+        assertThat(manifest.deploymentMode()).isEqualTo("local-docker");
+        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
+    }
+
+    @Test
+    void composesTheDevIdePackageWithoutComposeFilesOrRuntimeScripts() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra("iris", "hyperion"), null, null, "dev-ide"));
+
+        assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml",
+                "config/application-feature-model-demo.yml", "env/.env.example",
+                "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml", "metadata/selected-features.json",
+                "metadata/deployment-profile-summary.json", "metadata/generation-report.json", "metadata/package-manifest.json",
+                "metadata/static-config-validation.json");
+        String runConfiguration = content(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
+        assertThat(runConfiguration)
+                .contains("<option name=\"ACTIVE_PROFILES\" value=\"artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local\" />");
+        assertThat(content(result, "README.md")).contains("application-local.yml").contains(".idea/runConfigurations/");
+        // The demo defaults cover every ${VARIABLE} the overlay references, so a DEMO run resolves all placeholders.
+        assertThat(content(result, "config/application-feature-model-demo.yml")).contains("ARTEMIS_IRIS_SECRET_TOKEN: demo-change-me");
+    }
+
+    @Test
+    void recordsTheConfigurationOnlyNatureInTheDevIdeManifest() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "dev-ide"));
+
+        DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
+        assertThat(manifest.packageType()).isEqualTo("dev-ide-configuration-package");
+        assertThat(manifest.deploymentMode()).isEqualTo("dev-ide");
+        assertThat(manifest.supportedRuntimeModes()).isEmpty();
+        assertThat(manifest.database()).isNull();
+        assertThat(manifest.readiness().localRuntimeReady()).isFalse();
+        assertThat(manifest.readiness().productionReady()).isFalse();
+        assertThat(manifest.generatedFiles()).hasSize(10);
+    }
+
+    @Test
+    void neverLeaksPlaintextSecretsIntoTheDevIdePackage() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra("iris", "athena", "hyperion"), null, null, "dev-ide"));
+
+        for (var file : result.files()) {
+            assertThat(file.content()).doesNotContain("env:ARTEMIS").doesNotContain("env:SPRING");
+        }
+        assertThat(content(result, "config/application-feature-model.yml")).doesNotContain("env:");
+    }
+
+    @Test
+    void rejectsAnUnknownDeploymentMode() {
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "cloud-magic")))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("Unknown deployment mode");
+    }
+
+    @Test
+    void rejectsADeploymentModeTheActiveProfileDoesNotSupport() throws IOException {
+        Path profileDirectory = dataRoot.resolve("deployment-profiles");
+        Files.createDirectories(profileDirectory);
+        Files.writeString(profileDirectory.resolve("restricted-profile.json"),
+                "{\"id\":\"restricted-profile\",\"name\":\"Restricted\",\"version\":\"1.0.0\",\"status\":\"published\",\"supportedDeploymentModes\":[]}");
+
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, "restricted-profile", null, "local-docker")))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("not supported");
     }
 
     @Test

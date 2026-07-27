@@ -24,14 +24,19 @@ import tools.jackson.databind.JsonNode;
  * Resolves a feature selection and a deployment profile into overlay entries and report fragments.
  *
  * <p>
- * Toggle mappings are written for every feature that has one: the selected value when the feature is selected, the
- * deselected value otherwise. Profile-value mappings are written only when the owning feature is selected, copying the
- * value of the named profile parameter. Missing required parameters, placeholder values, unresolved Vault references,
- * plaintext secrets, LTI registration, deprecated profile keys, and selected features without any mapping are reported
- * as warnings or informational notes. The resolver never writes a plaintext secret into the overlay.
+ * Only mappings whose {@code target} is the generated overlay file produce overlay entries; mappings for other targets
+ * (for example {@code .env} contributions declared by generated models) are ignored here and belong to their own
+ * writers. Toggle mappings are written for every feature that has one: the selected value when the feature is selected,
+ * the deselected value otherwise. Profile-value mappings are written only when the owning feature is selected, copying
+ * the value of the named profile parameter. Missing required parameters, placeholder values, unresolved Vault
+ * references, plaintext secrets, LTI registration, deprecated profile keys, and selected features without any mapping
+ * are reported as warnings or informational notes. The resolver never writes a plaintext secret into the overlay.
  */
 @Component
 public class ArtifactMappingResolver {
+
+    /** Mapping target of the generated Spring configuration overlay; the only target this resolver writes. */
+    static final String OVERLAY_TARGET = "application-feature-model.yml";
 
     private static final String LTI_FEATURE_ID = "lti";
 
@@ -70,6 +75,9 @@ public class ArtifactMappingResolver {
                 selectedWithoutMapping.add(feature.name());
             }
             for (ArtifactMapping mapping : feature.artifactMappings()) {
+                if (!OVERLAY_TARGET.equals(mapping.target())) {
+                    continue;
+                }
                 if (mapping.isToggle()) {
                     addToggleEntry(mapping, selected, entries);
                 }

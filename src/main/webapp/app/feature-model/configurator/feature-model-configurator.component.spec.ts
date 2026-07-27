@@ -395,8 +395,9 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(profileDependent?.textContent).toContain('need');
 
         expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
-        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-demo-note"]')?.textContent).toContain('placeholder deployment parameters');
+        // The artifacts-only export section is temporarily hidden; the deployment package picker is the export path.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-generation"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]')).toBeNull();
     });
 
     it('shows exact missing capability ids in the advanced tree debug view under a restricted override', () => {
@@ -525,13 +526,16 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="tutorial-help-button"]')).toBeNull();
     });
 
-    it('generates and downloads the artifact ZIP directly from the review page, with no preview', () => {
+    it('keeps the artifact ZIP download logic working while its review-page section is hidden', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        clickByTestId(fixture, 'generate-artifacts-button');
+        // The artifacts-only section is temporarily hidden from the review page; the download logic is retained.
+        expect(rootEl(fixture).querySelector('[data-testid="artifact-generation"]')).toBeNull();
+
+        fixture.componentInstance.onGenerateArtifacts();
         const downloadRequest = httpMock.expectOne(ARTIFACTS_DOWNLOAD_URL);
         expect(downloadRequest.request.method).toBe('POST');
         expect(downloadRequest.request.responseType).toBe('blob');
@@ -562,6 +566,42 @@ describe('FeatureModelConfiguratorComponent', () => {
         const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
         expect(downloadRequest.request.method).toBe('POST');
         expect(downloadRequest.request.responseType).toBe('blob');
+        expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('preselects the local Docker target and omits the deployment mode from the default download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const defaultRadio = rootEl(fixture).querySelector('[data-testid="deployment-mode-local-docker"]') as HTMLInputElement;
+        expect(defaultRadio).not.toBeNull();
+        expect(defaultRadio.checked).toBe(true);
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        // The default target preserves the pre-mode-axis request shape: no deploymentMode field at all.
+        expect((downloadRequest.request.body as { deploymentMode?: string }).deploymentMode).toBeUndefined();
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('switches to the dev-ide target and sends the deployment mode with the download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-dev-ide');
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('IntelliJ');
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button.textContent).toContain('IDE setup package');
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        expect((downloadRequest.request.body as { deploymentMode?: string }).deploymentMode).toBe('dev-ide');
         expect((downloadRequest.request.body as { selectedFeatureIds: string[] }).selectedFeatureIds).toContain('programming');
         downloadRequest.flush(new Blob(['zip-bytes']));
     });
@@ -609,7 +649,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).not.toBeNull();
     });
 
-    it('disables artifact generation while the selection is invalid', () => {
+    it('still blocks artifact generation for an invalid selection while the section is hidden', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         clickByTestId(fixture, 'start-workflow');
@@ -634,8 +674,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        const button = rootEl(fixture).querySelector('[data-testid="generate-artifacts-button"]') as HTMLButtonElement;
-        expect(button.disabled).toBe(true);
-        expect(rootEl(fixture).querySelector('[data-testid="artifact-invalid-note"]')).not.toBeNull();
+        fixture.componentInstance.onGenerateArtifacts();
+        httpMock.expectNone(ARTIFACTS_DOWNLOAD_URL);
     });
 });

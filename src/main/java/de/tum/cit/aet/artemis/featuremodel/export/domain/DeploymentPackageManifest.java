@@ -2,31 +2,37 @@ package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
- * Package-level metadata serialized into {@code metadata/package-manifest.json}. It records what the local runtime
- * deployment package contains and which runtime modes it supports, so a user (or a later phase) can inspect the package
- * without unzipping and reading every file.
+ * Package-level metadata serialized into {@code metadata/package-manifest.json}. It records what the deployment
+ * package contains, the deployment mode it was generated for, and which runtime modes it supports, so a user (or a
+ * later phase) can inspect the package without unzipping and reading every file.
  *
  * <p>
- * This phase supports Layer 1 (local Artemis repository runtime) only; {@link #supportedRuntimeModes} reflects that.
- * The manifest never contains plaintext secrets: secret values appear elsewhere only as {@code ${VARIABLE}}
+ * The {@link #deploymentMode} field records an explicitly chosen deployment mode and is omitted when the caller relied
+ * on the default, so the default local-docker package keeps its pre-mode-axis manifest byte-identical. The local
+ * runtime layer supports Layer 1 (local Artemis repository runtime) only; {@link #supportedRuntimeModes} reflects
+ * that. The manifest never contains plaintext secrets: secret values appear elsewhere only as {@code ${VARIABLE}}
  * placeholders.
  *
  * @param packageType stable package type identifier.
  * @param packageVersion package format version.
  * @param mode generation mode; only {@code DEMO} in this phase.
+ * @param deploymentMode explicitly chosen deployment mode id, or {@code null} (omitted) for a default-mode request.
  * @param supportedRuntimeModes runtime modes this package can be started in.
  * @param model active feature model reference.
  * @param deploymentProfile active deployment profile reference.
- * @param artemisRuntime Artemis runtime context notes relevant to the local-repo layer.
- * @param database local runtime database used to validate startup.
+ * @param artemisRuntime Artemis runtime context notes relevant to the generated package.
+ * @param database local runtime database used to validate startup, or {@code null} for packages without a runtime.
  * @param generatedFiles relative paths of all files in the package, in deterministic order.
  * @param requiredEnvironmentVariables environment variable names the overlay references, from {@code .env.example}.
  * @param readiness readiness flags making clear this is a local-validation, non-production package.
  */
-public record DeploymentPackageManifest(String packageType, String packageVersion, String mode, List<String> supportedRuntimeModes, ModelRef model,
-        ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, List<String> generatedFiles, List<String> requiredEnvironmentVariables,
-        Readiness readiness) {
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record DeploymentPackageManifest(String packageType, String packageVersion, String mode, String deploymentMode, List<String> supportedRuntimeModes,
+        ModelRef model, ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, List<String> generatedFiles,
+        List<String> requiredEnvironmentVariables, Readiness readiness) {
 
     /**
      * Normalizes nullable list fields to immutable empty lists.
@@ -34,11 +40,12 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * @param packageType stable package type identifier.
      * @param packageVersion package format version.
      * @param mode generation mode.
+     * @param deploymentMode explicitly chosen deployment mode id, or {@code null}.
      * @param supportedRuntimeModes supported runtime modes.
      * @param model active feature model reference.
      * @param deploymentProfile active deployment profile reference.
      * @param artemisRuntime Artemis runtime context notes.
-     * @param database local runtime database.
+     * @param database local runtime database, or {@code null}.
      * @param generatedFiles package file paths.
      * @param requiredEnvironmentVariables referenced environment variable names.
      * @param readiness readiness flags.

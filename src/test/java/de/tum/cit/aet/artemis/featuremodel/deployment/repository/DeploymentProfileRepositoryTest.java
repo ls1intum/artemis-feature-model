@@ -64,6 +64,39 @@ class DeploymentProfileRepositoryTest {
     }
 
     @Test
+    void treatsAnAbsentSupportedDeploymentModesFieldAsAllModesSupported() {
+        DeploymentProfile defaultProfile = profileById(repository().loadProfiles(), "default-artemis-profile");
+
+        assertThat(defaultProfile.supportedDeploymentModes()).isNull();
+        assertThat(defaultProfile.supportsDeploymentMode("local-docker")).isTrue();
+        assertThat(defaultProfile.supportsDeploymentMode("dev-ide")).isTrue();
+    }
+
+    @Test
+    void parsesDeclaredSupportedDeploymentModesAsARestriction() throws IOException {
+        writeLocalProfile("docker-only.json",
+                "{ \"id\": \"docker-only-profile\", \"name\": \"Docker Only\", \"supportedDeploymentModes\": [\"local-docker\"] }");
+
+        DeploymentProfile profile = profileById(repository().loadProfiles(), "docker-only-profile");
+
+        assertThat(profile.supportedDeploymentModes()).containsExactly("local-docker");
+        assertThat(profile.supportsDeploymentMode("local-docker")).isTrue();
+        assertThat(profile.supportsDeploymentMode("dev-ide")).isFalse();
+    }
+
+    @Test
+    void loadsAProfileWithAnUnknownDeploymentModeEntryLeniently() throws IOException {
+        writeLocalProfile("future.json",
+                "{ \"id\": \"future-profile\", \"name\": \"Future\", \"supportedDeploymentModes\": [\"local-docker\", \"remote-ansible\"] }");
+
+        DeploymentProfile profile = profileById(repository().loadProfiles(), "future-profile");
+
+        // The unknown entry is not a load failure; it stays inert because it never matches a known requested mode.
+        assertThat(profile.supportedDeploymentModes()).containsExactly("local-docker", "remote-ansible");
+        assertThat(profile.supportsDeploymentMode("local-docker")).isTrue();
+    }
+
+    @Test
     void rejectsDuplicateLocalProfileIds() throws IOException {
         writeLocalProfile("first.json", "{ \"id\": \"duplicate-profile\", \"name\": \"First\" }");
         writeLocalProfile("second.json", "{ \"id\": \"duplicate-profile\", \"name\": \"Second\" }");

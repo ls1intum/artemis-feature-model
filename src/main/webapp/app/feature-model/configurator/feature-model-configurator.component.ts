@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
+import { ArtifactGenerationRequest } from '../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
@@ -35,6 +36,9 @@ const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please ver
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the local runtime package. Please verify that the server is running and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
 const DEPLOYMENT_PACKAGE_FILE_NAME = 'artemis-feature-model-deployment-package.zip';
+const DEV_IDE_PACKAGE_FILE_NAME = 'artemis-feature-model-dev-ide-package.zip';
+const LOCAL_DOCKER_DEPLOYMENT_MODE = 'local-docker';
+const DEV_IDE_DEPLOYMENT_MODE = 'dev-ide';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -70,6 +74,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
+    readonly selectedDeploymentMode = signal<string>(LOCAL_DOCKER_DEPLOYMENT_MODE);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -446,19 +451,35 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             });
     }
 
-    /** Downloads the local runtime deployment package ZIP for the current valid selection. */
+    /** Switches the review-page deployment target; the default local Docker target keeps today's request shape. */
+    onSelectDeploymentMode(deploymentMode: string): void {
+        this.selectedDeploymentMode.set(deploymentMode);
+        this.deploymentPackageErrorMessage.set(undefined);
+    }
+
+    /**
+     * Downloads the deployment package ZIP for the current valid selection and the selected deployment target. The
+     * default local Docker target sends the request without a deployment mode, preserving the pre-mode-axis behavior;
+     * any other target is sent explicitly as `deploymentMode`.
+     */
     onDownloadDeploymentPackage(): void {
         if (!this.isValid()) {
             return;
         }
+        const deploymentMode = this.selectedDeploymentMode();
+        const request: ArtifactGenerationRequest = { selectedFeatureIds: [...this.selectedFeatureIds()] };
+        if (deploymentMode !== LOCAL_DOCKER_DEPLOYMENT_MODE) {
+            request.deploymentMode = deploymentMode;
+        }
+        const fileName = deploymentMode === DEV_IDE_DEPLOYMENT_MODE ? DEV_IDE_PACKAGE_FILE_NAME : DEPLOYMENT_PACKAGE_FILE_NAME;
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
         this.featureModelService
-            .downloadDeploymentPackage({ selectedFeatureIds: [...this.selectedFeatureIds()] })
+            .downloadDeploymentPackage(request)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
                 next: (blob) => {
-                    this.saveBlob(blob, DEPLOYMENT_PACKAGE_FILE_NAME);
+                    this.saveBlob(blob, fileName);
                     this.deploymentPackageDownloading.set(false);
                 },
                 error: (error: Error) => {
