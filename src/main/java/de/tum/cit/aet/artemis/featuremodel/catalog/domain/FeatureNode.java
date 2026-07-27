@@ -2,9 +2,12 @@ package de.tum.cit.aet.artemis.featuremodel.catalog.domain;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record FeatureNode(String id, String name, String kind, boolean selectable, String description, String defaultState, FeatureSource source,
         String category, List<String> visibleTo, List<String> configurableBy, List<String> requiresCapabilities, List<ArtifactMapping> artifactMappings,
         ExtractionMetadata extraction) {
@@ -68,6 +71,7 @@ public record FeatureNode(String id, String name, String kind, boolean selectabl
      *
      * @return true if this node has kind {@code root}.
      */
+    @JsonIgnore
     public boolean isRoot() {
         return FeatureNode.KIND_ROOT.equals(kind);
     }
@@ -77,6 +81,7 @@ public record FeatureNode(String id, String name, String kind, boolean selectabl
      *
      * @return true if this node has kind {@code group}.
      */
+    @JsonIgnore
     public boolean isGroup() {
         return FeatureNode.KIND_GROUP.equals(kind);
     }
@@ -86,6 +91,7 @@ public record FeatureNode(String id, String name, String kind, boolean selectabl
      *
      * @return true if this node has default state {@code enabled}.
      */
+    @JsonIgnore
     public boolean isEnabledByDefault() {
         return FeatureNode.DEFAULT_STATE_ENABLED.equals(defaultState);
     }

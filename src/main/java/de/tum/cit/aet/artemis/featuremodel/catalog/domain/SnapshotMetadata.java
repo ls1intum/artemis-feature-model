@@ -1,6 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * Traceability metadata for a locally imported feature model snapshot, parsed from the snapshot's {@code metadata.json}.
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * They default to the standard names so older snapshots that omit them remain loadable.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SnapshotMetadata(String modelId, String snapshotId, String version, String status, String sourceRepo, String sourceRef, String sourceCommit,
         String extractorVersion, String modelFile, String workflowFile, String reportFile, String checksumFile) {
 

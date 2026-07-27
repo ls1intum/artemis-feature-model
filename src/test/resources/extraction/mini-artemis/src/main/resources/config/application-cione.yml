@@ -1,0 +1,4 @@
+# Synthetic profile configuration; loaded only when the cione profile is active.
+artemis:
+    continuous-integration:
+        concurrent-build-size: 1

@@ -46,7 +46,6 @@ export interface GuidedDecision {
     question: string;
     description: string;
     selectionMode: GuidedSelectionMode;
-    reviewGroupId: string;
     options: GuidedDecisionOption[];
 }
 
@@ -57,7 +56,6 @@ export interface GuidedDecisionOption {
     selects: string[];
     deselects: string[];
     requiresCapabilities: string[];
-    consequences: string[];
     artifactImpacts: string[];
     enabledOutcome: string[];
     recommendedWhen: string[];
@@ -67,6 +65,7 @@ export interface GuidedDecisionOption {
 
 export interface FinalReviewGroup {
     id: string;
+    groupNodeId?: string;
     title: string;
     order: number;
     featureIds: string[];

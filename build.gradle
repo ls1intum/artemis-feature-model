@@ -27,12 +27,39 @@ def skipFrontendBuild = providers.gradleProperty('skipFrontendBuild')
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'com.github.javaparser:javaparser-core:3.26.4'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    def smokeTestArtemisPath = providers.gradleProperty('artemisPath')
+    if (smokeTestArtemisPath.isPresent()) {
+        systemProperty 'artemisPath', smokeTestArtemisPath.get()
+    }
+}
+
+tasks.register('extractFeatureModel', JavaExec) {
+    description = 'Scans a local Artemis checkout and writes feature extraction outputs under build/feature-extraction.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionRunner'
+    def artemisPath = providers.gradleProperty('artemisPath').getOrElse('/Users/juntingning/thesis/Repositories/Artemis')
+    def manifestPath = providers.gradleProperty('featureManifestPath')
+            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
+    args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path, manifestPath]
+}
+
+tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
+    description = 'Synchronizes the authored guided workflow scaffold with the manifest include set without touching prose.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.GuidedWorkflowScaffoldRunner'
+    def scaffoldManifestPath = providers.gradleProperty('featureManifestPath')
+            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
+    args = [layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path, scaffoldManifestPath,
+            layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
 }
 
 tasks.register('syncFeatureModelResource', Copy) {

@@ -2,7 +2,10 @@ package de.tum.cit.aet.artemis.featuremodel.selection.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -25,7 +28,9 @@ public class GuidedWorkflowIntegrityService {
 
     private static final String CODE_UNKNOWN_STEP = "UNKNOWN_GUIDED_WORKFLOW_STEP";
 
-    private static final String CODE_UNKNOWN_REVIEW_GROUP = "UNKNOWN_GUIDED_WORKFLOW_REVIEW_GROUP";
+    private static final String CODE_MISSING_GROUP_NODE = "MISSING_GUIDED_WORKFLOW_GROUP_NODE";
+
+    private static final String CODE_UNKNOWN_GROUP_NODE = "UNKNOWN_GUIDED_WORKFLOW_GROUP_NODE";
 
     private static final String CODE_UNKNOWN_FEATURE = "UNKNOWN_GUIDED_WORKFLOW_FEATURE";
 
@@ -34,28 +39,31 @@ public class GuidedWorkflowIntegrityService {
     private static final String CODE_MODEL_VERSION_MISMATCH = "GUIDED_WORKFLOW_MODEL_VERSION_MISMATCH";
 
     /**
-     * Validates a guided workflow against the active feature model.
+     * Validates a guided workflow against the active feature model. Only hard reference problems throw: unknown
+     * feature ids, unknown steps, unknown or non-group review group nodes, duplicate ids, a missing default template,
+     * or a workflow that explicitly pins a different model.
      *
      * @param workflow guided workflow to validate.
      * @param featureModel feature model whose ids may be referenced by the workflow.
      * @throws FeatureModelIntegrityException if the workflow targets a different model, contains duplicate ids, or references unknown model concepts.
      */
     public void validate(GuidedWorkflow workflow, FeatureModel featureModel) {
-        Set<String> featureIds = featureIds(featureModel);
+        Map<String, FeatureNode> featuresById = featureModel.features().stream().collect(Collectors.toMap(FeatureNode::id, Function.identity()));
+        Set<String> featureIds = featuresById.keySet();
         Set<String> stepIds = uniqueStepIds(workflow.steps());
-        Set<String> reviewGroupIds = uniqueReviewGroupIds(workflow.finalReviewGroups());
         Set<String> templateIds = uniqueTemplateIds(workflow.useCaseTemplates());
 
         validateModelMatch(workflow, featureModel);
         validateDefaultTemplate(workflow, templateIds);
         validateTemplateReferences(workflow.useCaseTemplates(), stepIds, featureIds);
-        validateStepReferences(workflow.steps(), reviewGroupIds, featureIds);
-        validateReviewGroupReferences(workflow.finalReviewGroups(), featureIds);
+        validateStepReferences(workflow.steps(), featureIds);
+        validateReviewGroupNodes(workflow.finalReviewGroups(), featuresById);
     }
 
     /**
      * Checks that the workflow targets the active feature model. The id and version are only compared when both the
-     * workflow and the model declare them, so synthetic models without lifecycle metadata are not rejected.
+     * workflow and the model declare them: the lean authored workflow carries no pin (the serve-time enrichment stamps
+     * the active model), while an imported snapshot workflow may still pin its generating model explicitly.
      *
      * @param workflow guided workflow to validate.
      * @param featureModel active feature model.
@@ -77,20 +85,6 @@ public class GuidedWorkflowIntegrityService {
     }
 
     /**
-     * Collects known feature ids from the feature model.
-     *
-     * @param featureModel model to inspect.
-     * @return known feature ids.
-     */
-    private Set<String> featureIds(FeatureModel featureModel) {
-        Set<String> featureIds = new HashSet<>();
-        for (FeatureNode feature : featureModel.features()) {
-            featureIds.add(feature.id());
-        }
-        return featureIds;
-    }
-
-    /**
      * Collects unique workflow step ids.
      *
      * @param steps workflow steps to inspect.
@@ -103,21 +97,6 @@ public class GuidedWorkflowIntegrityService {
             addUniqueId(stepIds, step.id(), "step", CODE_DUPLICATE_WORKFLOW_ID);
         }
         return stepIds;
-    }
-
-    /**
-     * Collects unique final review group ids.
-     *
-     * @param reviewGroups review groups to inspect.
-     * @return known review group ids.
-     * @throws FeatureModelIntegrityException if a review group id is duplicated.
-     */
-    private Set<String> uniqueReviewGroupIds(List<FinalReviewGroup> reviewGroups) {
-        Set<String> reviewGroupIds = new HashSet<>();
-        for (FinalReviewGroup reviewGroup : reviewGroups) {
-            addUniqueId(reviewGroupIds, reviewGroup.id(), "review group", CODE_DUPLICATE_WORKFLOW_ID);
-        }
-        return reviewGroupIds;
     }
 
     /**
@@ -153,7 +132,7 @@ public class GuidedWorkflowIntegrityService {
     /**
      * Checks that the configured default template exists.
      *
-     * @param workflow workflow metadata and content.
+     * @param workflow guided workflow to validate.
      * @param templateIds known template ids.
      * @throws FeatureModelIntegrityException if the default template is unknown.
      */
@@ -182,18 +161,16 @@ public class GuidedWorkflowIntegrityService {
     }
 
     /**
-     * Checks decision option feature references and review group references.
+     * Checks decision option feature references and decision and option id uniqueness.
      *
      * @param steps workflow steps to inspect.
-     * @param reviewGroupIds known review group ids.
      * @param featureIds known feature ids.
-     * @throws FeatureModelIntegrityException if a decision references an unknown review group or feature.
+     * @throws FeatureModelIntegrityException if a decision option references an unknown feature.
      */
-    private void validateStepReferences(List<GuidedWorkflowStep> steps, Set<String> reviewGroupIds, Set<String> featureIds) {
+    private void validateStepReferences(List<GuidedWorkflowStep> steps, Set<String> featureIds) {
         for (GuidedWorkflowStep step : steps) {
             validateDecisionIds(step);
             for (GuidedDecision decision : step.decisions()) {
-                validateReviewGroupId(decision.reviewGroupId(), reviewGroupIds, "decision '" + decision.id() + "'");
                 validateOptionIds(decision);
                 for (GuidedDecisionOption option : decision.options()) {
                     validateFeatureIds(option.selects(), featureIds, "option '" + option.id() + "' selects");
@@ -230,15 +207,27 @@ public class GuidedWorkflowIntegrityService {
     }
 
     /**
-     * Checks final review group feature references.
+     * Checks that every review group declares a group node that exists in the model and is a structural root or group
+     * node, and that no group node is referenced twice. The member feature ids are no longer authored; the serve-time
+     * enrichment derives them from the group node children, so referencing a valid group node is the whole contract.
      *
      * @param reviewGroups review groups to inspect.
-     * @param featureIds known feature ids.
-     * @throws FeatureModelIntegrityException if a review group references an unknown feature.
+     * @param featuresById known model features keyed by id.
+     * @throws FeatureModelIntegrityException if a review group misses its group node reference or references an unknown or non-structural node.
      */
-    private void validateReviewGroupReferences(List<FinalReviewGroup> reviewGroups, Set<String> featureIds) {
+    private void validateReviewGroupNodes(List<FinalReviewGroup> reviewGroups, Map<String, FeatureNode> featuresById) {
+        Set<String> groupNodeIds = new HashSet<>();
         for (FinalReviewGroup reviewGroup : reviewGroups) {
-            validateFeatureIds(reviewGroup.featureIds(), featureIds, "review group '" + reviewGroup.id() + "'");
+            String groupNodeId = reviewGroup.groupNodeId();
+            if (groupNodeId == null || groupNodeId.isBlank()) {
+                throw new FeatureModelIntegrityException(CODE_MISSING_GROUP_NODE, "A guided workflow review group does not declare a groupNodeId.");
+            }
+            addUniqueId(groupNodeIds, groupNodeId, "review group node", CODE_DUPLICATE_WORKFLOW_ID);
+            FeatureNode groupNode = featuresById.get(groupNodeId);
+            if (groupNode == null || !(groupNode.isGroup() || groupNode.isRoot())) {
+                throw new FeatureModelIntegrityException(CODE_UNKNOWN_GROUP_NODE,
+                        "Guided workflow review group references '" + groupNodeId + "' which is not a group node of the active model.");
+            }
         }
     }
 
@@ -255,21 +244,6 @@ public class GuidedWorkflowIntegrityService {
             if (!knownStepIds.contains(stepId)) {
                 throw new FeatureModelIntegrityException(CODE_UNKNOWN_STEP, "Guided workflow " + owner + " references unknown step '" + stepId + "'.");
             }
-        }
-    }
-
-    /**
-     * Checks that a review group id exists.
-     *
-     * @param reviewGroupId referenced review group id.
-     * @param knownReviewGroupIds known review group ids.
-     * @param owner owner text for the exception message.
-     * @throws FeatureModelIntegrityException if the review group id is unknown.
-     */
-    private void validateReviewGroupId(String reviewGroupId, Set<String> knownReviewGroupIds, String owner) {
-        if (!knownReviewGroupIds.contains(reviewGroupId)) {
-            throw new FeatureModelIntegrityException(CODE_UNKNOWN_REVIEW_GROUP,
-                    "Guided workflow " + owner + " references unknown review group '" + reviewGroupId + "'.");
         }
     }
 

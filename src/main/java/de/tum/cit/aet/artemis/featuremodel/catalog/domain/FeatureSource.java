@@ -2,6 +2,9 @@ package de.tum.cit.aet.artemis.featuremodel.catalog.domain;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record FeatureSource(String configKey, String springProfile, String frontendConstant, String backendConditionClass, List<String> evidence) {
 
     /**

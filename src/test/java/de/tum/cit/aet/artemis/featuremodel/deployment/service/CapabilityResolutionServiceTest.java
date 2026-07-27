@@ -19,6 +19,8 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.OptionAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.selection.repository.JsonGuidedWorkflowStore;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowAssembler;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
@@ -108,9 +110,10 @@ class CapabilityResolutionServiceTest {
         JsonFeatureModelStore featureModelStore = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(featureModelStore, new FeatureModelIntegrityService(), treeService);
         JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(resourceLoader, objectMapper);
-        GuidedWorkflowService workflowService = new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService());
+        GuidedWorkflowService workflowService = new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler(),
+                new GuidedWorkflowDiagnosticsService());
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
-        return new CapabilityResolutionService(catalogService, workflowService, profileService);
+        return new CapabilityResolutionService(catalogService, workflowService, profileService, new GuidedWorkflowDiagnosticsService());
     }
 }

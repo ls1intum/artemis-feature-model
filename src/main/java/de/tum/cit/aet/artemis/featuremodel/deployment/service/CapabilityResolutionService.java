@@ -3,9 +3,7 @@ package de.tum.cit.aet.artemis.featuremodel.deployment.service;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +20,9 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDT
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowFinding;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
 
 /**
@@ -30,9 +30,11 @@ import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowServi
  *
  * <p>
  * Availability combines the prototype role (teacher), the feature visibility and configurability metadata, the
- * capabilities required by features and by the guided options that select them, and the capabilities provided by the
- * active deployment profile. The service produces two explanation levels: a readable teacher-facing reason that never
- * exposes raw capability ids, and the exact required and missing capability ids for advanced tree and debug views.
+ * capabilities required by the model features, and the capabilities provided by the active deployment profile.
+ * Capabilities are single-source on model features; the option requirements consumed here are the serve-time
+ * enrichment's derived union over each option's selected features. The service produces two explanation levels: a
+ * readable teacher-facing reason that never exposes raw capability ids, and the exact required and missing capability
+ * ids for advanced tree and debug views.
  *
  * <p>
  * The service is read-only and does not mutate the loaded feature model or guided workflow.
@@ -51,18 +53,22 @@ public class CapabilityResolutionService {
 
     private final DeploymentProfileService deploymentProfileService;
 
+    private final GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService;
+
     /**
      * Creates the capability resolution service.
      *
      * @param featureModelCatalogService service used to load the active feature model.
      * @param guidedWorkflowService service used to load the active guided workflow.
      * @param deploymentProfileService service used to load and resolve deployment profiles.
+     * @param guidedWorkflowDiagnosticsService diagnostics service used to surface unknown capability ids.
      */
     public CapabilityResolutionService(FeatureModelCatalogService featureModelCatalogService, GuidedWorkflowService guidedWorkflowService,
-            DeploymentProfileService deploymentProfileService) {
+            DeploymentProfileService deploymentProfileService, GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService) {
         this.featureModelCatalogService = featureModelCatalogService;
         this.guidedWorkflowService = guidedWorkflowService;
         this.deploymentProfileService = deploymentProfileService;
+        this.guidedWorkflowDiagnosticsService = guidedWorkflowDiagnosticsService;
     }
 
     /**
@@ -81,12 +87,34 @@ public class CapabilityResolutionService {
 
         FeatureModel model = featureModelCatalogService.loadActiveModel();
         GuidedWorkflow workflow = guidedWorkflowService.getActiveGuidedWorkflow();
+        logCapabilityDiagnostics(workflow, model, profiles);
 
         List<OptionAvailabilityDTO> options = resolveOptionAvailability(workflow, activeProfile);
-        List<FeatureAvailabilityDTO> features = resolveFeatureAvailability(model, workflow, activeProfile);
+        List<FeatureAvailabilityDTO> features = resolveFeatureAvailability(model, activeProfile);
 
         log.info("Resolved availability under profile '{}': {} options and {} features evaluated.", activeProfile.id(), options.size(), features.size());
         return new WorkflowAvailabilityDTO(summary(activeProfile, defaultProfileId), summaries(profiles, defaultProfileId), options, features);
+    }
+
+    /**
+     * Logs capability-validity findings against the union of all loaded profiles' capabilities. A capability id no
+     * profile provides silently disables its feature everywhere, so it is surfaced as a warning without failing the
+     * request.
+     *
+     * @param workflow active guided workflow.
+     * @param model active feature model.
+     * @param profiles all loaded deployment profiles.
+     */
+    private void logCapabilityDiagnostics(GuidedWorkflow workflow, FeatureModel model, List<DeploymentProfile> profiles) {
+        Set<String> knownCapabilities = new LinkedHashSet<>();
+        for (DeploymentProfile profile : profiles) {
+            knownCapabilities.addAll(profile.providedCapabilities());
+        }
+        for (GuidedWorkflowFinding finding : guidedWorkflowDiagnosticsService.findings(workflow, model, knownCapabilities)) {
+            if (GuidedWorkflowFinding.CODE_UNKNOWN_CAPABILITY.equals(finding.code())) {
+                log.warn("Guided workflow diagnostic {} for '{}': {}", finding.code(), finding.subject(), finding.message());
+            }
+        }
     }
 
     /**
@@ -124,19 +152,18 @@ public class CapabilityResolutionService {
     }
 
     /**
-     * Resolves availability of every feature under the active profile, aggregating capability requirements from the
-     * feature itself and from the guided options that select it.
+     * Resolves availability of every feature under the active profile. Capabilities are single-source on the model
+     * features: guided options no longer carry their own capability copies, so the feature's declared
+     * {@code requiresCapabilities} is the complete requirement set.
      *
      * @param model active feature model.
-     * @param workflow active guided workflow.
      * @param activeProfile active deployment profile.
      * @return feature availability for every feature in the model.
      */
-    private List<FeatureAvailabilityDTO> resolveFeatureAvailability(FeatureModel model, GuidedWorkflow workflow, DeploymentProfile activeProfile) {
-        Map<String, Set<String>> requiredByFeature = requiredCapabilitiesByFeature(model, workflow);
+    private List<FeatureAvailabilityDTO> resolveFeatureAvailability(FeatureModel model, DeploymentProfile activeProfile) {
         List<FeatureAvailabilityDTO> result = new ArrayList<>();
         for (FeatureNode feature : model.features()) {
-            result.add(featureAvailability(feature, requiredByFeature.getOrDefault(feature.id(), Set.of()), activeProfile));
+            result.add(featureAvailability(feature, activeProfile));
         }
         return result;
     }
@@ -145,58 +172,17 @@ public class CapabilityResolutionService {
      * Builds availability for a single feature.
      *
      * @param feature feature node.
-     * @param requiredCapabilities aggregated capabilities the feature requires.
      * @param activeProfile active deployment profile.
      * @return feature availability.
      */
-    private FeatureAvailabilityDTO featureAvailability(FeatureNode feature, Set<String> requiredCapabilities, DeploymentProfile activeProfile) {
-        List<String> required = List.copyOf(requiredCapabilities);
+    private FeatureAvailabilityDTO featureAvailability(FeatureNode feature, DeploymentProfile activeProfile) {
+        List<String> required = List.copyOf(feature.requiresCapabilities());
         List<String> missing = missingCapabilities(required, activeProfile);
         boolean profileDependent = !required.isEmpty();
         boolean roleAllowed = isVisibleToTeacher(feature) && isConfigurableByTeacher(feature);
         boolean available = roleAllowed && missing.isEmpty();
         String teacherReason = available ? null : featureReason(feature, roleAllowed);
         return new FeatureAvailabilityDTO(feature.id(), feature.name(), available, profileDependent, required, missing, teacherReason);
-    }
-
-    /**
-     * Aggregates, per feature id, the capabilities required by the feature itself and by every guided option that
-     * selects it.
-     *
-     * @param model active feature model.
-     * @param workflow active guided workflow.
-     * @return required capabilities keyed by feature id.
-     */
-    private Map<String, Set<String>> requiredCapabilitiesByFeature(FeatureModel model, GuidedWorkflow workflow) {
-        Map<String, Set<String>> requiredByFeature = new TreeMap<>();
-        for (FeatureNode feature : model.features()) {
-            if (!feature.requiresCapabilities().isEmpty()) {
-                requiredByFeature.computeIfAbsent(feature.id(), key -> new LinkedHashSet<>()).addAll(feature.requiresCapabilities());
-            }
-        }
-        for (GuidedWorkflowStep step : workflow.steps()) {
-            for (GuidedDecision decision : step.decisions()) {
-                for (GuidedDecisionOption option : decision.options()) {
-                    addOptionRequirementsToSelectedFeatures(option, requiredByFeature);
-                }
-            }
-        }
-        return requiredByFeature;
-    }
-
-    /**
-     * Adds an option's required capabilities to every feature the option selects.
-     *
-     * @param option guided decision option.
-     * @param requiredByFeature accumulating map of required capabilities by feature id, mutated in place.
-     */
-    private void addOptionRequirementsToSelectedFeatures(GuidedDecisionOption option, Map<String, Set<String>> requiredByFeature) {
-        if (option.requiresCapabilities().isEmpty()) {
-            return;
-        }
-        for (String featureId : option.selects()) {
-            requiredByFeature.computeIfAbsent(featureId, key -> new LinkedHashSet<>()).addAll(option.requiresCapabilities());
-        }
     }
 
     /**

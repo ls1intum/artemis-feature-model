@@ -133,7 +133,6 @@ function buildWorkflowWithApollonOption(): GuidedWorkflow {
         selects: ['apollon'],
         deselects: [],
         requiresCapabilities: ['apollon-conversion-service'],
-        consequences: ['Allows UML models from modeling exercises to be converted to PDF.'],
         artifactImpacts: ['Sets artemis.apollon.enabled = true in the generated external configuration overlay.'],
         enabledOutcome: ['Instructors and students can export UML diagrams from modeling exercises as PDF files.'],
         recommendedWhen: ['Your course uses modeling exercises and needs PDF exports of UML diagrams.'],

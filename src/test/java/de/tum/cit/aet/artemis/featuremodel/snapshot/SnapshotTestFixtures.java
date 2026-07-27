@@ -142,7 +142,7 @@ public final class SnapshotTestFixtures {
                     { "id": "content", "title": "Content", "order": 1, "description": "Choose content.", "decisions": [] }
                   ],
                   "finalReviewGroups": [
-                    { "id": "summary", "title": "Summary", "order": 1, "featureIds": ["lecture"] }
+                    { "groupNodeId": "artemis", "title": "Summary", "order": 1 }
                   ]
                 }
                 """.formatted(featureModelId, featureModelVersion);

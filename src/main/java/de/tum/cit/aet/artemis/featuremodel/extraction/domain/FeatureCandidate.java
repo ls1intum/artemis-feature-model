@@ -1,0 +1,48 @@
+package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
+
+/**
+ * One extracted feature candidate. Candidates are discovery output only: they never enter the curated model in this
+ * phase, and namespaced ids keep the anchor kind explicit.
+ *
+ * @param id namespaced candidate id, for example {@code module:iris}, {@code toggle:Exports}, {@code profile:localci},
+ *            {@code configkey:artemis.iris.enabled}, or {@code infra:mysql}.
+ * @param kind candidate kind, one of the {@code KIND_*} constants.
+ * @param name human-readable name from Artemis i18n, or null when Artemis has none.
+ * @param description human-readable description from Artemis i18n, or null when Artemis has none.
+ * @param disableWarning disable warning text from Artemis i18n, only present for runtime toggles.
+ * @param configKey backing configuration key, or null when the candidate has no configuration anchor.
+ * @param defaultValue default value of the configuration key found in the scanned Artemis YAML defaults, or null.
+ * @param backendConstant backend constant symbol declaring the anchor, or null.
+ * @param frontendConstant frontend constant or enum symbol mirroring the anchor, or null.
+ * @param backendConditionClass simple name of the backing Spring condition class, or null.
+ * @param springProfile Spring profile id for profile candidates, or null.
+ * @param enumeratedByBackend true when the module id is returned by {@code ArtemisConfigHelper.getEnabledFeatures},
+ *            null for candidates where the enumeration does not apply.
+ * @param displayedOnAdminPage true when the admin Features page displays this candidate, null when the display
+ *            membership does not apply to the candidate kind.
+ * @param documentationUrl documentation link curated on the admin Features page, or null.
+ */
+public record FeatureCandidate(String id, String kind, String name, String description, String disableWarning, String configKey, Object defaultValue,
+        String backendConstant, String frontendConstant, String backendConditionClass, String springProfile, Boolean enumeratedByBackend, Boolean displayedOnAdminPage,
+        String documentationUrl) {
+
+    public static final String KIND_MODULE_FEATURE = "module-feature";
+
+    public static final String KIND_RUNTIME_TOGGLE = "runtime-toggle";
+
+    public static final String KIND_SPRING_PROFILE = "spring-profile";
+
+    public static final String KIND_CONFIG_KEY = "config-key";
+
+    public static final String KIND_INFRASTRUCTURE = "infrastructure";
+
+    public static final String NAMESPACE_MODULE = "module:";
+
+    public static final String NAMESPACE_TOGGLE = "toggle:";
+
+    public static final String NAMESPACE_PROFILE = "profile:";
+
+    public static final String NAMESPACE_CONFIG_KEY = "configkey:";
+
+    public static final String NAMESPACE_INFRASTRUCTURE = "infra:";
+}

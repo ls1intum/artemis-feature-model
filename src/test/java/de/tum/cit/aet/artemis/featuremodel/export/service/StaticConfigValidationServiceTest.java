@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
@@ -154,6 +157,32 @@ class StaticConfigValidationServiceTest {
         assertThat(catalog.keys()).isNotEmpty();
         assertThat(catalog.keys()).allSatisfy(key -> assertThat(key.type()).isIn(ArtemisConfigKeyCatalog.TYPE_BOOLEAN, ArtemisConfigKeyCatalog.TYPE_STRING,
                 ArtemisConfigKeyCatalog.TYPE_URL));
+    }
+
+    /**
+     * The curated classpath catalog stays the default; a maintainer may explicitly point the service at a regenerated
+     * catalog produced by the extraction pipeline through the catalog-location property.
+     */
+    @Test
+    void loadsExplicitlySelectedGeneratedCatalog(@TempDir Path tempDir) throws IOException {
+        Path generatedCatalog = tempDir.resolve("generated-config-key-catalog.json");
+        Files.writeString(generatedCatalog, """
+                {
+                  "catalogVersion": "0.1.0+testcommit",
+                  "verifiedAgainstArtemisCommit": "testcommit",
+                  "source": "generated",
+                  "keys": [ { "key": "artemis.generated.enabled", "type": "boolean" } ]
+                }
+                """);
+
+        StaticConfigValidationService generatedCatalogService = new StaticConfigValidationService(resourceLoader, objectMapper,
+                generatedCatalog.toUri().toString());
+        StaticConfigValidationReport report = generatedCatalogService.validate("artemis:\n  generated:\n    enabled: true\n");
+
+        assertThat(report.overallStatus()).isEqualTo(StaticConfigValidationReport.STATUS_PASS);
+        assertThat(report.catalogVersion()).isEqualTo("0.1.0+testcommit");
+        assertThat(generatedCatalogService.validate("artemis:\n  iris:\n    enabled: true\n").findings())
+                .singleElement().satisfies(finding -> assertThat(finding.issue()).isEqualTo(StaticConfigFinding.ISSUE_UNKNOWN_KEY));
     }
 
     private ArtemisConfigKeyCatalog loadCatalog() throws IOException {

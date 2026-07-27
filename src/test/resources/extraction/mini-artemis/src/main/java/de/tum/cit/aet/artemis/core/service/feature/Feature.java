@@ -1,0 +1,6 @@
+package de.tum.cit.aet.artemis.core.service.feature;
+
+// Must be the same as FeatureToggle in feature-toggle.service.ts on the client side
+public enum Feature {
+    ToggleOne, ToggleTwo, ServerOnlyToggle
+}

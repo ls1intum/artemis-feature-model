@@ -1,0 +1,435 @@
+manifestVersion: 1
+verifiedAgainstArtemisCommit: 553aab75955a3eec0a66dc1eb54edb4a63233da4
+
+# Membership mirrors the curated 26-feature model plus the deliberately introduced E3 technical subtree: the include
+# list carries the anchored curated modules and the first technical features, and every other candidate is excluded
+# with a documented reason. Entries with reason `deferred` are candidates the extraction surfaced that stay out only
+# until the generated model reaches parity with the curated model; moving one back is a single-entry change.
+# Optionality, category, default state, relation order, and artifact-mapping hints are modeling judgments code cannot
+# express, so they are declared here and carried into the generated model.
+
+include:
+  # Functional module anchors represented in the curated model, all optional like their curated relations.
+  # The enabled-key artifact mapping is auto-derived from the scanned *_ENABLED_PROPERTY_NAME configuration key;
+  # profile-parameter mappings beyond it are declared per entry, mirroring the curated mapping shapes.
+
+  - anchor: module:lecture
+    id: lecture
+    group: teaching-and-content
+    order: 1
+
+  - anchor: module:tutorialgroup
+    id: tutorialgroup
+    group: teaching-and-content
+    order: 2
+
+  - anchor: module:text
+    id: text
+    group: exercise-system
+    order: 4
+
+  - anchor: module:modeling
+    id: modeling
+    group: exercise-system
+    order: 5
+
+  - anchor: module:fileupload
+    id: file-upload
+    group: exercise-system
+    order: 6
+
+  - anchor: module:exam
+    id: exam
+    group: assessment-and-integrity
+    order: 1
+
+  - anchor: module:plagiarism
+    id: plagiarism
+    group: assessment-and-integrity
+    order: 2
+
+  - anchor: module:athena
+    id: athena
+    group: assessment-and-integrity
+    order: 3
+    requiresCapabilities: [athena-service, athena-secret]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.athena.url, valueFromProfile: artemis.athena.url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.athena.secret, valueFromProfile: artemis.athena.secret, requiredWhenSelected: true, secret: true }
+
+  - anchor: module:atlas
+    id: atlas
+    group: adaptive-learning-and-ai
+    order: 1
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.atlas.chat-model, valueFromProfile: artemis.atlas.chat-model }
+
+  - anchor: module:iris
+    id: iris
+    group: adaptive-learning-and-ai
+    order: 2
+    requiresCapabilities: [pyris-service, pyris-secret]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.iris.url, valueFromProfile: artemis.iris.url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.iris.secret-token, valueFromProfile: artemis.iris.secret-token, requiredWhenSelected: true, secret: true }
+
+  - anchor: module:hyperion
+    id: hyperion
+    group: adaptive-learning-and-ai
+    order: 3
+    requiresCapabilities: [hyperion-service]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: spring.ai.openai.api-key, valueFromProfile: spring.ai.openai.api-key, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: spring.ai.openai.base-url, valueFromProfile: spring.ai.openai.base-url, requiredWhenSelected: true }
+
+  - anchor: module:lti
+    id: lti
+    group: platform-integrations
+    order: 1
+    requiresCapabilities: [lti-platform-registration]
+
+  - anchor: module:theia
+    id: theia
+    group: platform-integrations
+    order: 2
+    requiresCapabilities: [theia-service]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.theia.portal-url, valueFromProfile: artemis.theia.portal-url, requiredWhenSelected: true }
+
+  - anchor: module:apollon
+    id: apollon
+    group: platform-integrations
+    order: 3
+    requiresCapabilities: [apollon-conversion-service]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.apollon.conversion-service-url, valueFromProfile: artemis.apollon.conversion-service-url, requiredWhenSelected: true }
+
+  - anchor: module:sharing
+    id: sharing
+    group: platform-integrations
+    order: 4
+    requiresCapabilities: [sharing-platform-registration, sharing-secret]
+    artifactMappings:
+      - { target: application-feature-model.yml, path: artemis.sharing.serverurl, valueFromProfile: artemis.sharing.serverurl, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.sharing.apikey, valueFromProfile: artemis.sharing.apikey, requiredWhenSelected: true, secret: true }
+
+  # Technical variability introduced deliberately in E3: database and CI provider xor groups plus the fixed localvc
+  # baseline. Technical features are maintainer-only, never teacher-facing, and their structural mappings describe the
+  # Spring profile token contribution and the Docker compose stack choice rather than overlay configuration keys.
+
+  - anchor: infra:mysql
+    id: mysql
+    group: database
+    kind: feature
+    category: technical
+    defaultState: enabled
+    order: 1
+    providesCapabilities: [default-database]
+    name: MySQL
+    description: MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.
+    artifactMappings:
+      - { target: docker-compose.override.yml, path: database.composeFile, valueWhenSelected: docker/mysql.yml }
+
+  - anchor: infra:postgres
+    id: postgresql
+    group: database
+    kind: feature
+    category: technical
+    defaultState: disabled
+    order: 2
+    providesCapabilities: [default-database]
+    name: PostgreSQL
+    description: PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.
+    artifactMappings:
+      - { target: docker-compose.override.yml, path: database.composeFile, valueWhenSelected: docker/postgres.yml }
+
+  - anchor: profile:localci
+    id: integrated-code-lifecycle
+    group: ci-provider
+    kind: feature
+    category: technical
+    defaultState: enabled
+    order: 1
+    providesCapabilities: [default-ci-provider]
+    name: Integrated Code Lifecycle
+    description: Built-in CI provider activated by the localci and buildagent Spring profiles.
+    artifactMappings:
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: "localci,buildagent" }
+
+  - anchor: profile:jenkins
+    id: jenkins
+    group: ci-provider
+    kind: feature
+    category: technical
+    defaultState: disabled
+    order: 2
+    name: Jenkins
+    description: External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.
+    artifactMappings:
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: jenkins }
+
+  - anchor: profile:localvc
+    id: localvc
+    parent: artemis
+    kind: feature
+    category: technical
+    optionality: mandatory
+    defaultState: enabled
+    order: 8
+    name: Local Version Control
+    description: Version control baseline activated by the localvc Spring profile; fixed for every deployment.
+    artifactMappings:
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: localvc }
+
+exclude:
+  # Configuration-key candidates remain evidence for their owning module rather than duplicate feature nodes.
+  - { anchor: configkey:artemis.apollon.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.athena.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.atlas.atlasml.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.atlas.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.exam.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.fileupload.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.hyperion.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.iris.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.lecture.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.lti.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.modeling.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.plagiarism.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.sharing.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.text.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.theia.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.tutorialgroup.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.ldap.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.passkey.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.user-management.saml2.enabled, reason: internal-mechanism }
+  - { anchor: configkey:artemis.weaviate.enabled, reason: internal-mechanism }
+
+  # Module-level discoveries that are policy details or backing infrastructure.
+
+  - anchor: module:passkey-admin
+    reason: sub-option
+    rationale: This is an administrator reauthentication policy within passkey support, not an independent feature.
+
+  - anchor: module:weaviate
+    reason: internal-mechanism
+    rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
+
+  - anchor: module:atlasml
+    reason: sub-option
+    rationale: The curated model treats AtlasML as an extra sub-switch of Atlas rather than an independent feature.
+
+  # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
+
+  - anchor: module:ldap
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
+  - anchor: module:saml2
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
+  - anchor: module:passkey
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
+  - anchor: module:tumlive
+    reason: deferred
+    rationale: External lecture-video integration the curated model does not represent; revisit after generated-model parity.
+
+  # Runtime switches: the curated functional model contains no runtime toggles.
+
+  - anchor: toggle:AtlasML
+    reason: sub-option
+    rationale: The source-level atlasml anchor already represents this capability and stays excluded with it.
+
+  - anchor: toggle:RateLimit
+    reason: operational
+    rationale: Rate limiting is an abuse-protection safeguard, not a course or deployment capability choice.
+
+  - anchor: toggle:Science
+    reason: experimental
+    rationale: Research data collection is experiment consent and policy, not functional model scope.
+
+  - anchor: toggle:AtlasAgent
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
+  - anchor: toggle:AutonomousTutor
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
+  - anchor: toggle:Exports
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+
+  - anchor: toggle:GlobalSearch
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of course-workflow after parity.
+
+  - anchor: toggle:LearningPaths
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
+  - anchor: toggle:LectureContentProcessing
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of lecture after parity.
+
+  - anchor: toggle:Memiris
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
+  - anchor: toggle:PlagiarismChecks
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of plagiarism after parity.
+
+  - anchor: toggle:ProgrammingExercises
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of programming after parity.
+
+  - anchor: toggle:StandardizedCompetencies
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
+  - anchor: toggle:StudentCourseAnalyticsDashboard
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
+
+  - anchor: toggle:TutorSuggestions
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
+  # Spring lifecycle and composition profiles are implementation details, not feature-model candidates. The buildagent
+  # profile is part of the integrated-code-lifecycle activation and stays represented through that feature.
+  - { anchor: profile:artemis, reason: internal-mechanism }
+  - { anchor: profile:buildagent, reason: sub-option }
+  - { anchor: profile:buildagent-test, reason: internal-mechanism }
+  - { anchor: profile:core, reason: internal-mechanism }
+  - { anchor: profile:dev, reason: internal-mechanism }
+  - { anchor: profile:lti, reason: internal-mechanism }
+  - { anchor: profile:prod, reason: internal-mechanism }
+  - { anchor: profile:scheduling, reason: internal-mechanism }
+  - { anchor: profile:test, reason: internal-mechanism }
+  - { anchor: profile:test-independent-integration, reason: internal-mechanism }
+
+conceptualNodes:
+  - id: artemis
+    kind: root
+    name: Artemis
+    description: Root of the Artemis feature model.
+
+  - id: teaching-and-content
+    parent: artemis
+    kind: group
+    order: 1
+    name: Teaching and Content
+    description: Course-facing teaching, content, and communication capabilities.
+
+  - id: course-workflow
+    parent: teaching-and-content
+    kind: module
+    optionality: mandatory
+    order: 3
+    name: Course Workflow
+    description: Core course creation, access, overview, and lifecycle workflows.
+
+  - id: communication
+    parent: teaching-and-content
+    kind: module
+    optionality: mandatory
+    order: 4
+    name: Communication
+    description: Course communication, messaging, and notification workflows.
+
+  - id: exercise-system
+    parent: artemis
+    kind: group
+    order: 2
+    name: Exercise System
+    description: Shared exercise infrastructure and supported exercise types.
+
+  - id: exercise-common
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 1
+    name: Common Exercise Infrastructure
+    description: Shared creation, participation, submission, and assessment infrastructure for exercises.
+
+  - id: programming
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 2
+    name: Programming Exercises
+    description: Programming exercise authoring, participation, and automated assessment workflows.
+
+  - id: quiz
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 3
+    name: Quiz Exercises
+    description: Quiz authoring, participation, and assessment workflows.
+
+  - id: assessment-and-integrity
+    parent: artemis
+    kind: group
+    order: 3
+    name: Assessment and Integrity
+    description: Exam, assessment-support, and academic-integrity capabilities.
+
+  - id: adaptive-learning-and-ai
+    parent: artemis
+    kind: group
+    order: 4
+    name: Adaptive Learning and AI
+    description: Adaptive learning, tutoring, feedback, and AI-assisted capabilities.
+
+  - id: platform-integrations
+    parent: artemis
+    kind: group
+    order: 5
+    name: Platform Integrations
+    description: Authentication, external platform, editor, and sharing integrations.
+
+  # Technical groups of the E3 subtree: each is an xor choice between its children, maintainer-only.
+
+  - id: database
+    parent: artemis
+    kind: group
+    category: technical
+    groupType: alternative
+    order: 6
+    name: Database
+    description: Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks.
+
+  - id: ci-provider
+    parent: artemis
+    kind: group
+    category: technical
+    groupType: alternative
+    order: 7
+    name: CI Provider
+    description: Exactly one continuous-integration provider builds programming exercises in a deployment.
+
+constraints:
+  # Cross-tree constraints of the generated model. Extraction supplies the evidence (composite conditions, paired
+  # compose stacks, mutually exclusive profile sets); enforcing a constraint remains a manifest decision.
+
+  - id: apollon-requires-modeling
+    type: requires
+    source: apollon
+    target: modeling
+    description: Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model.
+
+  - id: mysql-excludes-postgresql
+    type: excludes
+    source: mysql
+    target: postgresql
+    description: A deployment runs exactly one database system; the paired Docker compose stacks are mutually exclusive.
+
+  - id: integrated-code-lifecycle-excludes-jenkins
+    type: excludes
+    source: integrated-code-lifecycle
+    target: jenkins
+    description: A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive.

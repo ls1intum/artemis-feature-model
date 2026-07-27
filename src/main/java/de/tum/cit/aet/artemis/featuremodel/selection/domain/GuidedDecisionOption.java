@@ -4,9 +4,14 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+/**
+ * One selectable option of a guided decision. The authored workflow resource carries only decision structure and
+ * teacher prose; {@code requiresCapabilities} and {@code artifactImpacts} are model-owned wiring that the serve-time
+ * enrichment derives from the active feature model, so the served record keeps the shape the client already consumes.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GuidedDecisionOption(String id, String label, String description, List<String> selects, List<String> deselects,
-        List<String> requiresCapabilities, List<String> consequences, List<String> artifactImpacts, List<String> enabledOutcome,
+        List<String> requiresCapabilities, List<String> artifactImpacts, List<String> enabledOutcome,
         List<String> recommendedWhen, List<String> thingsToKnow, List<String> warnings) {
 
     /**
@@ -17,9 +22,8 @@ public record GuidedDecisionOption(String id, String label, String description, 
      * @param description user-facing option description.
      * @param selects feature ids selected by this option.
      * @param deselects feature ids deselected by this option.
-     * @param requiresCapabilities deployment capabilities required by this option.
-     * @param consequences legacy consequence text retained for advanced review.
-     * @param artifactImpacts advanced artifact generation impact text.
+     * @param requiresCapabilities deployment capabilities required by the selected features; derived at serve time.
+     * @param artifactImpacts advanced artifact generation impact text; derived at serve time.
      * @param enabledOutcome regular-user text describing what the option enables.
      * @param recommendedWhen regular-user guidance for when the option fits.
      * @param thingsToKnow regular-user notes and caveats.
@@ -29,7 +33,6 @@ public record GuidedDecisionOption(String id, String label, String description, 
         selects = selects == null ? List.of() : List.copyOf(selects);
         deselects = deselects == null ? List.of() : List.copyOf(deselects);
         requiresCapabilities = requiresCapabilities == null ? List.of() : List.copyOf(requiresCapabilities);
-        consequences = consequences == null ? List.of() : List.copyOf(consequences);
         artifactImpacts = artifactImpacts == null ? List.of() : List.copyOf(artifactImpacts);
         enabledOutcome = enabledOutcome == null ? List.of() : List.copyOf(enabledOutcome);
         recommendedWhen = recommendedWhen == null ? List.of() : List.copyOf(recommendedWhen);

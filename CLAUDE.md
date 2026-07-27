@@ -63,6 +63,46 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   as a branch-scoped CI workflow. A drift-guard test fails when a model mapping
   path is missing from the catalog, so the catalog must be refreshed when
   Artemis config keys change.
+- `./gradlew extractFeatureModel -PartemisPath=<artemis-checkout>` scans a local
+  Artemis checkout read-only (no Spring context, no user-reachable trigger) and
+  writes feature candidates, evidence, relation candidates, and a drift report
+  against the active curated model under `build/feature-extraction/<commit>/`.
+  The bundled scope manifest classifies every current candidate as include or
+  exclude and adds curation counts and decisions to the report; unlisted
+  candidates remain pending and never enter a model. Source-parsed
+  `@ArtemisFeature` semantics override manifest-entry semantics but never grant
+  membership. Override the relocatable manifest input with
+  `-PfeatureManifestPath=<manifest.yml>`. Outputs are deterministic apart from
+  scan-metadata timestamps; the drift report replaces the discovery step of
+  the manual weekly consistency audit.
+- The extraction run additionally assembles a complete generated feature model
+  from the manifest's include entries and conceptual nodes — including the
+  first technical subtree (`database` mysql/postgresql and `ci-provider`
+  integrated-code-lifecycle/jenkins as maintainer-only xor groups plus the
+  mandatory `localvc` baseline, enforced through `alternative` group relations
+  and `excludes` constraints) — regenerates the Artemis config-key catalog
+  from the scanned YAML defaults, validates model and bundled workflow through
+  the shared loader/integrity/diagnostics code paths, and classifies every
+  generated-versus-curated difference as `intentional-curation`,
+  `missing-manifest-entry`, `artemis-drift`, or `extractor-gap`. It also
+  emits a `snapshot/` folder importable via the snapshot API; the curated
+  bundled model stays canonical and the generated model remains a parallel
+  artifact. `StaticConfigValidationService` accepts an explicitly selected
+  generated catalog via `featuremodel.static-validation.catalog-location`;
+  the curated catalog remains the default.
+- The authored `guided-workflow.json` is lean: decision structure and teacher
+  prose only. Model-owned wiring — option `requiresCapabilities` and
+  `artifactImpacts`, the workflow's feature model pin, and review group
+  members (now referenced by `groupNodeId`) — is derived at serve time by
+  `GuidedWorkflowAssembler`, so the served DTO shape is unchanged and
+  capabilities are single-source on model features.
+  `GuidedWorkflowDiagnosticsService` surfaces coverage, capability-validity,
+  template-consistency, and stub-prose findings as logged warnings in the app
+  and as `guided-workflow-validation.json` (with an automation `status`) in
+  the extraction output; hard reference errors still fail hard.
+  `./gradlew syncGuidedWorkflowScaffold` is a deliberate maintainer task that
+  stubs newly included features with TODO prose, flags orphans without
+  deleting, and leaves an already-covered workflow byte-identical.
 
 ## Build and Development Commands
 
@@ -112,6 +152,9 @@ Server package areas:
 - `export` owns Level 1 configuration artifact generation, the Level 2 local
   runtime deployment package, and static overlay validation against the Artemis
   config key catalog.
+- `extraction` owns the read-only Artemis checkout scan: anchor extractors,
+  candidate assembly with evidence, relation candidates, the drift comparison
+  against the active curated model, and the deterministic output writers.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:
