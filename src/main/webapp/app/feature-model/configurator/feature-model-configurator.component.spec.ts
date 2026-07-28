@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse, buildWorkflowAvailabilityFixture } from '../core/feature-model.test-fixtures';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
-import { FeatureModelResponse, ValidationRequest, ValidationResult } from '../core/feature-model.types';
+import { Feature, FeatureModelResponse, FeatureTreeNode, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { FeatureModelConfiguratorComponent } from './feature-model-configurator.component';
 
@@ -142,6 +142,92 @@ function buildWorkflowWithApollonOption(): GuidedWorkflow {
     return workflow;
 }
 
+function buildTechnicalModelResponse(): FeatureModelResponse {
+    const response = buildMvpFeatureModelResponse();
+    const mysql = technicalFeature('mysql', 'MySQL', true);
+    const postgresql = technicalFeature('postgresql', 'PostgreSQL', false);
+    const integratedCodeLifecycle = technicalFeature('integrated-code-lifecycle', 'Integrated Code Lifecycle', true);
+    const jenkins = technicalFeature('jenkins', 'Jenkins', false);
+    const localvc = technicalFeature('localvc', 'Local Version Control', true);
+    const database = technicalGroup('database', 'Database');
+    const ciProvider = technicalGroup('ci-provider', 'CI Provider');
+
+    const databaseTree = alternativeGroupTree(database, [mysql, postgresql], 6);
+    const ciProviderTree = alternativeGroupTree(ciProvider, [integratedCodeLifecycle, jenkins], 7);
+    const localvcTree: FeatureTreeNode = {
+        feature: localvc,
+        incomingRelation: { parentId: 'artemis', childId: 'localvc', relationType: 'mandatory', groupType: null, order: 8 },
+        children: [],
+    };
+
+    response.features.push(database, mysql, postgresql, ciProvider, integratedCodeLifecycle, jenkins, localvc);
+    response.tree.children.push(databaseTree, ciProviderTree, localvcTree);
+    response.defaultSelectedFeatureIds.push('mysql', 'integrated-code-lifecycle', 'localvc');
+    return response;
+}
+
+function buildTechnicalAvailability(): WorkflowAvailability {
+    const availability = buildWorkflowAvailabilityFixture();
+    for (const feature of ['mysql', 'postgresql', 'integrated-code-lifecycle', 'jenkins', 'localvc']) {
+        availability.features.push({
+            featureId: feature,
+            featureName: feature,
+            available: false,
+            profileDependent: false,
+            requiredCapabilities: [],
+            missingCapabilities: [],
+            teacherReason: `${feature} is not configurable in the current role.`,
+        });
+    }
+    return availability;
+}
+
+function technicalFeature(id: string, name: string, enabledByDefault: boolean): Feature {
+    return {
+        id,
+        name,
+        kind: 'feature',
+        selectable: true,
+        description: null,
+        defaultState: enabledByDefault ? 'enabled' : 'disabled',
+        source: null,
+        category: 'technical',
+        visibleTo: ['maintainer'],
+        configurableBy: ['maintainer'],
+        requiresCapabilities: [],
+        artifactMappings: [],
+        extraction: null,
+    };
+}
+
+function technicalGroup(id: string, name: string): Feature {
+    return {
+        ...technicalFeature(id, name, false),
+        kind: 'group',
+        selectable: false,
+        defaultState: 'not_applicable',
+        configurableBy: [],
+    };
+}
+
+function alternativeGroupTree(group: Feature, alternatives: Feature[], order: number): FeatureTreeNode {
+    return {
+        feature: group,
+        incomingRelation: { parentId: 'artemis', childId: group.id, relationType: 'group', groupType: 'alternative', order },
+        children: alternatives.map((alternative, index) => ({
+            feature: alternative,
+            incomingRelation: {
+                parentId: group.id,
+                childId: alternative.id,
+                relationType: 'optional',
+                groupType: null,
+                order: index + 1,
+            },
+            children: [],
+        })),
+    };
+}
+
 describe('FeatureModelConfiguratorComponent', () => {
     let fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
     let httpMock: HttpTestingController;
@@ -195,6 +281,36 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
         expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
         expect(rootEl(fixture).querySelector('[data-testid="selected-count"]')?.textContent?.trim()).toBe('5');
+    });
+
+    it('preserves non-guided technical defaults when a template is chosen', () => {
+        markTutorialSeen();
+        const response = buildTechnicalModelResponse();
+        flushInitialLoads(fixture, httpMock, response, buildGuidedWorkflowFixture(), buildTechnicalAvailability());
+
+        clickByTestId(fixture, 'template-card-minimal-teaching-setup');
+        const requestBody = flushValidation(httpMock, validResult());
+
+        expect(requestBody.selectedFeatureIds).toEqual(expect.arrayContaining(['mysql', 'integrated-code-lifecycle', 'localvc']));
+        expect(requestBody.selectedFeatureIds).not.toContain('postgresql');
+        expect(requestBody.selectedFeatureIds).not.toContain('jenkins');
+        expect(fixture.componentInstance.selectedFeatureIds().has('localvc')).toBe(true);
+    });
+
+    it('preserves role-restricted technical features during tree selection reconciliation', () => {
+        markTutorialSeen();
+        const response = buildTechnicalModelResponse();
+        flushInitialLoads(fixture, httpMock, response, buildGuidedWorkflowFixture(), buildTechnicalAvailability());
+        const editedSelection = new Set(fixture.componentInstance.selectedFeatureIds());
+        editedSelection.delete('mysql');
+        editedSelection.add('postgresql');
+
+        fixture.componentInstance.onReplaceSelection(editedSelection);
+        const requestBody = flushValidation(httpMock, validResult());
+
+        expect(requestBody.selectedFeatureIds).toEqual(expect.arrayContaining(['postgresql', 'integrated-code-lifecycle', 'localvc']));
+        expect(requestBody.selectedFeatureIds).not.toContain('mysql');
+        expect(fixture.componentInstance.profileReconciliationNote()).toBeUndefined();
     });
 
     it('marks default-on guided options as selected for the custom configuration template', () => {
@@ -548,14 +664,16 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="download-artifacts-button"]')).toBeNull();
     });
 
-    it('renders the local runtime package section and downloads it as a blob', () => {
+    it('renders the Docker runtime package section without local wording and downloads it as a blob', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
         fixture.componentInstance.onOpenReview();
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('[data-testid="deployment-package"]')).not.toBeNull();
-        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('local validation');
+        const packageSection = rootEl(fixture).querySelector('[data-testid="deployment-package"]');
+        expect(packageSection).not.toBeNull();
+        expect(packageSection?.textContent).toContain('Docker runtime');
+        expect(packageSection?.textContent?.toLowerCase()).not.toContain('local');
         const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
         expect(button).not.toBeNull();
         expect(button.disabled).toBe(false);

@@ -3,7 +3,9 @@ package de.tum.cit.aet.artemis.featuremodel.extraction;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.CapabilityResolutionService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
@@ -32,6 +35,23 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.dto.FeatureAvailabilityDTO
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.OptionAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.WorkflowAvailabilityDTO;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelectionMetadata;
+import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
@@ -184,6 +204,25 @@ class GeneratedModelImportParityTest {
         }
     }
 
+    @Test
+    void deploymentPackagesConsumeAllTechnicalCombinations() {
+        SnapshotProperties properties = new SnapshotProperties(dataRoot.toString(), snapshotId);
+        FeatureModelCatalogService generatedCatalog = catalogService(properties);
+        FeatureModel generatedModel = generatedCatalog.loadActiveModel();
+        List<String> defaultSelection = generatedCatalog.defaultSelectedFeatureIds(generatedModel);
+        DeploymentPackageService packageService = deploymentPackageService(properties, new TechnicalSelectionResolver());
+
+        for (String databaseId : List.of("mysql", "postgresql")) {
+            for (String ciProviderId : List.of("integrated-code-lifecycle", "jenkins")) {
+                List<String> selection = technicalSelection(defaultSelection, databaseId, ciProviderId);
+                for (String deploymentMode : List.of(DeploymentModes.LOCAL_DOCKER, DeploymentModes.DEV_IDE)) {
+                    GeneratedArtifactPackage result = packageService.generate(packageRequest(selection, deploymentMode));
+                    assertTechnicalPackage(result, deploymentMode, databaseId, ciProviderId);
+                }
+            }
+        }
+    }
+
     private FeatureModelCatalogService catalogService(SnapshotProperties properties) {
         LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper, snapshotRepository);
@@ -203,6 +242,82 @@ class GeneratedModelImportParityTest {
                 new GuidedWorkflowDiagnosticsService());
     }
 
+    private DeploymentPackageService deploymentPackageService(SnapshotProperties properties, TechnicalSelectionResolver technicalSelectionResolver) {
+        FeatureModelCatalogService catalogService = catalogService(properties);
+        FeatureModelTreeService treeService = new FeatureModelTreeService();
+        FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
+        DeploymentProfileRepository profileRepository = new DeploymentProfileRepository(new SnapshotProperties(workingDirectory.toString(), null), objectMapper);
+        DeploymentProfileService profileService = new DeploymentProfileService(profileRepository);
+        ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
+                new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
+        return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
+                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
+                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
+    }
+
+    private ArtifactGenerationRequest packageRequest(List<String> selectedFeatureIds, String deploymentMode) {
+        if (DeploymentModes.LOCAL_DOCKER.equals(deploymentMode)) {
+            return new ArtifactGenerationRequest(selectedFeatureIds, null, null);
+        }
+        return new ArtifactGenerationRequest(selectedFeatureIds, null, null, deploymentMode);
+    }
+
+    private List<String> technicalSelection(List<String> defaultSelection, String databaseId, String ciProviderId) {
+        List<String> selection = new ArrayList<>(defaultSelection);
+        selection.removeAll(List.of("mysql", "postgresql", "integrated-code-lifecycle", "jenkins"));
+        selection.add(databaseId);
+        selection.add(ciProviderId);
+        return List.copyOf(selection);
+    }
+
+    private void assertTechnicalPackage(GeneratedArtifactPackage result, String deploymentMode, String databaseId,
+            String ciProviderId) {
+        TechnicalSelectionMetadata metadata = result.report().technicalSelection();
+        String databaseComposeFile = "postgresql".equals(databaseId) ? "docker/postgres.yml" : "docker/mysql.yml";
+        assertThat(metadata.databaseId()).isEqualTo(databaseId);
+        assertThat(metadata.databaseComposeFile()).isEqualTo(databaseComposeFile);
+        assertThat(metadata.ciProviderId()).isEqualTo(ciProviderId);
+        String databaseDisposition = DeploymentModes.DEV_IDE.equals(deploymentMode)
+                ? TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE
+                : TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+        assertThat(metadata.databaseDisposition()).isEqualTo(databaseDisposition);
+        assertThat(metadata.ciProviderDisposition()).isEqualTo(TechnicalSelectionMetadata.DISPOSITION_APPLIED);
+        assertThat(fileContent(result, "metadata/static-config-validation.json"))
+                .contains("\"overallStatus\" : \"PASS\"");
+
+        if (DeploymentModes.DEV_IDE.equals(deploymentMode)) {
+            assertDevIdeProfiles(result, ciProviderId);
+            return;
+        }
+        assertLocalDockerReferences(result, databaseComposeFile);
+    }
+
+    private void assertDevIdeProfiles(GeneratedArtifactPackage result, String ciProviderId) {
+        String expectedProfiles = "jenkins".equals(ciProviderId)
+                ? "jenkins,localvc,artemis,scheduling,core,dev,feature-model,feature-model-demo,local"
+                : "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
+        String runConfiguration = fileContent(result, "intellij/runConfigurations/Artemis_Server__Feature_Model_Selection_.xml");
+        assertThat(runConfiguration).contains("ACTIVE_PROFILES\" value=\"" + expectedProfiles + "\"");
+    }
+
+    private void assertLocalDockerReferences(GeneratedArtifactPackage result, String databaseComposeFile) {
+        String stack = fileContent(result, "deployment/local-repo/artemis-feature-model-stack.yml");
+        Path artemisCheckout = Path.of(System.getProperty("artemisPath"));
+        assertThat(Files.isRegularFile(artemisCheckout.resolve("docker/artemis.yml"))).isTrue();
+        assertThat(Files.isRegularFile(artemisCheckout.resolve(databaseComposeFile))).isTrue();
+        assertThat(stack).contains("${FM_ARTEMIS_REPO}/docker/artemis.yml");
+        assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + databaseComposeFile);
+    }
+
+    private String fileContent(GeneratedArtifactPackage generatedPackage, String path) {
+        for (GeneratedArtifactFile file : generatedPackage.files()) {
+            if (path.equals(file.path())) {
+                return file.content();
+            }
+        }
+        throw new IllegalArgumentException("Missing generated file " + path);
+    }
+
     private Map<String, GuidedDecisionOption> optionsById(GuidedWorkflow workflow) {
         Map<String, GuidedDecisionOption> optionsById = new LinkedHashMap<>();
         for (GuidedWorkflowStep step : workflow.steps()) {
@@ -220,4 +335,5 @@ class GeneratedModelImportParityTest {
             return objectMapper.readValue(inputStream, type);
         }
     }
+
 }

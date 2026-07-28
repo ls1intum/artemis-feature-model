@@ -37,14 +37,16 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileS
 import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
-import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelExceptionHandler;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
@@ -73,9 +75,10 @@ class DeploymentPackageResourceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, profileService,
-                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(),
-                new DevIdeTemplateWriter(), objectMapper);
+        DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,
+                new TechnicalSelectionResolver(), new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
+                new RuntimeStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
         mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();

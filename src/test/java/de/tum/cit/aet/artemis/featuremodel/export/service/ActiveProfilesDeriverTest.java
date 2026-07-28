@@ -1,11 +1,14 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
 class ActiveProfilesDeriverTest {
 
@@ -20,6 +23,8 @@ class ActiveProfilesDeriverTest {
      * {@code local} so a developer's {@code application-local.yml} wins.
      */
     private static final String CI_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
+
+    private static final String JENKINS_PROFILES = "jenkins,localvc,artemis,scheduling,core,dev,feature-model,feature-model-demo,local";
 
     private final ActiveProfilesDeriver deriver = new ActiveProfilesDeriver();
 
@@ -70,5 +75,26 @@ class ActiveProfilesDeriverTest {
         List<String> profiles = List.of(deriver.deriveActiveProfiles(Set.of("programming")).split(","));
 
         assertThat(profiles.indexOf("feature-model")).isLessThan(profiles.indexOf("local"));
+    }
+
+    @Test
+    void derivesTheIclProfilesFromTechnicalTokens() {
+        String profiles = deriver.deriveActiveProfiles(Set.of(), List.of("localci", "buildagent", "localvc"));
+
+        assertThat(profiles).isEqualTo(CI_PROFILES);
+    }
+
+    @Test
+    void derivesTheJenkinsProfilesFromTechnicalTokens() {
+        String profiles = deriver.deriveActiveProfiles(Set.of("programming"), List.of("jenkins", "localvc"));
+
+        assertThat(profiles).isEqualTo(JENKINS_PROFILES);
+    }
+
+    @Test
+    void rejectsUnknownTechnicalTokens() {
+        assertThatThrownBy(() -> deriver.deriveActiveProfiles(Set.of(), List.of("future-ci", "localvc")))
+                .isInstanceOfSatisfying(ArtifactGenerationException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_PROFILE_TOKENS"));
     }
 }

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.shared.exception;
 
+import java.util.Collection;
+
 import org.springframework.http.HttpStatus;
 
 /**
@@ -59,6 +61,68 @@ public class ArtifactGenerationException extends RuntimeException {
     public static ArtifactGenerationException unsupportedDeploymentMode(String deploymentMode, String profileId) {
         return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_DEPLOYMENT_MODE",
                 "Deployment mode '" + deploymentMode + "' is not supported by deployment profile '" + profileId + "'.", HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a selected structural mapping this stage does not recognize.
+     *
+     * @param featureId mapping owner.
+     * @param target mapping target.
+     * @param path mapping path.
+     * @return unsupported technical-mapping exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalMapping(String featureId, String target, String path) {
+        String message = "Feature '" + featureId + "' declares unsupported technical mapping '" + target + ":" + path + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_MAPPING", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a structural mapping without a usable selected text value.
+     *
+     * @param featureId mapping owner.
+     * @param target mapping target.
+     * @param path mapping path.
+     * @return invalid technical-mapping value exception.
+     */
+    public static ArtifactGenerationException invalidTechnicalMappingValue(String featureId, String target, String path) {
+        String message = "Feature '" + featureId + "' must declare a non-blank text value for technical mapping '" + target + ":" + path + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_INVALID_TECHNICAL_MAPPING", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception when more than one selected feature owns the same technical axis.
+     *
+     * @param axis technical axis label.
+     * @param currentValue first selected owner or value.
+     * @param nextValue conflicting selected owner or value.
+     * @return conflicting technical-selection exception.
+     */
+    public static ArtifactGenerationException conflictingTechnicalSelection(String axis, String currentValue, String nextValue) {
+        String message = "Technical selection has conflicting " + axis + " values '" + currentValue + "' and '" + nextValue + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_CONFLICTING_TECHNICAL_SELECTION", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a profile-token set with no supported writer-owned ordering.
+     *
+     * @param tokens resolved technical profile tokens.
+     * @return unsupported profile-token exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalProfileTokens(Collection<String> tokens) {
+        String message = "Technical selection declares unsupported Spring profile tokens: " + String.join(", ", tokens) + ".";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_PROFILE_TOKENS", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a resolved technical choice no writer supports.
+     *
+     * @param axis technical axis.
+     * @param value resolved value.
+     * @return unsupported technical-choice exception.
+     */
+    public static ArtifactGenerationException unsupportedTechnicalChoice(String axis, String value) {
+        String message = "Technical selection declares unsupported " + axis + " choice '" + value + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_UNSUPPORTED_TECHNICAL_CHOICE", message, HttpStatus.BAD_REQUEST);
     }
 
     /**

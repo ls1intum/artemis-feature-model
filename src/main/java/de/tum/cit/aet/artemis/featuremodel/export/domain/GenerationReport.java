@@ -1,6 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * Deterministic report describing a single artifact generation run. The same report is both serialized into
@@ -18,10 +21,13 @@ import java.util.List;
  * @param omittedMappings mappings that were skipped, with their reasons.
  * @param warnings warnings and informational notes.
  * @param errors blocking errors; empty in this phase because blocking cases throw before a report is built.
+ * @param technicalSelection selected technical axes recorded by deployment-package generation, or {@code null} for
+ *            models without technical mappings.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record GenerationReport(String status, String mode, String modelId, String modelVersion, String profileId, String profileVersion,
         List<String> selectedFeatureIds, List<String> generatedFiles, List<ConsumedParameter> consumedParameters, List<OmittedMapping> omittedMappings,
-        List<GenerationMessage> warnings, List<GenerationMessage> errors) {
+        List<GenerationMessage> warnings, List<GenerationMessage> errors, TechnicalSelectionMetadata technicalSelection) {
 
     /** Generation succeeded with no warnings. */
     public static final String STATUS_GENERATED = "GENERATED";
@@ -47,6 +53,7 @@ public record GenerationReport(String status, String mode, String modelId, Strin
      * @param omittedMappings skipped mappings.
      * @param warnings warnings and informational notes.
      * @param errors blocking errors.
+     * @param technicalSelection selected technical axes, or {@code null}.
      */
     public GenerationReport {
         selectedFeatureIds = selectedFeatureIds == null ? List.of() : List.copyOf(selectedFeatureIds);
@@ -55,5 +62,53 @@ public record GenerationReport(String status, String mode, String modelId, Strin
         omittedMappings = omittedMappings == null ? List.of() : List.copyOf(omittedMappings);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         errors = errors == null ? List.of() : List.copyOf(errors);
+    }
+
+    /**
+     * Creates a Phase 5 report without technical-selection metadata.
+     *
+     * @param status generation status.
+     * @param mode generation mode.
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param profileVersion active deployment profile version.
+     * @param selectedFeatureIds selected feature ids.
+     * @param generatedFiles generated file paths.
+     * @param consumedParameters consumed profile parameters.
+     * @param omittedMappings skipped mappings.
+     * @param warnings warnings and informational notes.
+     * @param errors blocking errors.
+     */
+    public GenerationReport(String status, String mode, String modelId, String modelVersion, String profileId, String profileVersion,
+            List<String> selectedFeatureIds, List<String> generatedFiles, List<ConsumedParameter> consumedParameters, List<OmittedMapping> omittedMappings,
+            List<GenerationMessage> warnings, List<GenerationMessage> errors) {
+        this(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, consumedParameters, omittedMappings, warnings, errors,
+                null);
+    }
+
+    /**
+     * Copies this report with technical-selection recording metadata.
+     *
+     * @param metadata technical-selection metadata.
+     * @return copied report.
+     */
+    public GenerationReport withTechnicalSelection(TechnicalSelectionMetadata metadata) {
+        return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, consumedParameters,
+                omittedMappings, warnings, errors, metadata);
+    }
+
+    /**
+     * Copies this report with technical metadata and one additional warning.
+     *
+     * @param metadata technical-selection metadata.
+     * @param warning mode-specific generation warning.
+     * @return copied report with warning status.
+     */
+    public GenerationReport withTechnicalSelectionAndWarning(TechnicalSelectionMetadata metadata, GenerationMessage warning) {
+        List<GenerationMessage> updatedWarnings = new ArrayList<>(warnings);
+        updatedWarnings.add(warning);
+        return new GenerationReport(STATUS_GENERATED_WITH_WARNINGS, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds,
+                generatedFiles, consumedParameters, omittedMappings, updatedWarnings, errors, metadata);
     }
 }

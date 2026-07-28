@@ -41,11 +41,23 @@ interface DiagramLink {
     path: string;
 }
 
+interface DiagramGroupMarker {
+    id: string;
+    path: string;
+    label: string;
+}
+
+interface DiagramPoint {
+    x: number;
+    y: number;
+}
+
 const NODE_WIDTH = 132;
 const NODE_HEIGHT = 34;
 const SIBLING_SPACING = 12;
 const DEPTH_SPACING = 56;
 const MARKER_OFFSET = 8;
+const GROUP_MARKER_RADIUS = 28;
 const NODE_RADIUS = 4;
 const TOGGLE_BADGE_WIDTH = 28;
 const TOGGLE_BADGE_HEIGHT = 18;
@@ -125,6 +137,17 @@ export class FeatureModelDiagramComponent {
                 path: linkPath(link),
             })),
     );
+
+    readonly alternativeGroupMarkers = computed<DiagramGroupMarker[]>(() => {
+        const markers: DiagramGroupMarker[] = [];
+        for (const node of this.layout().descendants()) {
+            const marker = alternativeGroupMarker(node);
+            if (marker) {
+                markers.push(marker);
+            }
+        }
+        return markers;
+    });
 
     private readonly bounds = computed(() => {
         const decorated = this.nodes();
@@ -254,12 +277,12 @@ function decorateNode(
 ): DiagramNode {
     const data = node.data;
     const feature = data.feature;
-    const incoming = data.incomingRelation;
     const svgX = node.y;
     const svgY = node.x;
     const hasChildren = data.hasChildrenInSource;
     const isCollapsed = hasChildren && data.children.length === 0;
     const toggleLabel = isCollapsed ? `+${data.hiddenDescendantCount}` : '−';
+    const incomingRelationType = relationMarkerType(node);
     return {
         id: feature.id,
         name: feature.name,
@@ -268,7 +291,7 @@ function decorateNode(
         x: svgX,
         y: svgY,
         transform: `translate(${svgX}, ${svgY})`,
-        incomingRelationType: incoming?.relationType ?? null,
+        incomingRelationType,
         markerCx: svgX - NODE_WIDTH / 2 - MARKER_OFFSET,
         markerCy: svgY,
         hasChildren,
@@ -286,6 +309,14 @@ function decorateNode(
     };
 }
 
+function relationMarkerType(node: HierarchyPointNode<DiagramTreeData>): RelationType | null {
+    const parentGroupType = node.parent?.data.incomingRelation?.groupType;
+    if (parentGroupType === 'alternative') {
+        return null;
+    }
+    return node.data.incomingRelation?.relationType ?? null;
+}
+
 /**
  * Builds the SVG path for a parent-to-child link, applying the same LTR axis swap as
  * `decorateNode`: the line starts at the parent's right edge (depth + half-width) and ends at the
@@ -300,6 +331,43 @@ function linkPath(link: HierarchyPointLink<DiagramTreeData>): string {
     const tx = link.target.y - NODE_WIDTH / 2;
     const ty = link.target.x;
     return `M ${sx} ${sy} L ${tx} ${ty}`;
+}
+
+/**
+ * Builds the hollow arc used for an expanded alternative group. The arc joins the two outermost
+ * visible child links close to their shared parent, matching the diagram's left-to-right layout.
+ * Collapsed groups and groups with fewer than two visible alternatives do not get a marker.
+ */
+function alternativeGroupMarker(node: HierarchyPointNode<DiagramTreeData>): DiagramGroupMarker | undefined {
+    const children = node.children ?? [];
+    if (node.data.incomingRelation?.groupType !== 'alternative' || children.length < 2) {
+        return undefined;
+    }
+
+    const origin = { x: node.y + NODE_WIDTH / 2, y: node.x };
+    const firstChild = children[0];
+    const lastChild = children[children.length - 1];
+    const start = pointOnLink(origin, firstChild);
+    const end = pointOnLink(origin, lastChild);
+
+    return {
+        id: node.data.feature.id,
+        path: `M ${start.x} ${start.y} A ${GROUP_MARKER_RADIUS} ${GROUP_MARKER_RADIUS} 0 0 1 ${end.x} ${end.y}`,
+        label: `${node.data.feature.name}: choose exactly one alternative`,
+    };
+}
+
+function pointOnLink(origin: DiagramPoint, child: HierarchyPointNode<DiagramTreeData>): DiagramPoint {
+    const target = { x: child.y - NODE_WIDTH / 2, y: child.x };
+    const horizontalDistance = target.x - origin.x;
+    const verticalDistance = target.y - origin.y;
+    const linkLength = Math.hypot(horizontalDistance, verticalDistance);
+    const scale = GROUP_MARKER_RADIUS / linkLength;
+
+    return {
+        x: origin.x + horizontalDistance * scale,
+        y: origin.y + verticalDistance * scale,
+    };
 }
 
 function truncate(value: string, limit: number): string {

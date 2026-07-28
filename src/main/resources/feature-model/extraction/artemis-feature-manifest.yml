@@ -1,5 +1,5 @@
 manifestVersion: 1
-verifiedAgainstArtemisCommit: 553aab75955a3eec0a66dc1eb54edb4a63233da4
+verifiedAgainstArtemisCommit: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
 
 # Membership mirrors the curated 26-feature model plus the deliberately introduced E3 technical subtree: the include
 # list carries the anchored curated modules and the first technical features, and every other candidate is excluded
@@ -167,6 +167,13 @@ include:
     description: External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.
     artifactMappings:
       - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: jenkins }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.url, valueFromProfile: artemis.continuous-integration.url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.user, valueFromProfile: artemis.continuous-integration.user, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.password, valueFromProfile: artemis.continuous-integration.password, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.token, valueFromProfile: artemis.continuous-integration.token, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.vcs-credentials, valueFromProfile: artemis.continuous-integration.vcs-credentials, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-key, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-key, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-value, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-value, requiredWhenSelected: true, secret: true }
 
   - anchor: profile:localvc
     id: localvc
@@ -185,7 +192,9 @@ exclude:
   # Configuration-key candidates remain evidence for their owning module rather than duplicate feature nodes.
   - { anchor: configkey:artemis.apollon.enabled, reason: internal-mechanism }
   - { anchor: configkey:artemis.athena.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.atlas.atlasml.enabled, reason: internal-mechanism }
+  - anchor: configkey:artemis.atlas.atlasml.enabled
+    reason: sub-option
+    rationale: AtlasML is an implementation sub-switch of Atlas and is not an independent functional module.
   - { anchor: configkey:artemis.atlas.enabled, reason: internal-mechanism }
   - { anchor: configkey:artemis.exam.enabled, reason: internal-mechanism }
   - { anchor: configkey:artemis.fileupload.enabled, reason: internal-mechanism }
@@ -199,10 +208,21 @@ exclude:
   - { anchor: configkey:artemis.text.enabled, reason: internal-mechanism }
   - { anchor: configkey:artemis.theia.enabled, reason: internal-mechanism }
   - { anchor: configkey:artemis.tutorialgroup.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.user-management.ldap.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.user-management.passkey.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.user-management.saml2.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.weaviate.enabled, reason: internal-mechanism }
+  - anchor: configkey:artemis.user-management.ldap.enabled
+    reason: deferred
+    rationale: LDAP is an external user-management mechanism outside the current curated functional scope.
+
+  - anchor: configkey:artemis.user-management.passkey.enabled
+    reason: deferred
+    rationale: Passkey support is a user-management mechanism outside the current curated functional scope.
+
+  - anchor: configkey:artemis.user-management.saml2.enabled
+    reason: deferred
+    rationale: SAML2 is an external user-management mechanism outside the current curated functional scope.
+
+  - anchor: configkey:artemis.weaviate.enabled
+    reason: internal-mechanism
+    rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
 
   # Module-level discoveries that are policy details or backing infrastructure.
 
@@ -287,10 +307,6 @@ exclude:
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of programming after parity.
 
   - anchor: toggle:StandardizedCompetencies
-    reason: deferred
-    rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
-
-  - anchor: toggle:StudentCourseAnalyticsDashboard
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of atlas after parity.
 

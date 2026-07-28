@@ -25,17 +25,43 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param deploymentProfile active deployment profile reference.
  * @param artemisRuntime Artemis runtime context notes relevant to the generated package.
  * @param database local runtime database used to validate startup, or {@code null} for packages without a runtime.
+ * @param ciProvider selected CI provider, or {@code null} for packages without a technical selection.
+ * @param technicalSelection selected technical axes and their mode-specific disposition, or {@code null}.
  * @param generatedFiles relative paths of all files in the package, in deterministic order.
  * @param requiredEnvironmentVariables environment variable names the overlay references, from {@code .env.example}.
  * @param readiness readiness flags making clear this is a local-validation, non-production package.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record DeploymentPackageManifest(String packageType, String packageVersion, String mode, String deploymentMode, List<String> supportedRuntimeModes,
-        ModelRef model, ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, List<String> generatedFiles,
-        List<String> requiredEnvironmentVariables, Readiness readiness) {
+        ModelRef model, ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, CiProvider ciProvider,
+        TechnicalSelectionMetadata technicalSelection, List<String> generatedFiles, List<String> requiredEnvironmentVariables, Readiness readiness) {
 
     /**
      * Normalizes nullable list fields to immutable empty lists.
+     *
+     * @param packageType stable package type identifier.
+     * @param packageVersion package format version.
+     * @param mode generation mode.
+     * @param deploymentMode explicitly chosen deployment mode id, or {@code null}.
+     * @param supportedRuntimeModes supported runtime modes.
+     * @param model active feature model reference.
+     * @param deploymentProfile active deployment profile reference.
+     * @param artemisRuntime Artemis runtime context notes.
+     * @param database local runtime database, or {@code null}.
+     * @param ciProvider selected CI provider, or {@code null}.
+     * @param technicalSelection selected technical axes, or {@code null}.
+     * @param generatedFiles package file paths.
+     * @param requiredEnvironmentVariables referenced environment variable names.
+     * @param readiness readiness flags.
+     */
+    public DeploymentPackageManifest {
+        supportedRuntimeModes = supportedRuntimeModes == null ? List.of() : List.copyOf(supportedRuntimeModes);
+        generatedFiles = generatedFiles == null ? List.of() : List.copyOf(generatedFiles);
+        requiredEnvironmentVariables = requiredEnvironmentVariables == null ? List.of() : List.copyOf(requiredEnvironmentVariables);
+    }
+
+    /**
+     * Creates a manifest without technical-selection metadata for models without structural technical mappings.
      *
      * @param packageType stable package type identifier.
      * @param packageVersion package format version.
@@ -50,10 +76,11 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * @param requiredEnvironmentVariables referenced environment variable names.
      * @param readiness readiness flags.
      */
-    public DeploymentPackageManifest {
-        supportedRuntimeModes = supportedRuntimeModes == null ? List.of() : List.copyOf(supportedRuntimeModes);
-        generatedFiles = generatedFiles == null ? List.of() : List.copyOf(generatedFiles);
-        requiredEnvironmentVariables = requiredEnvironmentVariables == null ? List.of() : List.copyOf(requiredEnvironmentVariables);
+    public DeploymentPackageManifest(String packageType, String packageVersion, String mode, String deploymentMode, List<String> supportedRuntimeModes,
+            ModelRef model, ProfileRef deploymentProfile, ArtemisRuntimeInfo artemisRuntime, Database database, List<String> generatedFiles,
+            List<String> requiredEnvironmentVariables, Readiness readiness) {
+        this(packageType, packageVersion, mode, deploymentMode, supportedRuntimeModes, model, deploymentProfile, artemisRuntime, database, null, null,
+                generatedFiles, requiredEnvironmentVariables, readiness);
     }
 
     /**
@@ -90,6 +117,15 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * @param mode how the database is provided, for example {@code local-container}.
      */
     public record Database(String type, String mode) {
+    }
+
+    /**
+     * Selected continuous-integration provider.
+     *
+     * @param type selected CI-provider feature id.
+     * @param mode how the package applies the provider.
+     */
+    public record CiProvider(String type, String mode) {
     }
 
     /**

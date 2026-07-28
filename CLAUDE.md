@@ -65,8 +65,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   a controlled 400. `DeploymentPackageService` composes packages per mode from
   shared artifacts; the `dev-ide` mode emits the Level 1 overlay files plus a
   deterministic IntelliJ run configuration whose `ACTIVE_PROFILES` are derived
-  from the selection (`ActiveProfilesDeriver`: the localci/localvc/buildagent
-  family iff programming or hyperion is selected) and a developer README. The
+  from technical mapping tokens when present, with the original
+  programming/hyperion rule retained only as the curated-model fallback, and a
+  developer README. The
   profile order mirrors the run configurations Artemis ships and is semantic
   (buildagent must precede core, or the buildagent config excludes the
   JPA/DataSource auto-configuration and startup fails); an extra
@@ -79,6 +80,22 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   variables override the dummies. The review page offers a deployment-target picker;
   the guided workflow itself has no deployment decisions. Artifact mappings
   only reach the overlay when they target `application-feature-model.yml`.
+- Generated technical-model snapshots now drive both package modes. `dev-ide`
+  applies the selected CI profile family while recording its developer-managed
+  database choice and generating actionable MySQL or PostgreSQL instructions.
+  `local-docker` generates an extends-based Compose stack for the selected
+  database and CI provider, including selection-consistency runtime checks.
+  Its integrated-code-lifecycle stack points LocalVC at the containerized
+  Artemis server and supplies the host Docker socket group through a
+  platform-aware `FM_DOCKER_GID`.
+  Jenkins configuration keys are mapping-driven and secret-safe. Its local
+  Docker package also points LocalVC at the containerized Artemis server and
+  declares the build-agent Git credentials that the production image does not
+  supply through `application-localvc.yml`. A local-docker Jenkins package
+  deliberately has no Jenkins service yet, so it carries a prominent warning
+  and a failing `jenkins-stack-available` check.
+  The curated model still has no technical subtree and retains byte-identical
+  package output.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.

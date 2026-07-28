@@ -8,7 +8,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -78,6 +82,46 @@ class FeatureModelValidationServiceTest {
     }
 
     @Test
+    void reportsActiveAlternativeGroupWithoutASelectedChild() {
+        var result = validationService(alternativeGroupModel()).validateSelection(new ValidationRequest(List.of("deployment")));
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).singleElement().satisfies(violation -> {
+            assertThat(violation.code()).isEqualTo(ValidationCode.ALTERNATIVE_GROUP_SELECTION_MISSING.name());
+            assertThat(violation.featureIds()).containsExactly("mysql", "postgresql");
+            assertThat(violation.relation().parentId()).isEqualTo("deployment");
+            assertThat(violation.relation().childId()).isEqualTo("database");
+            assertThat(violation.message()).isEqualTo("Database requires at least one selected alternative.");
+            assertThat(violation.suggestion()).isEqualTo("Enable one of: MySQL, PostgreSQL.");
+        });
+    }
+
+    @Test
+    void acceptsOneSelectedAlternative() {
+        var result = validationService(alternativeGroupModel()).validateSelection(new ValidationRequest(List.of("deployment", "mysql")));
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.violations()).isEmpty();
+    }
+
+    @Test
+    void existingExcludesConstraintRejectsBothSelectedAlternatives() {
+        var result = validationService(alternativeGroupModel())
+                .validateSelection(new ValidationRequest(List.of("deployment", "mysql", "postgresql")));
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).extracting("code").containsExactly(ValidationCode.EXCLUDES_CONSTRAINT_VIOLATED.name());
+    }
+
+    @Test
+    void ignoresAlternativeGroupBelowDeselectedParent() {
+        var result = validationService(alternativeGroupModel()).validateSelection(new ValidationRequest(List.of()));
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.violations()).isEmpty();
+    }
+
+    @Test
     void reportsUnsupportedExpressionConstraintAsWarningOnly() {
         FeatureModel model = TestFeatureModels.withConstraints(TestFeatureModels.expression(null));
 
@@ -101,5 +145,22 @@ class FeatureModelValidationServiceTest {
 
     private FeatureModelTreeService treeService() {
         return new FeatureModelTreeService();
+    }
+
+    private FeatureModel alternativeGroupModel() {
+        List<FeatureNode> features = List.of(feature("artemis", "Artemis", "root", false), feature("deployment", "Deployment", "feature", true),
+                feature("database", "Database", "group", false), feature("mysql", "MySQL", "feature", true),
+                feature("postgresql", "PostgreSQL", "feature", true));
+        List<FeatureRelation> relations = List.of(new FeatureRelation("artemis", "deployment", "optional", null, 1),
+                new FeatureRelation("deployment", "database", "group", "alternative", 1),
+                new FeatureRelation("database", "mysql", "optional", null, 1), new FeatureRelation("database", "postgresql", "optional", null, 2));
+        List<FeatureConstraint> constraints = List.of(new FeatureConstraint("database-excludes", "excludes", "mysql", "postgresql", null,
+                "Exactly one database is selected."));
+        return new FeatureModel(new ModelMetadata("alternative-test", "Alternative Test", "0.0.1"), features, relations, constraints);
+    }
+
+    private FeatureNode feature(String id, String name, String kind, boolean selectable) {
+        String defaultState = selectable ? "disabled" : "not_applicable";
+        return new FeatureNode(id, name, kind, selectable, null, defaultState, null);
     }
 }

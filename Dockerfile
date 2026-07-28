@@ -25,9 +25,14 @@ FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 
 ENV JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=25 -XX:MaxRAMPercentage=70 -XX:+UseSerialGC" \
-    SERVER_PORT=8080
+    SERVER_PORT=8080 \
+    ARTEMIS_FEATURE_MODEL_DATA_ROOT=/app/data
 
-COPY --from=backend-build /workspace/build/libs/*.jar /app/app.jar
+RUN mkdir -p /app/data && chown -R 10001:10001 /app
+
+COPY --chown=10001:10001 --from=backend-build /workspace/build/libs/*.jar /app/app.jar
+
+USER 10001:10001
 
 EXPOSE 8080
 

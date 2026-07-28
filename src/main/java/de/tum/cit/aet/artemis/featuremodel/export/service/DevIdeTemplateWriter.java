@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
+
 /**
  * Writes the dev-ide mode files: the IntelliJ IDEA run configuration XML and the developer README.
  *
@@ -163,5 +165,124 @@ public class DevIdeTemplateWriter {
                 - `metadata/static-config-validation.json` records the static check of every overlay key against the
                   Artemis config key catalog.
                 """.formatted(modelId, modelVersion, profileId, activeProfiles, envVarList);
+    }
+
+    /**
+     * Builds a technical-selection-aware developer README while preserving curated-model bytes.
+     *
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param activeProfiles ordered active profiles.
+     * @param requiredEnvVars environment variables referenced by the overlay.
+     * @param selection resolved technical selection.
+     * @return developer README.
+     */
+    public String devIdeReadme(String modelId, String modelVersion, String profileId, String activeProfiles,
+            List<String> requiredEnvVars, TechnicalSelection selection) {
+        if (selection.isEmpty()) {
+            return devIdeReadme(modelId, modelVersion, profileId, activeProfiles, requiredEnvVars);
+        }
+
+        String environmentVariables = environmentVariableList(requiredEnvVars);
+        String databaseInstructions = databaseInstructions(selection.databaseId().orElseThrow());
+        String jenkinsInstructions = jenkinsInstructions(selection.ciProviderId().orElseThrow());
+        return """
+                # Artemis Feature Model — IDE Development Setup (dev-ide)
+
+                Generated from feature model `%s` version `%s` and deployment context `%s` in DEMO mode.
+
+                Copy `config/application-feature-model.yml` and `config/application-feature-model-demo.yml` into
+                `src/main/resources/config/` of your Artemis checkout. Copy the generated XML into
+                `.idea/runConfigurations/`, then reload IntelliJ IDEA.
+
+                The exact active profile order is:
+
+                ```text
+                %s
+                ```
+
+                Profile order is semantic. Keep `buildagent` before `core` in the integrated-code-lifecycle variant,
+                and keep both feature-model profiles before `local`.
+
+                ## Database choice
+
+                %s
+
+                The database is recorded but deliberately not applied by dev-ide. Connection coordinates belong in
+                the developer-owned `application-local.yml`; no datasource key is written to the generated overlay.
+
+                ## CI provider
+
+                %s
+
+                ## Environment variables
+
+                DEMO defaults cover every placeholder. Real environment variables override them:
+
+                %s
+
+                This package deploys nothing and is not production-ready. Do not commit copied generated configuration.
+                """.formatted(modelId, modelVersion, profileId, activeProfiles, databaseInstructions, jenkinsInstructions,
+                environmentVariables);
+    }
+
+    /**
+     * Renders required environment variables as Markdown.
+     *
+     * @param requiredEnvVars environment variable names.
+     * @return Markdown list.
+     */
+    private String environmentVariableList(List<String> requiredEnvVars) {
+        if (requiredEnvVars.isEmpty()) {
+            return "- (none)";
+        }
+        StringBuilder markdown = new StringBuilder();
+        for (String name : requiredEnvVars) {
+            if (!markdown.isEmpty()) {
+                markdown.append('\n');
+            }
+            markdown.append("- `").append(name).append('`');
+        }
+        return markdown.toString();
+    }
+
+    /**
+     * Builds actionable database instructions for the developer-managed IDE environment.
+     *
+     * @param databaseId selected database id.
+     * @return database instructions.
+     */
+    private String databaseInstructions(String databaseId) {
+        if ("mysql".equals(databaseId)) {
+            return "Start `docker/mysql.yml` (or the shipped `MySQL.xml` run configuration). Artemis' dev defaults "
+                    + "already target the local MySQL container.";
+        }
+        return """
+                Start `docker/postgres.yml` (or the shipped `PostgreSQL.xml` run configuration), then add this to
+                `src/main/resources/config/application-local.yml`:
+
+                ```yaml
+                spring:
+                    datasource:
+                        url: jdbc:postgresql://localhost:5432/Artemis?sslmode=disable
+                        username: Artemis
+                        password: ""
+                ```
+                """;
+    }
+
+    /**
+     * Builds CI-provider instructions.
+     *
+     * @param ciProviderId selected CI provider id.
+     * @return CI instructions.
+     */
+    private String jenkinsInstructions(String ciProviderId) {
+        if (!"jenkins".equals(ciProviderId)) {
+            return "The integrated code lifecycle is applied through `localci`, `localvc`, and `buildagent`.";
+        }
+        return "Provide a reachable Jenkins at the configured URL. Artemis' shipped `docker/jenkins.yml` is currently "
+                + "stale because it mounts a removed CASC file, so this package does not attempt to start Jenkins.";
     }
 }

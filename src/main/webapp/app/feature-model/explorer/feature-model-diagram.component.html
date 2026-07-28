@@ -14,6 +14,20 @@
             }
         </g>
 
+        <g class="diagram-group-markers">
+            @for (marker of alternativeGroupMarkers(); track marker.id) {
+                <path
+                    class="diagram-group-marker diagram-group-marker--alternative"
+                    [attr.d]="marker.path"
+                    [attr.data-group-id]="marker.id"
+                    [attr.aria-label]="marker.label"
+                    role="img"
+                >
+                    <title>{{ marker.label }}</title>
+                </path>
+            }
+        </g>
+
         <g class="diagram-markers">
             @for (node of nodes(); track node.id) {
                 @switch (node.incomingRelationType) {
@@ -132,4 +146,21 @@
             }
         </g>
     </svg>
+
+    <div class="diagram-legend" aria-label="Feature relation notation">
+        <span class="diagram-legend__item">
+            <span class="diagram-legend__dot diagram-legend__dot--mandatory" aria-hidden="true"></span>
+            Mandatory
+        </span>
+        <span class="diagram-legend__item">
+            <span class="diagram-legend__dot diagram-legend__dot--optional" aria-hidden="true"></span>
+            Optional
+        </span>
+        <span class="diagram-legend__item">
+            <svg class="diagram-legend__arc" viewBox="0 0 24 14" aria-hidden="true">
+                <path d="M 2 12 A 10 10 0 0 1 22 12" />
+            </svg>
+            Alternative (choose one)
+        </span>
+    </div>
 </div>

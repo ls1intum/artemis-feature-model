@@ -20,6 +20,14 @@
     stroke-width: 1.25;
 }
 
+.diagram-group-marker {
+    fill: none;
+    stroke: var(--bs-emphasis-color);
+    stroke-linecap: round;
+    stroke-width: 2;
+    pointer-events: none;
+}
+
 .diagram-marker {
     stroke: var(--bs-emphasis-color);
     stroke-width: 1.25;
@@ -198,4 +206,49 @@
 .diagram-toggle--collapsed .diagram-toggle__bg {
     fill: var(--bs-primary-bg-subtle);
     stroke: var(--bs-primary);
+}
+
+.diagram-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem 1rem;
+    min-width: max-content;
+    padding-top: 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+}
+
+.diagram-legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.diagram-legend__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border: 1.25px solid var(--bs-emphasis-color);
+    border-radius: 50%;
+}
+
+.diagram-legend__dot--mandatory {
+    background: var(--bs-emphasis-color);
+}
+
+.diagram-legend__dot--optional {
+    background: var(--bs-body-bg);
+}
+
+.diagram-legend__arc {
+    width: 1.5rem;
+    height: 0.875rem;
+    overflow: visible;
+}
+
+.diagram-legend__arc path {
+    fill: none;
+    stroke: var(--bs-emphasis-color);
+    stroke-linecap: round;
+    stroke-width: 1.75;
 }

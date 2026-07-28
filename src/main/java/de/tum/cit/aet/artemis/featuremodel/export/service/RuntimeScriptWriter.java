@@ -195,6 +195,22 @@ public class RuntimeScriptWriter {
     }
 
     /**
+     * Builds the package validator and requires the generated stack for a technical model.
+     *
+     * @param technicalStack whether the package contains a selection-driven stack.
+     * @return validator script.
+     */
+    public String validatePackageScript(boolean technicalStack) {
+        String script = validatePackageScript();
+        if (!technicalStack) {
+            return script;
+        }
+        String stackEntry = "                  \"deployment/local-repo/artemis-feature-model-stack.yml\"\n";
+        String insertionPoint = "                  \"deployment/local-repo/docker-compose.override.example.yml\"\n";
+        return script.replace(insertionPoint, stackEntry + insertionPoint);
+    }
+
+    /**
      * Builds {@code start-local-repo.sh}, which starts Artemis from a local checkout with the overlay layered on top.
      *
      * @return {@code start-local-repo.sh} content.
@@ -289,6 +305,93 @@ public class RuntimeScriptWriter {
     }
 
     /**
+     * Builds the selection-driven start script while preserving the frozen curated-model script.
+     *
+     * @param technicalStack whether the package contains a generated stack.
+     * @return start script.
+     */
+    public String startLocalRepoScript(boolean technicalStack) {
+        if (!technicalStack) {
+            return startLocalRepoScript();
+        }
+        return """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                PACKAGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+                if [ "$#" -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+                  echo "Usage: $(basename "$0") /path/to/Artemis"
+                  echo "  Starts the selection-driven package stack."
+                  echo "  Override its default with FM_ARTEMIS_COMPOSE_FILE."
+                  exit 0
+                fi
+
+                ARTEMIS_REPO="$1"
+                ARTEMIS_DOCKER_DIR="$ARTEMIS_REPO/docker"
+                if [ ! -f "$ARTEMIS_DOCKER_DIR/artemis.yml" ]; then
+                  echo "ERROR: $ARTEMIS_REPO does not look like an Artemis repository." >&2
+                  exit 1
+                fi
+
+                command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed or not on PATH." >&2; exit 1; }
+                docker compose version >/dev/null 2>&1 || { echo "ERROR: Docker Compose v2 is required." >&2; exit 1; }
+
+                DEFAULT_STACK="$PACKAGE_ROOT/deployment/local-repo/artemis-feature-model-stack.yml"
+                if [ -n "${FM_ARTEMIS_COMPOSE_FILE:-}" ]; then
+                  if [[ "$FM_ARTEMIS_COMPOSE_FILE" = /* ]]; then
+                    STACK_FILE="$FM_ARTEMIS_COMPOSE_FILE"
+                  else
+                    STACK_FILE="$ARTEMIS_REPO/$FM_ARTEMIS_COMPOSE_FILE"
+                  fi
+                else
+                  STACK_FILE="$DEFAULT_STACK"
+                fi
+                if [ ! -f "$STACK_FILE" ]; then
+                  echo "ERROR: Compose stack not found: $STACK_FILE" >&2
+                  exit 1
+                fi
+
+                ENV_FILE="$PACKAGE_ROOT/env/.env"
+                if [ ! -f "$ENV_FILE" ]; then
+                  echo "ERROR: env/.env not found. Run ./scripts/prepare-env.sh --demo first." >&2
+                  exit 1
+                fi
+
+                export FM_ARTEMIS_REPO="$ARTEMIS_REPO"
+                export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
+                export FM_ENV_FILE="$ENV_FILE"
+                if [ -z "${FM_DOCKER_GID:-}" ]; then
+                  if [ "$(uname -s)" = "Darwin" ]; then
+                    FM_DOCKER_GID=0
+                  else
+                    FM_DOCKER_GID="$(stat -Lc '%g' /var/run/docker.sock)"
+                  fi
+                fi
+                export FM_DOCKER_GID
+                OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
+                ARTEMIS_ENV_FILE="${FM_ARTEMIS_ENV_FILE:-$ARTEMIS_REPO/.env}"
+
+                COMPOSE_ARGS=(
+                  -p artemis-feature-model-local
+                  --project-directory "$ARTEMIS_DOCKER_DIR"
+                )
+                if [ -f "$ARTEMIS_ENV_FILE" ]; then
+                  COMPOSE_ARGS+=(--env-file "$ARTEMIS_ENV_FILE")
+                fi
+                COMPOSE_ARGS+=(-f "$STACK_FILE" -f "$OVERRIDE_FILE")
+
+                echo "Starting selection-driven Artemis stack..."
+                echo "  Stack:   $STACK_FILE"
+                echo "  Overlay: $FM_OVERLAY_HOST_PATH"
+                docker compose "${COMPOSE_ARGS[@]}" up -d
+
+                echo "Artemis is starting at http://localhost:8080"
+                """;
+    }
+
+    /**
      * Builds {@code stop-local-repo.sh}, which stops the local-repo stack and keeps volumes unless {@code --volumes}.
      *
      * @return {@code stop-local-repo.sh} content.
@@ -323,6 +426,55 @@ public class RuntimeScriptWriter {
                 fi
 
                 echo "Stopped the local-repo Artemis stack."
+                """;
+    }
+
+    /**
+     * Builds teardown for the generated stack while preserving the frozen curated-model script.
+     *
+     * @param technicalStack whether the package contains a generated stack.
+     * @return stop script.
+     */
+    public String stopLocalRepoScript(boolean technicalStack) {
+        if (!technicalStack) {
+            return stopLocalRepoScript();
+        }
+        return """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                PACKAGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+                if [ "$#" -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+                  echo "Usage: $(basename "$0") /path/to/Artemis [--volumes]"
+                  exit 0
+                fi
+
+                ARTEMIS_REPO="$1"
+                REMOVE_VOLUMES=false
+                if [ "${2:-}" = "--volumes" ]; then
+                  REMOVE_VOLUMES=true
+                fi
+
+                export FM_ARTEMIS_REPO="$ARTEMIS_REPO"
+                export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
+                export FM_ENV_FILE="$PACKAGE_ROOT/env/.env"
+                STACK_FILE="$PACKAGE_ROOT/deployment/local-repo/artemis-feature-model-stack.yml"
+                OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
+                COMPOSE_ARGS=(
+                  -p artemis-feature-model-local
+                  --project-directory "$ARTEMIS_REPO/docker"
+                  -f "$STACK_FILE"
+                  -f "$OVERRIDE_FILE"
+                )
+
+                if [ "$REMOVE_VOLUMES" = true ]; then
+                  echo "WARNING: removing named volumes; local Artemis data will be lost."
+                  docker compose "${COMPOSE_ARGS[@]}" down --volumes
+                else
+                  docker compose "${COMPOSE_ARGS[@]}" down
+                fi
                 """;
     }
 

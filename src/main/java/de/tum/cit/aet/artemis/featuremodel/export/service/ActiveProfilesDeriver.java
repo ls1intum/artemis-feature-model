@@ -1,19 +1,21 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
+
 /**
  * Derives the Spring {@code ACTIVE_PROFILES} string for the dev-ide run configuration from the feature selection.
  *
  * <p>
- * The rule set is data, not logic: one fixed ordered profile list for a local IDE development run, and one for
- * selections containing a CI-dependent feature. The CI rule reuses the Phase 6 finding that Hyperion (like
- * Programming) hard-requires a CI trigger bean at runtime, so a selection containing such a feature must start the
- * {@code localci}/{@code localvc}/{@code buildagent} profiles.
+ * The rule set is data, not logic: technical mappings select a complete ICL or Jenkins list. The curated-model
+ * fallback retains one base list and one list for selections containing a CI-dependent feature. The fallback reuses
+ * the Phase 6 finding that Hyperion (like Programming) hard-requires a CI trigger bean at runtime.
  *
  * <p>
  * The profile <em>order</em> is semantic, not cosmetic, and mirrors the run configurations the Artemis repository
@@ -37,10 +39,8 @@ import org.springframework.stereotype.Component;
  * config files in Spring Boot's property precedence and therefore override the dummies automatically.
  *
  * <p>
- * Seam note: generated feature models since Phase E3 declare {@code SPRING_PROFILES_ACTIVE} token contributions as
- * artifact mappings on technical features. The bundled curated model carries no technical features, so this class
- * derives the profiles by rule; it is the seam where mapping-driven derivation will later replace the rule for models
- * that carry technical features. That consumption path is deliberately not built yet.
+ * Generated models choose one complete ordered list through their technical profile-token mappings. The bundled
+ * curated model carries no technical mappings and keeps the original feature-rule fallback.
  */
 @Component
 public class ActiveProfilesDeriver {
@@ -65,6 +65,14 @@ public class ActiveProfilesDeriver {
     private static final List<String> CI_RUN_PROFILES = List.of("artemis", "localci", "localvc", "scheduling", "buildagent", "core", "dev", FEATURE_MODEL_PROFILE,
             DEMO_ENV_PROFILE, "local");
 
+    /** Ordered profiles mirrored from {@code Artemis_Server__Dev__Core__Jenkins_.xml}. */
+    private static final List<String> JENKINS_RUN_PROFILES = List.of("jenkins", "localvc", "artemis", "scheduling", "core", "dev", FEATURE_MODEL_PROFILE,
+            DEMO_ENV_PROFILE, "local");
+
+    private static final Set<String> ICL_TOKENS = Set.of("localci", "buildagent", "localvc");
+
+    private static final Set<String> JENKINS_TOKENS = Set.of("jenkins", "localvc");
+
     /**
      * Derives the comma-separated {@code ACTIVE_PROFILES} value for a selection.
      *
@@ -72,6 +80,39 @@ public class ActiveProfilesDeriver {
      * @return comma-separated Spring profile list, deterministic for the same selection.
      */
     public String deriveActiveProfiles(Collection<String> selectedFeatureIds) {
+        return deriveActiveProfiles(selectedFeatureIds, List.of());
+    }
+
+    /**
+     * Derives active profiles from resolved technical tokens, falling back to the curated-model feature rule when no
+     * token mapping is present.
+     *
+     * @param selectedFeatureIds selected feature ids used by the curated-model fallback.
+     * @param technicalProfileTokens resolved technical profile-token contributions.
+     * @return comma-separated ordered Spring profiles.
+     * @throws ArtifactGenerationException if the technical token set is unknown or mixes CI families.
+     */
+    public String deriveActiveProfiles(Collection<String> selectedFeatureIds, Collection<String> technicalProfileTokens) {
+        Set<String> tokens = new LinkedHashSet<>(technicalProfileTokens);
+        if (tokens.isEmpty()) {
+            return fallbackProfiles(selectedFeatureIds);
+        }
+        if (ICL_TOKENS.equals(tokens)) {
+            return String.join(",", CI_RUN_PROFILES);
+        }
+        if (JENKINS_TOKENS.equals(tokens)) {
+            return String.join(",", JENKINS_RUN_PROFILES);
+        }
+        throw ArtifactGenerationException.unsupportedTechnicalProfileTokens(tokens);
+    }
+
+    /**
+     * Applies the pre-technical-model rule for the curated model.
+     *
+     * @param selectedFeatureIds selected feature ids.
+     * @return base or ICL profile list.
+     */
+    private String fallbackProfiles(Collection<String> selectedFeatureIds) {
         boolean ciDependentFeatureSelected = selectedFeatureIds.stream().anyMatch(CI_DEPENDENT_FEATURE_IDS::contains);
         return String.join(",", ciDependentFeatureSelected ? CI_RUN_PROFILES : BASE_RUN_PROFILES);
     }
