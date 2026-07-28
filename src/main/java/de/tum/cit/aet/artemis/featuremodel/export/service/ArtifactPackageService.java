@@ -3,6 +3,7 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -26,8 +27,8 @@ public class ArtifactPackageService {
 
     private static final String ROOT_DIR = "artemis-feature-model-artifacts/";
 
-    /** Fixed entry timestamp (2020-01-01T00:00:00Z) so archives are reproducible for the same input. */
-    private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
+    /** Fixed ZIP-local timestamp that preserves the archive bytes historically generated in Europe/Berlin. */
+    private static final LocalDateTime FIXED_ENTRY_TIME = LocalDateTime.of(2020, 1, 1, 1, 0);
 
     /**
      * Builds the ZIP archive for a generated artifact package under the default Phase 5 root directory.
@@ -53,7 +54,7 @@ public class ArtifactPackageService {
         try (ZipOutputStream zipStream = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
             for (GeneratedArtifactFile file : artifactPackage.files()) {
                 ZipEntry entry = new ZipEntry(rootDir + file.path());
-                entry.setTime(FIXED_ENTRY_TIME);
+                entry.setTimeLocal(FIXED_ENTRY_TIME);
                 zipStream.putNextEntry(entry);
                 zipStream.write(file.content().getBytes(StandardCharsets.UTF_8));
                 zipStream.closeEntry();
