@@ -158,7 +158,34 @@ Build the local Docker image with:
 
 ```bash
 docker build -t artemis-feature-model .
-docker run --rm -p 8090:8090 artemis-feature-model
+docker volume create artemis-feature-model-data
+docker run --rm \
+  -p 8090:8080 \
+  -v artemis-feature-model-data:/app/data \
+  artemis-feature-model
+```
+
+The container listens on port `8080`; the example exposes it on
+`http://localhost:8090`. Imported snapshots and local deployment-profile
+overrides are stored under `/app/data`, which is backed by the named volume so
+they survive container replacement.
+
+Snapshot import paths are resolved inside the container. To import snapshots
+from the host, mount their parent directory read-only and submit the
+corresponding `/imports/...` path to the snapshot import API:
+
+```bash
+docker run --rm \
+  -p 8090:8080 \
+  -v artemis-feature-model-data:/app/data \
+  -v /absolute/path/to/snapshots:/imports:ro \
+  artemis-feature-model
+```
+
+```json
+{
+  "sourcePath": "/imports/example-snapshot"
+}
 ```
 
 The repository CI workflow runs frontend tests, the frontend production build,
