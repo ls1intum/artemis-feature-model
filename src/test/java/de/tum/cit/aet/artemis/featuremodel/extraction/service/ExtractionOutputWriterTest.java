@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedArtifactValidation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -25,44 +26,44 @@ class ExtractionOutputWriterTest {
     private final ExtractionOutputWriter writer = new ExtractionOutputWriter(new ObjectMapper());
 
     @TempDir
-    Path outputDirectory;
+    Path outputRoot;
 
     @Test
     void hardValidationFailureWritesDiagnosticsButNoSnapshot() throws Exception {
         ReportItem error = ReportItem.error(ReportItem.CODE_GENERATED_MODEL_INVALID, "NO_ROOT_FEATURE", "Synthetic hard failure.");
         FeatureExtractionService.Outcome outcome = outcome(new GeneratedArtifactValidation(false, true), error);
 
-        writer.writeAll(outputDirectory, metadata(), outcome);
-        boolean published = writer.writeSnapshot(outputDirectory, outcome, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123");
+        writer.writeAll(layout(), metadata(), outcome);
+        boolean published = writer.writeSnapshot(layout(), outcome, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123");
 
         assertThat(published).isFalse();
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)).content().contains(ReportItem.CODE_GENERATED_MODEL_INVALID);
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.GENERATED_MODEL_FILE)).isRegularFile();
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY)).doesNotExist();
+        assertThat(layout().reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)).content().contains(ReportItem.CODE_GENERATED_MODEL_INVALID);
+        assertThat(layout().modelDirectory().resolve(ExtractionOutputWriter.GENERATED_MODEL_FILE)).isRegularFile();
+        assertThat(layout().snapshotDirectory()).doesNotExist();
     }
 
     @Test
     void invalidRerunRemovesPreviouslyPublishedSnapshot() throws Exception {
         FeatureExtractionService.Outcome valid = outcome(new GeneratedArtifactValidation(true, true));
-        assertThat(writer.writeSnapshot(outputDirectory, valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isTrue();
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY)).isDirectory();
+        assertThat(writer.writeSnapshot(layout(), valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isTrue();
+        assertThat(layout().snapshotDirectory()).isDirectory();
 
         FeatureExtractionService.Outcome invalid = outcome(new GeneratedArtifactValidation(true, false));
-        assertThat(writer.writeSnapshot(outputDirectory, invalid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isFalse();
+        assertThat(writer.writeSnapshot(layout(), invalid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isFalse();
 
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY)).doesNotExist();
+        assertThat(layout().snapshotDirectory()).doesNotExist();
     }
 
     @Test
     void validRerunAtomicallyReplacesPreviousSnapshotContents() throws Exception {
         FeatureExtractionService.Outcome valid = outcome(new GeneratedArtifactValidation(true, true));
-        writer.writeSnapshot(outputDirectory, valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123");
-        Path staleFile = outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY).resolve("stale.txt");
+        writer.writeSnapshot(layout(), valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123");
+        Path staleFile = layout().snapshotDirectory().resolve("stale.txt");
         Files.writeString(staleFile, "stale");
 
-        assertThat(writer.writeSnapshot(outputDirectory, valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isTrue();
+        assertThat(writer.writeSnapshot(layout(), valid, "{}".getBytes(StandardCharsets.UTF_8), "/artemis", "abc123")).isTrue();
 
-        Path snapshotDirectory = outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY);
+        Path snapshotDirectory = layout().snapshotDirectory();
         assertThat(snapshotDirectory.resolve("feature-model.json")).isRegularFile();
         assertThat(snapshotDirectory.resolve("guided-workflow.json")).isRegularFile();
         assertThat(snapshotDirectory.resolve("metadata.json")).isRegularFile();
@@ -74,10 +75,14 @@ class ExtractionOutputWriterTest {
     void writeFailureLeavesNoPartiallyPublishedSnapshot() {
         FeatureExtractionService.Outcome valid = outcome(new GeneratedArtifactValidation(true, true));
 
-        assertThatThrownBy(() -> writer.writeSnapshot(outputDirectory, valid, null, "/artemis", "abc123")).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> writer.writeSnapshot(layout(), valid, null, "/artemis", "abc123")).isInstanceOf(NullPointerException.class);
 
-        assertThat(outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY)).doesNotExist();
-        assertThat(outputDirectory.toFile().list((directory, name) -> name.startsWith(".snapshot-"))).isEmpty();
+        assertThat(layout().snapshotDirectory()).doesNotExist();
+        assertThat(layout().root().toFile().list((directory, name) -> name.startsWith(".snapshot-"))).isEmpty();
+    }
+
+    private ExtractionArtifactLayout layout() {
+        return ExtractionArtifactLayout.forCommit(outputRoot, "abc123");
     }
 
     private FeatureExtractionService.Outcome outcome(GeneratedArtifactValidation validation, ReportItem... items) {

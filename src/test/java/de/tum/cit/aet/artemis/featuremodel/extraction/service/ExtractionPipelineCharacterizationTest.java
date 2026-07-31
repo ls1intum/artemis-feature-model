@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
@@ -90,22 +91,35 @@ class ExtractionPipelineCharacterizationTest {
 
     @Test
     void writesEveryPipelineArtifactAndPublishesTheSnapshot() throws Exception {
-        Path outputDirectory = outputRoot.resolve("unknown");
+        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, "unknown");
         ExtractionOutputWriter writer = new ExtractionOutputWriter(OBJECT_MAPPER);
-        writer.writeAll(outputDirectory, scanMetadata(), outcome);
+        writer.writeAll(layout, scanMetadata(), outcome);
 
-        boolean published = writer.writeSnapshot(outputDirectory, outcome, workflowBytes(), FIXTURE_PATH.toString(), "unknown");
+        boolean published = writer.writeSnapshot(layout, outcome, workflowBytes(), FIXTURE_PATH.toString(), "unknown");
 
         assertThat(published).isTrue();
-        for (String fileName : List.of(ExtractionOutputWriter.SCAN_METADATA_FILE, ExtractionOutputWriter.FEATURE_CANDIDATES_FILE,
-                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE, ExtractionOutputWriter.EXTRACTION_REPORT_FILE,
-                ExtractionOutputWriter.GENERATED_MODEL_FILE, ExtractionOutputWriter.GENERATED_CATALOG_FILE, ExtractionOutputWriter.MODEL_DIFF_FILE,
-                ExtractionOutputWriter.GUIDED_VALIDATION_FILE)) {
-            assertThat(outputDirectory.resolve(fileName)).as("pipeline artifact %s", fileName).isRegularFile();
+        assertScanArtifacts(layout);
+        for (String fileName : List.of(ExtractionOutputWriter.GENERATED_MODEL_FILE, ExtractionOutputWriter.GENERATED_CATALOG_FILE,
+                ExtractionOutputWriter.MODEL_DIFF_FILE)) {
+            assertThat(layout.modelDirectory().resolve(fileName)).as("model artifact %s", fileName).isRegularFile();
         }
-        Path snapshotDirectory = outputDirectory.resolve(ExtractionOutputWriter.SNAPSHOT_DIRECTORY);
+        assertThat(layout.workflowDirectory().resolve(ExtractionOutputWriter.GUIDED_VALIDATION_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)).isRegularFile();
+        Path snapshotDirectory = layout.snapshotDirectory();
         for (String fileName : List.of("feature-model.json", "guided-workflow.json", "metadata.json", "checksum.txt")) {
             assertThat(snapshotDirectory.resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
+        }
+    }
+
+    /**
+     * Asserts that the scan directory carries every raw source discovery artifact.
+     *
+     * @param layout output layout of the characterized run.
+     */
+    private void assertScanArtifacts(ExtractionArtifactLayout layout) {
+        for (String fileName : List.of(ExtractionOutputWriter.SCAN_METADATA_FILE, ExtractionOutputWriter.FEATURE_CANDIDATES_FILE,
+                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE)) {
+            assertThat(layout.scanDirectory().resolve(fileName)).as("scan artifact %s", fileName).isRegularFile();
         }
     }
 

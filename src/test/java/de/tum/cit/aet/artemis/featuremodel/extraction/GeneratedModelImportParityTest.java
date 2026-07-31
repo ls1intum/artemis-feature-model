@@ -54,6 +54,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionReso
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ExtractionOutputWriter;
@@ -110,22 +111,22 @@ class GeneratedModelImportParityTest {
 
         outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest, bundledWorkflow, bundledProfile);
 
-        Path outputDirectory = workingDirectory.resolve("extraction");
+        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(workingDirectory.resolve("extraction"), source.commit());
         ExtractionOutputWriter writer = new ExtractionOutputWriter(objectMapper);
-        writer.writeAll(outputDirectory, new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(),
+        writer.writeAll(layout, new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(),
                 source.workingTreeDirty(), "start", "end", 0, 0, 0, 0), outcome);
         byte[] workflowBytes;
         try (InputStream inputStream = resourceLoader.getResource("classpath:feature-model/guided-workflow.json").getInputStream()) {
             workflowBytes = inputStream.readAllBytes();
         }
-        writer.writeSnapshot(outputDirectory, outcome, workflowBytes, source.root().toString(), source.commit());
+        writer.writeSnapshot(layout, outcome, workflowBytes, source.root().toString(), source.commit());
 
         dataRoot = workingDirectory.resolve("data");
         SnapshotService snapshotService = new SnapshotService(
                 new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper), objectMapper,
                 new FeatureModelIntegrityService(), new GuidedWorkflowIntegrityService());
         ImportSnapshotResultDTO result = snapshotService
-                .importSnapshot(new ImportSnapshotRequest(outputDirectory.resolve("snapshot").toString(), null, false));
+                .importSnapshot(new ImportSnapshotRequest(layout.snapshotDirectory().toString(), null, false));
         snapshotId = result.snapshotId();
     }
 

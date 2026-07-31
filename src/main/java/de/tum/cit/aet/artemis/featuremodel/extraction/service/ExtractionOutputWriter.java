@@ -12,6 +12,7 @@ import java.util.HexFormat;
 import java.util.UUID;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.SnapshotMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import tools.jackson.core.util.DefaultIndenter;
 import tools.jackson.core.util.DefaultPrettyPrinter;
@@ -70,26 +71,27 @@ public class ExtractionOutputWriter {
     }
 
     /**
-     * Writes the outputs of one extraction run into the output directory, replacing previous outputs. The generated
-     * model, catalog, diff, and guided validation files are written only when the run produced them.
+     * Writes the outputs of one extraction run into the directories of the run layout, replacing previous outputs. The
+     * generated model, catalog, diff, and guided validation files are written only when the run produced them.
      *
-     * @param outputDirectory directory for this scan, typically {@code build/feature-extraction/<commit>}.
+     * @param layout output layout of this run.
      * @param metadata scan metadata payload.
      * @param outcome extraction outcome with candidates, evidence, relations, the report, and generation outputs.
      * @throws IOException if a file cannot be written.
      */
-    public void writeAll(Path outputDirectory, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) throws IOException {
-        Files.createDirectories(outputDirectory);
-        writeJson(outputDirectory.resolve(SCAN_METADATA_FILE), metadata);
-        writeJson(outputDirectory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
-        writeJson(outputDirectory.resolve(EVIDENCE_FILE), outcome.evidence());
-        writeJson(outputDirectory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
-        writeJson(outputDirectory.resolve(EXTRACTION_REPORT_FILE), outcome.report());
+    public void writeAll(ExtractionArtifactLayout layout, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) throws IOException {
+        Path scanDirectory = Files.createDirectories(layout.scanDirectory());
+        writeJson(scanDirectory.resolve(SCAN_METADATA_FILE), metadata);
+        writeJson(scanDirectory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
+        writeJson(scanDirectory.resolve(EVIDENCE_FILE), outcome.evidence());
+        writeJson(scanDirectory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
+        writeJson(Files.createDirectories(layout.reportDirectory()).resolve(EXTRACTION_REPORT_FILE), outcome.report());
         if (outcome.generatedModel() != null) {
-            writeJson(outputDirectory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
-            writeJson(outputDirectory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
-            writeJson(outputDirectory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
-            writeJson(outputDirectory.resolve(GUIDED_VALIDATION_FILE), outcome.guidedWorkflowValidation());
+            Path modelDirectory = Files.createDirectories(layout.modelDirectory());
+            writeJson(modelDirectory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
+            writeJson(modelDirectory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+            writeJson(modelDirectory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
+            writeJson(Files.createDirectories(layout.workflowDirectory()).resolve(GUIDED_VALIDATION_FILE), outcome.guidedWorkflowValidation());
         }
     }
 
@@ -98,7 +100,7 @@ public class ExtractionOutputWriter {
      * guided workflow, traceability metadata, and the model checksum — the exact layout
      * {@code POST /api/feature-model/snapshots/import} validates.
      *
-     * @param outputDirectory directory for this scan.
+     * @param layout output layout of this run.
      * @param outcome extraction outcome carrying the generated model.
      * @param workflowResourceBytes bytes of the bundled lean guided workflow resource.
      * @param artemisPath scanned checkout path recorded as the snapshot source repository.
@@ -106,19 +108,19 @@ public class ExtractionOutputWriter {
      * @return true when an eligible snapshot was published; false when generation was skipped or hard validation failed.
      * @throws IOException if a file cannot be written.
      */
-    public boolean writeSnapshot(Path outputDirectory, FeatureExtractionService.Outcome outcome, byte[] workflowResourceBytes, String artemisPath,
+    public boolean writeSnapshot(ExtractionArtifactLayout layout, FeatureExtractionService.Outcome outcome, byte[] workflowResourceBytes, String artemisPath,
             String artemisCommit) throws IOException {
         if (outcome.generatedModel() == null) {
             return false;
         }
-        Path snapshotDirectory = outputDirectory.resolve(SNAPSHOT_DIRECTORY);
+        Path snapshotDirectory = layout.snapshotDirectory();
         if (outcome.artifactValidation() == null || !outcome.artifactValidation().snapshotEligible()) {
             removePublishedSnapshot(snapshotDirectory);
             return false;
         }
 
-        Files.createDirectories(outputDirectory);
-        Path temporaryDirectory = Files.createTempDirectory(outputDirectory, ".snapshot-");
+        Path runDirectory = Files.createDirectories(layout.root());
+        Path temporaryDirectory = Files.createTempDirectory(runDirectory, ".snapshot-");
         try {
             writeSnapshotContents(temporaryDirectory, outcome, workflowResourceBytes, artemisPath, artemisCommit);
             publishSnapshot(temporaryDirectory, snapshotDirectory);

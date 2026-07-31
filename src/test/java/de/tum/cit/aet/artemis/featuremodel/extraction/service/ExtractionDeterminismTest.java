@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -28,25 +29,27 @@ class ExtractionDeterminismTest {
 
     @Test
     void twoRunsProduceByteIdenticalOutputs() throws IOException {
-        Path firstRun = runAndWrite(temporaryDirectory.resolve("first"));
-        Path secondRun = runAndWrite(temporaryDirectory.resolve("second"));
+        ExtractionArtifactLayout firstRun = runAndWrite(temporaryDirectory.resolve("first"));
+        ExtractionArtifactLayout secondRun = runAndWrite(temporaryDirectory.resolve("second"));
 
         for (String fileName : new String[] { ExtractionOutputWriter.SCAN_METADATA_FILE, ExtractionOutputWriter.FEATURE_CANDIDATES_FILE,
-                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE, ExtractionOutputWriter.EXTRACTION_REPORT_FILE }) {
-            byte[] firstBytes = Files.readAllBytes(firstRun.resolve(fileName));
-            byte[] secondBytes = Files.readAllBytes(secondRun.resolve(fileName));
+                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE }) {
+            byte[] firstBytes = Files.readAllBytes(firstRun.scanDirectory().resolve(fileName));
+            byte[] secondBytes = Files.readAllBytes(secondRun.scanDirectory().resolve(fileName));
             assertThat(secondBytes).as("output file %s must be byte-identical across runs", fileName).isEqualTo(firstBytes);
         }
+        assertThat(Files.readAllBytes(secondRun.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)))
+                .isEqualTo(Files.readAllBytes(firstRun.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)));
     }
 
     /**
      * Runs one full extraction over the fixture and writes all outputs with fixed timestamps.
      *
-     * @param outputDirectory run output directory.
-     * @return the output directory.
+     * @param outputRoot run output root.
+     * @return the run layout.
      * @throws IOException if the outputs cannot be written.
      */
-    private Path runAndWrite(Path outputDirectory) throws IOException {
+    private ExtractionArtifactLayout runAndWrite(Path outputRoot) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(FIXTURE_PATH);
         FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, ExtractionTestModels.fixtureCuratedModel(),
@@ -54,7 +57,8 @@ class ExtractionDeterminismTest {
         ScanMetadata metadata = new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
                 FIXED_TIMESTAMP, FIXED_TIMESTAMP, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
                 outcome.report().items().size());
-        new ExtractionOutputWriter(objectMapper).writeAll(outputDirectory, metadata, outcome);
-        return outputDirectory;
+        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, source.commit());
+        new ExtractionOutputWriter(objectMapper).writeAll(layout, metadata, outcome);
+        return layout;
     }
 }
