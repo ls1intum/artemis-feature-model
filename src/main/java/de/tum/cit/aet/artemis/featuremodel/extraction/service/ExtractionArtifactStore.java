@@ -203,7 +203,7 @@ class ExtractionArtifactStore {
      * Writes the generated model artifacts and their envelope.
      *
      * @param layout output layout of this run.
-     * @param outcome generated artifacts of the model assembly.
+     * @param outcome generated artifacts of the model assembly; a non-conformant outcome writes diagnostics only.
      * @param scanDigest payload digest of the consumed scan.
      * @param manifestDigest digest of the consumed scope manifest.
      * @param artemisCommit resolved commit of the run.
@@ -213,13 +213,17 @@ class ExtractionArtifactStore {
     ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyService.Outcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
             throws IOException {
         Path directory = Files.createDirectories(layout.modelDirectory());
-        writeJson(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
-        writeJson(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
-        writeJson(directory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
         writeJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
+        String generatedModelDigest = null;
+        if (outcome.conformance().conformant()) {
+            writeJson(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
+            writeJson(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+            writeJson(directory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
+            generatedModelDigest = digestOf(directory.resolve(GENERATED_MODEL_FILE));
+        }
 
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
-                digestOf(directory.resolve(GENERATED_MODEL_FILE)), outcome.modelIntegrityValid(), outcome.curation());
+                generatedModelDigest, outcome.modelIntegrityValid(), outcome.conformance(), outcome.curation());
         writeJson(directory.resolve(MODEL_RESULT_FILE), result);
         return result;
     }
@@ -244,6 +248,10 @@ class ExtractionArtifactStore {
         requireEqual("model", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
         requireEqual("model", "scan digest", result.scanDigest(), expectedScanDigest);
         requireEqual("model", "manifest digest", result.manifestDigest(), expectedManifestDigest);
+        if (!result.conformance().conformant()) {
+            throw new ExtractionArtifactException("The model stage found the manifest incomplete for this scan and produced no model: "
+                    + result.conformance().describeFindings() + ".");
+        }
         requireEqual("model", "generated model digest", digestOf(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
 
         FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");

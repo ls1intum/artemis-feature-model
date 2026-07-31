@@ -8,12 +8,15 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactL
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * The {@code assembleFeatureModel} command: applies the manifest to an existing scan and assembles the generated
  * feature model, the regenerated config key catalog, and the classified comparison against the curated model. It
- * consumes the scan artifacts through the artifact store and never reopens the Artemis checkout.
+ * consumes the scan artifacts through the artifact store and never reopens the Artemis checkout, and it fails without
+ * a model when the manifest leaves any discovered candidate or relation undecided.
  */
 public class ModelStageService {
 
@@ -57,6 +60,8 @@ public class ModelStageService {
      * @param inputs resolved command inputs.
      * @return summary of the written model artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
+     * @throws ManifestConformanceException if the manifest leaves a candidate or relation undecided; diagnostics are
+     *             written before the failure and no model is assembled.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
@@ -68,9 +73,23 @@ public class ModelStageService {
         ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.curatedModel(inputs),
                 inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), artemisCommit);
         artifactStore.writeModel(layout, outcome, scan.result().payloadDigest(), inputLoader.manifestDigest(inputs), artemisCommit);
+        failIfNotConformant(outcome.conformance());
 
         return new Summary(artemisCommit, layout.modelDirectory(), outcome.curation().stateCounts(), outcome.generatedModel().features().size(),
                 outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(), outcome.generatedCatalog().keys().size(),
                 outcome.modelDiff().classificationCounts(), outcome.modelIntegrityValid());
+    }
+
+    /**
+     * Fails the command after the diagnostics of an incomplete curation have been written.
+     *
+     * @param conformance conformance verdict of the run.
+     * @throws ManifestConformanceException if the manifest does not describe the scanned source completely.
+     */
+    private void failIfNotConformant(ManifestConformance conformance) {
+        if (!conformance.conformant()) {
+            throw new ManifestConformanceException("The manifest does not describe the scanned Artemis commit completely: " + conformance.describeFindings()
+                    + ". Diagnostics were written, but no feature model was assembled.");
+        }
     }
 }

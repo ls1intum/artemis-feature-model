@@ -8,19 +8,19 @@ import java.util.Map;
  *
  * @param manifestVersion loaded manifest version.
  * @param artemisCommitSha Artemis commit the manifest pins.
- * @param stateCounts total counts for include, exclude, and pending.
+ * @param stateCounts total counts for include, exclude, and undeclared.
  * @param countsByCandidateKind state counts grouped by extraction candidate kind.
- * @param pendingCandidateIds pending ids sorted by candidate id.
- * @param decisions all candidate decisions, with pending entries first and ids sorted within each state.
+ * @param undeclaredCandidateIds ids without a manifest decision, sorted by candidate id.
+ * @param decisions all candidate decisions, with undeclared entries first and ids sorted within each state.
  */
 public record CurationReport(int manifestVersion, String artemisCommitSha, Map<String, Integer> stateCounts,
-        Map<String, Map<String, Integer>> countsByCandidateKind, List<String> pendingCandidateIds, List<CurationDecision> decisions) {
+        Map<String, Map<String, Integer>> countsByCandidateKind, List<String> undeclaredCandidateIds, List<CurationDecision> decisions) {
 
     /**
      * Normalizes report collections to immutable copies.
      */
     public CurationReport {
-        pendingCandidateIds = pendingCandidateIds == null ? List.of() : List.copyOf(pendingCandidateIds);
+        undeclaredCandidateIds = undeclaredCandidateIds == null ? List.of() : List.copyOf(undeclaredCandidateIds);
         decisions = decisions == null ? List.of() : List.copyOf(decisions);
     }
 
@@ -29,7 +29,7 @@ public record CurationReport(int manifestVersion, String artemisCommitSha, Map<S
      *
      * @param candidateId namespaced candidate id.
      * @param candidateKind extraction candidate kind.
-     * @param state include, exclude, or pending.
+     * @param state include, exclude, or undeclared.
      * @param curatedId curated model id for included entries, otherwise null.
      * @param reason exclusion reason code, otherwise null.
      * @param semanticSource manifest or annotation for included entries, otherwise null.

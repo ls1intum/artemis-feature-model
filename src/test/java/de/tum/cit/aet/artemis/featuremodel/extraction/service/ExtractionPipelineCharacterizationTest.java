@@ -19,7 +19,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactL
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException;
@@ -84,7 +86,7 @@ class ExtractionPipelineCharacterizationTest {
 
         ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
 
-        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("pending", 0);
+        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("undeclared", 0);
         assertThat(summary.featureCount()).isEqualTo(2);
         assertThat(summary.relationCount()).isEqualTo(1);
         assertThat(summary.constraintCount()).isZero();
@@ -174,6 +176,26 @@ class ExtractionPipelineCharacterizationTest {
     }
 
     @Test
+    void anUndeclaredCandidateStopsTheRunWithoutAModelOrSnapshot() throws Exception {
+        runPipeline();
+        FeatureExtractionInputs incompleteManifest = withManifest(FIXTURE_INPUTS.resolve("manifest-with-undeclared-candidate.yml"));
+
+        runScan(incompleteManifest);
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ManifestConformanceException.class)
+                .hasMessageContaining("module:gamma").hasMessageContaining("no feature model was assembled");
+
+        ModelResult modelResult = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE)),
+                ModelResult.class);
+        assertThat(modelResult.conformance().conformant()).isFalse();
+        assertThat(modelResult.conformance().undeclaredCandidates()).containsExactly("module:gamma");
+        assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIAGNOSTICS_FILE)).isRegularFile();
+        assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("manifest incomplete");
+    }
+
+    @Test
     void modelAssemblyFailsWithoutAPriorScan() {
         assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.SCAN_RESULT_FILE);
@@ -186,7 +208,29 @@ class ExtractionPipelineCharacterizationTest {
      * @throws Exception if the scan fails.
      */
     private ScanStageService.Summary runScan() throws Exception {
-        return new ScanStageService(OBJECT_MAPPER).run(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, PINNED_COMMIT));
+        return runScan(inputs);
+    }
+
+    /**
+     * Runs the scan command over the fixture checkout with the given inputs.
+     *
+     * @param scanInputs command inputs to scan with.
+     * @return scan summary.
+     * @throws Exception if the scan fails.
+     */
+    private ScanStageService.Summary runScan(FeatureExtractionInputs scanInputs) throws Exception {
+        return new ScanStageService(OBJECT_MAPPER).run(scanInputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, PINNED_COMMIT));
+    }
+
+    /**
+     * Creates inputs that read another scope manifest.
+     *
+     * @param manifestFile manifest to curate with.
+     * @return inputs pointing at the given manifest.
+     */
+    private FeatureExtractionInputs withManifest(Path manifestFile) {
+        return new FeatureExtractionInputs(null, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.curatedModelFile(),
+                inputs.bootstrapCatalogFile(), inputs.outputRoot());
     }
 
     /**

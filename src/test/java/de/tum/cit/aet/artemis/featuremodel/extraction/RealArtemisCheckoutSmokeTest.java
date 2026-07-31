@@ -59,8 +59,8 @@ class RealArtemisCheckoutSmokeTest {
         });
         assertThat(reportCodes(report)).as("every non-curated candidate carries an explicit manifest exclusion")
                 .doesNotContain(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
-        assertThat(report.curation().pendingCandidateIds()).isEmpty();
-        assertThat(report.curation().stateCounts()).containsEntry("pending", 0);
+        assertThat(report.curation().undeclaredCandidateIds()).isEmpty();
+        assertThat(report.curation().stateCounts()).containsEntry("undeclared", 0);
         assertThat(ExtractionArtifactLayout.forCommit(outputRoot, source.commit()).snapshotDirectory()).isDirectory();
     }
 

@@ -14,10 +14,11 @@ import java.util.List;
  * @param exclude explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
  * @param constraints declared cross-tree constraints of the generated model.
+ * @param ignoredRelations relation candidates between included features that deliberately stay unenforced.
  * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
 public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha, List<IncludeEntry> include, List<ExcludeEntry> exclude,
-        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<RenameEntry> renames) {
+        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations, List<RenameEntry> renames) {
 
     /** Current manifest schema version. */
     public static final int CURRENT_VERSION = 2;
@@ -42,6 +43,7 @@ public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha,
         exclude = exclude == null ? List.of() : List.copyOf(exclude);
         conceptualNodes = conceptualNodes == null ? List.of() : List.copyOf(conceptualNodes);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        ignoredRelations = ignoredRelations == null ? List.of() : List.copyOf(ignoredRelations);
         renames = renames == null ? List.of() : List.copyOf(renames);
     }
 
@@ -121,6 +123,17 @@ public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha,
      * @param description human-readable constraint description, or null.
      */
     public record ConstraintEntry(String id, String type, String source, String target, String description) {
+    }
+
+    /**
+     * Relation evidence between two included features that deliberately does not become a constraint. Every relation
+     * candidate needs a decision just like every feature candidate, so ignoring one is written down with its reason
+     * instead of being silently dropped.
+     *
+     * @param id relation candidate id the decision applies to.
+     * @param rationale maintainer-authored reason why the relation stays unenforced.
+     */
+    public record IgnoredRelationEntry(String id, String rationale) {
     }
 
     /**

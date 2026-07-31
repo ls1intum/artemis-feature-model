@@ -23,10 +23,11 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnno
 
 /**
  * Applies manifest membership to the extracted candidates and merges source annotation semantics for included
- * anchors. Manifest problems that only this scan can reveal — anchors that no longer resolve, entries colliding on
- * one candidate, or resolved semantics conflicting after annotation precedence — become error report items instead of
- * aborting the run: the drift report must keep working exactly when Artemis has drifted away from the manifest.
- * Statically detectable authoring errors are rejected earlier by {@link FeatureManifestLoader}.
+ * anchors. Manifest problems that only this scan can reveal — candidates without a decision, anchors that no longer
+ * resolve, entries colliding on one candidate, or resolved semantics conflicting after annotation precedence — become
+ * error report items rather than aborting the run, so one run reports every curation gap at once instead of the first
+ * one. {@link ManifestConformanceService} turns those errors into the blocking verdict; statically detectable
+ * authoring errors are rejected earlier by {@link FeatureManifestLoader}.
  */
 class ScopeCurationService {
 
@@ -34,7 +35,7 @@ class ScopeCurationService {
 
     static final String STATE_EXCLUDE = "exclude";
 
-    static final String STATE_PENDING = "pending";
+    static final String STATE_UNDECLARED = "undeclared";
 
     private static final String SEMANTIC_SOURCE_MANIFEST = "manifest";
 
@@ -190,11 +191,11 @@ class ScopeCurationService {
     }
 
     /**
-     * Classifies one candidate into include, exclude, or pending and records the annotation diagnostics that belong
+     * Classifies one candidate into include, exclude, or undeclared and records the annotation diagnostics that belong
      * to the classification.
      *
      * @param candidate extracted candidate.
-     * @param membership manifest membership, or null when the candidate is unlisted.
+     * @param membership manifest membership, or null when the candidate has no decision.
      * @param annotation source annotation resolved to the candidate, or null.
      * @param decisions decision sink.
      * @param includedFeatures resolved include semantics sink.
@@ -219,10 +220,11 @@ class ScopeCurationService {
             }
             return;
         }
-        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_PENDING, null, null, null));
-        items.add(ReportItem.info(ReportItem.CODE_PENDING_SCOPE_DECISION, candidate.id(), "Candidate is unlisted and remains outside the generated model."));
+        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_UNDECLARED, null, null, null));
+        items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(),
+                "Candidate has no manifest decision; add it to include or exclude before this scan can produce a model."));
         if (annotation != null) {
-            items.add(annotatedButUnscoped(candidate, annotation, STATE_PENDING));
+            items.add(annotatedButUnscoped(candidate, annotation, STATE_UNDECLARED));
         }
     }
 
@@ -345,17 +347,17 @@ class ScopeCurationService {
     private CurationReport assembleReport(FeatureScopeManifest manifest, List<CurationDecision> decisions) {
         Map<String, Integer> stateCounts = initializedCounts();
         Map<String, Map<String, Integer>> byKind = new TreeMap<>();
-        List<String> pending = new ArrayList<>();
+        List<String> undeclared = new ArrayList<>();
         for (CurationDecision decision : decisions) {
             stateCounts.merge(decision.state(), 1, Integer::sum);
             byKind.computeIfAbsent(decision.candidateKind(), ignored -> initializedCounts()).merge(decision.state(), 1, Integer::sum);
-            if (STATE_PENDING.equals(decision.state())) {
-                pending.add(decision.candidateId());
+            if (STATE_UNDECLARED.equals(decision.state())) {
+                undeclared.add(decision.candidateId());
             }
         }
-        pending.sort(String::compareTo);
+        undeclared.sort(String::compareTo);
         return new CurationReport(manifest.manifestVersion(), manifest.artemisCommitSha(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
-                List.copyOf(pending), List.copyOf(decisions));
+                List.copyOf(undeclared), List.copyOf(decisions));
     }
 
     /**
@@ -367,7 +369,7 @@ class ScopeCurationService {
         Map<String, Integer> counts = new LinkedHashMap<>();
         counts.put(STATE_INCLUDE, 0);
         counts.put(STATE_EXCLUDE, 0);
-        counts.put(STATE_PENDING, 0);
+        counts.put(STATE_UNDECLARED, 0);
         return counts;
     }
 
@@ -384,14 +386,14 @@ class ScopeCurationService {
     }
 
     /**
-     * Orders decisions so pending candidates lead the report, followed by includes and excludes.
+     * Orders decisions so undeclared candidates lead the report, followed by includes and excludes.
      *
      * @param state decision state.
      * @return sort rank of the state.
      */
     private int stateOrder(String state) {
         return switch (state) {
-            case STATE_PENDING -> 0;
+            case STATE_UNDECLARED -> 0;
             case STATE_INCLUDE -> 1;
             default -> 2;
         };

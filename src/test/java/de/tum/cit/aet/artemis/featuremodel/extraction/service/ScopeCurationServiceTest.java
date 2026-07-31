@@ -40,7 +40,7 @@ class ScopeCurationServiceTest {
         FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(include), List.of(),
                 List.of(new ConceptualNode("manifest-group", null, "group", null, null, null, null, null, null),
                         new ConceptualNode("annotation-group", null, "group", null, null, null, null, null, null)),
-                List.of(), List.of());
+                List.of(), List.of(), List.of());
 
         List<ArtemisFeatureAnnotationScan.AnnotatedAnchor> conditionAnnotations = annotationScan.annotations().stream()
                 .filter(annotation -> annotation.anchor().endsWith("Enabled")).toList();
@@ -53,16 +53,16 @@ class ScopeCurationServiceTest {
             assertThat(feature.semanticSource()).isEqualTo("annotation");
             assertThat(feature.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         });
-        assertThat(result.report().pendingCandidateIds()).containsExactly("module:beta");
-        assertThat(result.report().decisions().getFirst().state()).isEqualTo(ScopeCurationService.STATE_PENDING);
+        assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:beta");
+        assertThat(result.report().decisions().getFirst().state()).isEqualTo(ScopeCurationService.STATE_UNDECLARED);
         assertThat(result.items()).extracting(ReportItem::code).contains(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST,
-                ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, ReportItem.CODE_PENDING_SCOPE_DECISION);
+                ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, ReportItem.CODE_UNDECLARED_CANDIDATE);
     }
 
     @Test
     void reportsOrphanManifestAnchorAndKeepsCurating() {
         IncludeEntry orphan = new IncludeEntry("module:missing", "missing", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(orphan), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(orphan), List.of(), List.of(), List.of(), List.of(), List.of());
 
         ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of());
 
@@ -72,14 +72,14 @@ class ScopeCurationServiceTest {
             assertThat(item.subject()).isEqualTo("module:missing");
         });
         assertThat(result.includedFeatures()).isEmpty();
-        assertThat(result.report().pendingCandidateIds()).containsExactly("module:alpha");
+        assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:alpha");
     }
 
     @Test
     void reportsConflictWhenSeveralEntriesResolveToOneCandidateAndFirstWins() {
         IncludeEntry byId = new IncludeEntry("module:alpha", "alpha", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest.ExcludeEntry bySymbol = new FeatureScopeManifest.ExcludeEntry("AlphaEnabled", "duplicate", null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(byId), List.of(bySymbol), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(byId), List.of(bySymbol), List.of(), List.of(), List.of(), List.of());
 
         ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of());
 
@@ -95,7 +95,7 @@ class ScopeCurationServiceTest {
     @Test
     void flagsRuntimeToggleEntriesWithoutRationale() {
         IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of(), List.of());
         FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
                 null, null, null);
 

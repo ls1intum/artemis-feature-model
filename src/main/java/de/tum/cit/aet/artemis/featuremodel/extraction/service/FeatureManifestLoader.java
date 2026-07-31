@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IgnoredRelationEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 
@@ -31,7 +32,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 public class FeatureManifestLoader {
 
     private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "artemisCommitSha", "include", "exclude", "conceptualNodes", "constraints",
-            "renames");
+            "ignoredRelations", "renames");
 
     /** A source selector must be one immutable commit: branch names, tags, and abbreviated hashes are rejected. */
     private static final Pattern ARTEMIS_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
@@ -44,6 +45,8 @@ public class FeatureManifestLoader {
     private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "category", "groupType", "order", "name", "description");
 
     private static final Set<String> CONSTRAINT_FIELDS = Set.of("id", "type", "source", "target", "description");
+
+    private static final Set<String> IGNORED_RELATION_FIELDS = Set.of("id", "rationale");
 
     private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
 
@@ -101,12 +104,13 @@ public class FeatureManifestLoader {
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
         List<ConstraintEntry> constraints = parseConstraints(root.get("constraints"));
+        List<IgnoredRelationEntry> ignoredRelations = parseIgnoredRelations(root.get("ignoredRelations"));
         List<RenameEntry> renames = parseRenames(root.get("renames"));
         validateUniqueness(includes, excludes, conceptualNodes);
         validateInternalReferences(includes, conceptualNodes);
         validateConstraintReferences(constraints, includes, conceptualNodes);
         validateRenames(renames, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, includes, excludes, conceptualNodes, constraints, renames);
+        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, includes, excludes, conceptualNodes, constraints, ignoredRelations, renames);
     }
 
     /**
@@ -221,6 +225,29 @@ public class FeatureManifestLoader {
             }
             entries.add(new ConstraintEntry(requiredString(entry, "id", location), type, requiredString(entry, "source", location),
                     requiredString(entry, "target", location), optionalString(entry, "description", location)));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Parses the ignored relation section.
+     *
+     * @param value raw YAML value of the ignoredRelations section, or null when absent.
+     * @return parsed ignored relation entries in declaration order.
+     * @throws FeatureManifestException if an entry is malformed or repeats a relation id.
+     */
+    private List<IgnoredRelationEntry> parseIgnoredRelations(Object value) {
+        List<IgnoredRelationEntry> entries = new ArrayList<>();
+        Set<String> relationIds = new LinkedHashSet<>();
+        int index = 0;
+        for (Object item : asList(value, "ignoredRelations")) {
+            String location = "ignoredRelations[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, IGNORED_RELATION_FIELDS, location);
+            String id = requiredString(entry, "id", location);
+            requireUnique(relationIds, id, "Duplicate ignored relation id '" + id + "'.");
+            entries.add(new IgnoredRelationEntry(id, requiredString(entry, "rationale", location)));
             index++;
         }
         return List.copyOf(entries);

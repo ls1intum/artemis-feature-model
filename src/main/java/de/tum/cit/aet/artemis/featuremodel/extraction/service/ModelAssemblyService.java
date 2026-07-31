@@ -8,6 +8,7 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
@@ -15,9 +16,11 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Turns the source facts of one scan into the generated artifacts the manifest describes: it applies manifest
- * membership to the extracted candidates, assembles the generated feature model and the regenerated config key
- * catalog, validates the model-side rules, and classifies every difference from the curated model. It never reopens
- * the Artemis checkout — everything it needs comes from the scan artifacts and the manifest.
+ * membership to the extracted candidates, gates on complete manifest conformance, assembles the generated feature
+ * model and the regenerated config key catalog, validates the model-side rules, and classifies every difference from
+ * the curated model. A run whose curation is incomplete stops at the gate and produces diagnostics only, so no model
+ * can silently omit what the manifest never decided about. It never reopens the Artemis checkout — everything it
+ * needs comes from the scan artifacts and the manifest.
  */
 class ModelAssemblyService {
 
@@ -37,14 +40,15 @@ class ModelAssemblyService {
      *
      * @param includedFeatures resolved included semantics sorted by candidate id.
      * @param curation manifest classification section.
-     * @param generatedModel assembled generated feature model.
-     * @param generatedCatalog regenerated config key catalog.
-     * @param modelDiff classified generated-versus-curated diff report.
+     * @param conformance verdict on whether the manifest describes the scanned source completely.
+     * @param generatedModel assembled generated feature model, or null when conformance failed.
+     * @param generatedCatalog regenerated config key catalog, or null when conformance failed.
+     * @param modelDiff classified generated-versus-curated diff report, or null when conformance failed.
      * @param modelIntegrityValid whether the generated model passed the shared structural integrity validation.
      * @param items model assembly diagnostics.
      */
-    record Outcome(List<ResolvedFeatureScope> includedFeatures, CurationReport curation, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog,
-            ModelDiffReport modelDiff, boolean modelIntegrityValid, List<ReportItem> items) {
+    record Outcome(List<ResolvedFeatureScope> includedFeatures, CurationReport curation, ManifestConformance conformance, FeatureModel generatedModel,
+            ArtemisConfigKeyCatalog generatedCatalog, ModelDiffReport modelDiff, boolean modelIntegrityValid, List<ReportItem> items) {
     }
 
     /**
@@ -63,9 +67,15 @@ class ModelAssemblyService {
         List<ReportItem> items = new ArrayList<>();
         ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations());
         items.addAll(curation.items());
+        ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, curation.includedFeatures(),
+                scan.relationCandidates(), curation.report(), curation.items(), scan.items());
+        items.addAll(conformance.items());
+        if (!conformance.conformance().conformant()) {
+            return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, null, false, List.copyOf(items));
+        }
 
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, curation.includedFeatures(), scan.candidates(),
-                scan.evidence(), scan.relationCandidates(), artemisCommit);
+                scan.evidence(), artemisCommit);
         items.addAll(generated.items());
 
         GeneratedCatalogAssembler catalogAssembler = new GeneratedCatalogAssembler();
@@ -77,7 +87,7 @@ class ModelAssemblyService {
 
         ModelDiffReport modelDiff = new ModelDiffService().compare(curatedModel, generated.model(), catalogAssembler.diff(catalog, generatedCatalog.catalog()),
                 artemisCommit);
-        return new Outcome(curation.includedFeatures(), curation.report(), generated.model(), generatedCatalog.catalog(), modelDiff,
+        return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(), modelDiff,
                 validation.modelIntegrityValid(), List.copyOf(items));
     }
 }

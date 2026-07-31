@@ -451,3 +451,12 @@ constraints:
     source: integrated-code-lifecycle
     target: jenkins
     description: A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive.
+
+ignoredRelations:
+  # Relation evidence between two included features that deliberately does not become a constraint. Every relation
+  # candidate the scan finds between included features needs a decision; ignoring one is written down with its reason.
+
+  - id: relation:LectureWithIrisEnabled
+    rationale: >-
+      The composite condition only guards the lecture-scoped Iris integration points. Lecture and Iris remain
+      independently selectable functional modules, so the curated model enforces no constraint between them.
