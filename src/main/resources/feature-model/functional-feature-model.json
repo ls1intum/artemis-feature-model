@@ -59,10 +59,11 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.lecture.enabled",
+        "frontendConstant": "MODULE_FEATURE_LECTURE",
         "backendConditionClass": "LectureEnabled",
         "evidence": [
           "LectureEnabled.java:13,23",
-          "LectureResource.java:77",
+          "LectureResource.java:81",
           "application-core.yml:20-21"
         ]
       },
@@ -100,6 +101,7 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.tutorialgroup.enabled",
+        "frontendConstant": "MODULE_FEATURE_TUTORIALGROUP",
         "backendConditionClass": "TutorialGroupEnabled",
         "evidence": [
           "TutorialGroupEnabled.java:13,23",
@@ -141,9 +143,9 @@
       "defaultState": "enabled",
       "source": {
         "evidence": [
-          "CourseManagementResource.java:52",
+          "CourseManagementResource.java:53",
           "CourseService.java:53",
-          "Constants.java:383-453"
+          "Constants.java:368-478"
         ]
       },
       "category": "functional",
@@ -173,9 +175,9 @@
       "source": {
         "evidence": [
           "ConversationResource.java:56",
-          "ConversationMessagingService.java:62",
-          "CourseNotificationService.java:38",
-          "Constants.java:383-453"
+          "ConversationMessagingService.java:65",
+          "CourseNotificationService.java:39",
+          "Constants.java:368-478"
         ]
       },
       "category": "functional",
@@ -259,8 +261,8 @@
         "evidence": [
           "ProgrammingExerciseCreationResource.java:52",
           "ProgrammingExerciseService.java:47",
-          "ProgrammingExerciseRepository.java:45",
-          "Constants.java:383-453"
+          "ProgrammingExerciseRepository.java:46",
+          "Constants.java:368-478"
         ]
       },
       "category": "functional",
@@ -325,7 +327,7 @@
         "backendConditionClass": "TextEnabled",
         "evidence": [
           "TextEnabled.java:13,23",
-          "TextExerciseResource.java:69",
+          "TextExerciseResource.java:71",
           "application-core.yml:14-15"
         ]
       },
@@ -409,7 +411,7 @@
         "backendConditionClass": "FileUploadEnabled",
         "evidence": [
           "FileUploadEnabled.java:13,23",
-          "FileUploadExerciseResource.java:84",
+          "FileUploadExerciseResource.java:85",
           "application-core.yml:18-19"
         ]
       },
@@ -468,10 +470,11 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.exam.enabled",
+        "frontendConstant": "MODULE_FEATURE_EXAM",
         "backendConditionClass": "ExamEnabled",
         "evidence": [
           "ExamEnabled.java:13,23",
-          "ExamResource.java:126",
+          "ExamResource.java:145",
           "application-core.yml:10-11"
         ]
       },
@@ -509,10 +512,11 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.plagiarism.enabled",
+        "frontendConstant": "MODULE_FEATURE_PLAGIARISM",
         "backendConditionClass": "PlagiarismEnabled",
         "evidence": [
           "PlagiarismEnabled.java:13,23",
-          "PlagiarismResource.java:43",
+          "PlagiarismResource.java:44",
           "application-core.yml:12-13"
         ]
       },
@@ -553,7 +557,7 @@
         "frontendConstant": "MODULE_FEATURE_ATHENA",
         "backendConditionClass": "AthenaEnabled",
         "evidence": [
-          "Constants.java:438-440,537-540",
+          "Constants.java:463,563",
           "AthenaEnabled.java:13,23",
           "AthenaResource.java:50",
           "AthenaModuleService.java:35,38",
@@ -639,7 +643,7 @@
         "backendConditionClass": "AtlasEnabled",
         "evidence": [
           "AtlasEnabled.java:13,23",
-          "CompetencyResource.java:60",
+          "CompetencyResource.java:63",
           "application-core.yml:2-5"
         ]
       },
@@ -684,12 +688,13 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.iris.enabled",
+        "frontendConstant": "MODULE_FEATURE_IRIS",
         "backendConditionClass": "IrisEnabled",
         "evidence": [
           "IrisEnabled.java:13,23",
-          "IrisResource.java:30",
+          "IrisResource.java:32",
           "application-core.yml:8-9",
-          "application-artemis.yml:121-123"
+          "application-artemis.yml:143-146"
         ]
       },
       "category": "functional",
@@ -746,12 +751,13 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.hyperion.enabled",
+        "frontendConstant": "MODULE_FEATURE_HYPERION",
         "backendConditionClass": "HyperionEnabled",
         "evidence": [
           "HyperionEnabled.java:13,23",
           "HyperionProblemStatementResource.java:55",
           "application-core.yml:6-7",
-          "application-artemis.yml:91,136"
+          "application-artemis.yml:91,169-212"
         ]
       },
       "category": "functional",
@@ -828,10 +834,11 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.lti.enabled",
+        "frontendConstant": "MODULE_FEATURE_LTI",
         "backendConditionClass": "LtiEnabled",
         "evidence": [
           "LtiEnabled.java:13,23",
-          "LtiResource.java:56",
+          "LtiResource.java:60",
           "application-core.yml:34-35"
         ]
       },
@@ -871,6 +878,7 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.theia.enabled",
+        "frontendConstant": "MODULE_FEATURE_THEIA",
         "backendConditionClass": "TheiaEnabled",
         "evidence": [
           "TheiaEnabled.java:13,23",
@@ -926,11 +934,11 @@
         "frontendConstant": "MODULE_FEATURE_APOLLON",
         "backendConditionClass": "ApollonEnabled",
         "evidence": [
-          "Constants.java:450,550",
+          "Constants.java:468,568",
           "ApollonEnabled.java:13,23",
           "ModelingWithApollonEnabled.java:13,23",
           "ApollonConversionResource.java:26,47",
-          "modeling-exercise-detail.component.ts:63,67,108",
+          "modeling-exercise-detail.component.ts:20,64,68,109",
           "application-core.yml:38-39"
         ]
       },
@@ -979,7 +987,7 @@
         "frontendConstant": "MODULE_FEATURE_SHARING",
         "backendConditionClass": "SharingEnabled",
         "evidence": [
-          "Constants.java:428-430,527-530",
+          "Constants.java:453,553",
           "SharingEnabled.java:13,23",
           "ExerciseSharingResource.java:45-55",
           "programming-exercise-management.route.ts:62-72",
