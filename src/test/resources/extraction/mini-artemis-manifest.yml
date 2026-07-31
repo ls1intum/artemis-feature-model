@@ -1,5 +1,5 @@
-manifestVersion: 1
-verifiedAgainstArtemisCommit: unknown
+manifestVersion: 2
+artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
 include:
   - anchor: module:alpha
     id: alpha-feature

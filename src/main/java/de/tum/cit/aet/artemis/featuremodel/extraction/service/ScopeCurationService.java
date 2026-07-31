@@ -60,16 +60,10 @@ class ScopeCurationService {
      * @param manifest loaded manifest.
      * @param candidates extracted candidates.
      * @param annotations parsed source annotations.
-     * @param scannedCommit resolved checkout commit.
      * @return classifications, resolved include semantics, and diagnostics.
      */
-    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations, String scannedCommit) {
+    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations) {
         List<ReportItem> items = new ArrayList<>();
-        if (!manifest.verifiedAgainstArtemisCommit().equals(scannedCommit)) {
-            items.add(ReportItem.warning(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, scannedCommit,
-                    "Scope manifest was verified against Artemis commit '" + manifest.verifiedAgainstArtemisCommit() + "'."));
-        }
-
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveMembership(manifest, resolver, items);
         Map<String, AnnotatedAnchor> annotationsByCandidate = resolveAnnotations(annotations, resolver, items);
@@ -360,7 +354,7 @@ class ScopeCurationService {
             }
         }
         pending.sort(String::compareTo);
-        return new CurationReport(manifest.manifestVersion(), manifest.verifiedAgainstArtemisCommit(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
+        return new CurationReport(manifest.manifestVersion(), manifest.artemisCommitSha(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
                 List.copyOf(pending), List.copyOf(decisions));
     }
 

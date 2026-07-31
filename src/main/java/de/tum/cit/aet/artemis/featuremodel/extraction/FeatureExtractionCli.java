@@ -6,6 +6,7 @@ import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ManifestPreflightService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;
@@ -27,6 +28,8 @@ public final class FeatureExtractionCli {
 
     private static final String SNAPSHOT_COMMAND = "snapshot";
 
+    private static final String PREFLIGHT_COMMAND = "preflight";
+
     private static final Set<String> SUPPORTED_OPTIONS = Set.of(FeatureExtractionInputs.OPTION_ARTEMIS_PATH, FeatureExtractionInputs.OPTION_MANIFEST,
             FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, FeatureExtractionInputs.OPTION_CURATED_MODEL,
             FeatureExtractionInputs.OPTION_BOOTSTRAP_CATALOG, FeatureExtractionInputs.OPTION_OUTPUT_ROOT);
@@ -41,7 +44,7 @@ public final class FeatureExtractionCli {
      */
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.err.println("Usage: FeatureExtractionCli <scan|model|workflow|snapshot> [--option=value ...]");
+            System.err.println("Usage: FeatureExtractionCli <preflight|scan|model|workflow|snapshot> [--option=value ...]");
             System.exit(1);
         }
         try {
@@ -69,8 +72,22 @@ public final class FeatureExtractionCli {
             case MODEL_COMMAND -> printModelSummary(new ModelStageService(objectMapper).run(inputs));
             case WORKFLOW_COMMAND -> printWorkflowSummary(new WorkflowStageService(objectMapper).run(inputs));
             case SNAPSHOT_COMMAND -> printPackageSummary(new PackageStageService(objectMapper).run(inputs));
-            default -> throw new IllegalArgumentException("Unknown command '" + command + "'; expected scan, model, workflow, or snapshot.");
+            case PREFLIGHT_COMMAND -> printPreflightSummary(new ManifestPreflightService(objectMapper).run(inputs));
+            default -> throw new IllegalArgumentException("Unknown command '" + command + "'; expected preflight, scan, model, workflow, or snapshot.");
         }
+    }
+
+    /**
+     * Prints the manifest preflight result as machine-readable key-value lines a build or workflow can consume.
+     *
+     * @param summary preflight result.
+     */
+    private static void printPreflightSummary(ManifestPreflightService.Summary summary) {
+        System.out.println("manifestVersion=" + summary.manifestVersion());
+        System.out.println("artemisCommitSha=" + summary.artemisCommitSha());
+        System.out.println("manifestDigest=" + summary.manifestDigest());
+        System.out.println("includeCount=" + summary.includeCount());
+        System.out.println("excludeCount=" + summary.excludeCount());
     }
 
     /**

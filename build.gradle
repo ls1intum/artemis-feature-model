@@ -79,6 +79,8 @@ def registerExtractionCommand = { String taskName, String command, String taskDe
     }
 }
 
+registerExtractionCommand('featureModelManifestPreflight', 'preflight',
+        'Validates the scope manifest and prints the pinned Artemis commit and the manifest digest.', false)
 registerExtractionCommand('extractFeatureCandidates', 'scan',
         'Scans the pinned Artemis checkout and writes feature candidates, evidence, and relation candidates.', true)
 registerExtractionCommand('assembleFeatureModel', 'model',

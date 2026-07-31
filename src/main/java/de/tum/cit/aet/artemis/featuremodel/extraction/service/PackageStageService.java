@@ -59,7 +59,7 @@ public class PackageStageService {
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.verifiedAgainstArtemisCommit();
+        String artemisCommit = manifest.artemisCommitSha();
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
         String manifestDigest = inputLoader.manifestDigest(inputs);
         ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);

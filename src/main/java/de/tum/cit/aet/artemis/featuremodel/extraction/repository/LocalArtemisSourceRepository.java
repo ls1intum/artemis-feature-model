@@ -16,8 +16,6 @@ import java.util.stream.Stream;
  */
 public class LocalArtemisSourceRepository implements ArtemisSourceRepository {
 
-    private static final String UNKNOWN_COMMIT = "unknown";
-
     private static final int GIT_COMMAND_TIMEOUT_SECONDS = 30;
 
     private final Path root;

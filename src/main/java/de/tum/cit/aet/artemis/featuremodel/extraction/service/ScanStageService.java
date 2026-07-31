@@ -56,11 +56,14 @@ public class ScanStageService {
      * @param source Artemis source repository to scan.
      * @return summary of the written scan artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
+     * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if the checkout is not the
+     *             pinned commit or is not clean; the scan does not run and no artifact of this run survives.
      */
     public Summary run(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), manifest.verifiedAgainstArtemisCommit());
+        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), manifest.artemisCommitSha());
         artifactStore.invalidateFrom(layout, ExtractionStage.SCAN);
+        new ArtemisSourcePreflight().verify(source, manifest.artemisCommitSha());
 
         String scanStartedAt = Instant.now().toString();
         FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).scan(source, inputLoader.curatedModel(inputs),

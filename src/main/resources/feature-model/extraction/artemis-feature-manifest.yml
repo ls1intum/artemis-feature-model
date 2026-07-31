@@ -1,5 +1,7 @@
-manifestVersion: 1
-verifiedAgainstArtemisCommit: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
+manifestVersion: 2
+# Exact Artemis source commit this manifest curates. The scan verifies that the local checkout is at this commit
+# and clean before it reads a single file, so advancing the pin is a deliberate, reviewable change.
+artemisCommitSha: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
 
 # Membership mirrors the curated 26-feature model plus the deliberately introduced E3 technical subtree: the include
 # list carries the anchored curated modules and the first technical features, and every other candidate is excluded

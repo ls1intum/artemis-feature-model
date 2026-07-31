@@ -53,9 +53,6 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A source annotation could not be joined to an extracted candidate. */
     public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
 
-    /** The scope manifest commit pin differs from the scanned Artemis commit. */
-    public static final String CODE_MANIFEST_COMMIT_MISMATCH = "MANIFEST_COMMIT_MISMATCH";
-
     /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 

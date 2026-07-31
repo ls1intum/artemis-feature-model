@@ -60,7 +60,7 @@ public class ModelStageService {
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.verifiedAgainstArtemisCommit();
+        String artemisCommit = manifest.artemisCommitSha();
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
         ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
         artifactStore.invalidateFrom(layout, ExtractionStage.MODEL);

@@ -22,6 +22,8 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValid
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -37,6 +39,10 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final Path FIXTURE_INPUTS = Path.of("src/test/resources/extraction/fixture-inputs");
 
+    private static final String PINNED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
+
+    private static final String OTHER_COMMIT = "bbbbbbbbccccccccddddddddeeeeeeeeffffffff";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @TempDir
@@ -51,7 +57,7 @@ class ExtractionPipelineCharacterizationTest {
         inputs = new FeatureExtractionInputs(FIXTURE_PATH, Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"),
                 FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
                 FIXTURE_INPUTS.resolve("curated-model.json"), FIXTURE_INPUTS.resolve("config-key-catalog.json"), outputRoot);
-        layout = ExtractionArtifactLayout.forCommit(outputRoot, "unknown");
+        layout = ExtractionArtifactLayout.forCommit(outputRoot, PINNED_COMMIT);
     }
 
     @Test
@@ -60,7 +66,7 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThat(summary.candidateCount()).isEqualTo(18);
         assertThat(summary.relationCandidateCount()).isEqualTo(2);
-        assertThat(summary.artemisCommit()).isEqualTo("unknown");
+        assertThat(summary.artemisCommit()).isEqualTo(PINNED_COMMIT);
         for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
                 ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE,
                 ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE)) {
@@ -115,7 +121,7 @@ class ExtractionPipelineCharacterizationTest {
                 ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
         assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
-        assertThat(report.artemisCommit()).isEqualTo("unknown");
+        assertThat(report.artemisCommit()).isEqualTo(PINNED_COMMIT);
         assertThat(report.curatedModelId()).isEqualTo("fixture-model");
         assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
 
@@ -158,6 +164,16 @@ class ExtractionPipelineCharacterizationTest {
     }
 
     @Test
+    void aCheckoutAtAnotherCommitNeverStartsAScan() throws Exception {
+        runPipeline();
+
+        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, OTHER_COMMIT)))
+                .isInstanceOf(SourcePreflightException.class).hasMessageContaining(PINNED_COMMIT);
+        assertThat(layout.scanDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
     void modelAssemblyFailsWithoutAPriorScan() {
         assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.SCAN_RESULT_FILE);
@@ -170,7 +186,7 @@ class ExtractionPipelineCharacterizationTest {
      * @throws Exception if the scan fails.
      */
     private ScanStageService.Summary runScan() throws Exception {
-        return new ScanStageService(OBJECT_MAPPER).run(inputs, new LocalArtemisSourceRepository(FIXTURE_PATH));
+        return new ScanStageService(OBJECT_MAPPER).run(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, PINNED_COMMIT));
     }
 
     /**

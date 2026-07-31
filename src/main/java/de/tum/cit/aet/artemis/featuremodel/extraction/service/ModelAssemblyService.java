@@ -61,7 +61,7 @@ class ModelAssemblyService {
     Outcome assemble(FeatureScopeManifest manifest, FeatureExtractionService.Outcome scan, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog,
             DeploymentProfile bundledProfile, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
-        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations(), artemisCommit);
+        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations());
         items.addAll(curation.items());
 
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, curation.includedFeatures(), scan.candidates(),

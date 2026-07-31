@@ -7,13 +7,13 @@ import java.util.Map;
  * Manifest classification section of the extraction report.
  *
  * @param manifestVersion loaded manifest version.
- * @param verifiedAgainstArtemisCommit commit recorded by the manifest.
+ * @param artemisCommitSha Artemis commit the manifest pins.
  * @param stateCounts total counts for include, exclude, and pending.
  * @param countsByCandidateKind state counts grouped by extraction candidate kind.
  * @param pendingCandidateIds pending ids sorted by candidate id.
  * @param decisions all candidate decisions, with pending entries first and ids sorted within each state.
  */
-public record CurationReport(int manifestVersion, String verifiedAgainstArtemisCommit, Map<String, Integer> stateCounts,
+public record CurationReport(int manifestVersion, String artemisCommitSha, Map<String, Integer> stateCounts,
         Map<String, Map<String, Integer>> countsByCandidateKind, List<String> pendingCandidateIds, List<CurationDecision> decisions) {
 
     /**
