@@ -47,8 +47,8 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A source annotation exists on a candidate that the manifest does not include. */
     public static final String CODE_ANNOTATED_BUT_UNSCOPED = "ANNOTATED_BUT_UNSCOPED";
 
-    /** Source annotation semantics take precedence over redundant semantics in the include entry. */
-    public static final String CODE_ANNOTATION_OVERRIDES_MANIFEST = "ANNOTATION_OVERRIDES_MANIFEST";
+    /** A source annotation declares an attribute differently from the manifest entry; the manifest value is used. */
+    public static final String CODE_MANIFEST_OVERRIDES_ANNOTATION = "MANIFEST_OVERRIDES_ANNOTATION";
 
     /** A source annotation could not be joined to an extracted candidate. */
     public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";

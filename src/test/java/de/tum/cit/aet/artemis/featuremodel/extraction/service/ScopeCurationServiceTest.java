@@ -22,7 +22,7 @@ class ScopeCurationServiceTest {
     private static final String PINNED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
 
     @Test
-    void parsesAnnotationsAndAppliesPrecedenceWithoutGrantingMembership() throws Exception {
+    void keepsManifestSemanticsWhenAnAnnotationContradictsThem() throws Exception {
         ArtemisFeatureAnnotationScan.Result annotationScan = new ArtemisFeatureAnnotationScan().scan(new LocalArtemisSourceRepository(ANNOTATED_FIXTURE));
         assertThat(annotationScan.errors()).isEmpty();
         assertThat(annotationScan.annotations()).hasSize(4);
@@ -47,16 +47,21 @@ class ScopeCurationServiceTest {
         ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, candidates, conditionAnnotations);
 
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> {
-            assertThat(feature.id()).isEqualTo("annotated-alpha");
-            assertThat(feature.group()).isEqualTo("annotation-group");
-            assertThat(feature.requiresCapabilities()).containsExactly("annotation-service", "annotation-secret");
+            assertThat(feature.id()).isEqualTo("manifest-alpha");
+            assertThat(feature.group()).isEqualTo("manifest-group");
+            assertThat(feature.requiresCapabilities()).containsExactly("manifest-service");
+            assertThat(feature.name()).as("the annotation still fills a name the manifest leaves open").isEqualTo("Annotated Alpha");
             assertThat(feature.semanticSource()).isEqualTo("annotation");
             assertThat(feature.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         });
         assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:beta");
         assertThat(result.report().decisions().getFirst().state()).isEqualTo(ScopeCurationService.STATE_UNDECLARED);
-        assertThat(result.items()).extracting(ReportItem::code).contains(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST,
+        assertThat(result.items()).extracting(ReportItem::code).contains(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION,
                 ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, ReportItem.CODE_UNDECLARED_CANDIDATE);
+        assertThat(result.items()).filteredOn(item -> ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION.equals(item.code())).singleElement().satisfies(item -> {
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING);
+            assertThat(item.message()).contains("id", "group", "requiresCapabilities").contains("the manifest value is used");
+        });
     }
 
     @Test

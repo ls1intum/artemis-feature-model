@@ -40,7 +40,7 @@ class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Backend enabled property constants and module feature constants are asymmetric."),
             Map.entry(ReportItem.CODE_UNDECLARED_CANDIDATE, "An extracted candidate has no manifest include or exclude decision, so the run cannot be published."),
             Map.entry(ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, "A source annotation exists but the manifest does not include its candidate."),
-            Map.entry(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, "Source annotation semantics override the included manifest entry for the same anchor."),
+            Map.entry(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION, "A source annotation contradicts the manifest entry for the same anchor; the manifest value is used."),
             Map.entry(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, "An annotated source anchor could not be joined to an extracted candidate."),
             Map.entry(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "A manifest anchor matches no extraction candidate of this scan, or matches more than one."),
             Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries, annotations, or resolved semantics collide for this scan and need review.")));
