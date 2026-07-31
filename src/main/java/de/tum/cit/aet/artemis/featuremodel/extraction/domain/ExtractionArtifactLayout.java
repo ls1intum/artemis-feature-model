@@ -1,6 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Output layout of one extraction run, derived from the output root and the pinned Artemis commit. Every extraction
@@ -75,5 +76,21 @@ public record ExtractionArtifactLayout(Path root) {
      */
     public Path snapshotDirectory() {
         return root.resolve(SNAPSHOT_DIRECTORY);
+    }
+
+    /**
+     * Returns the directories a command must clear before it writes: its own output plus every directory derived from
+     * it. Clearing them keeps a failed or partial rerun from leaving a stale downstream artifact behind.
+     *
+     * @param stage command whose output is about to be rewritten.
+     * @return directories to remove.
+     */
+    public List<Path> directoriesInvalidatedBy(ExtractionStage stage) {
+        return switch (stage) {
+            case SCAN -> List.of(scanDirectory(), modelDirectory(), workflowDirectory(), reportDirectory(), snapshotDirectory());
+            case MODEL -> List.of(modelDirectory(), workflowDirectory(), reportDirectory(), snapshotDirectory());
+            case WORKFLOW -> List.of(workflowDirectory(), reportDirectory(), snapshotDirectory());
+            case PACKAGE -> List.of(reportDirectory(), snapshotDirectory());
+        };
     }
 }

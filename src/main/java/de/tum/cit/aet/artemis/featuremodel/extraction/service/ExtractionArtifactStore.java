@@ -1,0 +1,490 @@
+package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
+import tools.jackson.core.util.DefaultIndenter;
+import tools.jackson.core.util.DefaultPrettyPrinter;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * Reads and writes the intermediate artifacts of the extraction stages as deterministic pretty-printed JSON: fixed
+ * field order from the domain records, two-space indentation, and line feed separators independent of the operating
+ * system. Apart from the timestamps in {@code scan-metadata.json}, two runs on the same commit produce byte-identical
+ * files.
+ *
+ * <p>
+ * Every stage writes an envelope next to its payload that records the extractor version, the Artemis commit, and the
+ * digests of the inputs it consumed. A downstream stage loads its input only through this store, so a scan from a
+ * different commit, a payload file edited after its stage ran, or a model assembled from another manifest is rejected
+ * instead of silently composed into a snapshot.
+ */
+class ExtractionArtifactStore {
+
+    static final String SCAN_METADATA_FILE = "scan-metadata.json";
+
+    static final String FEATURE_CANDIDATES_FILE = "feature-candidates.json";
+
+    static final String EVIDENCE_FILE = "evidence.json";
+
+    static final String RELATION_CANDIDATES_FILE = "relation-candidates.json";
+
+    static final String ANNOTATIONS_FILE = "annotations.json";
+
+    static final String CONFIG_DEFAULTS_FILE = "config-defaults.json";
+
+    static final String SCAN_DIAGNOSTICS_FILE = "scan-diagnostics.json";
+
+    static final String SCAN_RESULT_FILE = "scan-result.json";
+
+    static final String GENERATED_MODEL_FILE = "generated-feature-model.json";
+
+    static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
+
+    static final String MODEL_DIFF_FILE = "model-diff-report.json";
+
+    static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
+
+    static final String MODEL_RESULT_FILE = "model-result.json";
+
+    static final String PREPARED_WORKFLOW_FILE = "guided-workflow.json";
+
+    static final String GUIDED_VALIDATION_FILE = "guided-workflow-validation.json";
+
+    static final String WORKFLOW_DIAGNOSTICS_FILE = "workflow-diagnostics.json";
+
+    static final String WORKFLOW_RESULT_FILE = "workflow-result.json";
+
+    static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
+
+    private static final String DIGEST_PREFIX = "sha256:";
+
+    private static final String LINE_FEED = "\n";
+
+    private final ObjectMapper objectMapper;
+
+    private final DefaultPrettyPrinter prettyPrinter;
+
+    /**
+     * Creates the store with the shared Jackson mapper.
+     *
+     * @param objectMapper Jackson mapper used for serialization.
+     */
+    ExtractionArtifactStore(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+        DefaultIndenter indenter = new DefaultIndenter("  ", LINE_FEED);
+        this.prettyPrinter = new DefaultPrettyPrinter().withObjectIndenter(indenter).withArrayIndenter(indenter);
+    }
+
+    /**
+     * Scan artifacts loaded from a previous scan command.
+     *
+     * @param result scan envelope.
+     * @param metadata scan metadata.
+     * @param outcome source facts of the scan.
+     */
+    record LoadedScan(ScanResult result, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) {
+    }
+
+    /**
+     * Model artifacts loaded from a previous model assembly command.
+     *
+     * @param result model envelope.
+     * @param generatedModel generated feature model.
+     * @param items model assembly diagnostics.
+     */
+    record LoadedModel(ModelResult result, FeatureModel generatedModel, List<ReportItem> items) {
+    }
+
+    /**
+     * Workflow artifacts loaded from a previous workflow preparation command.
+     *
+     * @param result workflow envelope.
+     * @param preparedWorkflow bytes of the prepared guided workflow.
+     * @param items workflow preparation diagnostics.
+     */
+    record LoadedWorkflow(WorkflowResult result, byte[] preparedWorkflow, List<ReportItem> items) {
+    }
+
+    /**
+     * Removes the output of a stage and of every stage derived from it, so a rerun cannot leave stale downstream
+     * artifacts behind.
+     *
+     * @param layout output layout of this run.
+     * @param stage stage that is about to write.
+     * @throws IOException if a directory cannot be removed.
+     */
+    void invalidateFrom(ExtractionArtifactLayout layout, ExtractionStage stage) throws IOException {
+        for (Path directory : layout.directoriesInvalidatedBy(stage)) {
+            deleteRecursively(directory);
+        }
+    }
+
+    /**
+     * Writes the scan artifacts and their envelope.
+     *
+     * @param layout output layout of this run.
+     * @param metadata scan metadata payload.
+     * @param outcome source facts of the scan.
+     * @return the written scan envelope.
+     * @throws IOException if a file cannot be written.
+     */
+    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) throws IOException {
+        Path directory = Files.createDirectories(layout.scanDirectory());
+        writeJson(directory.resolve(SCAN_METADATA_FILE), metadata);
+        writeJson(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
+        writeJson(directory.resolve(EVIDENCE_FILE), outcome.evidence());
+        writeJson(directory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
+        writeJson(directory.resolve(ANNOTATIONS_FILE), outcome.annotations());
+        writeJson(directory.resolve(CONFIG_DEFAULTS_FILE), outcome.configDefaults());
+        writeJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), outcome.items());
+
+        Map<String, String> payloadDigests = digestsOf(directory,
+                List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE, ANNOTATIONS_FILE, CONFIG_DEFAULTS_FILE, SCAN_DIAGNOSTICS_FILE));
+        ScanResult result = new ScanResult(ScanResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, metadata.artemisCommit(), payloadDigests,
+                combinedDigest(payloadDigests));
+        writeJson(directory.resolve(SCAN_RESULT_FILE), result);
+        return result;
+    }
+
+    /**
+     * Loads the scan artifacts of this run and verifies that they still match their envelope.
+     *
+     * @param layout output layout of this run.
+     * @param expectedArtemisCommit commit the consuming stage expects.
+     * @return loaded scan artifacts.
+     * @throws IOException if a file cannot be read.
+     * @throws ExtractionArtifactException if the scan is missing, stale, or from another commit or extractor version.
+     */
+    LoadedScan readScan(ExtractionArtifactLayout layout, String expectedArtemisCommit) throws IOException {
+        Path directory = layout.scanDirectory();
+        ScanResult result = readJson(directory.resolve(SCAN_RESULT_FILE), ScanResult.class, "scan");
+        requireSchemaVersion("scan", result.schemaVersion(), ScanResult.CURRENT_SCHEMA_VERSION);
+        requireEqual("scan", "extractor version", result.extractorVersion(), ScanResult.EXTRACTOR_VERSION);
+        requireEqual("scan", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
+        verifyPayloadDigests(directory, result.payloadDigests());
+
+        FeatureExtractionService.Outcome outcome = new FeatureExtractionService.Outcome(
+                List.of(readJson(directory.resolve(FEATURE_CANDIDATES_FILE), FeatureCandidate[].class, "scan")),
+                List.of(readJson(directory.resolve(EVIDENCE_FILE), EvidenceItem[].class, "scan")),
+                List.of(readJson(directory.resolve(RELATION_CANDIDATES_FILE), RelationCandidate[].class, "scan")),
+                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), AnnotatedAnchor[].class, "scan")),
+                readJson(directory.resolve(CONFIG_DEFAULTS_FILE), YamlConfigScan.Result.class, "scan"),
+                List.of(readJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), ReportItem[].class, "scan")));
+        return new LoadedScan(result, readJson(directory.resolve(SCAN_METADATA_FILE), ScanMetadata.class, "scan"), outcome);
+    }
+
+    /**
+     * Writes the generated model artifacts and their envelope.
+     *
+     * @param layout output layout of this run.
+     * @param outcome generated artifacts of the model assembly.
+     * @param scanDigest payload digest of the consumed scan.
+     * @param manifestDigest digest of the consumed scope manifest.
+     * @param artemisCommit resolved commit of the run.
+     * @return the written model envelope.
+     * @throws IOException if a file cannot be written.
+     */
+    ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyService.Outcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
+            throws IOException {
+        Path directory = Files.createDirectories(layout.modelDirectory());
+        writeJson(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
+        writeJson(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+        writeJson(directory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
+        writeJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
+
+        ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
+                digestOf(directory.resolve(GENERATED_MODEL_FILE)), outcome.modelIntegrityValid(), outcome.curation());
+        writeJson(directory.resolve(MODEL_RESULT_FILE), result);
+        return result;
+    }
+
+    /**
+     * Loads the generated model artifacts of this run and verifies that they still match their inputs.
+     *
+     * @param layout output layout of this run.
+     * @param expectedArtemisCommit commit the consuming stage expects.
+     * @param expectedScanDigest payload digest of the current scan.
+     * @param expectedManifestDigest digest of the current scope manifest.
+     * @return loaded model artifacts.
+     * @throws IOException if a file cannot be read.
+     * @throws ExtractionArtifactException if the model is missing or was assembled from other inputs.
+     */
+    LoadedModel readModel(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedScanDigest, String expectedManifestDigest)
+            throws IOException {
+        Path directory = layout.modelDirectory();
+        ModelResult result = readJson(directory.resolve(MODEL_RESULT_FILE), ModelResult.class, "model");
+        requireSchemaVersion("model", result.schemaVersion(), ModelResult.CURRENT_SCHEMA_VERSION);
+        requireEqual("model", "extractor version", result.extractorVersion(), ScanResult.EXTRACTOR_VERSION);
+        requireEqual("model", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
+        requireEqual("model", "scan digest", result.scanDigest(), expectedScanDigest);
+        requireEqual("model", "manifest digest", result.manifestDigest(), expectedManifestDigest);
+        requireEqual("model", "generated model digest", digestOf(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
+
+        FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");
+        return new LoadedModel(result, generatedModel, List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
+    }
+
+    /**
+     * Writes the prepared guided workflow, its validation report, and their envelope.
+     *
+     * @param layout output layout of this run.
+     * @param validation workflow validation result.
+     * @param authoredWorkflowBytes bytes of the authored guided workflow.
+     * @param generatedModelDigest digest of the generated model the workflow was validated against.
+     * @param artemisCommit resolved commit of the run.
+     * @return the written workflow envelope.
+     * @throws IOException if a file cannot be written.
+     */
+    WorkflowResult writeWorkflow(ExtractionArtifactLayout layout, GuidedWorkflowValidator.Result validation, byte[] authoredWorkflowBytes,
+            String generatedModelDigest, String artemisCommit) throws IOException {
+        Path directory = Files.createDirectories(layout.workflowDirectory());
+        Files.write(directory.resolve(PREPARED_WORKFLOW_FILE), authoredWorkflowBytes);
+        writeJson(directory.resolve(GUIDED_VALIDATION_FILE), validation.guidedValidation());
+        writeJson(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), validation.items());
+
+        WorkflowResult result = new WorkflowResult(WorkflowResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, generatedModelDigest,
+                digestOf(authoredWorkflowBytes), digestOf(directory.resolve(PREPARED_WORKFLOW_FILE)), validation.workflowIntegrityValid());
+        writeJson(directory.resolve(WORKFLOW_RESULT_FILE), result);
+        return result;
+    }
+
+    /**
+     * Loads the prepared workflow artifacts of this run and verifies that they still match their inputs.
+     *
+     * @param layout output layout of this run.
+     * @param expectedArtemisCommit commit the consuming stage expects.
+     * @param expectedModelDigest digest of the current generated model.
+     * @param expectedAuthoredWorkflowDigest digest of the current authored guided workflow.
+     * @return loaded workflow artifacts.
+     * @throws IOException if a file cannot be read.
+     * @throws ExtractionArtifactException if the prepared workflow is missing or was prepared from other inputs.
+     */
+    LoadedWorkflow readWorkflow(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedModelDigest, String expectedAuthoredWorkflowDigest)
+            throws IOException {
+        Path directory = layout.workflowDirectory();
+        WorkflowResult result = readJson(directory.resolve(WORKFLOW_RESULT_FILE), WorkflowResult.class, "workflow");
+        requireSchemaVersion("workflow", result.schemaVersion(), WorkflowResult.CURRENT_SCHEMA_VERSION);
+        requireEqual("workflow", "extractor version", result.extractorVersion(), ScanResult.EXTRACTOR_VERSION);
+        requireEqual("workflow", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
+        requireEqual("workflow", "generated model digest", result.generatedModelDigest(), expectedModelDigest);
+        requireEqual("workflow", "authored workflow digest", result.authoredWorkflowDigest(), expectedAuthoredWorkflowDigest);
+        Path preparedWorkflow = directory.resolve(PREPARED_WORKFLOW_FILE);
+        requireEqual("workflow", "prepared workflow digest", digestOf(preparedWorkflow), result.preparedWorkflowDigest());
+
+        return new LoadedWorkflow(result, Files.readAllBytes(preparedWorkflow),
+                List.of(readJson(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), ReportItem[].class, "workflow")));
+    }
+
+    /**
+     * Writes the consolidated extraction report.
+     *
+     * @param layout output layout of this run.
+     * @param report consolidated report.
+     * @throws IOException if the report cannot be written.
+     */
+    void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
+        writeJson(Files.createDirectories(layout.reportDirectory()).resolve(EXTRACTION_REPORT_FILE), report);
+    }
+
+    /**
+     * Reads the generated config key catalog of this run.
+     *
+     * @param layout output layout of this run.
+     * @return regenerated catalog.
+     * @throws IOException if the catalog cannot be read.
+     * @throws ExtractionArtifactException if the catalog is missing.
+     */
+    ArtemisConfigKeyCatalog readGeneratedCatalog(ExtractionArtifactLayout layout) throws IOException {
+        return readJson(layout.modelDirectory().resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
+    }
+
+    /**
+     * Reads the guided workflow validation report of this run.
+     *
+     * @param layout output layout of this run.
+     * @return guided workflow validation report.
+     * @throws IOException if the report cannot be read.
+     * @throws ExtractionArtifactException if the report is missing.
+     */
+    GuidedWorkflowValidationReport readGuidedValidation(ExtractionArtifactLayout layout) throws IOException {
+        return readJson(layout.workflowDirectory().resolve(GUIDED_VALIDATION_FILE), GuidedWorkflowValidationReport.class, "workflow");
+    }
+
+    /**
+     * Serializes one payload deterministically and writes it with a trailing line feed.
+     *
+     * @param file target file.
+     * @param payload payload to serialize.
+     * @throws IOException if the file cannot be written.
+     */
+    private void writeJson(Path file, Object payload) throws IOException {
+        String json = objectMapper.writer().with(prettyPrinter).writeValueAsString(payload);
+        Files.write(file, (json + LINE_FEED).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Reads and parses one artifact file.
+     *
+     * @param <T> payload type.
+     * @param file artifact file.
+     * @param type payload class.
+     * @param stageName stage the artifact belongs to, used in failure messages.
+     * @return parsed payload.
+     * @throws IOException if the file cannot be read.
+     * @throws ExtractionArtifactException if the file does not exist.
+     */
+    private <T> T readJson(Path file, Class<T> type, String stageName) throws IOException {
+        if (!Files.isRegularFile(file)) {
+            throw new ExtractionArtifactException(
+                    "The " + stageName + " stage did not produce " + file.getFileName() + "; run the upstream command before this one.");
+        }
+        return objectMapper.readValue(Files.readAllBytes(file), type);
+    }
+
+    /**
+     * Verifies that every recorded payload file still has the digest its stage wrote.
+     *
+     * @param directory stage directory.
+     * @param payloadDigests recorded digests per file name.
+     * @throws IOException if a payload file cannot be read.
+     * @throws ExtractionArtifactException if a payload file is missing or changed.
+     */
+    private void verifyPayloadDigests(Path directory, Map<String, String> payloadDigests) throws IOException {
+        for (Map.Entry<String, String> payload : payloadDigests.entrySet()) {
+            Path file = directory.resolve(payload.getKey());
+            if (!Files.isRegularFile(file)) {
+                throw new ExtractionArtifactException("The scan payload file " + payload.getKey() + " is missing; rerun the scan command.");
+            }
+            requireEqual("scan", "digest of " + payload.getKey(), digestOf(file), payload.getValue());
+        }
+    }
+
+    /**
+     * Computes the digests of a stage's payload files.
+     *
+     * @param directory stage directory.
+     * @param fileNames payload file names.
+     * @return digests sorted by file name.
+     * @throws IOException if a payload file cannot be read.
+     */
+    private Map<String, String> digestsOf(Path directory, List<String> fileNames) throws IOException {
+        Map<String, String> digests = new TreeMap<>();
+        for (String fileName : fileNames) {
+            digests.put(fileName, digestOf(directory.resolve(fileName)));
+        }
+        return digests;
+    }
+
+    /**
+     * Derives one digest identifying a complete set of payload digests.
+     *
+     * @param payloadDigests digests per file name.
+     * @return digest over the sorted file name and digest pairs.
+     */
+    private String combinedDigest(Map<String, String> payloadDigests) {
+        StringBuilder combined = new StringBuilder();
+        payloadDigests.forEach((fileName, digest) -> combined.append(fileName).append('=').append(digest).append(LINE_FEED));
+        return digestOf(combined.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Computes the digest of a file.
+     *
+     * @param file file to hash.
+     * @return prefixed lowercase hex digest.
+     * @throws IOException if the file cannot be read.
+     */
+    static String digestOf(Path file) throws IOException {
+        return digestOf(Files.readAllBytes(file));
+    }
+
+    /**
+     * Computes the digest of a byte payload.
+     *
+     * @param bytes payload to hash.
+     * @return prefixed lowercase hex digest.
+     */
+    static String digestOf(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return DIGEST_PREFIX + HexFormat.of().formatHex(digest.digest(bytes));
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is not available.", e);
+        }
+    }
+
+    /**
+     * Deletes one file tree from children to root. Missing paths are ignored.
+     *
+     * @param path file tree to delete.
+     * @throws IOException if a path cannot be deleted.
+     */
+    static void deleteRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var paths = Files.walk(path)) {
+            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(entry);
+            }
+        }
+    }
+
+    /**
+     * Rejects an artifact written by another schema version.
+     *
+     * @param stageName stage the artifact belongs to.
+     * @param actual schema version found in the artifact.
+     * @param expected schema version this code understands.
+     * @throws ExtractionArtifactException if the versions differ.
+     */
+    private void requireSchemaVersion(String stageName, int actual, int expected) {
+        if (actual != expected) {
+            throw new ExtractionArtifactException(
+                    "The " + stageName + " artifact uses schema version " + actual + " but this extractor expects " + expected + "; rerun the upstream command.");
+        }
+    }
+
+    /**
+     * Rejects an artifact whose recorded input no longer matches the current one.
+     *
+     * @param stageName stage the artifact belongs to.
+     * @param aspect input that differs, used in the failure message.
+     * @param actual value recorded in or computed from the artifact.
+     * @param expected value the consuming stage requires.
+     * @throws ExtractionArtifactException if the values differ.
+     */
+    private void requireEqual(String stageName, String aspect, String actual, String expected) {
+        if (!expected.equals(actual)) {
+            throw new ExtractionArtifactException("The " + stageName + " artifact was produced with " + aspect + " '" + actual + "' but this run requires '"
+                    + expected + "'; rerun the upstream command.");
+        }
+    }
+}

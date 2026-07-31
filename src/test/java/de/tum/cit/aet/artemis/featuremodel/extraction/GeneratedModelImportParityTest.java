@@ -55,11 +55,12 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ExtractionOutputWriter;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureExtractionService;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.WorkflowStageService;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
@@ -94,7 +95,11 @@ class GeneratedModelImportParityTest {
     @TempDir
     static Path workingDirectory;
 
-    private FeatureExtractionService.Outcome outcome;
+    private ModelStageService.Summary modelSummary;
+
+    private WorkflowStageService.Summary workflowSummary;
+
+    private ModelDiffReport modelDiff;
 
     private String snapshotId;
 
@@ -102,24 +107,21 @@ class GeneratedModelImportParityTest {
 
     @BeforeAll
     void runPipelineAndImportSnapshot() throws Exception {
-        FeatureModel curatedModel = new JsonFeatureModelStore(resourceLoader, objectMapper).loadActiveModel();
-        ArtemisConfigKeyCatalog catalog = readResource("classpath:feature-model/artemis-config-key-catalog.json", ArtemisConfigKeyCatalog.class);
-        GuidedWorkflow bundledWorkflow = new JsonGuidedWorkflowStore(resourceLoader, objectMapper).loadActiveWorkflow();
-        DeploymentProfile bundledProfile = readResource("classpath:deployment-profiles/default-artemis-profile.json", DeploymentProfile.class);
-        var manifest = new FeatureManifestLoader().load(Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"));
-        LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(Path.of(System.getProperty("artemisPath")));
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(Path.of(System.getProperty("artemisPath")),
+                Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
+                Path.of("src/main/resources/feature-model/guided-workflow.json"),
+                Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
+                Path.of("src/main/resources/feature-model/functional-feature-model.json"),
+                Path.of("src/main/resources/feature-model/artemis-config-key-catalog.json"), workingDirectory.resolve("extraction"));
+        LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
-        outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest, bundledWorkflow, bundledProfile);
+        new ScanStageService(objectMapper).run(inputs, source);
+        modelSummary = new ModelStageService(objectMapper).run(inputs);
+        workflowSummary = new WorkflowStageService(objectMapper).run(inputs);
+        new PackageStageService(objectMapper).run(inputs);
 
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(workingDirectory.resolve("extraction"), source.commit());
-        ExtractionOutputWriter writer = new ExtractionOutputWriter(objectMapper);
-        writer.writeAll(layout, new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(),
-                source.workingTreeDirty(), "start", "end", 0, 0, 0, 0), outcome);
-        byte[] workflowBytes;
-        try (InputStream inputStream = resourceLoader.getResource("classpath:feature-model/guided-workflow.json").getInputStream()) {
-            workflowBytes = inputStream.readAllBytes();
-        }
-        writer.writeSnapshot(layout, outcome, workflowBytes, source.root().toString(), source.commit());
+        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), source.commit());
+        modelDiff = objectMapper.readValue(Files.readAllBytes(layout.modelDirectory().resolve("model-diff-report.json")), ModelDiffReport.class);
 
         dataRoot = workingDirectory.resolve("data");
         SnapshotService snapshotService = new SnapshotService(
@@ -132,11 +134,12 @@ class GeneratedModelImportParityTest {
 
     @Test
     void generationValidatesCleanlyAndClassifiesEveryDifference() {
-        assertThat(outcome.generatedModel()).isNotNull();
-        assertThat(outcome.guidedWorkflowValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
-        assertThat(outcome.modelDiff().classificationCounts()).containsEntry(ModelDiffReport.CLASS_EXTRACTOR_GAP, 0);
-        int classifiedTotal = outcome.modelDiff().classificationCounts().values().stream().mapToInt(Integer::intValue).sum();
-        assertThat(classifiedTotal).isEqualTo(outcome.modelDiff().entries().size());
+        assertThat(modelSummary.modelIntegrityValid()).isTrue();
+        assertThat(workflowSummary.workflowIntegrityValid()).isTrue();
+        assertThat(workflowSummary.validationStatus()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
+        assertThat(modelDiff.classificationCounts()).containsEntry(ModelDiffReport.CLASS_EXTRACTOR_GAP, 0);
+        int classifiedTotal = modelDiff.classificationCounts().values().stream().mapToInt(Integer::intValue).sum();
+        assertThat(classifiedTotal).isEqualTo(modelDiff.entries().size());
     }
 
     @Test

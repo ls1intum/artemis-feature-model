@@ -1,177 +1,207 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowMetadata;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.UseCaseTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Characterizes the complete extraction pipeline over the mini-Artemis fixture: scan, manifest curation, generated
- * model and catalog assembly, validation, and snapshot publication. The asserted values are the parity contract of the
- * orchestration refactor — the pipeline may be split into separate commands, but these observable outputs must not
- * change until a work package deliberately changes their semantics.
+ * Characterizes the complete staged extraction pipeline over the mini-Artemis fixture: scan, model assembly, workflow
+ * preparation, and snapshot packaging. The asserted values are the parity contract of the orchestration refactor —
+ * the commands may move, but these observable outputs must not change until a work package deliberately changes their
+ * semantics.
  */
 class ExtractionPipelineCharacterizationTest {
 
     private static final Path FIXTURE_PATH = Path.of("src/test/resources/extraction/mini-artemis");
 
-    private static final Path FIXTURE_MANIFEST_PATH = Path.of("src/test/resources/extraction/mini-artemis-manifest.yml");
-
-    private static final String FIXED_TIMESTAMP = "2026-01-01T00:00:00Z";
+    private static final Path FIXTURE_INPUTS = Path.of("src/test/resources/extraction/fixture-inputs");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    private static FeatureExtractionService.Outcome outcome;
 
     @TempDir
     private Path outputRoot;
 
-    @BeforeAll
-    static void runPipeline() throws Exception {
-        FeatureScopeManifest manifest = new FeatureManifestLoader().load(FIXTURE_MANIFEST_PATH);
-        outcome = new FeatureExtractionService(OBJECT_MAPPER).extract(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(),
-                ExtractionTestModels.fixtureCatalog(), manifest, fixtureWorkflow(), fixtureProfile());
+    private FeatureExtractionInputs inputs;
+
+    private ExtractionArtifactLayout layout;
+
+    @BeforeEach
+    void resolveInputs() {
+        inputs = new FeatureExtractionInputs(FIXTURE_PATH, Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"),
+                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
+                FIXTURE_INPUTS.resolve("curated-model.json"), FIXTURE_INPUTS.resolve("config-key-catalog.json"), outputRoot);
+        layout = ExtractionArtifactLayout.forCommit(outputRoot, "unknown");
     }
 
     @Test
-    void classifiesEveryFixtureCandidate() {
-        assertThat(outcome.candidates()).hasSize(18);
-        assertThat(outcome.relationCandidates()).hasSize(2);
-        assertThat(outcome.report().curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("pending", 0);
-        assertThat(outcome.includedFeatures()).extracting(ResolvedFeatureScope::id).containsExactly("alpha-feature");
-    }
+    void scanWritesOnlyTheRawSourceDiscoveryArtifacts() throws Exception {
+        ScanStageService.Summary summary = runScan();
 
-    @Test
-    void assemblesGeneratedModelCatalogAndDiff() {
-        assertThat(outcome.generatedModel().features()).extracting(FeatureNode::id).containsExactly("fixture-root", "alpha-feature");
-        assertThat(outcome.generatedModel().relations()).extracting(relation -> relation.parentId() + "->" + relation.childId())
-                .containsExactly("fixture-root->alpha-feature");
-        assertThat(outcome.generatedModel().constraints()).isEmpty();
-        assertThat(outcome.generatedCatalog().keys()).extracting(ArtemisConfigKeyCatalog.CatalogKey::key).containsExactly("artemis.alpha.enabled");
-        assertThat(outcome.modelDiff().entries()).isNotEmpty();
-        assertThat(outcome.modelDiff().classificationCounts()).containsKeys(ModelDiffReport.CLASS_INTENTIONAL_CURATION, ModelDiffReport.CLASS_ARTEMIS_DRIFT,
-                ModelDiffReport.CLASS_MISSING_MANIFEST_ENTRY, ModelDiffReport.CLASS_EXTRACTOR_GAP);
-        assertThat(outcome.artifactValidation().snapshotEligible()).isTrue();
-        assertThat(outcome.guidedWorkflowValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
-    }
-
-    @Test
-    void reportsDriftAndCurationDiagnosticsTogether() {
-        assertThat(reportCodes()).contains(ReportItem.CODE_CURATED_ANCHOR_MISSING, ReportItem.CODE_CURATED_EVIDENCE_STALE,
-                ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_FE_BE_MIRROR_MISMATCH, ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT,
-                ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
-        assertThat(reportCodes()).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
-        assertThat(outcome.report().codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
-        assertThat(outcome.report().artemisCommit()).isEqualTo("unknown");
-    }
-
-    @Test
-    void writesEveryPipelineArtifactAndPublishesTheSnapshot() throws Exception {
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, "unknown");
-        ExtractionOutputWriter writer = new ExtractionOutputWriter(OBJECT_MAPPER);
-        writer.writeAll(layout, scanMetadata(), outcome);
-
-        boolean published = writer.writeSnapshot(layout, outcome, workflowBytes(), FIXTURE_PATH.toString(), "unknown");
-
-        assertThat(published).isTrue();
-        assertScanArtifacts(layout);
-        for (String fileName : List.of(ExtractionOutputWriter.GENERATED_MODEL_FILE, ExtractionOutputWriter.GENERATED_CATALOG_FILE,
-                ExtractionOutputWriter.MODEL_DIFF_FILE)) {
-            assertThat(layout.modelDirectory().resolve(fileName)).as("model artifact %s", fileName).isRegularFile();
-        }
-        assertThat(layout.workflowDirectory().resolve(ExtractionOutputWriter.GUIDED_VALIDATION_FILE)).isRegularFile();
-        assertThat(layout.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)).isRegularFile();
-        Path snapshotDirectory = layout.snapshotDirectory();
-        for (String fileName : List.of("feature-model.json", "guided-workflow.json", "metadata.json", "checksum.txt")) {
-            assertThat(snapshotDirectory.resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
-        }
-    }
-
-    /**
-     * Asserts that the scan directory carries every raw source discovery artifact.
-     *
-     * @param layout output layout of the characterized run.
-     */
-    private void assertScanArtifacts(ExtractionArtifactLayout layout) {
-        for (String fileName : List.of(ExtractionOutputWriter.SCAN_METADATA_FILE, ExtractionOutputWriter.FEATURE_CANDIDATES_FILE,
-                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE)) {
+        assertThat(summary.candidateCount()).isEqualTo(18);
+        assertThat(summary.relationCandidateCount()).isEqualTo(2);
+        assertThat(summary.artemisCommit()).isEqualTo("unknown");
+        for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
+                ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE,
+                ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE)) {
             assertThat(layout.scanDirectory().resolve(fileName)).as("scan artifact %s", fileName).isRegularFile();
         }
+        assertThat(layout.modelDirectory()).doesNotExist();
+        assertThat(layout.workflowDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void modelAssemblyConsumesTheScanWithoutReopeningArtemis() throws Exception {
+        runScan();
+
+        ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+
+        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("pending", 0);
+        assertThat(summary.featureCount()).isEqualTo(2);
+        assertThat(summary.relationCount()).isEqualTo(1);
+        assertThat(summary.constraintCount()).isZero();
+        assertThat(summary.catalogKeyCount()).isEqualTo(1);
+        assertThat(summary.modelIntegrityValid()).isTrue();
+
+        FeatureModel generatedModel = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)),
+                FeatureModel.class);
+        assertThat(generatedModel.features()).extracting(FeatureNode::id).containsExactly("fixture-root", "alpha-feature");
+        ArtemisConfigKeyCatalog generatedCatalog = OBJECT_MAPPER
+                .readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), ArtemisConfigKeyCatalog.class);
+        assertThat(generatedCatalog.keys()).extracting(ArtemisConfigKeyCatalog.CatalogKey::key).containsExactly("artemis.alpha.enabled");
+        ModelDiffReport modelDiff = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIFF_FILE)),
+                ModelDiffReport.class);
+        assertThat(modelDiff.classificationCounts()).containsKeys(ModelDiffReport.CLASS_INTENTIONAL_CURATION, ModelDiffReport.CLASS_ARTEMIS_DRIFT,
+                ModelDiffReport.CLASS_MISSING_MANIFEST_ENTRY, ModelDiffReport.CLASS_EXTRACTOR_GAP);
+    }
+
+    @Test
+    void aggregatePipelinePublishesTheSnapshotAndConsolidatesEveryStageDiagnostic() throws Exception {
+        runPipeline();
+
+        assertThat(layout.workflowDirectory().resolve(ExtractionArtifactStore.PREPARED_WORKFLOW_FILE)).isRegularFile();
+        assertThat(layout.workflowDirectory().resolve(ExtractionArtifactStore.GUIDED_VALIDATION_FILE)).isRegularFile();
+        GuidedWorkflowValidationReport guidedValidation = OBJECT_MAPPER
+                .readValue(Files.readAllBytes(layout.workflowDirectory().resolve(ExtractionArtifactStore.GUIDED_VALIDATION_FILE)),
+                        GuidedWorkflowValidationReport.class);
+        assertThat(guidedValidation.status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
+
+        ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
+                ExtractionReport.class);
+        assertThat(reportCodes(report)).contains(ReportItem.CODE_CURATED_ANCHOR_MISSING, ReportItem.CODE_CURATED_EVIDENCE_STALE,
+                ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_FE_BE_MIRROR_MISMATCH, ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT,
+                ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
+        assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
+        assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
+        assertThat(report.artemisCommit()).isEqualTo("unknown");
+        assertThat(report.curatedModelId()).isEqualTo("fixture-model");
+        assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
+
+        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, SnapshotPublisher.SNAPSHOT_METADATA_FILE,
+                SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
+            assertThat(layout.snapshotDirectory().resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
+        }
+    }
+
+    @Test
+    void rejectsAModelAssembledFromAScanThatChangedAfterwards() throws Exception {
+        runScan();
+        new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.RELATION_CANDIDATES_FILE), "[]\n");
+
+        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining(ExtractionArtifactStore.RELATION_CANDIDATES_FILE);
+    }
+
+    @Test
+    void rejectsAWorkflowPreparedBeforeTheModelWasReassembled() throws Exception {
+        runPipeline();
+        Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE), "{}\n");
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("generated model digest");
+    }
+
+    @Test
+    void rejectsAScanTakenFromAnotherArtemisCommit() throws Exception {
+        runScan();
+        ScanResult scanResult = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)),
+                ScanResult.class);
+        ScanResult otherCommit = new ScanResult(scanResult.schemaVersion(), scanResult.extractorVersion(), "0123456789abcdef0123456789abcdef01234567",
+                scanResult.payloadDigests(), scanResult.payloadDigest());
+        Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(otherCommit));
+
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("Artemis commit");
+    }
+
+    @Test
+    void modelAssemblyFailsWithoutAPriorScan() {
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining(ExtractionArtifactStore.SCAN_RESULT_FILE);
     }
 
     /**
-     * Collects the distinct diagnostic codes of the characterized run.
+     * Runs the scan command over the fixture checkout.
      *
+     * @return scan summary.
+     * @throws Exception if the scan fails.
+     */
+    private ScanStageService.Summary runScan() throws Exception {
+        return new ScanStageService(OBJECT_MAPPER).run(inputs, new LocalArtemisSourceRepository(FIXTURE_PATH));
+    }
+
+    /**
+     * Runs the complete staged pipeline over the fixture checkout.
+     *
+     * @throws Exception if a command fails.
+     */
+    private void runPipeline() throws Exception {
+        runScan();
+        new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+    }
+
+    /**
+     * Creates inputs without an Artemis checkout, proving that the downstream commands never open one.
+     *
+     * @return inputs whose checkout is unset.
+     */
+    private FeatureExtractionInputs inputsWithoutCheckout() {
+        return new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(),
+                inputs.curatedModelFile(), inputs.bootstrapCatalogFile(), inputs.outputRoot());
+    }
+
+    /**
+     * Collects the distinct diagnostic codes of a consolidated report.
+     *
+     * @param report consolidated extraction report.
      * @return report codes present in the run.
      */
-    private List<String> reportCodes() {
-        return outcome.report().items().stream().map(ReportItem::code).distinct().toList();
-    }
-
-    /**
-     * Creates the scan metadata of the characterized run with fixed timestamps.
-     *
-     * @return scan metadata payload.
-     */
-    private ScanMetadata scanMetadata() {
-        return new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, FIXTURE_PATH.toString(), "unknown", null, FIXED_TIMESTAMP, FIXED_TIMESTAMP,
-                outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(), outcome.report().items().size());
-    }
-
-    /**
-     * Serializes the fixture workflow as the payload the snapshot embeds.
-     *
-     * @return serialized fixture workflow bytes.
-     */
-    private byte[] workflowBytes() {
-        return OBJECT_MAPPER.writeValueAsString(fixtureWorkflow()).getBytes(StandardCharsets.UTF_8);
-    }
-
-    /**
-     * Creates a guided workflow that covers the single included fixture feature.
-     *
-     * @return fixture guided workflow.
-     */
-    private static GuidedWorkflow fixtureWorkflow() {
-        GuidedDecisionOption option = new GuidedDecisionOption("enable-alpha", "Alpha", "Fixture option.", List.of("alpha-feature"), List.of(), null, null,
-                List.of("Outcome."), List.of(), List.of(), List.of());
-        GuidedWorkflowMetadata metadata = new GuidedWorkflowMetadata("fixture-workflow", "Fixture Workflow", "0.0.1", null, null, "custom");
-        UseCaseTemplate template = new UseCaseTemplate("custom", "Custom", "Fixture template.", List.of(), List.of(), List.of(), List.of(), List.of());
-        GuidedWorkflowStep step = new GuidedWorkflowStep("selection", "Selection", 1, "Fixture step.",
-                List.of(new GuidedDecision("decision", "Question?", "Fixture decision.", "multiple", List.of(option))));
-        return new GuidedWorkflow(metadata, List.of(template), List.of(step), List.of());
-    }
-
-    /**
-     * Creates the deployment profile used for the capability cross-check.
-     *
-     * @return fixture deployment profile.
-     */
-    private static DeploymentProfile fixtureProfile() {
-        return new DeploymentProfile("fixture-profile", "Fixture Profile", "1.0.0", "published", List.of("maintainer"), List.of(), null, null);
+    private List<String> reportCodes(ExtractionReport report) {
+        return report.items().stream().map(ReportItem::code).distinct().toList();
     }
 }

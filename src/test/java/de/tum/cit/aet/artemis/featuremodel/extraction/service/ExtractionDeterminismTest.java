@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -32,18 +33,17 @@ class ExtractionDeterminismTest {
         ExtractionArtifactLayout firstRun = runAndWrite(temporaryDirectory.resolve("first"));
         ExtractionArtifactLayout secondRun = runAndWrite(temporaryDirectory.resolve("second"));
 
-        for (String fileName : new String[] { ExtractionOutputWriter.SCAN_METADATA_FILE, ExtractionOutputWriter.FEATURE_CANDIDATES_FILE,
-                ExtractionOutputWriter.EVIDENCE_FILE, ExtractionOutputWriter.RELATION_CANDIDATES_FILE }) {
+        for (String fileName : new String[] { ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
+                ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE,
+                ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE }) {
             byte[] firstBytes = Files.readAllBytes(firstRun.scanDirectory().resolve(fileName));
             byte[] secondBytes = Files.readAllBytes(secondRun.scanDirectory().resolve(fileName));
             assertThat(secondBytes).as("output file %s must be byte-identical across runs", fileName).isEqualTo(firstBytes);
         }
-        assertThat(Files.readAllBytes(secondRun.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)))
-                .isEqualTo(Files.readAllBytes(firstRun.reportDirectory().resolve(ExtractionOutputWriter.EXTRACTION_REPORT_FILE)));
     }
 
     /**
-     * Runs one full extraction over the fixture and writes all outputs with fixed timestamps.
+     * Runs one full scan over the fixture and writes all scan artifacts with fixed timestamps.
      *
      * @param outputRoot run output root.
      * @return the run layout.
@@ -52,13 +52,13 @@ class ExtractionDeterminismTest {
     private ExtractionArtifactLayout runAndWrite(Path outputRoot) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(FIXTURE_PATH);
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, ExtractionTestModels.fixtureCuratedModel(),
+        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).scan(source, ExtractionTestModels.fixtureCuratedModel(),
                 ExtractionTestModels.fixtureCatalog());
-        ScanMetadata metadata = new ScanMetadata(FeatureExtractionService.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
+        ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
                 FIXED_TIMESTAMP, FIXED_TIMESTAMP, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
-                outcome.report().items().size());
+                outcome.items().size());
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, source.commit());
-        new ExtractionOutputWriter(objectMapper).writeAll(layout, metadata, outcome);
+        new ExtractionArtifactStore(objectMapper).writeScan(layout, metadata, outcome);
         return layout;
     }
 }

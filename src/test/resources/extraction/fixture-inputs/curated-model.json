@@ -1,0 +1,43 @@
+{
+  "model": {
+    "id": "fixture-model",
+    "name": "Fixture Model",
+    "version": "0.0.1"
+  },
+  "features": [
+    {
+      "id": "fixture-root",
+      "name": "Fixture Root",
+      "kind": "root",
+      "selectable": false,
+      "defaultState": "not_applicable"
+    },
+    {
+      "id": "alpha-feature",
+      "name": "Alpha",
+      "kind": "module",
+      "selectable": true,
+      "defaultState": "enabled",
+      "source": {
+        "configKey": "artemis.alpha.enabled",
+        "backendConstant": "MODULE_FEATURE_ALPHA",
+        "conditionClass": "AlphaEnabled",
+        "evidence": ["AlphaEnabled.java:12", "application-core.yml:2-3", "Constants.java:999"]
+      }
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost",
+      "kind": "module",
+      "selectable": true,
+      "defaultState": "disabled",
+      "source": {
+        "configKey": "artemis.ghost.enabled",
+        "conditionClass": "GhostEnabled",
+        "evidence": ["GhostEnabled.java:10"]
+      }
+    }
+  ],
+  "relations": [],
+  "constraints": []
+}

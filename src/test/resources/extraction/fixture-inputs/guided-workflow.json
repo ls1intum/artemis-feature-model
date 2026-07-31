@@ -1,0 +1,41 @@
+{
+  "workflow": {
+    "id": "fixture-workflow",
+    "name": "Fixture Workflow",
+    "version": "0.0.1",
+    "defaultTemplateId": "custom"
+  },
+  "useCaseTemplates": [
+    {
+      "id": "custom",
+      "label": "Custom",
+      "description": "Fixture template."
+    }
+  ],
+  "steps": [
+    {
+      "id": "selection",
+      "title": "Selection",
+      "order": 1,
+      "description": "Fixture step.",
+      "decisions": [
+        {
+          "id": "decision",
+          "question": "Question?",
+          "description": "Fixture decision.",
+          "selectionMode": "multiple",
+          "options": [
+            {
+              "id": "enable-alpha",
+              "label": "Alpha",
+              "description": "Fixture option.",
+              "selects": ["alpha-feature"],
+              "enabledOutcome": ["Outcome."]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "finalReviewGroups": []
+}

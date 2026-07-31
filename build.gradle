@@ -54,20 +54,57 @@ def featureExtraction = [
         artemisPath      : providers.gradleProperty('artemisPath').orElse(providers.environmentVariable('ARTEMIS_PATH')),
 ]
 
-tasks.register('extractFeatureModel', JavaExec) {
-    description = 'Scans a local Artemis checkout and writes feature extraction outputs under build/feature-extraction.'
-    group = 'feature model'
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionRunner'
-    args = ["--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
-            "--deployment-profile=${featureExtraction.deploymentProfile}", "--curated-model=${featureExtraction.curatedModel}",
-            "--bootstrap-catalog=${featureExtraction.bootstrapCatalog}", "--output-root=${featureExtraction.outputRoot}"]
-    doFirst {
-        if (!featureExtraction.artemisPath.isPresent()) {
-            throw new GradleException('No local Artemis checkout is configured. Pass -PartemisPath=<checkout>, set artemisPath in your user-level ' +
-                    'gradle.properties, or export ARTEMIS_PATH=<checkout>.')
+// Every extraction command shares one main class and the same repository-relative options; only the scan reads the
+// Artemis checkout. None of them declares an up-to-date check: the scan depends on mutable checkout state and each
+// later command must be able to observe an edited manifest or authored workflow.
+def registerExtractionCommand = { String taskName, String command, String taskDescription, boolean readsArtemisCheckout ->
+    tasks.register(taskName, JavaExec) {
+        description = taskDescription
+        group = 'feature model'
+        classpath = sourceSets.main.runtimeClasspath
+        mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionCli'
+        outputs.upToDateWhen { false }
+        args = [command, "--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
+                "--deployment-profile=${featureExtraction.deploymentProfile}", "--curated-model=${featureExtraction.curatedModel}",
+                "--bootstrap-catalog=${featureExtraction.bootstrapCatalog}", "--output-root=${featureExtraction.outputRoot}"]
+        if (readsArtemisCheckout) {
+            doFirst {
+                if (!featureExtraction.artemisPath.isPresent()) {
+                    throw new GradleException('No local Artemis checkout is configured. Pass -PartemisPath=<checkout>, set artemisPath in your user-level ' +
+                            'gradle.properties, or export ARTEMIS_PATH=<checkout>.')
+                }
+                args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
+            }
         }
-        args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
+    }
+}
+
+registerExtractionCommand('extractFeatureCandidates', 'scan',
+        'Scans the pinned Artemis checkout and writes feature candidates, evidence, and relation candidates.', true)
+registerExtractionCommand('assembleFeatureModel', 'model',
+        'Applies the scope manifest to an existing scan and assembles the generated feature model and catalog.', false)
+registerExtractionCommand('prepareGuidedWorkflow', 'workflow',
+        'Validates the authored guided workflow against the generated model and prepares the build copy.', false)
+registerExtractionCommand('packageFeatureModelSnapshot', 'snapshot',
+        'Consolidates the extraction report and publishes the importable feature model snapshot.', false)
+
+tasks.named('assembleFeatureModel') { mustRunAfter tasks.named('extractFeatureCandidates') }
+tasks.named('prepareGuidedWorkflow') { mustRunAfter tasks.named('assembleFeatureModel') }
+tasks.named('packageFeatureModelSnapshot') { mustRunAfter tasks.named('prepareGuidedWorkflow') }
+
+tasks.register('buildFeatureModelSnapshot') {
+    description = 'Runs the complete local extraction pipeline: scan, model assembly, workflow preparation, and snapshot packaging.'
+    group = 'feature model'
+    dependsOn tasks.named('extractFeatureCandidates'), tasks.named('assembleFeatureModel'), tasks.named('prepareGuidedWorkflow'),
+            tasks.named('packageFeatureModelSnapshot')
+}
+
+tasks.register('extractFeatureModel') {
+    description = 'Deprecated alias of buildFeatureModelSnapshot; use the staged commands or the aggregate task instead.'
+    group = 'feature model'
+    dependsOn tasks.named('buildFeatureModelSnapshot')
+    doLast {
+        logger.warn('extractFeatureModel is deprecated and will be removed; run buildFeatureModelSnapshot instead.')
     }
 }
 

@@ -1,0 +1,8 @@
+{
+  "id": "fixture-profile",
+  "name": "Fixture Profile",
+  "version": "1.0.0",
+  "status": "published",
+  "editableBy": ["maintainer"],
+  "providedCapabilities": []
+}
