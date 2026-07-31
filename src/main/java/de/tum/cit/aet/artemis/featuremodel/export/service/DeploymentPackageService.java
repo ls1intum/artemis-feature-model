@@ -217,12 +217,28 @@ public class DeploymentPackageService {
 
         SharedArtifacts shared = generateSharedArtifacts(request);
         shared = applyModeMetadata(shared, deploymentMode);
-        List<GeneratedArtifactFile> files = DeploymentModes.DEV_IDE.equals(deploymentMode) ? composeDevIdeFiles(shared)
-                : composeLocalDockerFiles(shared, requestedDeploymentMode);
+        List<GeneratedArtifactFile> files = composeFilesForMode(shared, deploymentMode, requestedDeploymentMode);
 
         log.info("Generated a '{}' deployment package with {} files for profile '{}' with status {}.", deploymentMode, files.size(), shared.report().profileId(),
                 shared.report().status());
         return new GeneratedArtifactPackage(files, shared.report());
+    }
+
+    /**
+     * Composes package files for the resolved deployment mode.
+     *
+     * @param shared shared generation results.
+     * @param deploymentMode resolved deployment mode.
+     * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
+     * @return ordered package files for the resolved mode.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the deployment mode is unknown.
+     */
+    private List<GeneratedArtifactFile> composeFilesForMode(SharedArtifacts shared, String deploymentMode, String requestedDeploymentMode) {
+        return switch (deploymentMode) {
+            case DeploymentModes.LOCAL_DOCKER -> composeLocalDockerFiles(shared, requestedDeploymentMode);
+            case DeploymentModes.DEV_IDE -> composeDevIdeFiles(shared);
+            default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
+        };
     }
 
     /**
@@ -286,9 +302,11 @@ public class DeploymentPackageService {
      * @return mode-specific technical metadata.
      */
     private TechnicalSelectionMetadata technicalMetadata(TechnicalSelection selection, String deploymentMode) {
-        String databaseDisposition = DeploymentModes.DEV_IDE.equals(deploymentMode)
-                ? TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE
-                : TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+        String databaseDisposition = switch (deploymentMode) {
+            case DeploymentModes.LOCAL_DOCKER -> TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+            case DeploymentModes.DEV_IDE -> TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE;
+            default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
+        };
         return TechnicalSelectionMetadata.from(selection, databaseDisposition, TechnicalSelectionMetadata.DISPOSITION_APPLIED);
     }
 
