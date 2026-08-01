@@ -207,7 +207,11 @@ class DeploymentPackageTechnicalSelectionTest {
     }
 
     private void assertDetailedDockerReadme(String readme, TechnicalScenario scenario) {
-        assertThat(readme).contains("## Prerequisites", "## Step 1 — Inspect and validate the package",
+        assertThat(readme).contains("## Supported host environments", "Linux with Docker Engine", "macOS with Docker Desktop",
+                "Windows with Docker Desktop", "WSL2 distribution",
+                "Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported",
+                "Enhanced Container Isolation blocks this mount by default", "## Prerequisites",
+                "## Step 1 — Inspect and validate the package",
                 "## Step 2A — Quick start with DEMO values", "## Step 2B — Start with your own integration values",
                 "## Step 3 — Follow startup and verify Artemis", "## Step 4 — Stop or reset the stack",
                 "## Troubleshooting", "./scripts/prepare-env.sh --demo --force",

@@ -144,6 +144,25 @@ public class RuntimeTemplateWriter {
 
                 %s
 
+                ## Supported host environments
+
+                - **Linux with Docker Engine:** supported when the Docker daemon exposes
+                  `unix:///var/run/docker.sock`.
+                - **macOS with Docker Desktop:** supported with Linux containers. The start script uses
+                  `FM_DOCKER_GID=0` for the Docker Desktop socket.
+                - **Windows with Docker Desktop:** supported only through a WSL2 distribution with WSL integration and
+                  Linux containers enabled. Run the Bash scripts inside WSL; keeping the package and Artemis checkout
+                  in the WSL filesystem is recommended.
+
+                Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported. Docker Desktop
+                for Linux is also not supported by the ICL stack's default socket handling because it normally exposes
+                a per-user socket instead of `/var/run/docker.sock`.
+
+                When Integrated Code Lifecycle is selected, the Artemis container mounts the Docker socket so it can
+                create build containers. Docker Desktop Enhanced Container Isolation blocks this mount by default
+                unless the Artemis image is allowed explicitly. Mounting the socket grants broad control over the local
+                Docker daemon, so use this package only for local development and validation.
+
                 ## What this package does not provide
 
                 - Production-ready credentials, TLS, backups, monitoring, or high availability.

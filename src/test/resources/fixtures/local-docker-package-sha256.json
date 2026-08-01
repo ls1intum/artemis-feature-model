@@ -1,5 +1,5 @@
 {
-  "README.md": "910a828c1d8379f28de421cdc3b7a491d90e6d05f0039b6dfa12110602bd0c20",
+  "README.md": "1a1e1d9e0c2a1eb0d281073beaa447de0b779df37425bd390c9bebde0e519d43",
   "config/application-feature-model.yml": "e90f705053af68a89bdc56b377c2ab8f2b3cf8285fd482abac649fde5c1d186e",
   "env/.env.example": "cb269b1c2b92064ae93f393bc9cfa4238f9470d1cb1b1545c95ef24ee53e104c",
   "env/.env.demo": "854193064d790db49ac66f353963fd8e712fb512d898bf856c11353308ff1149",
@@ -19,5 +19,5 @@
   "scripts/start-local-repo.sh": "2479401d98c81ff215aa313b6480819883daccbad8b0fbd8d749dacdbd1c1e84",
   "scripts/stop-local-repo.sh": "f82365cb9e0a829247cc04616efceaeee5b0c0390a84ee99cbaa8a067966d318",
   "scripts/print-runtime-summary.sh": "e6d8f271f35bcd64ab3748a688caa54629f322948f77ff7859bd800e2e2f64e7",
-  "__zip__": "ec0cf12cceca4faad82c4c2186e17740ecb53c6a9bfe763e18ceb6404714ec69"
+  "__zip__": "38e774d7756f74753c37102bd430af38167a878fe0d41d684833df9c6acc7a89"
 }

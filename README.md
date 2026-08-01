@@ -54,7 +54,7 @@ Current server capabilities:
 Current explorer capabilities:
 
 - `/feature-model/explorer` loads `GET /api/feature-model` through a shared
-  `FeatureModelService` and renders the 26-node feature tree with kind,
+  `FeatureModelService` and renders the 33-node feature tree with kind,
   relation, and default-state badges. A list view and a left-to-right SVG
   diagram view share expansion state.
 - Branches can be expanded and collapsed individually, or in bulk via
@@ -99,6 +99,16 @@ Current configurator capabilities:
 
 The Gradle wrapper handles its own Gradle distribution, so a system Gradle
 install is optional.
+
+### Local Docker package host support
+
+The generated `local-docker` package supports Linux with Docker Engine and
+macOS with Docker Desktop. On Windows, it supports Docker Desktop only through
+a WSL2 distribution with WSL integration and Linux containers enabled; run the
+generated Bash scripts from WSL. Native PowerShell, Command Prompt, Git Bash,
+and Windows containers are not supported. The Integrated Code Lifecycle stack
+requires `/var/run/docker.sock`; Docker Desktop Enhanced Container Isolation
+therefore needs an explicit socket-mount exception for the Artemis image.
 
 ## Repository layout
 
