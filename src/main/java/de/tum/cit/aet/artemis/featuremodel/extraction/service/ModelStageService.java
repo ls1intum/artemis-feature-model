@@ -67,8 +67,8 @@ public class ModelStageService {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
         String artemisCommit = manifest.artemisCommitSha();
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
         artifactStore.invalidateFrom(layout, ExtractionStage.MODEL);
+        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
 
         ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.curatedModel(inputs),
                 inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), artemisCommit);

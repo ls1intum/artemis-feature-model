@@ -68,7 +68,7 @@ public final class FeatureExtractionCli {
         Map<String, String> options = ExtractionCommandOptions.parse(arguments, SUPPORTED_OPTIONS);
         FeatureExtractionInputs inputs = FeatureExtractionInputs.resolve(options, System::getenv);
         switch (command) {
-            case SCAN_COMMAND -> printScanSummary(new ScanStageService(objectMapper).run(inputs, new LocalArtemisSourceRepository(inputs.requireArtemisCheckout())));
+            case SCAN_COMMAND -> printScanSummary(new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
             case MODEL_COMMAND -> printModelSummary(new ModelStageService(objectMapper).run(inputs));
             case WORKFLOW_COMMAND -> printWorkflowSummary(new WorkflowStageService(objectMapper).run(inputs));
             case SNAPSHOT_COMMAND -> printPackageSummary(new PackageStageService(objectMapper).run(inputs));

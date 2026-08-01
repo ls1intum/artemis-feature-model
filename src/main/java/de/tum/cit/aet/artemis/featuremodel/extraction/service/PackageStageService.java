@@ -62,11 +62,11 @@ public class PackageStageService {
         String artemisCommit = manifest.artemisCommitSha();
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
         String manifestDigest = inputLoader.manifestDigest(inputs);
+        artifactStore.invalidateFrom(layout, ExtractionStage.PACKAGE);
         ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
         ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(layout, artemisCommit, scan.result().payloadDigest(), manifestDigest);
         ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(layout, artemisCommit, model.result().generatedModelDigest(),
                 ExtractionArtifactStore.digestOf(inputs.authoredWorkflowFile()));
-        artifactStore.invalidateFrom(layout, ExtractionStage.PACKAGE);
 
         List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
         stageItems.addAll(model.items());

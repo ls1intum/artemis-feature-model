@@ -39,7 +39,7 @@ class RealArtemisCheckoutSmokeTest {
         FeatureExtractionInputs inputs = inputs();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
-        ScanStageService.Summary scan = new ScanStageService(objectMapper).run(inputs, source);
+        ScanStageService.Summary scan = new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
         ModelStageService.Summary model = new ModelStageService(objectMapper).run(inputs);
         WorkflowStageService.Summary workflow = new WorkflowStageService(objectMapper).run(inputs);
         PackageStageService.Summary packaged = new PackageStageService(objectMapper).run(inputs);

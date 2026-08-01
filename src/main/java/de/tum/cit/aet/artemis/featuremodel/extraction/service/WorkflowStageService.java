@@ -56,10 +56,10 @@ public class WorkflowStageService {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
         String artemisCommit = manifest.artemisCommitSha();
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
+        artifactStore.invalidateFrom(layout, ExtractionStage.WORKFLOW);
         ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
         ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(layout, artemisCommit, scan.result().payloadDigest(),
                 inputLoader.manifestDigest(inputs));
-        artifactStore.invalidateFrom(layout, ExtractionStage.WORKFLOW);
 
         byte[] authoredWorkflowBytes = inputLoader.authoredWorkflowBytes(inputs);
         GuidedWorkflow authoredWorkflow = objectMapper.readValue(authoredWorkflowBytes, GuidedWorkflow.class);

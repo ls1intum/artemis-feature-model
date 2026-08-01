@@ -141,6 +141,9 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.RELATION_CANDIDATES_FILE);
+        assertThat(layout.workflowDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
     @Test
@@ -150,6 +153,8 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated model digest");
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
     @Test
@@ -169,10 +174,9 @@ class ExtractionPipelineCharacterizationTest {
     void aCheckoutAtAnotherCommitNeverStartsAScan() throws Exception {
         runPipeline();
 
-        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, OTHER_COMMIT)))
+        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
                 .isInstanceOf(SourcePreflightException.class).hasMessageContaining(PINNED_COMMIT);
-        assertThat(layout.scanDirectory()).doesNotExist();
-        assertThat(layout.snapshotDirectory()).doesNotExist();
+        assertNoStageArtifactSurvives();
     }
 
     @Test
@@ -190,15 +194,64 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(modelResult.conformance().undeclaredCandidates()).containsExactly("module:gamma");
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIAGNOSTICS_FILE)).isRegularFile();
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)).doesNotExist();
+        assertThat(layout.workflowDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory()).doesNotExist();
         assertThat(layout.snapshotDirectory()).doesNotExist();
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
     }
 
     @Test
+    void aMissingCheckoutConfigurationRemovesThePreviouslyPublishedSnapshot() throws Exception {
+        runPipeline();
+        assertThat(layout.snapshotDirectory()).isDirectory();
+
+        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputsWithoutCheckout(), LocalArtemisSourceRepository::new))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining(FeatureExtractionInputs.ARTEMIS_PATH_ENVIRONMENT_VARIABLE);
+
+        assertNoStageArtifactSurvives();
+    }
+
+    @Test
+    void aTamperedScanRemovesThePreviouslyPublishedSnapshot() throws Exception {
+        runPipeline();
+        Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.EVIDENCE_FILE), "[]\n");
+
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class);
+
+        assertThat(layout.modelDirectory()).doesNotExist();
+        assertThat(layout.workflowDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void aTamperedWorkflowRemovesThePreviouslyPublishedSnapshot() throws Exception {
+        runPipeline();
+        Files.writeString(layout.workflowDirectory().resolve(ExtractionArtifactStore.PREPARED_WORKFLOW_FILE), "{}\n");
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("prepared workflow digest");
+
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
     void modelAssemblyFailsWithoutAPriorScan() {
         assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.SCAN_RESULT_FILE);
+    }
+
+    /**
+     * Asserts that no artifact of any stage survived, which is what every scan failure must leave behind.
+     */
+    private void assertNoStageArtifactSurvives() {
+        assertThat(layout.scanDirectory()).doesNotExist();
+        assertThat(layout.modelDirectory()).doesNotExist();
+        assertThat(layout.workflowDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
     /**
@@ -219,7 +272,7 @@ class ExtractionPipelineCharacterizationTest {
      * @throws Exception if the scan fails.
      */
     private ScanStageService.Summary runScan(FeatureExtractionInputs scanInputs) throws Exception {
-        return new ScanStageService(OBJECT_MAPPER).run(scanInputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, PINNED_COMMIT));
+        return new ScanStageService(OBJECT_MAPPER).run(scanInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, PINNED_COMMIT));
     }
 
     /**
@@ -229,7 +282,7 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given manifest.
      */
     private FeatureExtractionInputs withManifest(Path manifestFile) {
-        return new FeatureExtractionInputs(null, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.curatedModelFile(),
+        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.curatedModelFile(),
                 inputs.bootstrapCatalogFile(), inputs.outputRoot());
     }
 

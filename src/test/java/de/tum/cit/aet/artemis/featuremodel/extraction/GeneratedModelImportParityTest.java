@@ -115,7 +115,7 @@ class GeneratedModelImportParityTest {
                 Path.of("src/main/resources/feature-model/artemis-config-key-catalog.json"), workingDirectory.resolve("extraction"));
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
-        new ScanStageService(objectMapper).run(inputs, source);
+        new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
         modelSummary = new ModelStageService(objectMapper).run(inputs);
         workflowSummary = new WorkflowStageService(objectMapper).run(inputs);
         new PackageStageService(objectMapper).run(inputs);

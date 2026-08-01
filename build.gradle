@@ -67,14 +67,10 @@ def registerExtractionCommand = { String taskName, String command, String taskDe
         args = [command, "--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
                 "--deployment-profile=${featureExtraction.deploymentProfile}", "--curated-model=${featureExtraction.curatedModel}",
                 "--bootstrap-catalog=${featureExtraction.bootstrapCatalog}", "--output-root=${featureExtraction.outputRoot}"]
-        if (readsArtemisCheckout) {
-            doFirst {
-                if (!featureExtraction.artemisPath.isPresent()) {
-                    throw new GradleException('No local Artemis checkout is configured. Pass -PartemisPath=<checkout>, set artemisPath in your user-level ' +
-                            'gradle.properties, or export ARTEMIS_PATH=<checkout>.')
-                }
-                args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
-            }
+        if (readsArtemisCheckout && featureExtraction.artemisPath.isPresent()) {
+            // An absent checkout is not reported here: the command itself must run so that it invalidates its stale
+            // output before failing, and it already prints the actionable message.
+            args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
         }
     }
 }

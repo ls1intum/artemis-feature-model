@@ -3,6 +3,7 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
@@ -16,6 +17,11 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The {@code extractFeatureCandidates} command: reads the pinned Artemis checkout once and writes the raw source
  * discovery artifacts. It is the only stage that opens Artemis, so every later command works from these files.
+ *
+ * <p>
+ * The command invalidates its own output and every downstream directory before it resolves the checkout, so any way
+ * this scan can fail — missing checkout configuration, a checkout at another commit, a dirty working tree, or a write
+ * error — leaves no artifact of a previous run behind that a later command could mistake for this one.
  */
 public class ScanStageService {
 
@@ -53,16 +59,20 @@ public class ScanStageService {
      * Runs one scan.
      *
      * @param inputs resolved command inputs.
-     * @param source Artemis source repository to scan.
+     * @param sourceFactory creates the source repository over the configured checkout. The command resolves the
+     *            checkout itself, so a missing checkout configuration fails inside the same invalidation boundary as
+     *            every other scan failure.
      * @return summary of the written scan artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
+     * @throws IllegalStateException if no Artemis checkout is configured; no artifact of this run survives.
      * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if the checkout is not the
      *             pinned commit or is not clean; the scan does not run and no artifact of this run survives.
      */
-    public Summary run(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
+    public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
         FeatureScopeManifest manifest = inputLoader.manifest(inputs);
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), manifest.artemisCommitSha());
         artifactStore.invalidateFrom(layout, ExtractionStage.SCAN);
+        ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
         new ArtemisSourcePreflight().verify(source, manifest.artemisCommitSha());
 
         String scanStartedAt = Instant.now().toString();
