@@ -41,20 +41,17 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A backend property name constant has no matching backend module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
-    /** An extracted candidate is absent from both manifest membership lists. */
-    public static final String CODE_PENDING_SCOPE_DECISION = "PENDING_SCOPE_DECISION";
+    /** An extracted candidate is absent from both manifest membership lists, so its scope is undecided. */
+    public static final String CODE_UNDECLARED_CANDIDATE = "UNDECLARED_CANDIDATE";
 
     /** A source annotation exists on a candidate that the manifest does not include. */
     public static final String CODE_ANNOTATED_BUT_UNSCOPED = "ANNOTATED_BUT_UNSCOPED";
 
-    /** Source annotation semantics take precedence over redundant semantics in the include entry. */
-    public static final String CODE_ANNOTATION_OVERRIDES_MANIFEST = "ANNOTATION_OVERRIDES_MANIFEST";
+    /** A source annotation declares an attribute differently from the manifest entry; the manifest value is used. */
+    public static final String CODE_MANIFEST_OVERRIDES_ANNOTATION = "MANIFEST_OVERRIDES_ANNOTATION";
 
     /** A source annotation could not be joined to an extracted candidate. */
     public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
-
-    /** The scope manifest commit pin differs from the scanned Artemis commit. */
-    public static final String CODE_MANIFEST_COMMIT_MISMATCH = "MANIFEST_COMMIT_MISMATCH";
 
     /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
@@ -74,7 +71,7 @@ public record ReportItem(String severity, String code, String subject, String me
     /** An included technical feature provides a capability the bundled deployment profile does not list. */
     public static final String CODE_PROFILE_CAPABILITY_MISMATCH = "PROFILE_CAPABILITY_MISMATCH";
 
-    /** A directed relation candidate connects included features without a matching declared constraint. */
+    /** A relation candidate between included features has neither a declared constraint nor an explicit ignore entry. */
     public static final String CODE_RELATION_CANDIDATE_UNDECLARED = "RELATION_CANDIDATE_UNDECLARED";
 
     /** A manifest constraint references a feature that was not emitted into the generated model. */

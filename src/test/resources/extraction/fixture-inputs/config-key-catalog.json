@@ -1,0 +1,11 @@
+{
+  "catalogVersion": "0.0.1-test",
+  "verifiedAgainstArtemisCommit": "fixturepin",
+  "source": "synthetic",
+  "keys": [
+    { "key": "artemis.alpha.enabled", "type": "boolean" },
+    { "key": "artemis.ghost.enabled", "type": "boolean" },
+    { "key": "artemis.alpha.url", "type": "url" },
+    { "key": "artemis.absent.url", "type": "url" }
+  ]
+}

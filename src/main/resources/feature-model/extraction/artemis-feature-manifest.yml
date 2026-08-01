@@ -1,5 +1,7 @@
-manifestVersion: 1
-verifiedAgainstArtemisCommit: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
+manifestVersion: 2
+# Exact Artemis source commit this manifest curates. The scan verifies that the local checkout is at this commit
+# and clean before it reads a single file, so advancing the pin is a deliberate, reviewable change.
+artemisCommitSha: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
 
 # Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
 # include list carries the anchored curated modules and the first technical features, and every other candidate is
@@ -449,3 +451,12 @@ constraints:
     source: integrated-code-lifecycle
     target: jenkins
     description: A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive.
+
+ignoredRelations:
+  # Relation evidence between two included features that deliberately does not become a constraint. Every relation
+  # candidate the scan finds between included features needs a decision; ignoring one is written down with its reason.
+
+  - id: relation:LectureWithIrisEnabled
+    rationale: >-
+      The composite condition only guards the lecture-scoped Iris integration points. Lecture and Iris remain
+      independently selectable functional modules, so the curated model enforces no constraint between them.

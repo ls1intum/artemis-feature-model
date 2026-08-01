@@ -11,6 +11,9 @@ import java.util.Optional;
  */
 public interface ArtemisSourceRepository {
 
+    /** Commit reported when the checkout is not a git work tree or its commit cannot be resolved. */
+    String UNKNOWN_COMMIT = "unknown";
+
     /**
      * Returns the resolved git commit of the checkout.
      *

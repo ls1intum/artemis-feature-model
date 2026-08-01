@@ -1,3 +1,5 @@
+# Copy of the mini-Artemis manifest with the module:gamma exclusion removed, so one discovered candidate has no
+# decision and the conformance gate must stop the run.
 manifestVersion: 2
 artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
 include:
@@ -13,7 +15,6 @@ exclude:
   - { anchor: module:beta, reason: test-fixture }
   - { anchor: module:beta-extra, reason: test-fixture }
   - { anchor: module:delta, reason: test-fixture }
-  - { anchor: module:gamma, reason: test-fixture }
   - { anchor: profile:agentx, reason: test-fixture }
   - { anchor: profile:cione, reason: test-fixture }
   - { anchor: profile:feprofile, reason: test-fixture }

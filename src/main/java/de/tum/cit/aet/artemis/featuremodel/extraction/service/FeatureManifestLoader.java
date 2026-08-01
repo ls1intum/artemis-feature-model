@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.yaml.snakeyaml.Yaml;
 
@@ -17,19 +18,24 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IgnoredRelationEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 
 /**
  * Loads the relocatable YAML feature scope manifest and fails fast on authoring errors that are wrong regardless of
- * any Artemis checkout: malformed YAML, unknown fields, missing required values, duplicate anchors or ids, and
- * parent or group references that do not exist in the manifest itself. Problems that only a scan can reveal, such as
- * anchors no longer present in Artemis, are reported by the curation step instead of failing here.
+ * any Artemis checkout: malformed YAML, unknown fields, missing required values, a source selector that is not one
+ * immutable commit, duplicate anchors or ids, and parent or group references that do not exist in the manifest itself.
+ * Problems that only a scan can reveal, such as anchors no longer present in Artemis, are reported by the curation
+ * step instead of failing here.
  */
 public class FeatureManifestLoader {
 
-    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "verifiedAgainstArtemisCommit", "include", "exclude", "conceptualNodes",
-            "constraints", "renames");
+    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "artemisCommitSha", "include", "exclude", "conceptualNodes", "constraints",
+            "ignoredRelations", "renames");
+
+    /** A source selector must be one immutable commit: branch names, tags, and abbreviated hashes are rejected. */
+    private static final Pattern ARTEMIS_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
 
     private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
             "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
@@ -39,6 +45,8 @@ public class FeatureManifestLoader {
     private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "category", "groupType", "order", "name", "description");
 
     private static final Set<String> CONSTRAINT_FIELDS = Set.of("id", "type", "source", "target", "description");
+
+    private static final Set<String> IGNORED_RELATION_FIELDS = Set.of("id", "rationale");
 
     private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
 
@@ -91,17 +99,38 @@ public class FeatureManifestLoader {
         if (manifestVersion != FeatureScopeManifest.CURRENT_VERSION) {
             throw new FeatureManifestException("Unsupported manifestVersion " + manifestVersion + "; expected " + FeatureScopeManifest.CURRENT_VERSION + ".");
         }
-        String verifiedCommit = requiredString(root, "verifiedAgainstArtemisCommit", "manifest root");
+        String artemisCommitSha = artemisCommitSha(root);
         List<IncludeEntry> includes = parseIncludes(root.get("include"));
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
         List<ConstraintEntry> constraints = parseConstraints(root.get("constraints"));
+        List<IgnoredRelationEntry> ignoredRelations = parseIgnoredRelations(root.get("ignoredRelations"));
         List<RenameEntry> renames = parseRenames(root.get("renames"));
         validateUniqueness(includes, excludes, conceptualNodes);
         validateInternalReferences(includes, conceptualNodes);
         validateConstraintReferences(constraints, includes, conceptualNodes);
         validateRenames(renames, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, verifiedCommit, includes, excludes, conceptualNodes, constraints, renames);
+        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, includes, excludes, conceptualNodes, constraints, ignoredRelations, renames);
+    }
+
+    /**
+     * Reads the pinned Artemis commit and rejects every mutable or abbreviated source selector.
+     *
+     * @param root parsed manifest root.
+     * @return full 40-character lowercase commit hash.
+     * @throws FeatureManifestException if the value is absent or not a full lowercase commit hash.
+     */
+    private String artemisCommitSha(Map<String, Object> root) {
+        if (root.get("artemisCommitSha") instanceof Number number) {
+            throw new FeatureManifestException("manifest root.artemisCommitSha was read as the number " + number
+                    + "; quote a commit hash that consists of digits only so YAML keeps it as text.");
+        }
+        String value = requiredString(root, "artemisCommitSha", "manifest root");
+        if (!ARTEMIS_COMMIT_SHA.matcher(value).matches()) {
+            throw new FeatureManifestException("manifest root.artemisCommitSha must be a full 40-character lowercase Git commit hash, but was '" + value
+                    + "'. Branch names, tags, and abbreviated hashes select a moving source and are not accepted.");
+        }
+        return value;
     }
 
     /**
@@ -196,6 +225,29 @@ public class FeatureManifestLoader {
             }
             entries.add(new ConstraintEntry(requiredString(entry, "id", location), type, requiredString(entry, "source", location),
                     requiredString(entry, "target", location), optionalString(entry, "description", location)));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Parses the ignored relation section.
+     *
+     * @param value raw YAML value of the ignoredRelations section, or null when absent.
+     * @return parsed ignored relation entries in declaration order.
+     * @throws FeatureManifestException if an entry is malformed or repeats a relation id.
+     */
+    private List<IgnoredRelationEntry> parseIgnoredRelations(Object value) {
+        List<IgnoredRelationEntry> entries = new ArrayList<>();
+        Set<String> relationIds = new LinkedHashSet<>();
+        int index = 0;
+        for (Object item : asList(value, "ignoredRelations")) {
+            String location = "ignoredRelations[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, IGNORED_RELATION_FIELDS, location);
+            String id = requiredString(entry, "id", location);
+            requireUnique(relationIds, id, "Duplicate ignored relation id '" + id + "'.");
+            entries.add(new IgnoredRelationEntry(id, requiredString(entry, "rationale", location)));
             index++;
         }
         return List.copyOf(entries);

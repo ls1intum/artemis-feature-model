@@ -23,10 +23,11 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnno
 
 /**
  * Applies manifest membership to the extracted candidates and merges source annotation semantics for included
- * anchors. Manifest problems that only this scan can reveal — anchors that no longer resolve, entries colliding on
- * one candidate, or resolved semantics conflicting after annotation precedence — become error report items instead of
- * aborting the run: the drift report must keep working exactly when Artemis has drifted away from the manifest.
- * Statically detectable authoring errors are rejected earlier by {@link FeatureManifestLoader}.
+ * anchors. Manifest problems that only this scan can reveal — candidates without a decision, anchors that no longer
+ * resolve, entries colliding on one candidate, or resolved semantics conflicting after annotation precedence — become
+ * error report items rather than aborting the run, so one run reports every curation gap at once instead of the first
+ * one. {@link ManifestConformanceService} turns those errors into the blocking verdict; statically detectable
+ * authoring errors are rejected earlier by {@link FeatureManifestLoader}.
  */
 class ScopeCurationService {
 
@@ -34,7 +35,7 @@ class ScopeCurationService {
 
     static final String STATE_EXCLUDE = "exclude";
 
-    static final String STATE_PENDING = "pending";
+    static final String STATE_UNDECLARED = "undeclared";
 
     private static final String SEMANTIC_SOURCE_MANIFEST = "manifest";
 
@@ -60,16 +61,10 @@ class ScopeCurationService {
      * @param manifest loaded manifest.
      * @param candidates extracted candidates.
      * @param annotations parsed source annotations.
-     * @param scannedCommit resolved checkout commit.
      * @return classifications, resolved include semantics, and diagnostics.
      */
-    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations, String scannedCommit) {
+    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations) {
         List<ReportItem> items = new ArrayList<>();
-        if (!manifest.verifiedAgainstArtemisCommit().equals(scannedCommit)) {
-            items.add(ReportItem.warning(ReportItem.CODE_MANIFEST_COMMIT_MISMATCH, scannedCommit,
-                    "Scope manifest was verified against Artemis commit '" + manifest.verifiedAgainstArtemisCommit() + "'."));
-        }
-
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveMembership(manifest, resolver, items);
         Map<String, AnnotatedAnchor> annotationsByCandidate = resolveAnnotations(annotations, resolver, items);
@@ -196,11 +191,11 @@ class ScopeCurationService {
     }
 
     /**
-     * Classifies one candidate into include, exclude, or pending and records the annotation diagnostics that belong
+     * Classifies one candidate into include, exclude, or undeclared and records the annotation diagnostics that belong
      * to the classification.
      *
      * @param candidate extracted candidate.
-     * @param membership manifest membership, or null when the candidate is unlisted.
+     * @param membership manifest membership, or null when the candidate has no decision.
      * @param annotation source annotation resolved to the candidate, or null.
      * @param decisions decision sink.
      * @param includedFeatures resolved include semantics sink.
@@ -209,13 +204,9 @@ class ScopeCurationService {
     private void classifyCandidate(FeatureCandidate candidate, Membership membership, AnnotatedAnchor annotation, List<CurationDecision> decisions,
             List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
         if (membership != null && membership.include() != null) {
-            ResolvedFeatureScope scope = resolveSemantics(candidate, membership.include(), annotation);
+            ResolvedFeatureScope scope = resolveSemantics(candidate, membership.include(), annotation, items);
             includedFeatures.add(scope);
             decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_INCLUDE, scope.id(), null, scope.semanticSource()));
-            if (annotation != null) {
-                items.add(ReportItem.info(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, candidate.id(),
-                        "Source annotation at " + annotation.file() + ":" + annotation.line() + " overrides manifest-entry semantics."));
-            }
             return;
         }
         if (membership != null) {
@@ -225,10 +216,11 @@ class ScopeCurationService {
             }
             return;
         }
-        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_PENDING, null, null, null));
-        items.add(ReportItem.info(ReportItem.CODE_PENDING_SCOPE_DECISION, candidate.id(), "Candidate is unlisted and remains outside the generated model."));
+        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_UNDECLARED, null, null, null));
+        items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(),
+                "Candidate has no manifest decision; add it to include or exclude before this scan can produce a model."));
         if (annotation != null) {
-            items.add(annotatedButUnscoped(candidate, annotation, STATE_PENDING));
+            items.add(annotatedButUnscoped(candidate, annotation, STATE_UNDECLARED));
         }
     }
 
@@ -272,15 +264,17 @@ class ScopeCurationService {
     }
 
     /**
-     * Resolves the final semantics of one included candidate. Explicitly written annotation attributes win over the
-     * manifest entry; unspecified attributes keep their manifest values. Membership itself is never annotation-driven.
+     * Resolves the final semantics of one included candidate. The manifest is the authored contract, so every value it
+     * declares wins; the annotation only fills attributes the manifest leaves open, and a contradiction is reported
+     * rather than silently applied. Membership itself is never annotation-driven.
      *
      * @param candidate extracted candidate.
      * @param manifest include entry of the candidate.
      * @param annotated source annotation resolved to the candidate, or null.
+     * @param items report item sink.
      * @return resolved semantics with their source marker.
      */
-    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated) {
+    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated, List<ReportItem> items) {
         String optionality = firstNonNull(manifest.optionality(), FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         if (annotated == null) {
             return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate), optionality,
@@ -289,12 +283,110 @@ class ScopeCurationService {
         }
         // The annotation contract carries no category, default state, order, or mapping hints yet; those stay manifest data.
         AnnotationSemantics annotation = annotated.semantics();
-        return new ResolvedFeatureScope(candidate.id(), annotation.id(), firstNonNull(annotation.group(), manifest.group()),
-                firstNonNull(annotation.parent(), manifest.parent()), kind(firstNonNull(annotation.kind(), manifest.kind()), candidate), optionality,
-                manifest.category(), manifest.defaultState(), manifest.order(), firstNonNull(annotation.requiresCapabilities(), manifest.requiresCapabilities()),
-                firstNonNull(annotation.providesCapabilities(), manifest.providesCapabilities()), manifest.artifactMappings(),
-                firstNonNull(annotation.name(), manifest.name()), firstNonNull(annotation.description(), manifest.description()),
-                firstNonNull(annotation.documentationUrl(), manifest.documentationUrl()), SEMANTIC_SOURCE_ANNOTATION);
+        reportContradictedAnnotationAttributes(candidate, manifest, annotated, items);
+        String semanticSource = annotationFilledAnOpenAttribute(manifest, annotation) ? SEMANTIC_SOURCE_ANNOTATION : SEMANTIC_SOURCE_MANIFEST;
+        return new ResolvedFeatureScope(candidate.id(), manifest.id(), firstNonNull(manifest.group(), annotation.group()),
+                firstNonNull(manifest.parent(), annotation.parent()), kind(firstNonNull(manifest.kind(), annotation.kind()), candidate), optionality,
+                manifest.category(), manifest.defaultState(), manifest.order(),
+                declaredCapabilities(manifest.requiresCapabilities(), annotation.requiresCapabilities()),
+                declaredCapabilities(manifest.providesCapabilities(), annotation.providesCapabilities()), manifest.artifactMappings(),
+                firstNonNull(manifest.name(), annotation.name()), firstNonNull(manifest.description(), annotation.description()),
+                firstNonNull(manifest.documentationUrl(), annotation.documentationUrl()), semanticSource);
+    }
+
+    /**
+     * Reports every attribute the annotation declares differently from the manifest. The manifest value is used; the
+     * warning exists so an annotation drifting away from the authored contract stays visible.
+     *
+     * @param candidate extracted candidate.
+     * @param manifest include entry of the candidate.
+     * @param annotated source annotation resolved to the candidate.
+     * @param items report item sink.
+     */
+    private void reportContradictedAnnotationAttributes(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated, List<ReportItem> items) {
+        AnnotationSemantics annotation = annotated.semantics();
+        List<String> contradicted = new ArrayList<>();
+        addContradiction(contradicted, "id", manifest.id(), annotation.id());
+        addContradiction(contradicted, "group", manifest.group(), annotation.group());
+        addContradiction(contradicted, "parent", manifest.parent(), annotation.parent());
+        addContradiction(contradicted, "kind", manifest.kind(), annotation.kind());
+        addContradiction(contradicted, "name", manifest.name(), annotation.name());
+        addContradiction(contradicted, "description", manifest.description(), annotation.description());
+        addContradiction(contradicted, "documentationUrl", manifest.documentationUrl(), annotation.documentationUrl());
+        addContradiction(contradicted, "requiresCapabilities", declaredList(manifest.requiresCapabilities()), annotation.requiresCapabilities());
+        addContradiction(contradicted, "providesCapabilities", declaredList(manifest.providesCapabilities()), annotation.providesCapabilities());
+        if (!contradicted.isEmpty()) {
+            items.add(ReportItem.warning(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION, candidate.id(),
+                    "Source annotation at " + annotated.file() + ":" + annotated.line() + " declares " + String.join(", ", contradicted)
+                            + " differently from the manifest entry; the manifest value is used."));
+        }
+    }
+
+    /**
+     * Records one attribute both sides declare with different values.
+     *
+     * @param contradicted sink of contradicted attribute names.
+     * @param attribute attribute name.
+     * @param manifestValue value the manifest declares, or null when it leaves the attribute open.
+     * @param annotationValue value the annotation declares, or null when it does not declare the attribute.
+     */
+    private void addContradiction(List<String> contradicted, String attribute, Object manifestValue, Object annotationValue) {
+        if (manifestValue != null && annotationValue != null && !manifestValue.equals(annotationValue)) {
+            contradicted.add(attribute);
+        }
+    }
+
+    /**
+     * Indicates whether the annotation supplied a value for an attribute the manifest left open.
+     *
+     * @param manifest include entry of the candidate.
+     * @param annotation parsed annotation semantics.
+     * @return true when at least one resolved value came from the annotation.
+     */
+    private boolean annotationFilledAnOpenAttribute(IncludeEntry manifest, AnnotationSemantics annotation) {
+        return fillsGap(manifest.group(), annotation.group()) || fillsGap(manifest.parent(), annotation.parent())
+                || fillsGap(manifest.kind(), annotation.kind()) || fillsGap(manifest.name(), annotation.name())
+                || fillsGap(manifest.description(), annotation.description()) || fillsGap(manifest.documentationUrl(), annotation.documentationUrl())
+                || fillsGap(declaredList(manifest.requiresCapabilities()), annotation.requiresCapabilities())
+                || fillsGap(declaredList(manifest.providesCapabilities()), annotation.providesCapabilities());
+    }
+
+    /**
+     * Checks whether an annotation value fills an attribute the manifest leaves open.
+     *
+     * @param manifestValue value the manifest declares, or null.
+     * @param annotationValue value the annotation declares, or null.
+     * @return true when only the annotation declares the attribute.
+     */
+    private boolean fillsGap(Object manifestValue, Object annotationValue) {
+        return manifestValue == null && annotationValue != null;
+    }
+
+    /**
+     * Chooses the capability list of an included candidate: the manifest list when it declares one, otherwise the
+     * annotation list.
+     *
+     * @param manifestCapabilities capability list of the manifest entry, empty when not declared.
+     * @param annotationCapabilities capability list of the annotation, or null when not declared.
+     * @return resolved capability list.
+     */
+    private List<String> declaredCapabilities(List<String> manifestCapabilities, List<String> annotationCapabilities) {
+        List<String> declared = declaredList(manifestCapabilities);
+        if (declared != null) {
+            return declared;
+        }
+        return annotationCapabilities == null ? List.of() : annotationCapabilities;
+    }
+
+    /**
+     * Treats an empty manifest capability list as an attribute the manifest leaves open, because the manifest record
+     * normalizes an absent list to an empty one.
+     *
+     * @param capabilities capability list of the manifest entry.
+     * @return the list when it declares capabilities, otherwise null.
+     */
+    private List<String> declaredList(List<String> capabilities) {
+        return capabilities == null || capabilities.isEmpty() ? null : capabilities;
     }
 
     /**
@@ -351,17 +443,17 @@ class ScopeCurationService {
     private CurationReport assembleReport(FeatureScopeManifest manifest, List<CurationDecision> decisions) {
         Map<String, Integer> stateCounts = initializedCounts();
         Map<String, Map<String, Integer>> byKind = new TreeMap<>();
-        List<String> pending = new ArrayList<>();
+        List<String> undeclared = new ArrayList<>();
         for (CurationDecision decision : decisions) {
             stateCounts.merge(decision.state(), 1, Integer::sum);
             byKind.computeIfAbsent(decision.candidateKind(), ignored -> initializedCounts()).merge(decision.state(), 1, Integer::sum);
-            if (STATE_PENDING.equals(decision.state())) {
-                pending.add(decision.candidateId());
+            if (STATE_UNDECLARED.equals(decision.state())) {
+                undeclared.add(decision.candidateId());
             }
         }
-        pending.sort(String::compareTo);
-        return new CurationReport(manifest.manifestVersion(), manifest.verifiedAgainstArtemisCommit(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
-                List.copyOf(pending), List.copyOf(decisions));
+        undeclared.sort(String::compareTo);
+        return new CurationReport(manifest.manifestVersion(), manifest.artemisCommitSha(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
+                List.copyOf(undeclared), List.copyOf(decisions));
     }
 
     /**
@@ -373,7 +465,7 @@ class ScopeCurationService {
         Map<String, Integer> counts = new LinkedHashMap<>();
         counts.put(STATE_INCLUDE, 0);
         counts.put(STATE_EXCLUDE, 0);
-        counts.put(STATE_PENDING, 0);
+        counts.put(STATE_UNDECLARED, 0);
         return counts;
     }
 
@@ -390,14 +482,14 @@ class ScopeCurationService {
     }
 
     /**
-     * Orders decisions so pending candidates lead the report, followed by includes and excludes.
+     * Orders decisions so undeclared candidates lead the report, followed by includes and excludes.
      *
      * @param state decision state.
      * @return sort rank of the state.
      */
     private int stateOrder(String state) {
         return switch (state) {
-            case STATE_PENDING -> 0;
+            case STATE_UNDECLARED -> 0;
             case STATE_INCLUDE -> 1;
             default -> 2;
         };

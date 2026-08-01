@@ -1,32 +1,22 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedArtifactValidation;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
-import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowFinding;
-import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
-import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 
 /**
- * Validates the assembled generated model through the same code paths the running app uses: the structural model
- * integrity rules, the guided workflow's hard reference validation, and the shared coverage/capability/consistency
- * diagnostics — plus the two E3-specific rules: no technical feature may be visible or configurable for teachers, and
- * every capability an included technical feature provides must be listed by the bundled deployment profile.
+ * Validates the assembled generated model through the same structural integrity rules the running app uses, plus the
+ * two model-side E3 rules: no technical feature may be visible or configurable for teachers, and every capability an
+ * included technical feature provides must be listed by the bundled deployment profile. Everything the guided
+ * workflow contributes is validated by {@link GuidedWorkflowValidator} in the workflow stage.
  */
 class GeneratedModelValidator {
 
@@ -35,11 +25,10 @@ class GeneratedModelValidator {
     /**
      * Validation result.
      *
-     * @param artifactValidation hard model and workflow integrity state controlling snapshot eligibility.
-     * @param guidedValidation coverage and consistency findings of the workflow against the generated model.
+     * @param modelIntegrityValid whether the generated model passed the shared structural integrity validation.
      * @param items validation diagnostics for the extraction report.
      */
-    record Result(GeneratedArtifactValidation artifactValidation, GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
+    record Result(boolean modelIntegrityValid, List<ReportItem> items) {
     }
 
     /**
@@ -47,19 +36,15 @@ class GeneratedModelValidator {
      *
      * @param generatedModel assembled generated model.
      * @param includedFeatures resolved include semantics carrying the manifest-declared provided capabilities.
-     * @param bundledWorkflow lean bundled guided workflow.
      * @param bundledProfile bundled deployment profile.
-     * @return guided validation report and report items.
+     * @return model integrity state and report items.
      */
-    Result validate(FeatureModel generatedModel, List<ResolvedFeatureScope> includedFeatures, GuidedWorkflow bundledWorkflow, DeploymentProfile bundledProfile) {
+    Result validate(FeatureModel generatedModel, List<ResolvedFeatureScope> includedFeatures, DeploymentProfile bundledProfile) {
         List<ReportItem> items = new ArrayList<>();
         boolean modelIntegrityValid = validateModelIntegrity(generatedModel, items);
-        boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, bundledWorkflow, items);
         validateRoleVisibility(generatedModel, items);
         validateProvidedCapabilities(includedFeatures, bundledProfile, items);
-        GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, bundledWorkflow, bundledProfile, items);
-        GeneratedArtifactValidation artifactValidation = new GeneratedArtifactValidation(modelIntegrityValid, workflowIntegrityValid);
-        return new Result(artifactValidation, guidedValidation, List.copyOf(items));
+        return new Result(modelIntegrityValid, List.copyOf(items));
     }
 
     /**
@@ -76,26 +61,6 @@ class GeneratedModelValidator {
         }
         catch (FeatureModelIntegrityException e) {
             items.add(ReportItem.error(ReportItem.CODE_GENERATED_MODEL_INVALID, e.getCode(), "Generated model failed integrity validation: " + e.getMessage()));
-            return false;
-        }
-    }
-
-    /**
-     * Runs the guided workflow's hard reference validation against the generated model.
-     *
-     * @param generatedModel assembled generated model.
-     * @param bundledWorkflow lean bundled guided workflow.
-     * @param items diagnostics sink.
-     * @return true when hard workflow reference validation passes.
-     */
-    private boolean validateWorkflowReferences(FeatureModel generatedModel, GuidedWorkflow bundledWorkflow, List<ReportItem> items) {
-        try {
-            new GuidedWorkflowIntegrityService().validate(bundledWorkflow, generatedModel);
-            return true;
-        }
-        catch (FeatureModelIntegrityException e) {
-            items.add(ReportItem.error(ReportItem.CODE_GENERATED_WORKFLOW_INVALID, e.getCode(),
-                    "Bundled guided workflow failed validation against the generated model: " + e.getMessage()));
             return false;
         }
     }
@@ -140,29 +105,5 @@ class GeneratedModelValidator {
                 }
             }
         }
-    }
-
-    /**
-     * Runs the shared coverage/capability/consistency diagnostics of the bundled workflow against the generated model
-     * and assembles the validation report with its automation status.
-     *
-     * @param generatedModel assembled generated model.
-     * @param bundledWorkflow lean bundled guided workflow.
-     * @param bundledProfile bundled deployment profile.
-     * @param items diagnostics sink for the summary item.
-     * @return guided workflow validation report.
-     */
-    private GuidedWorkflowValidationReport guidedValidation(FeatureModel generatedModel, GuidedWorkflow bundledWorkflow, DeploymentProfile bundledProfile,
-            List<ReportItem> items) {
-        Set<String> knownCapabilities = new LinkedHashSet<>(bundledProfile.providedCapabilities());
-        List<GuidedWorkflowFinding> findings = new GuidedWorkflowDiagnosticsService().findings(bundledWorkflow, generatedModel, knownCapabilities);
-        Map<String, Integer> codeCounts = new TreeMap<>();
-        findings.forEach(finding -> codeCounts.merge(finding.code(), 1, Integer::sum));
-        String status = findings.isEmpty() ? GuidedWorkflowValidationReport.STATUS_PASS : GuidedWorkflowValidationReport.STATUS_FINDINGS;
-        if (!findings.isEmpty()) {
-            items.add(ReportItem.warning(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(),
-                    "Guided workflow validation against the generated model produced " + findings.size() + " finding(s); see guided-workflow-validation.json."));
-        }
-        return new GuidedWorkflowValidationReport(status, generatedModel.model().id(), generatedModel.model().version(), codeCounts, findings);
     }
 }

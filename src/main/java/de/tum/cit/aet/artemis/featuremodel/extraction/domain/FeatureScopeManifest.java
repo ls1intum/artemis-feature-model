@@ -3,23 +3,25 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 import java.util.List;
 
 /**
- * Opt-in curation manifest for extracted Artemis candidates. Include and exclude entries decide membership; an
- * unlisted candidate is pending. Conceptual nodes provide model scaffolding without claiming a source anchor, and
- * cross-tree constraints declare the relations the generated model enforces beyond the hierarchy.
+ * Curation manifest for extracted Artemis candidates. It is the executable contract of one extraction run: it selects
+ * the exact Artemis commit to scan, and its include and exclude entries decide membership. Conceptual nodes provide
+ * model scaffolding without claiming a source anchor, and cross-tree constraints declare the relations the generated
+ * model enforces beyond the hierarchy.
  *
  * @param manifestVersion manifest schema version.
- * @param verifiedAgainstArtemisCommit Artemis commit against which the decisions were reviewed.
+ * @param artemisCommitSha full 40-character Artemis commit the run must scan and the decisions were reviewed against.
  * @param include explicitly included candidates.
  * @param exclude explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
  * @param constraints declared cross-tree constraints of the generated model.
+ * @param ignoredRelations relation candidates between included features that deliberately stay unenforced.
  * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
-public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstArtemisCommit, List<IncludeEntry> include, List<ExcludeEntry> exclude,
-        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<RenameEntry> renames) {
+public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha, List<IncludeEntry> include, List<ExcludeEntry> exclude,
+        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations, List<RenameEntry> renames) {
 
     /** Current manifest schema version. */
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     /** Optionality of a feature whose selection is enforced by validation and rendered as a filled circle. */
     public static final String OPTIONALITY_MANDATORY = "mandatory";
@@ -41,6 +43,7 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
         exclude = exclude == null ? List.of() : List.copyOf(exclude);
         conceptualNodes = conceptualNodes == null ? List.of() : List.copyOf(conceptualNodes);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        ignoredRelations = ignoredRelations == null ? List.of() : List.copyOf(ignoredRelations);
         renames = renames == null ? List.of() : List.copyOf(renames);
     }
 
@@ -120,6 +123,17 @@ public record FeatureScopeManifest(int manifestVersion, String verifiedAgainstAr
      * @param description human-readable constraint description, or null.
      */
     public record ConstraintEntry(String id, String type, String source, String target, String description) {
+    }
+
+    /**
+     * Relation evidence between two included features that deliberately does not become a constraint. Every relation
+     * candidate needs a decision just like every feature candidate, so ignoring one is written down with its reason
+     * instead of being silently dropped.
+     *
+     * @param id relation candidate id the decision applies to.
+     * @param rationale maintainer-authored reason why the relation stays unenforced.
+     */
+    public record IgnoredRelationEntry(String id, String rationale) {
     }
 
     /**

@@ -40,15 +40,70 @@ tasks.named('test') {
     }
 }
 
-tasks.register('extractFeatureModel', JavaExec) {
-    description = 'Scans a local Artemis checkout and writes feature extraction outputs under build/feature-extraction.'
+// Single configuration boundary of the feature extraction commands. Every repository-relative input is declared here
+// and passed explicitly to Java; the machine-specific Artemis checkout is never committed and is resolved from the
+// -PartemisPath property first and the ARTEMIS_PATH environment variable second.
+def featureExtraction = [
+        manifest         : providers.gradleProperty('featureManifestPath')
+                .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path),
+        authoredWorkflow : layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path,
+        deploymentProfile: layout.projectDirectory.file('src/main/resources/deployment-profiles/default-artemis-profile.json').asFile.path,
+        curatedModel     : layout.projectDirectory.file('src/main/resources/feature-model/functional-feature-model.json').asFile.path,
+        bootstrapCatalog : layout.projectDirectory.file('src/main/resources/feature-model/artemis-config-key-catalog.json').asFile.path,
+        outputRoot       : layout.buildDirectory.dir('feature-extraction').get().asFile.path,
+        artemisPath      : providers.gradleProperty('artemisPath').orElse(providers.environmentVariable('ARTEMIS_PATH')),
+]
+
+// Every extraction command shares one main class and the same repository-relative options; only the scan reads the
+// Artemis checkout. None of them declares an up-to-date check: the scan depends on mutable checkout state and each
+// later command must be able to observe an edited manifest or authored workflow.
+def registerExtractionCommand = { String taskName, String command, String taskDescription, boolean readsArtemisCheckout ->
+    tasks.register(taskName, JavaExec) {
+        description = taskDescription
+        group = 'feature model'
+        classpath = sourceSets.main.runtimeClasspath
+        mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionCli'
+        outputs.upToDateWhen { false }
+        args = [command, "--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
+                "--deployment-profile=${featureExtraction.deploymentProfile}", "--curated-model=${featureExtraction.curatedModel}",
+                "--bootstrap-catalog=${featureExtraction.bootstrapCatalog}", "--output-root=${featureExtraction.outputRoot}"]
+        if (readsArtemisCheckout && featureExtraction.artemisPath.isPresent()) {
+            // An absent checkout is not reported here: the command itself must run so that it invalidates its stale
+            // output before failing, and it already prints the actionable message.
+            args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
+        }
+    }
+}
+
+registerExtractionCommand('featureModelManifestPreflight', 'preflight',
+        'Validates the scope manifest and prints the pinned Artemis commit and the manifest digest.', false)
+registerExtractionCommand('extractFeatureCandidates', 'scan',
+        'Scans the pinned Artemis checkout and writes feature candidates, evidence, and relation candidates.', true)
+registerExtractionCommand('assembleFeatureModel', 'model',
+        'Applies the scope manifest to an existing scan and assembles the generated feature model and catalog.', false)
+registerExtractionCommand('prepareGuidedWorkflow', 'workflow',
+        'Validates the authored guided workflow against the generated model and prepares the build copy.', false)
+registerExtractionCommand('packageFeatureModelSnapshot', 'snapshot',
+        'Consolidates the extraction report and publishes the importable feature model snapshot.', false)
+
+tasks.named('assembleFeatureModel') { mustRunAfter tasks.named('extractFeatureCandidates') }
+tasks.named('prepareGuidedWorkflow') { mustRunAfter tasks.named('assembleFeatureModel') }
+tasks.named('packageFeatureModelSnapshot') { mustRunAfter tasks.named('prepareGuidedWorkflow') }
+
+tasks.register('buildFeatureModelSnapshot') {
+    description = 'Runs the complete local extraction pipeline: scan, model assembly, workflow preparation, and snapshot packaging.'
     group = 'feature model'
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionRunner'
-    def artemisPath = providers.gradleProperty('artemisPath').getOrElse('/Users/juntingning/thesis/Repositories/Artemis')
-    def manifestPath = providers.gradleProperty('featureManifestPath')
-            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
-    args = [artemisPath, layout.buildDirectory.dir('feature-extraction').get().asFile.path, manifestPath]
+    dependsOn tasks.named('extractFeatureCandidates'), tasks.named('assembleFeatureModel'), tasks.named('prepareGuidedWorkflow'),
+            tasks.named('packageFeatureModelSnapshot')
+}
+
+tasks.register('extractFeatureModel') {
+    description = 'Deprecated alias of buildFeatureModelSnapshot; use the staged commands or the aggregate task instead.'
+    group = 'feature model'
+    dependsOn tasks.named('buildFeatureModelSnapshot')
+    doLast {
+        logger.warn('extractFeatureModel is deprecated and will be removed; run buildFeatureModelSnapshot instead.')
+    }
 }
 
 tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
@@ -56,9 +111,7 @@ tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
     group = 'feature model'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.GuidedWorkflowScaffoldRunner'
-    def scaffoldManifestPath = providers.gradleProperty('featureManifestPath')
-            .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path)
-    args = [layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path, scaffoldManifestPath,
+    args = [featureExtraction.authoredWorkflow, featureExtraction.manifest,
             layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
 }
 

@@ -23,15 +23,15 @@ class ExtractionFailSoftTest {
     @Test
     void unparseableSourceBecomesErrorItemAndScanCompletes() {
         FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        FeatureExtractionService.Outcome outcome = service.extract(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH),
+        FeatureExtractionService.Outcome outcome = service.scan(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH),
                 ExtractionTestModels.minimalCuratedModel(), new ArtemisConfigKeyCatalog("0.0.1-test", "fixturepin", "synthetic", null));
 
-        assertThat(outcome.report().items()).anySatisfy(item -> {
+        assertThat(outcome.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_EXTRACTOR_ERROR);
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.subject()).isEqualTo("backend constants");
         });
         assertThat(outcome.candidates()).extracting(FeatureCandidate::id).contains("toggle:ToggleOne", "toggle:ToggleTwo");
-        assertThat(outcome.report().items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_FE_BE_MIRROR_MISMATCH));
+        assertThat(outcome.items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_FE_BE_MIRROR_MISMATCH));
     }
 }

@@ -7,6 +7,8 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -19,8 +21,8 @@ class FeatureManifestLoaderTest {
     @Test
     void loadsValidManifest() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - anchor: module:alpha
                     id: alpha
@@ -50,10 +52,47 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
+    void loadsThePinnedArtemisCommit() {
+        FeatureScopeManifest manifest = load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                """);
+
+        assertThat(manifest.manifestVersion()).isEqualTo(FeatureScopeManifest.CURRENT_VERSION);
+        assertThat(manifest.artemisCommitSha()).isEqualTo("aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "develop", "v8.3.1", "aaaaaaa", "aaaaaaaabbbbbbbbccccccccddddddddeeeeeee", "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeef",
+            "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDDEEEEEEEE", "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeg", "refs/heads/develop" })
+    void rejectsEverySourceSelectorThatIsNotOneImmutableCommit(String selector) {
+        assertThatThrownBy(() -> load("manifestVersion: 2\nartemisCommitSha: " + selector + "\n")).isInstanceOf(FeatureManifestException.class)
+                .hasMessageContaining("artemisCommitSha").hasMessageContaining("40-character");
+    }
+
+    @Test
+    void rejectsABlankArtemisCommit() {
+        assertThatThrownBy(() -> load("manifestVersion: 2\nartemisCommitSha: \"\"\n")).isInstanceOf(FeatureManifestException.class)
+                .hasMessageContaining("artemisCommitSha");
+    }
+
+    @Test
+    void rejectsADigitsOnlyCommitThatYamlReadsAsANumber() {
+        assertThatThrownBy(() -> load("manifestVersion: 2\nartemisCommitSha: 1111111111111111111111111111111111111111\n"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("quote");
+    }
+
+    @Test
+    void rejectsAnUnsupportedManifestVersion() {
+        assertThatThrownBy(() -> load("manifestVersion: 1\nartemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee\n"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("Unsupported manifestVersion 1");
+    }
+
+    @Test
     void rejectsInvalidOptionalityValue() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - anchor: module:alpha
                     id: alpha
@@ -64,8 +103,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsDuplicateAnchorsAcrossStates() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha }]
                 exclude: [{ anchor: module:alpha, reason: duplicate }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate manifest anchor 'module:alpha'");
@@ -74,8 +113,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsDuplicateCuratedIds() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: shared }]
                 conceptualNodes: [{ id: shared, kind: group }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate curated id 'shared'");
@@ -84,8 +123,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsMissingExcludeReason() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 exclude: [{ anchor: toggle:RateLimit }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("exclude[0].reason");
     }
@@ -93,8 +132,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUnknownStateField() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 pending: [module:alpha]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field(s): pending");
     }
@@ -102,8 +141,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUndeclaredParentReference() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - anchor: module:alpha
                     id: alpha
@@ -114,8 +153,8 @@ class FeatureManifestLoaderTest {
     @Test
     void loadsGenerationSemanticsAndConstraints() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - anchor: infra:tech-a
                     id: tech-a
@@ -159,8 +198,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsGroupTypeOnNonGroupNode() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 conceptualNodes:
                   - id: always-on
                     kind: module
@@ -171,8 +210,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUnknownConstraintType() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha }]
                 constraints:
                   - { id: bad, type: implies, source: alpha, target: alpha }
@@ -182,8 +221,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsConstraintReferencingUndeclaredFeature() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha }]
                 constraints:
                   - { id: bad, type: requires, source: alpha, target: ghost }
@@ -193,8 +232,8 @@ class FeatureManifestLoaderTest {
     @Test
     void loadsExplicitRenameWithRationale() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha-renamed }]
                 renames:
                   - from: alpha
@@ -212,8 +251,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsRenameWithoutRationale() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha-renamed }]
                 renames: [{ from: alpha, to: alpha-renamed }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("renames[0].rationale");
@@ -222,8 +261,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsDuplicateRenameSource() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - { anchor: module:alpha, id: alpha-renamed }
                   - { anchor: module:beta, id: beta-renamed }
@@ -236,8 +275,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsConflictingRenameTarget() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha-renamed }]
                 renames:
                   - { from: old-alpha, to: alpha-renamed, rationale: First }
@@ -248,8 +287,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsSelfRename() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include: [{ anchor: module:alpha, id: alpha }]
                 renames: [{ from: alpha, to: alpha, rationale: Invalid }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source and target must differ");
@@ -258,8 +297,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUnknownRenameTarget() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 renames: [{ from: alpha, to: ghost, rationale: Invalid }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("target 'ghost' is not a current manifest-declared id");
     }
@@ -267,8 +306,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsRenameFromCurrentIdAndChainedMappings() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - { anchor: module:alpha, id: alpha }
                   - { anchor: module:beta, id: beta }
@@ -281,8 +320,8 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsNonPositiveOrder() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 1
-                verifiedAgainstArtemisCommit: abc123
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 include:
                   - anchor: module:alpha
                     id: alpha

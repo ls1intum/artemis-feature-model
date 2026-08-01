@@ -24,7 +24,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.MappingHint;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 import tools.jackson.databind.ObjectMapper;
@@ -96,12 +95,11 @@ class GeneratedModelAssembler {
      * @param includedFeatures resolved include semantics from the curation step.
      * @param candidates extracted candidates providing names, config keys, and defaults.
      * @param evidence evidence items backing the candidates.
-     * @param relationCandidates extracted relation candidates, checked against the declared constraints.
      * @param artemisCommit resolved commit of the scanned checkout.
      * @return assembled model and diagnostics.
      */
     Result assemble(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures, List<FeatureCandidate> candidates, List<EvidenceItem> evidence,
-            List<RelationCandidate> relationCandidates, String artemisCommit) {
+            String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         Map<String, FeatureCandidate> candidatesById = new LinkedHashMap<>();
         candidates.forEach(candidate -> candidatesById.putIfAbsent(candidate.id(), candidate));
@@ -117,7 +115,6 @@ class GeneratedModelAssembler {
             emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
         }
         List<FeatureConstraint> constraints = assembleConstraints(manifest, features, items);
-        reportUndeclaredRelationCandidates(manifest, includedFeatures, relationCandidates, items);
 
         ModelMetadata metadata = new ModelMetadata(GENERATED_MODEL_ID, GENERATED_MODEL_NAME, generatedVersion(artemisCommit), "generated", artemisCommit);
         return new Result(new FeatureModel(metadata, features, relations, constraints), List.copyOf(items));
@@ -434,42 +431,4 @@ class GeneratedModelAssembler {
         }
     }
 
-    /**
-     * Reports directed relation candidates whose endpoints are both included but which no declared constraint covers.
-     * The composite condition is enforcement-eligible evidence; the info item connects it to the pending curation
-     * decision without auto-admitting a constraint.
-     *
-     * @param manifest loaded manifest.
-     * @param includedFeatures resolved include semantics.
-     * @param relationCandidates extracted relation candidates.
-     * @param items diagnostics sink.
-     */
-    private void reportUndeclaredRelationCandidates(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures,
-            List<RelationCandidate> relationCandidates, List<ReportItem> items) {
-        Map<String, String> includedIdByCandidate = new LinkedHashMap<>();
-        includedFeatures.forEach(included -> includedIdByCandidate.put(included.candidateId(), included.id()));
-        Set<String> declaredPairs = new LinkedHashSet<>();
-        for (ConstraintEntry constraint : manifest.constraints()) {
-            declaredPairs.add(constraint.source() + "->" + constraint.target());
-            declaredPairs.add(constraint.target() + "->" + constraint.source());
-        }
-        for (RelationCandidate relationCandidate : relationCandidates) {
-            if (!relationCandidate.directed() || relationCandidate.sourceCandidateId() == null) {
-                continue;
-            }
-            String sourceId = includedIdByCandidate.get(relationCandidate.sourceCandidateId());
-            if (sourceId == null) {
-                continue;
-            }
-            for (String memberCandidateId : relationCandidate.memberCandidateIds()) {
-                String targetId = includedIdByCandidate.get(memberCandidateId);
-                if (targetId == null || targetId.equals(sourceId) || declaredPairs.contains(sourceId + "->" + targetId)) {
-                    continue;
-                }
-                items.add(ReportItem.info(ReportItem.CODE_RELATION_CANDIDATE_UNDECLARED, relationCandidate.id(),
-                        "Composite condition '" + relationCandidate.conditionClass() + "' relates included features '" + sourceId + "' and '" + targetId
-                                + "' but the manifest declares no matching constraint."));
-            }
-        }
-    }
 }

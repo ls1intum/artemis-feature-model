@@ -29,7 +29,7 @@ class FeatureExtractionServiceTest {
     @BeforeAll
     static void extractFixture() {
         FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        outcome = service.extract(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        outcome = service.scan(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
     }
 
     @Test
@@ -233,27 +233,12 @@ class FeatureExtractionServiceTest {
     }
 
     @Test
-    void completesWithoutExtractorErrorsAndDocumentsCodes() {
+    void completesWithoutExtractorErrors() {
         assertThat(itemsWithCode(ReportItem.CODE_EXTRACTOR_ERROR)).isEmpty();
-        assertThat(outcome.report().codes()).containsKeys(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL, ReportItem.CODE_CURATED_ANCHOR_MISSING,
-                ReportItem.CODE_CURATED_EVIDENCE_STALE, ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_FE_BE_MIRROR_MISMATCH,
-                ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
-        assertThat(outcome.report().artemisCommit()).isEqualTo("unknown");
-        assertThat(outcome.report().curatedModelId()).isEqualTo("fixture-model");
+        assertThat(outcome.annotations()).isEmpty();
+        assertThat(outcome.configDefaults().occurrencesByKey()).containsKey("artemis.alpha.enabled");
     }
 
-    @Test
-    void classifiesEveryFixtureCandidateWithManifestMembership() throws Exception {
-        FeatureManifestLoader loader = new FeatureManifestLoader();
-        var manifest = loader.load(Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"));
-        FeatureExtractionService.Outcome curatedOutcome = new FeatureExtractionService(new ObjectMapper()).extract(new LocalArtemisSourceRepository(FIXTURE_PATH),
-                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog(), manifest);
-
-        assertThat(curatedOutcome.report().curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("pending", 0);
-        assertThat(curatedOutcome.report().curation().pendingCandidateIds()).isEmpty();
-        assertThat(curatedOutcome.includedFeatures()).singleElement().satisfies(feature -> assertThat(feature.id()).isEqualTo("alpha-feature"));
-        assertThat(curatedOutcome.report().items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL));
-    }
 
     private FeatureCandidate candidate(String id) {
         return outcome.candidates().stream().filter(candidate -> candidate.id().equals(id)).findFirst().orElseThrow();
@@ -272,6 +257,6 @@ class FeatureExtractionServiceTest {
     }
 
     private List<ReportItem> itemsWithCode(String code) {
-        return outcome.report().items().stream().filter(item -> item.code().equals(code)).toList();
+        return outcome.items().stream().filter(item -> item.code().equals(code)).toList();
     }
 }

@@ -2,77 +2,89 @@ package de.tum.cit.aet.artemis.featuremodel.extraction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import org.springframework.core.io.DefaultResourceLoader;
+import org.junit.jupiter.api.io.TempDir;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
-import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureExtractionService;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.WorkflowStageService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Opt-in smoke run against a real local Artemis checkout. Enabled only when the {@code artemisPath} system property is
- * set, for example via {@code ./gradlew test -PartemisPath=/path/to/Artemis}; skipped silently otherwise.
+ * Opt-in smoke run of the staged pipeline against a real local Artemis checkout. Enabled only when the
+ * {@code artemisPath} system property is set, for example via {@code ./gradlew test -PartemisPath=/path/to/Artemis};
+ * skipped silently otherwise.
  */
+@EnabledIfSystemProperty(named = "artemisPath", matches = ".+")
 class RealArtemisCheckoutSmokeTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @TempDir
+    private Path outputRoot;
+
     @Test
-    @EnabledIfSystemProperty(named = "artemisPath", matches = ".+")
-    void scansRealCheckoutAndRediscoversKnownModelGaps() throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper();
-        FeatureModel curatedModel = new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper).loadActiveModel();
-        ArtemisConfigKeyCatalog catalog = loadCatalog(objectMapper);
-        FeatureScopeManifest manifest = loadManifest();
-        LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(Path.of(System.getProperty("artemisPath")));
+    void runsEveryStageAgainstTheRealCheckout() throws Exception {
+        FeatureExtractionInputs inputs = inputs();
+        LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).extract(source, curatedModel, catalog, manifest);
+        ScanStageService.Summary scan = new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
+        ModelStageService.Summary model = new ModelStageService(objectMapper).run(inputs);
+        WorkflowStageService.Summary workflow = new WorkflowStageService(objectMapper).run(inputs);
+        PackageStageService.Summary packaged = new PackageStageService(objectMapper).run(inputs);
 
-        assertThat(outcome.candidates().size()).isGreaterThanOrEqualTo(50);
-        assertThat(outcome.relationCandidates()).isNotEmpty();
-        assertThat(outcome.report().items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_EXTRACTOR_ERROR));
-        assertThat(outcome.report().items()).noneSatisfy(item -> {
+        assertThat(scan.candidateCount()).isGreaterThanOrEqualTo(50);
+        assertThat(scan.relationCandidateCount()).isPositive();
+        assertThat(model.modelIntegrityValid()).isTrue();
+        assertThat(workflow.workflowIntegrityValid()).isTrue();
+        assertThat(packaged.snapshotDirectory()).isNotNull();
+
+        ExtractionReport report = objectMapper.readValue(Files.readAllBytes(packaged.reportDirectory().resolve("extraction-report.json")),
+                ExtractionReport.class);
+        assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR);
+        assertThat(report.items()).noneSatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_CURATED_ANCHOR_MISSING);
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
         });
-        List<String> newCandidateSubjects = outcome.report().items().stream().filter(item -> ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL.equals(item.code()))
-                .map(ReportItem::subject).toList();
-        assertThat(newCandidateSubjects).as("every non-curated candidate carries an explicit manifest exclusion").isEmpty();
-        assertThat(outcome.report().curation().pendingCandidateIds()).isEmpty();
-        assertThat(outcome.report().curation().stateCounts()).containsEntry("include", 20).containsEntry("exclude", 51).containsEntry("pending", 0);
+        assertThat(reportCodes(report)).as("every non-curated candidate carries an explicit manifest exclusion")
+                .doesNotContain(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
+        assertThat(report.curation().undeclaredCandidateIds()).isEmpty();
+        assertThat(report.curation().stateCounts()).containsEntry("undeclared", 0);
+        assertThat(ExtractionArtifactLayout.forCommit(outputRoot, source.commit()).snapshotDirectory()).isDirectory();
     }
 
     /**
-     * Loads the classpath config key catalog.
+     * Resolves the bundled repository inputs against a temporary output root.
      *
-     * @param objectMapper Jackson mapper.
-     * @return parsed catalog.
-     * @throws Exception if the catalog cannot be read.
+     * @return command inputs for the smoke run.
      */
-    private ArtemisConfigKeyCatalog loadCatalog(ObjectMapper objectMapper) throws Exception {
-        try (InputStream inputStream = new DefaultResourceLoader().getResource("classpath:feature-model/artemis-config-key-catalog.json").getInputStream()) {
-            return objectMapper.readValue(inputStream, ArtemisConfigKeyCatalog.class);
-        }
+    private FeatureExtractionInputs inputs() {
+        return new FeatureExtractionInputs(Path.of(System.getProperty("artemisPath")),
+                Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
+                Path.of("src/main/resources/feature-model/guided-workflow.json"),
+                Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
+                Path.of("src/main/resources/feature-model/functional-feature-model.json"),
+                Path.of("src/main/resources/feature-model/artemis-config-key-catalog.json"), outputRoot);
     }
 
     /**
-     * Loads the bundled scope manifest.
+     * Collects the distinct diagnostic codes of the consolidated report.
      *
-     * @return parsed feature scope manifest.
-     * @throws Exception if the manifest cannot be read.
+     * @param report consolidated extraction report.
+     * @return report codes present in the run.
      */
-    private FeatureScopeManifest loadManifest() throws Exception {
-        try (InputStream inputStream = new DefaultResourceLoader().getResource("classpath:feature-model/extraction/artemis-feature-manifest.yml").getInputStream()) {
-            return new FeatureManifestLoader().load(inputStream, "bundled feature manifest");
-        }
+    private List<String> reportCodes(ExtractionReport report) {
+        return report.items().stream().map(ReportItem::code).distinct().toList();
     }
 }

@@ -104,18 +104,31 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   as a branch-scoped CI workflow. A drift-guard test fails when a model mapping
   path is missing from the catalog, so the catalog must be refreshed when
   Artemis config keys change.
-- `./gradlew extractFeatureModel -PartemisPath=<artemis-checkout>` scans a local
-  Artemis checkout read-only (no Spring context, no user-reachable trigger) and
-  writes feature candidates, evidence, relation candidates, and a drift report
-  against the active curated model under `build/feature-extraction/<commit>/`.
-  The bundled scope manifest classifies every current candidate as include or
-  exclude and adds curation counts and decisions to the report; unlisted
-  candidates remain pending and never enter a model. Source-parsed
-  `@ArtemisFeature` semantics override manifest-entry semantics but never grant
-  membership. Override the relocatable manifest input with
-  `-PfeatureManifestPath=<manifest.yml>`. Outputs are deterministic apart from
-  scan-metadata timestamps; the drift report replaces the discovery step of
-  the manual weekly consistency audit.
+- Extraction runs as four composable commands plus one aggregate:
+  `extractFeatureCandidates` (the only one that opens the checkout),
+  `assembleFeatureModel`, `prepareGuidedWorkflow`, `packageFeatureModelSnapshot`,
+  and `buildFeatureModelSnapshot`; `featureModelManifestPreflight` prints the
+  pinned commit and manifest digest, and `extractFeatureModel` is a deprecated
+  alias of the aggregate. Each command owns one directory of
+  `build/feature-extraction/<artemis-sha>/{scan,model,workflow,report,snapshot}`
+  and consumes upstream artifacts only through digest-verified envelopes, so a
+  stale or foreign intermediate artifact is rejected instead of composed.
+  Configuration enters through `FeatureExtractionInputs`; the local checkout
+  resolves from `-PartemisPath` (or user-level `gradle.properties`), then
+  `ARTEMIS_PATH`, and no developer path is committed. Override the relocatable
+  manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
+  deterministic apart from scan-metadata timestamps; the drift report replaces
+  the discovery step of the manual weekly consistency audit.
+- The scope manifest is schema version 2 and is the executable contract of a
+  run: `artemisCommitSha` selects one immutable Artemis commit, and the scan
+  verifies before reading any file that the checkout is at that commit and
+  clean. Curation is fail-closed — an undeclared candidate, a relation between
+  included features without a declared constraint or an `ignoredRelations`
+  entry, an orphan or ambiguous anchor, a colliding decision, or a failed
+  extractor blocks the run, which writes diagnostics and exits non-zero without
+  assembling a model. Manifest-authored semantics win over `@ArtemisFeature`
+  annotations, which only fill attributes the manifest leaves open and never
+  grant membership.
 - The extraction run additionally assembles a complete generated feature model
   from the manifest's include entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
