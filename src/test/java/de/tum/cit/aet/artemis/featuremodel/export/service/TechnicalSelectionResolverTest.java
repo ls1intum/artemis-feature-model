@@ -3,7 +3,6 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.LinkedHashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -63,14 +62,16 @@ class TechnicalSelectionResolverTest {
     }
 
     @Test
-    void curatedBundledModelResolvesToEmpty() {
+    void curatedBundledModelResolvesItsDefaultTechnicalStack() {
         FeatureModel model = new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper).loadActiveModel();
-        Set<String> selectedFeatureIds = new LinkedHashSet<>();
-        for (FeatureNode feature : model.features()) {
-            selectedFeatureIds.add(feature.id());
-        }
+        Set<String> selectedFeatureIds = Set.of("mysql", "integrated-code-lifecycle", "localvc");
 
-        assertThat(resolver.resolve(model, selectedFeatureIds).isEmpty()).isTrue();
+        TechnicalSelection selection = resolver.resolve(model, selectedFeatureIds);
+
+        assertThat(selection.databaseId()).contains("mysql");
+        assertThat(selection.databaseComposeFile()).contains("docker/mysql.yml");
+        assertThat(selection.ciProviderId()).contains("integrated-code-lifecycle");
+        assertThat(selection.springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
     }
 
     @Test

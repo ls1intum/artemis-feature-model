@@ -35,7 +35,8 @@ import tools.jackson.databind.ObjectMapper;
 
 class DeploymentPackageServiceTest {
 
-    private static final List<String> MINIMAL_SELECTION = List.of("course-workflow", "communication", "exercise-common", "programming", "quiz");
+    private static final List<String> MINIMAL_SELECTION = List.of("course-workflow", "communication", "exercise-common", "programming", "quiz", "mysql",
+            "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;
@@ -69,8 +70,9 @@ class DeploymentPackageServiceTest {
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
                 "env/README.md", "metadata/selected-features.json", "metadata/deployment-profile-summary.json", "metadata/generation-report.json",
                 "metadata/package-manifest.json", "metadata/runtime-checks.json", "metadata/static-config-validation.json",
-                "deployment/local-repo/docker-compose.override.example.yml", "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/start-demo.sh",
-                "scripts/validate-package.sh", "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
+                "deployment/local-repo/artemis-feature-model-stack.yml", "deployment/local-repo/docker-compose.override.example.yml",
+                "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/start-demo.sh", "scripts/validate-package.sh",
+                "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
     }
 
     @Test
@@ -83,7 +85,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
-        assertThat(manifest.generatedFiles()).hasSize(19);
+        assertThat(manifest.generatedFiles()).hasSize(20);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
         assertThat(manifest.database().type()).isEqualTo("mysql");
@@ -141,11 +143,13 @@ class DeploymentPackageServiceTest {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
         String override = content(result, "deployment/local-repo/docker-compose.override.example.yml");
+        String stack = content(result, DeploymentPackageService.TECHNICAL_STACK_FILE);
         assertThat(override).contains("artemis-app:").contains("/opt/artemis/config/application-feature-model.yml:ro")
                 .contains("SPRING_CONFIG_ADDITIONAL_LOCATION").contains("${FM_OVERLAY_HOST_PATH}").contains("${FM_ENV_FILE}");
-        // The CI-capable MySQL stack: pin the datasource to the mysql service and use isolated container names.
-        assertThat(override).contains("SPRING_DATASOURCE_URL").contains("jdbc:mysql://mysql:3306").contains("mysql:")
+        // The selected MySQL/ICL stack pins the datasource and uses isolated container names.
+        assertThat(stack).contains("SPRING_DATASOURCE_URL").contains("jdbc:mysql://artemis-feature-model-mysql:3306").contains("mysql:")
                 .contains("container_name: artemis-feature-model-local-app");
+        assertThat(stack).doesNotContain("postgres");
         assertThat(override).doesNotContain("postgres").doesNotContain("image:");
     }
 
@@ -160,7 +164,7 @@ class DeploymentPackageServiceTest {
         // The single-command DEMO entry point chains chmod, demo env preparation, and the local-repo start.
         String startDemo = content(result, "scripts/start-demo.sh");
         assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh");
-        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /path/to/Artemis");
+        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /absolute/path/to/Artemis");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the
@@ -176,13 +180,14 @@ class DeploymentPackageServiceTest {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
         String override = content(result, "deployment/local-repo/docker-compose.override.example.yml");
+        String stack = content(result, DeploymentPackageService.TECHNICAL_STACK_FILE);
         String start = content(result, "scripts/start-local-repo.sh");
         String stop = content(result, "scripts/stop-local-repo.sh");
         assertThat(override).contains(RuntimePackageConstants.OVERLAY_HOST_PATH_ENV).contains(RuntimePackageConstants.ENV_FILE_ENV)
-                .contains(RuntimePackageConstants.CONTAINER_OVERLAY_PATH).contains(RuntimePackageConstants.SPRING_CONFIG_ENV)
-                .contains(RuntimePackageConstants.DATASOURCE_URL).contains(RuntimePackageConstants.CONTAINER_APP_NAME).contains(RuntimePackageConstants.CONTAINER_DB_NAME);
+                .contains(RuntimePackageConstants.CONTAINER_OVERLAY_PATH).contains(RuntimePackageConstants.SPRING_CONFIG_ENV);
+        assertThat(stack).contains(RuntimePackageConstants.CONTAINER_APP_NAME).contains(RuntimePackageConstants.CONTAINER_DB_NAME);
         assertThat(start).contains(RuntimePackageConstants.COMPOSE_PROJECT_NAME).contains(RuntimePackageConstants.OVERLAY_HOST_PATH_ENV)
-                .contains(RuntimePackageConstants.DEFAULT_ARTEMIS_COMPOSE_FILE).contains(RuntimePackageConstants.ARTEMIS_COMPOSE_ENV);
+                .contains(DeploymentPackageService.TECHNICAL_STACK_FILE).contains(RuntimePackageConstants.ARTEMIS_COMPOSE_ENV);
         assertThat(stop).contains(RuntimePackageConstants.COMPOSE_PROJECT_NAME);
     }
 
@@ -237,21 +242,25 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.packageType()).isEqualTo("dev-ide-configuration-package");
         assertThat(manifest.deploymentMode()).isEqualTo("dev-ide");
         assertThat(manifest.supportedRuntimeModes()).isEmpty();
-        assertThat(manifest.database()).isNull();
+        assertThat(manifest.database().type()).isEqualTo("mysql");
+        assertThat(manifest.database().mode()).isEqualTo("developer-managed");
+        assertThat(manifest.ciProvider().type()).isEqualTo("integrated-code-lifecycle");
         assertThat(manifest.readiness().localRuntimeReady()).isFalse();
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.generatedFiles()).hasSize(10);
     }
 
     @Test
-    void omitsTechnicalSelectionMetadataForTheCuratedModelInBothModes() {
+    void recordsTechnicalSelectionMetadataForTheClasspathModelInBothModes() {
         GeneratedArtifactPackage localDocker = service.generate(request(MINIMAL_SELECTION, null));
         GeneratedArtifactPackage devIde = service.generate(new ArtifactGenerationRequest(MINIMAL_SELECTION, null, null, "dev-ide"));
 
         for (GeneratedArtifactPackage result : List.of(localDocker, devIde)) {
-            assertThat(result.report().technicalSelection()).isNull();
-            assertThat(content(result, ArtifactGenerationService.REPORT_FILE)).doesNotContain("\"technicalSelection\"");
-            assertThat(content(result, DeploymentPackageService.MANIFEST_FILE)).doesNotContain("\"technicalSelection\"");
+            assertThat(result.report().technicalSelection().databaseId()).isEqualTo("mysql");
+            assertThat(result.report().technicalSelection().ciProviderId()).isEqualTo("integrated-code-lifecycle");
+            assertThat(result.report().technicalSelection().springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
+            assertThat(content(result, ArtifactGenerationService.REPORT_FILE)).contains("\"technicalSelection\"");
+            assertThat(content(result, DeploymentPackageService.MANIFEST_FILE)).contains("\"technicalSelection\"");
         }
     }
 

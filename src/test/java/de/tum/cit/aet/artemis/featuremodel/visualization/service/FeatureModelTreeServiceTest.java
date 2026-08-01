@@ -30,10 +30,12 @@ class FeatureModelTreeServiceTest {
         FeatureTreeNodeDTO tree = service.buildTree(store.loadActiveModel());
 
         assertThat(tree.children()).extracting(child -> child.feature().id()).containsExactly("teaching-and-content", "exercise-system",
-                "assessment-and-integrity", "adaptive-learning-and-ai", "platform-integrations");
+                "assessment-and-integrity", "adaptive-learning-and-ai", "platform-integrations", "database", "ci-provider", "localvc");
         assertThat(tree.children()).allSatisfy(child -> assertThat(child.incomingRelation()).isNotNull());
         assertThat(tree.children().getFirst().children()).extracting(child -> child.feature().id()).containsExactly("lecture", "tutorialgroup",
                 "course-workflow", "communication");
+        assertThat(tree.children().get(5).children()).extracting(child -> child.feature().id()).containsExactly("mysql", "postgresql");
+        assertThat(tree.children().get(6).children()).extracting(child -> child.feature().id()).containsExactly("integrated-code-lifecycle", "jenkins");
     }
 
     private int countNodes(FeatureTreeNodeDTO node) {

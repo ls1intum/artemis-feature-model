@@ -1,10 +1,10 @@
 manifestVersion: 1
 verifiedAgainstArtemisCommit: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
 
-# Membership mirrors the curated 26-feature model plus the deliberately introduced E3 technical subtree: the include
-# list carries the anchored curated modules and the first technical features, and every other candidate is excluded
-# with a documented reason. Entries with reason `deferred` are candidates the extraction surfaced that stay out only
-# until the generated model reaches parity with the curated model; moving one back is a single-entry change.
+# Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
+# include list carries the anchored curated modules and the first technical features, and every other candidate is
+# excluded with a documented reason. Entries with reason `deferred` are candidates the extraction surfaced that stay
+# out only until the generated model reaches parity with the curated model; moving one back is a single-entry change.
 # Optionality, category, default state, relation order, and artifact-mapping hints are modeling judgments code cannot
 # express, so they are declared here and carried into the generated model.
 

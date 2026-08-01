@@ -30,7 +30,8 @@ import tools.jackson.databind.ObjectMapper;
 
 class ArtifactGenerationServiceTest {
 
-    private static final List<String> MINIMAL_SELECTION = List.of("course-workflow", "communication", "exercise-common", "programming", "quiz");
+    private static final List<String> MINIMAL_SELECTION = List.of("course-workflow", "communication", "exercise-common", "programming", "quiz", "mysql",
+            "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;

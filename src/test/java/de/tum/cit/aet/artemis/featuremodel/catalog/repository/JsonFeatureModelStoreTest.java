@@ -26,7 +26,7 @@ class JsonFeatureModelStoreTest {
         assertThat(model.model().sourceCommitSha()).isNull();
         assertThat(model.features()).isNotEmpty();
         assertThat(model.relations()).isNotEmpty();
-        assertThat(model.constraints()).singleElement().satisfies(constraint -> {
+        assertThat(model.constraints()).hasSize(3).anySatisfy(constraint -> {
             assertThat(constraint.id()).isEqualTo("apollon-requires-modeling");
             assertThat(constraint.type()).isEqualTo("requires");
             assertThat(constraint.source()).isEqualTo("apollon");
@@ -58,6 +58,14 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.extraction().method()).isEqualTo("manual-curation");
             assertThat(feature.extraction().confidence()).isEqualTo("high");
             assertThat(feature.extraction().status()).isEqualTo("manually_confirmed");
+        });
+        assertThat(model.features()).anySatisfy(feature -> {
+            assertThat(feature.id()).isEqualTo("jenkins");
+            assertThat(feature.category()).isEqualTo("technical");
+            assertThat(feature.visibleTo()).containsExactly("maintainer");
+            assertThat(feature.configurableBy()).containsExactly("maintainer");
+            assertThat(feature.artifactMappings()).extracting(mapping -> mapping.path()).contains("SPRING_PROFILES_ACTIVE",
+                    "artemis.continuous-integration.url");
         });
     }
 

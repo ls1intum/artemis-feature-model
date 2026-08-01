@@ -55,7 +55,8 @@ import tools.jackson.databind.ObjectMapper;
 
 class DeploymentPackageResourceTest {
 
-    private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\"]";
+    private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\",\"mysql\","
+            + "\"integrated-code-lifecycle\",\"localvc\"]";
 
     @TempDir
     Path dataRoot;
@@ -90,6 +91,7 @@ class DeploymentPackageResourceTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").exists())
                 .andExpect(jsonPath("$.files[*].path", hasItem("config/application-feature-model.yml")))
                 .andExpect(jsonPath("$.files[*].path", hasItem("metadata/package-manifest.json")))
+                .andExpect(jsonPath("$.files[*].path", hasItem("deployment/local-repo/artemis-feature-model-stack.yml")))
                 .andExpect(jsonPath("$.files[*].path", hasItem("deployment/local-repo/docker-compose.override.example.yml")))
                 .andExpect(jsonPath("$.files[*].path", hasItem("scripts/start-local-repo.sh"))).andExpect(jsonPath("$.report.mode").value("DEMO"))
                 .andExpect(jsonPath("$.downloadAvailable").value(true));

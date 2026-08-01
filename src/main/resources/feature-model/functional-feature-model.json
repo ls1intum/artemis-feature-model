@@ -1038,6 +1038,327 @@
         "confidence": "high",
         "status": "manually_confirmed"
       }
+    },
+    {
+      "id": "database",
+      "name": "Database",
+      "kind": "group",
+      "selectable": false,
+      "description": "Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks.",
+      "defaultState": "not_applicable",
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL",
+      "kind": "feature",
+      "selectable": true,
+      "description": "MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.",
+      "defaultState": "enabled",
+      "source": {
+        "evidence": [
+          "docker/artemis-dev-local-vc-local-ci-mysql.yml",
+          "docker/artemis-dev-mysql.yml",
+          "docker/artemis-migration-check-mysql.yml",
+          "docker/artemis-prod-mysql.yml",
+          "docker/mysql.yml",
+          "docker/playwright-E2E-tests-mysql-localci.yml",
+          "docker/playwright-E2E-tests-mysql.yml",
+          "docker/test-server-multi-node-mysql-localci.yml",
+          "docker/test-server-mysql-localci.yml",
+          "docker/test-server-mysql.yml"
+        ]
+      },
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "docker-compose.override.yml",
+          "path": "database.composeFile",
+          "valueWhenSelected": "docker/mysql.yml",
+          "valueWhenDeselected": null,
+          "valueFromProfile": null,
+          "requiredWhenSelected": false,
+          "secret": false
+        }
+      ],
+      "extraction": {
+        "method": "automatic",
+        "confidence": "medium",
+        "status": "generated"
+      }
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL",
+      "kind": "feature",
+      "selectable": true,
+      "description": "PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.",
+      "defaultState": "disabled",
+      "source": {
+        "evidence": [
+          "docker/artemis-dev-postgres.yml",
+          "docker/artemis-migration-check-postgres.yml",
+          "docker/artemis-prod-postgres.yml",
+          "docker/e2e-local-fast-postgres.yml",
+          "docker/playwright-E2E-tests-postgres-localci.yml",
+          "docker/playwright-E2E-tests-postgres.yml",
+          "docker/postgres.yml",
+          "docker/test-server-multi-node-postgresql-localci.yml",
+          "docker/test-server-postgresql-localci.yml",
+          "docker/test-server-postgresql.yml"
+        ]
+      },
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": "docker-compose.override.yml",
+          "path": "database.composeFile",
+          "valueWhenSelected": "docker/postgres.yml",
+          "valueWhenDeselected": null,
+          "valueFromProfile": null,
+          "requiredWhenSelected": false,
+          "secret": false
+        }
+      ],
+      "extraction": {
+        "method": "automatic",
+        "confidence": "medium",
+        "status": "generated"
+      }
+    },
+    {
+      "id": "ci-provider",
+      "name": "CI Provider",
+      "kind": "group",
+      "selectable": false,
+      "description": "Exactly one continuous-integration provider builds programming exercises in a deployment.",
+      "defaultState": "not_applicable",
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [],
+      "requiresCapabilities": [],
+      "artifactMappings": [],
+      "extraction": {
+        "method": "manual-curation",
+        "confidence": "high",
+        "status": "manually_confirmed"
+      }
+    },
+    {
+      "id": "integrated-code-lifecycle",
+      "name": "Integrated Code Lifecycle",
+      "kind": "feature",
+      "selectable": true,
+      "description": "Built-in CI provider activated by the localci and buildagent Spring profiles.",
+      "defaultState": "enabled",
+      "source": {
+        "springProfile": "localci",
+        "frontendConstant": "PROFILE_LOCALCI",
+        "evidence": [
+          "Constants.java:324",
+          "admin-feature-toggle.component.ts:106",
+          "app.constants.ts:95",
+          "src/main/resources/config/application-localci.yml",
+          "src/main/webapp/i18n/en/featureToggles.json"
+        ]
+      },
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": ".env",
+          "path": "SPRING_PROFILES_ACTIVE",
+          "valueWhenSelected": "localci,buildagent",
+          "valueWhenDeselected": null,
+          "valueFromProfile": null,
+          "requiredWhenSelected": false,
+          "secret": false
+        }
+      ],
+      "extraction": {
+        "method": "automatic",
+        "confidence": "medium",
+        "status": "generated"
+      }
+    },
+    {
+      "id": "jenkins",
+      "name": "Jenkins",
+      "kind": "feature",
+      "selectable": true,
+      "description": "External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.",
+      "defaultState": "disabled",
+      "source": {
+        "springProfile": "jenkins",
+        "frontendConstant": "PROFILE_JENKINS",
+        "evidence": [
+          "Constants.java:336",
+          "admin-feature-toggle.component.ts:106",
+          "app.constants.ts:107",
+          "docker/jenkins.yml",
+          "src/main/resources/config/application-jenkins.yml",
+          "src/main/webapp/i18n/en/featureToggles.json"
+        ]
+      },
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": ".env",
+          "path": "SPRING_PROFILES_ACTIVE",
+          "valueWhenSelected": "jenkins",
+          "valueWhenDeselected": null,
+          "valueFromProfile": null,
+          "requiredWhenSelected": false,
+          "secret": false
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.url",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.url",
+          "requiredWhenSelected": true,
+          "secret": false
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.user",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.user",
+          "requiredWhenSelected": true,
+          "secret": false
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.password",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.password",
+          "requiredWhenSelected": true,
+          "secret": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.token",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.token",
+          "requiredWhenSelected": true,
+          "secret": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.vcs-credentials",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.vcs-credentials",
+          "requiredWhenSelected": true,
+          "secret": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.artemis-authentication-token-key",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-key",
+          "requiredWhenSelected": true,
+          "secret": true
+        },
+        {
+          "target": "application-feature-model.yml",
+          "path": "artemis.continuous-integration.artemis-authentication-token-value",
+          "valueWhenSelected": null,
+          "valueWhenDeselected": null,
+          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-value",
+          "requiredWhenSelected": true,
+          "secret": true
+        }
+      ],
+      "extraction": {
+        "method": "automatic",
+        "confidence": "medium",
+        "status": "generated"
+      }
+    },
+    {
+      "id": "localvc",
+      "name": "Local Version Control",
+      "kind": "feature",
+      "selectable": true,
+      "description": "Version control baseline activated by the localvc Spring profile; fixed for every deployment.",
+      "defaultState": "enabled",
+      "source": {
+        "springProfile": "localvc",
+        "evidence": [
+          "Constants.java:319",
+          "src/main/resources/config/application-localvc.yml"
+        ]
+      },
+      "category": "technical",
+      "visibleTo": [
+        "maintainer"
+      ],
+      "configurableBy": [
+        "maintainer"
+      ],
+      "requiresCapabilities": [],
+      "artifactMappings": [
+        {
+          "target": ".env",
+          "path": "SPRING_PROFILES_ACTIVE",
+          "valueWhenSelected": "localvc",
+          "valueWhenDeselected": null,
+          "valueFromProfile": null,
+          "requiredWhenSelected": false,
+          "secret": false
+        }
+      ],
+      "extraction": {
+        "method": "automatic",
+        "confidence": "medium",
+        "status": "generated"
+      }
     }
   ],
   "relations": [
@@ -1195,6 +1516,50 @@
       "childId": "sharing",
       "relationType": "optional",
       "order": 4
+    },
+    {
+      "parentId": "artemis",
+      "childId": "database",
+      "relationType": "group",
+      "groupType": "alternative",
+      "order": 6
+    },
+    {
+      "parentId": "database",
+      "childId": "mysql",
+      "relationType": "optional",
+      "order": 1
+    },
+    {
+      "parentId": "database",
+      "childId": "postgresql",
+      "relationType": "optional",
+      "order": 2
+    },
+    {
+      "parentId": "artemis",
+      "childId": "ci-provider",
+      "relationType": "group",
+      "groupType": "alternative",
+      "order": 7
+    },
+    {
+      "parentId": "ci-provider",
+      "childId": "integrated-code-lifecycle",
+      "relationType": "optional",
+      "order": 1
+    },
+    {
+      "parentId": "ci-provider",
+      "childId": "jenkins",
+      "relationType": "optional",
+      "order": 2
+    },
+    {
+      "parentId": "artemis",
+      "childId": "localvc",
+      "relationType": "mandatory",
+      "order": 8
     }
   ],
   "constraints": [
@@ -1205,6 +1570,22 @@
       "target": "modeling",
       "expression": null,
       "description": "Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model."
+    },
+    {
+      "id": "mysql-excludes-postgresql",
+      "type": "excludes",
+      "source": "mysql",
+      "target": "postgresql",
+      "expression": null,
+      "description": "A deployment runs exactly one database system; the paired Docker compose stacks are mutually exclusive."
+    },
+    {
+      "id": "integrated-code-lifecycle-excludes-jenkins",
+      "type": "excludes",
+      "source": "integrated-code-lifecycle",
+      "target": "jenkins",
+      "expression": null,
+      "description": "A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive."
     }
   ]
 }

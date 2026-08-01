@@ -80,7 +80,8 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   variables override the dummies. The review page offers a deployment-target picker;
   the guided workflow itself has no deployment decisions. Artifact mappings
   only reach the overlay when they target `application-feature-model.yml`.
-- Generated technical-model snapshots now drive both package modes. `dev-ide`
+- The classpath model and generated snapshots now share the technical subtree
+  and drive both package modes. `dev-ide`
   applies the selected CI profile family while recording its developer-managed
   database choice and generating actionable MySQL or PostgreSQL instructions.
   `local-docker` generates an extends-based Compose stack for the selected
@@ -93,9 +94,8 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   declares the build-agent Git credentials that the production image does not
   supply through `application-localvc.yml`. A local-docker Jenkins package
   deliberately has no Jenkins service yet, so it carries a prominent warning
-  and a failing `jenkins-stack-available` check.
-  The curated model still has no technical subtree and retains byte-identical
-  package output.
+  and a failing `jenkins-stack-available` check. The classpath defaults are
+  MySQL, integrated code lifecycle, and LocalVC.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
@@ -128,8 +128,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `missing-manifest-entry`, `artemis-drift`, or `extractor-gap`. It also
   emits a `snapshot/` folder importable via the snapshot API; the curated
   bundled model stays canonical and the generated model remains a parallel
-  artifact. `StaticConfigValidationService` accepts an explicitly selected
-  generated catalog via `featuremodel.static-validation.catalog-location`;
+  artifact with matching technical features. `StaticConfigValidationService`
+  accepts an explicitly selected generated catalog via
+  `featuremodel.static-validation.catalog-location`;
   the curated catalog remains the default.
 - The authored `guided-workflow.json` is lean: decision structure and teacher
   prose only. Model-owned wiring — option `requiresCapabilities` and

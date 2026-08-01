@@ -38,14 +38,19 @@ class FeatureModelResourceTest {
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].requiresCapabilities.length()", hasItem(0)))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].artifactMappings[0].path", hasItem("artemis.text.enabled")))
                 .andExpect(jsonPath("$.features[?(@.id == 'text')].extraction.status", hasItem("manually_confirmed")))
+                .andExpect(jsonPath("$.features[?(@.id == 'database')].category", hasItem("technical")))
+                .andExpect(jsonPath("$.features[?(@.id == 'jenkins')].visibleTo[0]", hasItem("maintainer")))
                 .andExpect(jsonPath("$.relations.length()").value(model.relations().size()))
-                .andExpect(jsonPath("$.constraints.length()").value(1))
+                .andExpect(jsonPath("$.constraints.length()").value(3))
                 .andExpect(jsonPath("$.constraints[?(@.id == 'apollon-requires-modeling')].source", hasItem("apollon")))
                 .andExpect(jsonPath("$.constraints[?(@.id == 'apollon-requires-modeling')].target", hasItem("modeling")))
                 .andExpect(jsonPath("$.tree.feature.id").value("artemis"))
                 .andExpect(jsonPath("$.tree.feature.category").value("derived"))
                 .andExpect(jsonPath("$.tree.incomingRelation").doesNotExist())
                 .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("programming")))
+                .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("mysql")))
+                .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("integrated-code-lifecycle")))
+                .andExpect(jsonPath("$.defaultSelectedFeatureIds", hasItem("localvc")))
                 .andExpect(jsonPath("$.warnings.length()").value(0));
     }
 

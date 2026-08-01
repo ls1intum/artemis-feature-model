@@ -39,7 +39,8 @@ import tools.jackson.databind.ObjectMapper;
 
 class ArtifactGenerationResourceTest {
 
-    private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\"]";
+    private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\",\"mysql\","
+            + "\"integrated-code-lifecycle\",\"localvc\"]";
 
     @TempDir
     Path dataRoot;

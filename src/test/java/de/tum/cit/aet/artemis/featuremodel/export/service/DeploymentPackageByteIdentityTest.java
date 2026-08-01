@@ -34,9 +34,8 @@ import tools.jackson.databind.ObjectMapper;
  * Guards the local-docker package bytes against accidental drift: the default deployment package for a fixed
  * selection must stay byte-for-byte identical to the recorded baseline in
  * {@code fixtures/local-docker-package-sha256.json}, and an explicit {@code local-docker} request may differ only by
- * the deployment mode recorded in the manifest. The fixture was first recorded from the pre-mode-axis output to prove
- * the D1 refactor byte-identical, and is re-baselined only for deliberate content changes (last: the
- * {@code scripts/start-demo.sh} single-command entry point).
+ * the deployment mode recorded in the manifest. The fixture is re-baselined only for deliberate content changes
+ * (last: adding the classpath technical subtree and its default MySQL/ICL/LocalVC stack).
  */
 class DeploymentPackageByteIdentityTest {
 
@@ -47,7 +46,7 @@ class DeploymentPackageByteIdentityTest {
     private static final String ZIP_KEY = "__zip__";
 
     private static final List<String> FIXED_SELECTION = List.of("course-workflow", "communication", "exercise-common", "programming", "quiz", "iris", "athena",
-            "hyperion");
+            "hyperion", "mysql", "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;
@@ -75,7 +74,7 @@ class DeploymentPackageByteIdentityTest {
     }
 
     @Test
-    void defaultRequestOutputIsByteIdenticalToThePreModeAxisFixture() {
+    void defaultRequestOutputIsByteIdenticalToTheRecordedFixture() {
         Map<String, String> expectedHashes = loadFixture();
 
         GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(FIXED_SELECTION, null, null));

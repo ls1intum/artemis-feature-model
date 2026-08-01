@@ -22,7 +22,8 @@ class FeatureModelCatalogServiceTest {
         var model = service.loadActiveModel();
 
         assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("lecture", "tutorialgroup", "course-workflow", "communication",
-                "exercise-common", "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "atlas");
+                "exercise-common", "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "atlas", "mysql",
+                "integrated-code-lifecycle", "localvc");
     }
 
     @Test
@@ -35,7 +36,7 @@ class FeatureModelCatalogServiceTest {
         assertThat(response.model().sourceCommitSha()).isNull();
         assertThat(response.features()).hasSameSizeAs(model.features());
         assertThat(response.relations()).hasSameSizeAs(model.relations());
-        assertThat(response.constraints()).singleElement().satisfies(constraint -> {
+        assertThat(response.constraints()).hasSize(3).anySatisfy(constraint -> {
             assertThat(constraint.id()).isEqualTo("apollon-requires-modeling");
             assertThat(constraint.type()).isEqualTo("requires");
             assertThat(constraint.source()).isEqualTo("apollon");
@@ -53,6 +54,7 @@ class FeatureModelCatalogServiceTest {
             assertThat(feature.extraction().status()).isEqualTo("manually_confirmed");
         });
         assertThat(response.defaultSelectedFeatureIds()).containsAll(List.of("programming", "quiz", "atlas"));
+        assertThat(response.defaultSelectedFeatureIds()).contains("mysql", "integrated-code-lifecycle", "localvc");
         assertThat(response.warnings()).isEmpty();
     }
 
