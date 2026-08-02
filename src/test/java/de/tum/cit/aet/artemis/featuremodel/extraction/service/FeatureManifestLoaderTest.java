@@ -60,6 +60,15 @@ class FeatureManifestLoaderTest {
 
         assertThat(manifest.manifestVersion()).isEqualTo(FeatureScopeManifest.CURRENT_VERSION);
         assertThat(manifest.artemisCommitSha()).isEqualTo("aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee");
+        assertThat(manifest.artemisImageDigest()).isEqualTo("latest");
+    }
+
+    @Test
+    void rejectsAMissingArtemisImageDigest() {
+        String yaml = "manifestVersion: 2\nartemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee\n";
+
+        assertThatThrownBy(() -> loader.load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), "test manifest"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("artemisImageDigest");
     }
 
     @ParameterizedTest
@@ -330,6 +339,9 @@ class FeatureManifestLoaderTest {
     }
 
     private FeatureScopeManifest load(String yaml) {
+        if (!yaml.contains("artemisImageDigest:")) {
+            yaml = yaml.replaceFirst("artemisCommitSha: ([^\\n]+)\\n", "artemisCommitSha: $1\nartemisImageDigest: latest\n");
+        }
         return loader.load(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), "test manifest");
     }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 
 /**
  * Writes the static and near-static text files that turn the Phase 5 configuration artifacts into a local runtime
@@ -14,7 +15,8 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
  * <p>
  * All content is deterministic for the same input. Shared paths and environment variable names are the literal values
  * of the constants in {@link RuntimePackageConstants}; a drift-guard test keeps these files and the helper scripts in
- * sync with those constants. Only Layer 1 files are produced in this phase; the remote-image layer is deferred.
+ * sync with those constants. The local Docker package supports both a supplied Artemis checkout and a self-contained
+ * remote-image stack.
  */
 @Component
 public class RuntimeTemplateWriter {
@@ -48,13 +50,13 @@ public class RuntimeTemplateWriter {
 
                 ## Runtime modes
 
-                This package currently supports one local validation mode:
+                This package supports two local validation paths:
 
                 - **Layer 1 — Local Artemis Repository Runtime** (`deployment/local-repo/`, `scripts/start-local-repo.sh`).
                   Uses an existing local Artemis checkout and its Docker Compose setup.
 
-                A second mode (Layer 2 — Remote Artemis Image Runtime, running without an Artemis checkout by pulling a
-                pinned Artemis image) is planned for a later increment and is not included here.
+                - **Remote Artemis Image Runtime** (`deployment/remote-image/`, `scripts/start-remote-image.sh`).
+                  Uses the runtime image recorded in the package manifest without requiring an Artemis checkout.
 
                 ## Quick start (DEMO)
 
@@ -167,8 +169,8 @@ public class RuntimeTemplateWriter {
 
                 - Production-ready credentials, TLS, backups, monitoring, or high availability.
                 - Working implementations of optional external services such as Iris, Athena, Theia, Apollon, or Sharing.
-                - A standalone remote-image runtime. The package still needs a local Artemis checkout because its stack
-                  extends Compose services from that checkout.
+                - Registry-side image resolution. The package preserves the configured image digest or `latest` value
+                  and lets Docker Compose perform the pull.
 
                 ## Prerequisites
 
@@ -349,6 +351,85 @@ public class RuntimeTemplateWriter {
                 - `scripts/` — environment preparation, validation, start, stop, and summary helpers.
                 """.formatted(modelId, modelVersion, profileId, profileVersion, database, databaseFile, ciProvider, ciGuide,
                 databaseFile, databaseFile, RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
+    }
+
+    /**
+     * Builds the package README for the two local-docker runtime paths.
+     *
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param profileVersion active deployment profile version.
+     * @param selection resolved technical selection.
+     * @param runtimeSource resolved Artemis runtime provenance.
+     * @return package README.
+     */
+    public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
+            TechnicalSelection selection, ArtemisRuntimeSource runtimeSource) {
+        String database = selection.databaseId().orElse("mysql");
+        String ciProvider = selection.ciProviderId().orElse("integrated-code-lifecycle");
+        String jenkinsWarning = "jenkins".equals(ciProvider)
+                ? "\n> **Jenkins limitation:** profiles and configuration are generated, but no Jenkins service is included; the readiness check fails deliberately.\n"
+                : "";
+        return """
+                # Artemis Feature Model — Local Docker Deployment Package
+
+                Generated from feature model `%s` version `%s` and deployment context `%s` version `%s` in DEMO mode.
+                The selected database is `%s`; the selected CI provider is `%s`.
+
+                This package is for local validation, not production. It never writes plaintext secrets.
+
+                ## Quick Start
+
+                Use a local Artemis checkout when you provide one path argument:
+
+                ```bash
+                bash scripts/start-demo.sh /absolute/path/to/Artemis
+                ```
+
+                Use the self-contained remote-image stack when you provide no argument:
+
+                ```bash
+                bash scripts/start-demo.sh
+                ```
+
+                Both forms prepare `env/.env` non-destructively and use the stable Compose project name
+                `artemis-feature-model-local`. Stop either package project with `./scripts/stop.sh`; add `--volumes`
+                only when you intentionally want to destroy its local data.
+
+                ## Runtime provenance
+
+                - Source commit: `%s`
+                - Image repository: `%s`
+                - Original image digest: `%s`
+
+                The value `latest` renders `%s:latest`. It is mutable and is **not guaranteed** to correspond to the
+                recorded source commit. Every other non-empty value renders an exact digest reference in the form
+                `%s@<imageDigest>`. Package generation never contacts the registry or resolves `latest`.
+
+                `deployment/remote-image/artemis-feature-model-stack.yml` directly declares Artemis and the selected
+                database. Remote startup does not clone Git repositories, fetch files, download upstream `.env` files,
+                or read a local Artemis checkout. The local-repo path continues to extend the supplied checkout's
+                Compose definitions.
+
+                ## Host support and Docker socket
+
+                Linux with Docker Engine and macOS with Docker Desktop are supported. Windows is supported only from a
+                WSL2 distribution with Docker Desktop WSL integration and Linux containers enabled; Native PowerShell,
+                Command Prompt, Git Bash, and Windows containers are not supported.
+
+                Integrated Code Lifecycle mounts `/var/run/docker.sock`. On Linux the start scripts derive
+                `FM_DOCKER_GID` from the socket; on macOS they use `0`. Docker Desktop Enhanced Container Isolation
+                requires an explicit socket-mount exception. Mounting the socket grants broad control over Docker.
+                %s
+                ## Package checks
+
+                Run `./scripts/validate-package.sh` before startup. Review `metadata/package-manifest.json`,
+                `metadata/runtime-checks.json`, `metadata/static-config-validation.json`, and
+                `metadata/generation-report.json` for provenance, warnings, and validation results.
+                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, runtimeSource.sourceCommit(),
+                runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageRepository(), runtimeSource.imageRepository(),
+                jenkinsWarning);
     }
 
     /**

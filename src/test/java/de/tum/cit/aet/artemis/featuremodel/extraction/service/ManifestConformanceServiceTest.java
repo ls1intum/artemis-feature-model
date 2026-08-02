@@ -122,7 +122,7 @@ class ManifestConformanceServiceTest {
      * @return scope manifest.
      */
     private FeatureScopeManifest manifest(List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations) {
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, ARTEMIS_COMMIT, List.of(), List.of(), List.of(), constraints, ignoredRelations,
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, ARTEMIS_COMMIT, "latest", List.of(), List.of(), List.of(), constraints, ignoredRelations,
                 List.of());
     }
 

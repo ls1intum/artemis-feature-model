@@ -126,6 +126,17 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for missing local-docker runtime provenance.
+     *
+     * @param sourceLabel actionable label identifying the missing snapshot field or classpath property.
+     * @return missing runtime provenance exception.
+     */
+    public static ArtifactGenerationException missingArtemisRuntimeValue(String sourceLabel) {
+        String message = "Cannot generate a local-docker package: missing required Artemis runtime value " + sourceLabel + ".";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_MISSING_ARTEMIS_RUNTIME_VALUE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Returns the stable error code for this failure.
      *
      * @return error code.

@@ -2,6 +2,7 @@
 # decision and the conformance gate must stop the run.
 manifestVersion: 2
 artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+artemisImageDigest: latest
 include:
   - anchor: module:alpha
     id: alpha-feature

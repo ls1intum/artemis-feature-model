@@ -12,6 +12,9 @@ artemis:
   feature-model:
     data-root: data
     active-snapshot-id:
+    runtime:
+      source-commit: f4428ab20bab3595d4c51a420c2004bf0a6afbe3
+      image-digest: latest
 
 logging:
   level:

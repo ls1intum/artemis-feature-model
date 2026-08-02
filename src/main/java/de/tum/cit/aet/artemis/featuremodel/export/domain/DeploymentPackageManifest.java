@@ -11,9 +11,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *
  * <p>
  * The {@link #deploymentMode} field records an explicitly chosen deployment mode and is omitted when the caller relied
- * on the default, so the default local-docker package keeps its pre-mode-axis manifest byte-identical. The local
- * runtime layer supports Layer 1 (local Artemis repository runtime) only; {@link #supportedRuntimeModes} reflects
- * that. The manifest never contains plaintext secrets: secret values appear elsewhere only as {@code ${VARIABLE}}
+ * on the default, so the default local-docker package keeps its mode-axis recording behavior. The local Docker
+ * package advertises both its local-repository and remote-image runtime capabilities through
+ * {@link #supportedRuntimeModes}. The manifest never contains plaintext secrets: secret values appear elsewhere only as {@code ${VARIABLE}}
  * placeholders.
  *
  * @param packageType stable package type identifier.
@@ -102,12 +102,14 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
     }
 
     /**
-     * Artemis runtime context recorded for the local-repo layer.
+     * Artemis runtime provenance recorded for generated packages.
      *
-     * @param verifiedAgainstArtemisCommit abbreviated Artemis commit the overlay keys were verified against.
-     * @param note human-readable note about how the local-repo layer reuses the local Artemis stack.
+     * @param sourceCommit Artemis source commit associated with the runtime package.
+     * @param imageRepository official Artemis application image repository.
+     * @param imageDigest original configured image digest, or the special value {@code latest}.
+     * @param note human-readable runtime provenance note.
      */
-    public record ArtemisRuntimeInfo(String verifiedAgainstArtemisCommit, String note) {
+    public record ArtemisRuntimeInfo(String sourceCommit, String imageRepository, String imageDigest, String note) {
     }
 
     /**

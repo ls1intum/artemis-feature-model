@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -70,7 +71,9 @@ class DeploymentPackageByteIdentityTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
+                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                new ArtemisRuntimeSourceResolver(new LocalSnapshotRepository(SnapshotProperties.classpathFallback(), objectMapper),
+                        new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
     }
 
     @Test

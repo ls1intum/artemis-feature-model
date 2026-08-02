@@ -10,6 +10,7 @@ import java.util.List;
  *
  * @param manifestVersion manifest schema version.
  * @param artemisCommitSha full 40-character Artemis commit the run must scan and the decisions were reviewed against.
+ * @param artemisImageDigest remote Artemis image digest, or the special value {@code latest}.
  * @param include explicitly included candidates.
  * @param exclude explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
@@ -17,7 +18,7 @@ import java.util.List;
  * @param ignoredRelations relation candidates between included features that deliberately stay unenforced.
  * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
-public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha, List<IncludeEntry> include, List<ExcludeEntry> exclude,
+public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha, String artemisImageDigest, List<IncludeEntry> include, List<ExcludeEntry> exclude,
         List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations, List<RenameEntry> renames) {
 
     /** Current manifest schema version. */

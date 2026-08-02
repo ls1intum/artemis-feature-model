@@ -1,5 +1,5 @@
 {
-  "README.md": "1a1e1d9e0c2a1eb0d281073beaa447de0b779df37425bd390c9bebde0e519d43",
+  "README.md": "c53bbee69636b3848dfc844281d95b8eac95e3ebff4dc56e5ae182ba58b0bc22",
   "config/application-feature-model.yml": "e90f705053af68a89bdc56b377c2ab8f2b3cf8285fd482abac649fde5c1d186e",
   "env/.env.example": "cb269b1c2b92064ae93f393bc9cfa4238f9470d1cb1b1545c95ef24ee53e104c",
   "env/.env.demo": "854193064d790db49ac66f353963fd8e712fb512d898bf856c11353308ff1149",
@@ -7,17 +7,20 @@
   "metadata/selected-features.json": "7fca13acc75b8f1a9a9b8851921ac6a86f3024cfe9e6e0471a5addae962c9ba1",
   "metadata/deployment-profile-summary.json": "9f24468143cf251b5887b3d416ec5a09aff7eb35cd5557f4443c58fc960e7db9",
   "metadata/generation-report.json": "5eb1a4dff4b7487f44d98b93e51533e43f0261948d704ac5431f2aaf77a77374",
-  "metadata/package-manifest.json": "02da5f7bce022650695fb9e9e0afb5c1efe261061a0345bf1fe2ae0f1a94cc99",
-  "metadata/runtime-checks.json": "bde10732f1dc92d6d1d29074b59c1af2409fb1f07b0aba822e89baa3b36531e7",
+  "metadata/package-manifest.json": "8908e02616ecf4741caeb12ad778ba24cf85a9fcba78529fa93e205280a0f4af",
+  "metadata/runtime-checks.json": "438c1b011cbc472f755e8841988b40cf44be540c9504e3ce62c30e4481eacf4f",
   "metadata/static-config-validation.json": "7c99b4acf83c9c3a7b8afafc2cee7e87b01f5baea267cb83384103590b9926c3",
   "deployment/local-repo/artemis-feature-model-stack.yml": "1b445c0b21a23bb781e65eec76407d4d29669fb65dad1eedebb1edd34b9d018c",
+  "deployment/remote-image/artemis-feature-model-stack.yml": "3d648337ae66debf395a6b3fdf1c7547e6858b8008a111d6c4d84eaa4826db01",
   "deployment/local-repo/docker-compose.override.example.yml": "dd4dac59e126fba1a1e564ac34bbba535712400bac8ddb42319016dbe6c1b65f",
   "deployment/local-repo/README.md": "db43ae2709f2d72baed01a130e6fd0117682d154ec2e0a68ef2f13fa40afd563",
   "scripts/prepare-env.sh": "65a09e4d9fd15b21e95c44202ed84537c6e9354e247051d4c219f1c5b63c4ce0",
-  "scripts/start-demo.sh": "1ae59a3212212425b902f2e899ef926cc5dd64c2ba9af5e129765e667e451ed1",
-  "scripts/validate-package.sh": "cb05f398a3c86169d85ce5416511c9930863926c16a09002bb07e123dad1313b",
+  "scripts/start-demo.sh": "2f583a6db0acc23dc165fef30424ffb83c48b3930fe98bdd517903e7539d031d",
+  "scripts/validate-package.sh": "8f227dd4023b6de821b42092b7ef9c225e7d6c76b4e533d19345aa44f64c464d",
   "scripts/start-local-repo.sh": "2479401d98c81ff215aa313b6480819883daccbad8b0fbd8d749dacdbd1c1e84",
+  "scripts/start-remote-image.sh": "1be53c6126ec6644c5f5e35d7c8a62f84eafa91093c9ac4fe6f8c07cb1a487cf",
+  "scripts/stop.sh": "750141ed503e1bcb9a5d1e1f87a15f6c6f00720d0294973fb9f55c81512a816d",
   "scripts/stop-local-repo.sh": "f82365cb9e0a829247cc04616efceaeee5b0c0390a84ee99cbaa8a067966d318",
-  "scripts/print-runtime-summary.sh": "e6d8f271f35bcd64ab3748a688caa54629f322948f77ff7859bd800e2e2f64e7",
-  "__zip__": "38e774d7756f74753c37102bd430af38167a878fe0d41d684833df9c6acc7a89"
+  "scripts/print-runtime-summary.sh": "b95569159fd225fee8dd21a8726459d3dc466174c9bcbae709cf430d05d29a85",
+  "__zip__": "31ff33af1475fbe1cd28441610ae3a674a5a868bda60519eac8e2fb8ff572b6f"
 }

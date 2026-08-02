@@ -1,7 +1,8 @@
 manifestVersion: 2
 # Exact Artemis source commit this manifest curates. The scan verifies that the local checkout is at this commit
 # and clean before it reads a single file, so advancing the pin is a deliberate, reviewable change.
-artemisCommitSha: b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6
+artemisCommitSha: f4428ab20bab3595d4c51a420c2004bf0a6afbe3
+artemisImageDigest: latest
 
 # Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
 # include list carries the anchored curated modules and the first technical features, and every other candidate is
@@ -214,6 +215,10 @@ exclude:
     reason: deferred
     rationale: LDAP is an external user-management mechanism outside the current curated functional scope.
 
+  - anchor: configkey:artemis.user-management.oidc.enabled
+    reason: deferred
+    rationale: OIDC is an external user-management mechanism outside the current curated functional scope.
+
   - anchor: configkey:artemis.user-management.passkey.enabled
     reason: deferred
     rationale: Passkey support is a user-management mechanism outside the current curated functional scope.
@@ -243,6 +248,10 @@ exclude:
   # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
 
   - anchor: module:ldap
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
+  - anchor: module:oidc
     reason: deferred
     rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
 

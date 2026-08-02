@@ -58,12 +58,13 @@ class SnapshotPublisher {
      * @param workflowBytes bytes of the prepared lean guided workflow.
      * @param artemisPath scanned checkout path recorded as the snapshot source repository.
      * @param artemisCommit resolved commit of the scanned checkout.
+     * @param imageDigest remote Artemis image digest from the extraction manifest.
      * @param eligible whether the run passed every gate that guards publication.
      * @return true when a snapshot was published.
      * @throws IOException if a file cannot be written.
      */
     boolean publish(ExtractionArtifactLayout layout, FeatureModel generatedModel, byte[] workflowBytes, String artemisPath, String artemisCommit,
-            boolean eligible) throws IOException {
+            String imageDigest, boolean eligible) throws IOException {
         Path snapshotDirectory = layout.snapshotDirectory();
         if (!eligible) {
             removePublishedSnapshot(snapshotDirectory);
@@ -73,7 +74,7 @@ class SnapshotPublisher {
         Path runDirectory = Files.createDirectories(layout.root());
         Path temporaryDirectory = Files.createTempDirectory(runDirectory, ".snapshot-");
         try {
-            writeSnapshotContents(temporaryDirectory, generatedModel, workflowBytes, artemisPath, artemisCommit);
+            writeSnapshotContents(temporaryDirectory, generatedModel, workflowBytes, artemisPath, artemisCommit, imageDigest);
             publishSnapshot(temporaryDirectory, snapshotDirectory);
             return true;
         }
@@ -90,17 +91,18 @@ class SnapshotPublisher {
      * @param workflowBytes bytes of the prepared lean guided workflow.
      * @param artemisPath scanned checkout path.
      * @param artemisCommit resolved scanned commit.
+     * @param imageDigest remote Artemis image digest from the extraction manifest.
      * @throws IOException if a snapshot file cannot be written.
      */
-    private void writeSnapshotContents(Path snapshotDirectory, FeatureModel generatedModel, byte[] workflowBytes, String artemisPath, String artemisCommit)
-            throws IOException {
+    private void writeSnapshotContents(Path snapshotDirectory, FeatureModel generatedModel, byte[] workflowBytes, String artemisPath, String artemisCommit,
+            String imageDigest) throws IOException {
         Path modelFile = snapshotDirectory.resolve(SNAPSHOT_MODEL_FILE);
         writeJson(modelFile, generatedModel);
         Files.write(snapshotDirectory.resolve(SNAPSHOT_WORKFLOW_FILE), workflowBytes);
         String version = generatedModel.model().version();
         String snapshotId = "generated-" + (artemisCommit == null ? "unknown" : artemisCommit.substring(0, Math.min(SHORT_COMMIT_LENGTH, artemisCommit.length())));
         SnapshotMetadata snapshotMetadata = new SnapshotMetadata(generatedModel.model().id(), snapshotId, version, "generated", artemisPath, null, artemisCommit,
-                "feature-model-extractor@" + ScanResult.EXTRACTOR_VERSION, null, null, null, null);
+                imageDigest, "feature-model-extractor@" + ScanResult.EXTRACTOR_VERSION, null, null, null, null);
         writeJson(snapshotDirectory.resolve(SNAPSHOT_METADATA_FILE), snapshotMetadata);
         Files.write(snapshotDirectory.resolve(SNAPSHOT_CHECKSUM_FILE),
                 (ExtractionArtifactStore.digestOf(modelFile) + "  " + SNAPSHOT_MODEL_FILE + LINE_FEED).getBytes(StandardCharsets.UTF_8));
