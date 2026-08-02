@@ -5,9 +5,6 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
  * helper scripts, README files, and manifest consistent, so the path the start script mounts and the path the override
  * references never drift apart.
  *
- * <p>
- * This phase implements Layer 1 (local Artemis repository runtime) only. Layer 2 (remote Artemis image runtime) is
- * deferred, so no remote-image image tag, database, or stack constants are defined here yet.
  */
 public final class RuntimePackageConstants {
 
@@ -24,13 +21,16 @@ public final class RuntimePackageConstants {
     public static final String PACKAGE_TYPE = "local-runtime-deployment-package";
 
     /** Package format version recorded in the manifest. */
-    public static final String PACKAGE_VERSION = "1.0.0";
+    public static final String PACKAGE_VERSION = "2.0.0";
 
     /** Only generation mode in this phase; placeholder values are allowed but reported. */
     public static final String MODE_DEMO = "DEMO";
 
     /** Runtime mode identifier for the local Artemis repository layer (Layer 1). */
     public static final String RUNTIME_MODE_LOCAL_REPO = "local-repo";
+
+    /** Runtime mode identifier for the self-contained remote Artemis image path. */
+    public static final String RUNTIME_MODE_REMOTE_IMAGE = "remote-image";
 
     /** Path of the generated Spring configuration overlay inside the package. */
     public static final String OVERLAY_PACKAGE_PATH = "config/application-feature-model.yml";
@@ -109,6 +109,9 @@ public final class RuntimePackageConstants {
     /** Selection-driven Compose stack generated for models with technical mappings. */
     public static final String TECHNICAL_STACK_PACKAGE_PATH = "deployment/local-repo/artemis-feature-model-stack.yml";
 
+    /** Selection-driven, self-contained Compose stack using the configured remote Artemis image. */
+    public static final String REMOTE_IMAGE_STACK_PACKAGE_PATH = "deployment/remote-image/artemis-feature-model-stack.yml";
+
     /** Environment variable through which the generated stack locates the local Artemis checkout. */
     public static final String ARTEMIS_REPO_ENV = "FM_ARTEMIS_REPO";
 
@@ -133,10 +136,6 @@ public final class RuntimePackageConstants {
     /** Package-scoped PostgreSQL service name. */
     public static final String POSTGRES_SERVICE = "artemis-feature-model-postgresql";
 
-    /**
-     * Abbreviated Artemis commit the Phase 5 profile keys were verified against (see
-     * {@code devdocs/plan/phase-5/parameter-alignment-audit.md}). Recorded so a user running Layer 1 against a
-     * different local checkout is warned about a possible key mismatch.
-     */
+    /** Abbreviated Artemis commit used by the independent static configuration-key catalog. */
     public static final String VERIFIED_ARTEMIS_COMMIT = "b1e27eeaaa";
 }
