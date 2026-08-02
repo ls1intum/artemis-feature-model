@@ -31,8 +31,8 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
  */
 public class FeatureManifestLoader {
 
-    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "artemisCommitSha", "include", "exclude", "conceptualNodes", "constraints",
-            "ignoredRelations", "renames");
+    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "artemisCommitSha", "artemisImageDigest", "include", "exclude", "conceptualNodes",
+            "constraints", "ignoredRelations", "renames");
 
     /** A source selector must be one immutable commit: branch names, tags, and abbreviated hashes are rejected. */
     private static final Pattern ARTEMIS_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
@@ -100,6 +100,7 @@ public class FeatureManifestLoader {
             throw new FeatureManifestException("Unsupported manifestVersion " + manifestVersion + "; expected " + FeatureScopeManifest.CURRENT_VERSION + ".");
         }
         String artemisCommitSha = artemisCommitSha(root);
+        String artemisImageDigest = requiredString(root, "artemisImageDigest", "manifest root");
         List<IncludeEntry> includes = parseIncludes(root.get("include"));
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
@@ -110,7 +111,8 @@ public class FeatureManifestLoader {
         validateInternalReferences(includes, conceptualNodes);
         validateConstraintReferences(constraints, includes, conceptualNodes);
         validateRenames(renames, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, includes, excludes, conceptualNodes, constraints, ignoredRelations, renames);
+        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, artemisImageDigest, includes, excludes, conceptualNodes, constraints, ignoredRelations,
+                renames);
     }
 
     /**

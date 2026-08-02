@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SnapshotMetadata(String modelId, String snapshotId, String version, String status, String sourceRepo, String sourceRef, String sourceCommit,
-        String extractorVersion, String modelFile, String workflowFile, String reportFile, String checksumFile) {
+        String imageDigest, String extractorVersion, String modelFile, String workflowFile, String reportFile, String checksumFile) {
 
     private static final String DEFAULT_MODEL_FILE = "feature-model.json";
 
@@ -33,6 +33,7 @@ public record SnapshotMetadata(String modelId, String snapshotId, String version
      * @param sourceRepo source repository the snapshot was generated from.
      * @param sourceRef source ref the snapshot was generated from.
      * @param sourceCommit source commit the snapshot was generated from.
+     * @param imageDigest remote Artemis image digest, or the special value {@code latest}.
      * @param extractorVersion version of the extractor/generator that produced the snapshot.
      * @param modelFile feature model file name, defaulting to {@code feature-model.json}.
      * @param workflowFile guided workflow file name, defaulting to {@code guided-workflow.json}.
@@ -57,7 +58,7 @@ public record SnapshotMetadata(String modelId, String snapshotId, String version
      * @return metadata using the given snapshot id.
      */
     public SnapshotMetadata withSnapshotId(String authoritativeSnapshotId) {
-        return new SnapshotMetadata(modelId, authoritativeSnapshotId, version, status, sourceRepo, sourceRef, sourceCommit, extractorVersion, modelFile,
+        return new SnapshotMetadata(modelId, authoritativeSnapshotId, version, status, sourceRepo, sourceRef, sourceCommit, imageDigest, extractorVersion, modelFile,
                 workflowFile, reportFile, checksumFile);
     }
 }

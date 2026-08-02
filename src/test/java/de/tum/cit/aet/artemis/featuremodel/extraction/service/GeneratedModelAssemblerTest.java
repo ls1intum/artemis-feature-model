@@ -145,7 +145,7 @@ class GeneratedModelAssemblerTest {
                 new ConceptualNode("always-on", "alpha-group", "module", "mandatory", null, null, 2, "Always On", null),
                 new ConceptualNode("tech-group", "root", "group", null, "technical", "alternative", 2, "Tech Group", null));
         List<ConstraintEntry> constraints = List.of(new ConstraintEntry("tech-a-excludes-tech-b", "excludes", "tech-a", "tech-b", "Exactly one tech."));
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, ARTEMIS_COMMIT, declarations, List.of(), conceptualNodes, constraints,
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, ARTEMIS_COMMIT, "latest", declarations, List.of(), conceptualNodes, constraints,
                 List.of(), List.of());
     }
 

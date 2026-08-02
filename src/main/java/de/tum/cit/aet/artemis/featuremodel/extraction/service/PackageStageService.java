@@ -77,7 +77,7 @@ public class PackageStageService {
 
         boolean eligible = model.result().modelIntegrityValid() && workflow.result().workflowIntegrityValid();
         boolean published = snapshotPublisher.publish(layout, model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(), artemisCommit,
-                eligible);
+                manifest.artemisImageDigest(), eligible);
         Summary summary = new Summary(layout.reportDirectory(), published ? layout.snapshotDirectory() : null, report.severityCounts(), report.codeCounts());
         failIfIneligible(eligible);
         return summary;

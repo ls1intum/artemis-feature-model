@@ -26,7 +26,7 @@ class SnapshotPublisherTest {
 
     @Test
     void ineligibleRunPublishesNothing() throws Exception {
-        boolean published = publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", false);
+        boolean published = publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", "latest", false);
 
         assertThat(published).isFalse();
         assertThat(layout().snapshotDirectory()).doesNotExist();
@@ -34,33 +34,35 @@ class SnapshotPublisherTest {
 
     @Test
     void ineligibleRerunRemovesPreviouslyPublishedSnapshot() throws Exception {
-        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", true)).isTrue();
+        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", "latest", true)).isTrue();
         assertThat(layout().snapshotDirectory()).isDirectory();
 
-        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", false)).isFalse();
+        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", "latest", false)).isFalse();
 
         assertThat(layout().snapshotDirectory()).doesNotExist();
     }
 
     @Test
     void validRerunAtomicallyReplacesPreviousSnapshotContents() throws Exception {
-        publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", true);
+        publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", "latest", true);
         Path staleFile = layout().snapshotDirectory().resolve("stale.txt");
         Files.writeString(staleFile, "stale");
 
-        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", true)).isTrue();
+        assertThat(publisher.publish(layout(), TestFeatureModels.baseModel(), WORKFLOW_BYTES, "/artemis", "abc123", "latest", true)).isTrue();
 
         Path snapshotDirectory = layout().snapshotDirectory();
         assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_MODEL_FILE)).isRegularFile();
         assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE)).isRegularFile();
         assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE)).isRegularFile();
+        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE)).content().contains("\"sourceCommit\" : \"abc123\"")
+                .contains("\"imageDigest\" : \"latest\"");
         assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)).content().startsWith("sha256:");
         assertThat(staleFile).doesNotExist();
     }
 
     @Test
     void writeFailureLeavesNoPartiallyPublishedSnapshot() {
-        assertThatThrownBy(() -> publisher.publish(layout(), TestFeatureModels.baseModel(), null, "/artemis", "abc123", true))
+        assertThatThrownBy(() -> publisher.publish(layout(), TestFeatureModels.baseModel(), null, "/artemis", "abc123", "latest", true))
                 .isInstanceOf(NullPointerException.class);
 
         assertThat(layout().snapshotDirectory()).doesNotExist();

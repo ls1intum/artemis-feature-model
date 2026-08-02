@@ -91,6 +91,19 @@ public class LocalSnapshotRepository {
     }
 
     /**
+     * Resolves the active snapshot metadata, or returns empty when classpath resources are active.
+     *
+     * @return active snapshot metadata, or empty for the classpath fallback.
+     * @throws FeatureModelLoadException if the configured active snapshot cannot be resolved or fails verification.
+     */
+    public Optional<SnapshotMetadata> activeSnapshotMetadata() {
+        if (!properties.hasActiveSnapshot()) {
+            return Optional.empty();
+        }
+        return Optional.of(resolveActiveSnapshot().metadata());
+    }
+
+    /**
      * Resolves the active snapshot model file as a resource, or empty when no active snapshot is configured.
      *
      * @return active model resource, or empty for the classpath fallback.
@@ -176,7 +189,7 @@ public class LocalSnapshotRepository {
         String snapshotId = directory.getFileName().toString();
         Path metadataFile = directory.resolve(METADATA_FILE);
         if (!Files.isRegularFile(metadataFile)) {
-            return new SnapshotMetadata(null, snapshotId, null, null, null, null, null, null, null, null, null, null);
+            return new SnapshotMetadata(null, snapshotId, null, null, null, null, null, null, null, null, null, null, null);
         }
         try (InputStream inputStream = Files.newInputStream(metadataFile)) {
             SnapshotMetadata metadata = objectMapper.readValue(inputStream, SnapshotMetadata.class);
