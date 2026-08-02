@@ -104,7 +104,9 @@ prominent, and `jenkins-stack-available` still fails deliberately.
 `start-remote-image.sh` checks Docker, Compose v2, package env, and the generated remote stack, derives
 `FM_DOCKER_GID` only for ICL, then runs Compose without a registry preflight. `stop.sh` addresses the stable
 `artemis-feature-model-local` project without requiring a checkout and preserves volumes unless `--volumes` is
-explicitly supplied.
+explicitly supplied. It reconstructs the absolute `FM_OVERLAY_HOST_PATH` and `FM_ENV_FILE` values before invoking
+Compose because `docker compose down` still parses and interpolates the complete remote stack. Without those values,
+Compose rejects the overlay bind mount before it can stop the project.
 
 ## Files changed
 
@@ -137,6 +139,10 @@ No frontend file changed.
   repository, and original `latest` value were present.
 - Remote stack inspection: PASS; both used `ghcr.io/ls1intum/artemis:latest`, selected datasource/image settings,
   Docker socket/GID behavior, and no local-checkout references.
+- Post-implementation remote stop regression (2026-08-02): `./gradlew test --rerun-tasks` passed with 364 tests,
+  7 conditionally skipped and no failures/errors. A freshly downloaded MySQL/ICL package passed `bash -n`,
+  `docker compose config --quiet`, and `scripts/stop.sh` against an isolated Compose project name. The already-running
+  `artemis-feature-model-local` application and PostgreSQL containers remained healthy and untouched.
 - Runtime smoke start: NOT RUN to avoid mutating pre-existing user-owned fixed-name Docker volumes.
 - The updated Artemis commit introduced `module:oidc` and `configkey:artemis.user-management.oidc.enabled`.
   Both are explicitly classified as deferred external user-management mechanisms, matching the existing LDAP,
