@@ -36,9 +36,9 @@ Current server capabilities:
 - `POST /api/feature-model/artifacts/download` returns the Level 1 configuration
   artifacts as a ZIP.
 - `POST /api/feature-model/deployment-package/preview` and `/download` return
-  the local runtime deployment package (Level 1 artifacts plus a local-repo
-  Compose override, helper scripts, a package manifest, runtime checks, and a
-  static config validation report).
+  the local runtime deployment package (Level 1 artifacts plus local-checkout
+  and self-contained remote-image Compose stacks, helper scripts, a package
+  manifest, runtime checks, and a static config validation report).
 - Static overlay validation checks every generated key against the Artemis
   config key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`),
   reporting unknown keys and value-type mismatches; a drift-guard test keeps the
@@ -101,6 +101,13 @@ The Gradle wrapper handles its own Gradle distribution, so a system Gradle
 install is optional.
 
 ### Local Docker package host support
+
+One generated `local-docker` package supports both `start-demo.sh /path/to/Artemis`
+for a supplied checkout and argument-free `start-demo.sh` for the configured
+remote Artemis image. The manifest records the source commit, image repository,
+and original image digest. `latest` is rendered as a mutable image tag and is not
+guaranteed to correspond to the recorded source commit; other non-empty values
+are rendered as exact digest references.
 
 The generated `local-docker` package supports Linux with Docker Engine and
 macOS with Docker Desktop. On Windows, it supports Docker Desktop only through
