@@ -215,6 +215,10 @@ exclude:
     reason: deferred
     rationale: LDAP is an external user-management mechanism outside the current curated functional scope.
 
+  - anchor: configkey:artemis.user-management.oidc.enabled
+    reason: deferred
+    rationale: OIDC is an external user-management mechanism outside the current curated functional scope.
+
   - anchor: configkey:artemis.user-management.passkey.enabled
     reason: deferred
     rationale: Passkey support is a user-management mechanism outside the current curated functional scope.
@@ -244,6 +248,10 @@ exclude:
   # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
 
   - anchor: module:ldap
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
+
+  - anchor: module:oidc
     reason: deferred
     rationale: User-management integration the curated model deliberately leaves out; revisit after generated-model parity.
 
