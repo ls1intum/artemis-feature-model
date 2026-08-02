@@ -50,8 +50,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   yields a downloadable ZIP: a Spring configuration overlay
   (`application-feature-model.yml`), an `.env.example`, selected-feature and
   deployment-profile metadata, and a generation report (Phase 5 Level 1); the
-  deployment package adds a Docker Compose override, helper scripts, a package
-  manifest, and runtime checks for local validation (Phase 6 Layer 1). The
+  deployment package adds local-checkout and self-contained remote-image Docker
+  Compose stacks, helper scripts, a package manifest, and runtime checks for
+  local validation. The
   review page generates and downloads directly; there is no preview step.
   Generation is DEMO-mode only and never writes plaintext secrets — secret
   values appear solely as `${VARIABLE}` placeholders.
@@ -85,7 +86,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   applies the selected CI profile family while recording its developer-managed
   database choice and generating actionable MySQL or PostgreSQL instructions.
   `local-docker` generates an extends-based Compose stack for the selected
-  database and CI provider, including selection-consistency runtime checks.
+  database and CI provider plus a self-contained stack using the configured
+  `ghcr.io/ls1intum/artemis` image. `start-demo.sh` uses the local checkout when
+  given a path and the remote image without an argument. Runtime provenance is
+  resolved strictly from active snapshot metadata or the classpath runtime
+  properties; `latest` is rendered as a mutable tag and other values as digest
+  references. Both stacks retain selection-consistency runtime checks.
   Its integrated-code-lifecycle stack points LocalVC at the containerized
   Artemis server and supplies the host Docker socket group through a
   platform-aware `FM_DOCKER_GID`.
