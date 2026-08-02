@@ -176,6 +176,10 @@ class DeploymentPackageServiceTest {
                 .contains("not guaranteed");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
+        String stopScript = content(result, "scripts/stop.sh");
+        assertThat(stopScript).contains("export FM_OVERLAY_HOST_PATH=\"$PACKAGE_ROOT/config/application-feature-model.yml\"")
+                .contains("export FM_ENV_FILE=\"$PACKAGE_ROOT/env/.env\"")
+                .doesNotContain("FM_ARTEMIS_REPO");
         // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the
         // Artemis stack resolves an empty postgres image tag and fails with "invalid reference format".
         assertThat(startScript).contains("--env-file").contains("FM_ARTEMIS_ENV_FILE").contains("$ARTEMIS_REPO/.env");

@@ -484,6 +484,8 @@ public class RuntimeScriptWriter {
                 command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed or not on PATH." >&2; exit 1; }
                 docker compose version >/dev/null 2>&1 || { echo "ERROR: Docker Compose v2 is required." >&2; exit 1; }
 
+                export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
+                export FM_ENV_FILE="$PACKAGE_ROOT/env/.env"
                 COMPOSE_ARGS=(-p artemis-feature-model-local -f "$STACK_FILE" down)
                 if [ "$REMOVE_VOLUMES" = true ]; then
                   echo "WARNING: removing named volumes; local Artemis data will be lost."
