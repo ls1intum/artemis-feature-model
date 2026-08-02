@@ -4,13 +4,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Writes the Bash helper scripts (macOS/Linux) for the local runtime deployment package. The scripts reduce manual
- * steps: preparing the env file, validating the package, and starting/stopping Artemis from a local checkout (Layer 1).
+ * steps: preparing the env file, validating the package, and starting/stopping Artemis from a local checkout or the
+ * self-contained remote-image stack.
  *
  * <p>
  * Each script uses {@code set -euo pipefail}, prints clear errors, avoids destructive operations, and never overwrites
  * {@code env/.env} or removes volumes unless explicitly requested. The literal project name, env var names, and Compose
- * file mirror {@link RuntimePackageConstants}; a drift-guard test keeps them in sync. The remote-image scripts are
- * deferred with the remote-image layer.
+ * file mirror {@link RuntimePackageConstants}; a drift-guard test keeps them in sync.
  */
 @Component
 public class RuntimeScriptWriter {
@@ -31,17 +31,24 @@ public class RuntimeScriptWriter {
 
                 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-                if [ "$#" -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-                  echo "Usage: bash $(basename "$0") /path/to/Artemis"
-                  echo "  One-command DEMO start: makes the package scripts executable, creates env/.env"
-                  echo "  with DEMO placeholder values (an existing env/.env is kept), and starts the"
-                  echo "  local Artemis repository stack via scripts/start-local-repo.sh."
+                if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+                  echo "Usage: bash $(basename "$0") [/path/to/Artemis]"
+                  echo "  With a checkout path: starts through scripts/start-local-repo.sh."
+                  echo "  Without arguments: starts through scripts/start-remote-image.sh."
                   exit 0
+                fi
+                if [ "$#" -gt 1 ]; then
+                  echo "ERROR: expected zero arguments or one Artemis checkout path." >&2
+                  echo "Usage: bash $(basename "$0") [/path/to/Artemis]" >&2
+                  exit 1
                 fi
 
                 chmod +x "$SCRIPT_DIR"/*.sh
                 "$SCRIPT_DIR/prepare-env.sh" --demo
-                exec "$SCRIPT_DIR/start-local-repo.sh" "$@"
+                if [ "$#" -eq 1 ]; then
+                  exec "$SCRIPT_DIR/start-local-repo.sh" "$1"
+                fi
+                exec "$SCRIPT_DIR/start-remote-image.sh"
                 """;
     }
 
@@ -130,11 +137,14 @@ public class RuntimeScriptWriter {
                   "metadata/runtime-checks.json"
                   "metadata/static-config-validation.json"
                   "deployment/local-repo/docker-compose.override.example.yml"
+                  "deployment/remote-image/artemis-feature-model-stack.yml"
                   "deployment/local-repo/README.md"
                   "scripts/prepare-env.sh"
                   "scripts/start-demo.sh"
                   "scripts/validate-package.sh"
                   "scripts/start-local-repo.sh"
+                  "scripts/start-remote-image.sh"
+                  "scripts/stop.sh"
                   "scripts/stop-local-repo.sh"
                   "scripts/print-runtime-summary.sh"
                 )
@@ -392,6 +402,99 @@ public class RuntimeScriptWriter {
     }
 
     /**
+     * Builds the checkout-free remote-image startup script.
+     *
+     * @param dockerSocket whether the selected stack requires Docker socket group handling.
+     * @return remote-image startup script.
+     */
+    public String startRemoteImageScript(boolean dockerSocket) {
+        String dockerGid = dockerSocket ? """
+                if [ -z "${FM_DOCKER_GID:-}" ]; then
+                  if [ "$(uname -s)" = "Darwin" ]; then
+                    FM_DOCKER_GID=0
+                  else
+                    FM_DOCKER_GID="$(stat -Lc '%g' /var/run/docker.sock)"
+                  fi
+                fi
+                export FM_DOCKER_GID
+                """ : "";
+        return """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                PACKAGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+                if [ "$#" -ne 0 ]; then
+                  echo "Usage: $(basename "$0")" >&2
+                  exit 1
+                fi
+
+                command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed or not on PATH." >&2; exit 1; }
+                docker compose version >/dev/null 2>&1 || { echo "ERROR: Docker Compose v2 is required." >&2; exit 1; }
+
+                ENV_FILE="$PACKAGE_ROOT/env/.env"
+                STACK_FILE="$PACKAGE_ROOT/deployment/remote-image/artemis-feature-model-stack.yml"
+                if [ ! -f "$ENV_FILE" ]; then
+                  echo "ERROR: env/.env not found. Run ./scripts/prepare-env.sh --demo first." >&2
+                  exit 1
+                fi
+                if [ ! -f "$STACK_FILE" ]; then
+                  echo "ERROR: remote-image Compose stack not found: $STACK_FILE" >&2
+                  exit 1
+                fi
+
+                export FM_OVERLAY_HOST_PATH="$PACKAGE_ROOT/config/application-feature-model.yml"
+                export FM_ENV_FILE="$ENV_FILE"
+                %s
+                echo "Starting the self-contained remote Artemis image stack..."
+                echo "  Stack:   $STACK_FILE"
+                echo "  Overlay: $FM_OVERLAY_HOST_PATH"
+                docker compose -p artemis-feature-model-local -f "$STACK_FILE" up -d
+                echo "Artemis is starting at http://localhost:8080"
+                echo "Stop: ./scripts/stop.sh"
+                """.formatted(dockerGid);
+    }
+
+    /**
+     * Builds a checkout-independent stop entry point for the stable package Compose project.
+     *
+     * @return stop script.
+     */
+    public String stopScript() {
+        return """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                PACKAGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+                STACK_FILE="$PACKAGE_ROOT/deployment/remote-image/artemis-feature-model-stack.yml"
+                REMOVE_VOLUMES=false
+
+                case "${1:-}" in
+                  "") ;;
+                  --volumes) REMOVE_VOLUMES=true ;;
+                  -h|--help)
+                    echo "Usage: $(basename "$0") [--volumes]"
+                    echo "  Stops the package Compose project without requiring an Artemis checkout."
+                    exit 0 ;;
+                  *) echo "ERROR: unknown argument: $1" >&2; exit 1 ;;
+                esac
+
+                command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed or not on PATH." >&2; exit 1; }
+                docker compose version >/dev/null 2>&1 || { echo "ERROR: Docker Compose v2 is required." >&2; exit 1; }
+
+                COMPOSE_ARGS=(-p artemis-feature-model-local -f "$STACK_FILE" down)
+                if [ "$REMOVE_VOLUMES" = true ]; then
+                  echo "WARNING: removing named volumes; local Artemis data will be lost."
+                  COMPOSE_ARGS+=(--volumes)
+                fi
+                docker compose "${COMPOSE_ARGS[@]}"
+                echo "Stopped the Artemis Feature Model package project."
+                """;
+    }
+
+    /**
      * Builds {@code stop-local-repo.sh}, which stops the local-repo stack and keeps volumes unless {@code --volumes}.
      *
      * @return {@code stop-local-repo.sh} content.
@@ -494,8 +597,9 @@ public class RuntimeScriptWriter {
                 echo "Artemis Feature Model — Local Runtime Deployment Package"
                 echo "========================================================"
                 echo ""
-                echo "Supported runtime mode:"
-                echo "  - Layer 1: local Artemis repository (scripts/start-local-repo.sh)"
+                echo "Supported runtime modes:"
+                echo "  - Local Artemis repository (scripts/start-demo.sh /path/to/Artemis)"
+                echo "  - Remote Artemis image (scripts/start-demo.sh)"
                 echo ""
                 echo "Package metadata:"
                 echo "  - metadata/package-manifest.json"
@@ -521,9 +625,9 @@ public class RuntimeScriptWriter {
                 echo "  1. chmod +x scripts/*.sh"
                 echo "  2. ./scripts/prepare-env.sh --demo"
                 echo "  3. ./scripts/validate-package.sh"
-                echo "  4. ./scripts/start-local-repo.sh /path/to/Artemis"
+                echo "  4. ./scripts/start-demo.sh [path/to/Artemis]"
                 echo "  5. open http://localhost:8080"
-                echo "  6. ./scripts/stop-local-repo.sh /path/to/Artemis"
+                echo "  6. ./scripts/stop.sh"
                 """;
     }
 }

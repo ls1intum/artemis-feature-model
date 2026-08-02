@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -60,7 +61,8 @@ class DeploymentPackageServiceTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
+                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                runtimeSourceResolver(new SnapshotProperties(dataRoot.toString(), null)), objectMapper);
     }
 
     @Test
@@ -70,9 +72,11 @@ class DeploymentPackageServiceTest {
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
                 "env/README.md", "metadata/selected-features.json", "metadata/deployment-profile-summary.json", "metadata/generation-report.json",
                 "metadata/package-manifest.json", "metadata/runtime-checks.json", "metadata/static-config-validation.json",
-                "deployment/local-repo/artemis-feature-model-stack.yml", "deployment/local-repo/docker-compose.override.example.yml",
+                "deployment/local-repo/artemis-feature-model-stack.yml", "deployment/remote-image/artemis-feature-model-stack.yml",
+                "deployment/local-repo/docker-compose.override.example.yml",
                 "deployment/local-repo/README.md", "scripts/prepare-env.sh", "scripts/start-demo.sh", "scripts/validate-package.sh",
-                "scripts/start-local-repo.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh");
+                "scripts/start-local-repo.sh", "scripts/start-remote-image.sh", "scripts/stop.sh", "scripts/stop-local-repo.sh",
+                "scripts/print-runtime-summary.sh");
     }
 
     @Test
@@ -82,12 +86,15 @@ class DeploymentPackageServiceTest {
         DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
         assertThat(manifest.packageType()).isEqualTo("local-runtime-deployment-package");
         assertThat(manifest.mode()).isEqualTo("DEMO");
-        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
+        assertThat(manifest.packageVersion()).isEqualTo("2.0.0");
+        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo", "remote-image");
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
-        assertThat(manifest.generatedFiles()).hasSize(20);
+        assertThat(manifest.generatedFiles()).hasSize(23);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
-        assertThat(manifest.artemisRuntime().verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
+        assertThat(manifest.artemisRuntime().sourceCommit()).isEqualTo("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6");
+        assertThat(manifest.artemisRuntime().imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
+        assertThat(manifest.artemisRuntime().imageDigest()).isEqualTo("latest");
         assertThat(manifest.database().type()).isEqualTo("mysql");
         assertThat(manifest.database().mode()).isEqualTo("local-container");
     }
@@ -158,13 +165,15 @@ class DeploymentPackageServiceTest {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
         for (String script : List.of("scripts/prepare-env.sh", "scripts/start-demo.sh", "scripts/validate-package.sh", "scripts/start-local-repo.sh",
-                "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh")) {
+                "scripts/start-remote-image.sh", "scripts/stop.sh", "scripts/stop-local-repo.sh", "scripts/print-runtime-summary.sh")) {
             assertThat(content(result, script)).startsWith("#!/usr/bin/env bash").contains("set -euo pipefail");
         }
-        // The single-command DEMO entry point chains chmod, demo env preparation, and the local-repo start.
+        // The single-command DEMO entry point prepares env and dispatches between both internal runtime paths.
         String startDemo = content(result, "scripts/start-demo.sh");
-        assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh");
-        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /absolute/path/to/Artemis");
+        assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh")
+                .contains("start-remote-image.sh").contains("expected zero arguments or one Artemis checkout path");
+        assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /absolute/path/to/Artemis", "bash scripts/start-demo.sh")
+                .contains("not guaranteed");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         // The Artemis repo-root .env must be passed for Compose interpolation (e.g. POSTGRES_VERSION), otherwise the
@@ -214,7 +223,7 @@ class DeploymentPackageServiceTest {
 
         DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
         assertThat(manifest.deploymentMode()).isEqualTo("local-docker");
-        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo");
+        assertThat(manifest.supportedRuntimeModes()).containsExactly("local-repo", "remote-image");
     }
 
     @Test
@@ -315,5 +324,10 @@ class DeploymentPackageServiceTest {
 
     private String content(GeneratedArtifactPackage result, String path) {
         return result.files().stream().filter(file -> file.path().equals(path)).findFirst().orElseThrow().content();
+    }
+
+    private ArtemisRuntimeSourceResolver runtimeSourceResolver(SnapshotProperties properties) {
+        return new ArtemisRuntimeSourceResolver(new LocalSnapshotRepository(properties, objectMapper),
+                new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest"));
     }
 }

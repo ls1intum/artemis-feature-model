@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -19,6 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogSe
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ConsumedParameter;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManifest;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
@@ -71,6 +73,8 @@ public class DeploymentPackageService {
 
     static final String TECHNICAL_STACK_FILE = RuntimePackageConstants.TECHNICAL_STACK_PACKAGE_PATH;
 
+    static final String REMOTE_IMAGE_STACK_FILE = RuntimePackageConstants.REMOTE_IMAGE_STACK_PACKAGE_PATH;
+
     static final String LOCAL_REPO_README_FILE = "deployment/local-repo/README.md";
 
     static final String PREPARE_ENV_SCRIPT_FILE = "scripts/prepare-env.sh";
@@ -81,6 +85,10 @@ public class DeploymentPackageService {
     static final String VALIDATE_PACKAGE_SCRIPT_FILE = "scripts/validate-package.sh";
 
     static final String START_LOCAL_REPO_SCRIPT_FILE = "scripts/start-local-repo.sh";
+
+    static final String START_REMOTE_IMAGE_SCRIPT_FILE = "scripts/start-remote-image.sh";
+
+    static final String STOP_SCRIPT_FILE = "scripts/stop.sh";
 
     static final String STOP_LOCAL_REPO_SCRIPT_FILE = "scripts/stop-local-repo.sh";
 
@@ -132,6 +140,8 @@ public class DeploymentPackageService {
 
     private final RuntimeStackWriter stackWriter;
 
+    private final RemoteImageStackWriter remoteImageStackWriter;
+
     private final RuntimeScriptWriter scriptWriter;
 
     private final ActiveProfilesDeriver activeProfilesDeriver;
@@ -139,6 +149,8 @@ public class DeploymentPackageService {
     private final DevIdeTemplateWriter devIdeTemplateWriter;
 
     private final EnvExampleWriter envExampleWriter;
+
+    private final ArtemisRuntimeSourceResolver runtimeSourceResolver;
 
     private final ObjectMapper objectMapper;
 
@@ -152,17 +164,20 @@ public class DeploymentPackageService {
      * @param staticConfigValidationService validator for the generated overlay against the Artemis config key catalog.
      * @param templateWriter writer for the local-docker runtime template files.
      * @param stackWriter writer for selection-driven local-docker stacks.
+     * @param remoteImageStackWriter writer for the self-contained remote-image stack.
      * @param scriptWriter writer for the local-docker helper scripts.
      * @param activeProfilesDeriver deriver of the dev-ide {@code ACTIVE_PROFILES} value from the selection.
      * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
      * @param envExampleWriter writer for local-docker environment declarations.
+     * @param runtimeSourceResolver resolver for snapshot or classpath Artemis runtime provenance.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
      */
     public DeploymentPackageService(ArtifactGenerationService artifactGenerationService, FeatureModelCatalogService featureModelCatalogService,
             DeploymentProfileService deploymentProfileService, TechnicalSelectionResolver technicalSelectionResolver,
             StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeStackWriter stackWriter,
-            RuntimeScriptWriter scriptWriter, ActiveProfilesDeriver activeProfilesDeriver, DevIdeTemplateWriter devIdeTemplateWriter,
-            EnvExampleWriter envExampleWriter, ObjectMapper objectMapper) {
+            RemoteImageStackWriter remoteImageStackWriter, RuntimeScriptWriter scriptWriter, ActiveProfilesDeriver activeProfilesDeriver,
+            DevIdeTemplateWriter devIdeTemplateWriter, EnvExampleWriter envExampleWriter, ArtemisRuntimeSourceResolver runtimeSourceResolver,
+            ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
         this.featureModelCatalogService = featureModelCatalogService;
         this.deploymentProfileService = deploymentProfileService;
@@ -170,10 +185,12 @@ public class DeploymentPackageService {
         this.staticConfigValidationService = staticConfigValidationService;
         this.templateWriter = templateWriter;
         this.stackWriter = stackWriter;
+        this.remoteImageStackWriter = remoteImageStackWriter;
         this.scriptWriter = scriptWriter;
         this.activeProfilesDeriver = activeProfilesDeriver;
         this.devIdeTemplateWriter = devIdeTemplateWriter;
         this.envExampleWriter = envExampleWriter;
+        this.runtimeSourceResolver = runtimeSourceResolver;
         this.objectMapper = objectMapper;
     }
 
@@ -372,14 +389,18 @@ public class DeploymentPackageService {
         TechnicalSelection selection = shared.technicalSelection();
         List<String> requiredEnvVars = localDockerEnvironmentVariables(shared.requiredEnvVars(), selection);
         boolean technicalStack = !selection.isEmpty();
+        TechnicalSelection runtimeSelection = localDockerRuntimeSelection(selection);
+        ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForLocalDocker();
 
-        String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection);
+        String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
+                runtimeSource);
         String envExample = envExampleWriter.write(requiredEnvVars);
         String envDemo = templateWriter.envDemo(requiredEnvVars);
         String stackContent = technicalStack ? stackWriter.write(selection) : null;
+        String remoteStackContent = remoteImageStackWriter.write(runtimeSelection, runtimeSource);
 
         List<String> packagePaths = packageFilePaths(technicalStack);
-        String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars, requestedDeploymentMode));
+        String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars, requestedDeploymentMode, runtimeSource));
         String checksJson = writeJson(buildRuntimeChecks(shared.overlay().content(), requiredEnvVars, report, packagePaths.size(),
                 shared.staticValidation(), stackContent, manifestJson));
 
@@ -398,6 +419,7 @@ public class DeploymentPackageService {
         if (technicalStack) {
             files.add(new GeneratedArtifactFile(TECHNICAL_STACK_FILE, CONTENT_TYPE_YAML, stackContent));
         }
+        files.add(new GeneratedArtifactFile(REMOTE_IMAGE_STACK_FILE, CONTENT_TYPE_YAML, remoteStackContent));
         String override = technicalStack ? templateWriter.technicalLocalRepoOverride() : templateWriter.localRepoOverride();
         String localReadme = technicalStack ? templateWriter.technicalLocalRepoReadme(selection) : templateWriter.localRepoReadme();
         files.add(new GeneratedArtifactFile(LOCAL_REPO_OVERRIDE_FILE, CONTENT_TYPE_YAML, override));
@@ -406,9 +428,36 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(START_DEMO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startDemoScript()));
         files.add(new GeneratedArtifactFile(VALIDATE_PACKAGE_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.validatePackageScript(technicalStack)));
         files.add(new GeneratedArtifactFile(START_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.startLocalRepoScript(technicalStack)));
+        files.add(new GeneratedArtifactFile(START_REMOTE_IMAGE_SCRIPT_FILE, CONTENT_TYPE_SHELL,
+                scriptWriter.startRemoteImageScript(usesDockerSocket(runtimeSelection))));
+        files.add(new GeneratedArtifactFile(STOP_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopScript()));
         files.add(new GeneratedArtifactFile(STOP_LOCAL_REPO_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.stopLocalRepoScript(technicalStack)));
         files.add(new GeneratedArtifactFile(PRINT_SUMMARY_SCRIPT_FILE, CONTENT_TYPE_SHELL, scriptWriter.printRuntimeSummaryScript()));
         return files;
+    }
+
+    /**
+     * Determines whether the selected CI provider requires host Docker socket access.
+     *
+     * @param selection resolved runtime selection.
+     * @return true for Integrated Code Lifecycle.
+     */
+    private boolean usesDockerSocket(TechnicalSelection selection) {
+        return "integrated-code-lifecycle".equals(selection.ciProviderId().orElse(null));
+    }
+
+    /**
+     * Applies the established MySQL/ICL runtime defaults for a legacy model without technical mappings.
+     *
+     * @param selection resolved technical selection.
+     * @return selection suitable for both local-docker runtime writers.
+     */
+    private TechnicalSelection localDockerRuntimeSelection(TechnicalSelection selection) {
+        if (!selection.isEmpty()) {
+            return selection;
+        }
+        return new TechnicalSelection(List.of("localci", "buildagent", "localvc"), Optional.of("docker/mysql.yml"), Optional.of("mysql"),
+                Optional.of("integrated-code-lifecycle"));
     }
 
     /**
@@ -467,7 +516,9 @@ public class DeploymentPackageService {
      * @return dev-ide package manifest.
      */
     private DeploymentPackageManifest buildDevIdeManifest(GenerationReport report, List<String> requiredEnvVars) {
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT,
+        ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(),
+                runtimeSource.imageRepository(), null,
                 "The dev-ide package configures a local IntelliJ IDEA development run of an existing Artemis checkout. The overlay keys were verified against the "
                         + "referenced Artemis commit; a checkout at a different commit may not match all keys.");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
@@ -507,8 +558,9 @@ public class DeploymentPackageService {
         if (technicalStack) {
             paths.add(TECHNICAL_STACK_FILE);
         }
+        paths.add(REMOTE_IMAGE_STACK_FILE);
         paths.addAll(List.of(LOCAL_REPO_OVERRIDE_FILE, LOCAL_REPO_README_FILE, PREPARE_ENV_SCRIPT_FILE, START_DEMO_SCRIPT_FILE,
-                VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE,
+                VALIDATE_PACKAGE_SCRIPT_FILE, START_LOCAL_REPO_SCRIPT_FILE, START_REMOTE_IMAGE_SCRIPT_FILE, STOP_SCRIPT_FILE, STOP_LOCAL_REPO_SCRIPT_FILE,
                 PRINT_SUMMARY_SCRIPT_FILE));
         return List.copyOf(paths);
     }
@@ -523,8 +575,8 @@ public class DeploymentPackageService {
      * @return package manifest.
      */
     private DeploymentPackageManifest buildManifest(GenerationReport report, List<String> packagePaths, List<String> requiredEnvVars,
-            String requestedDeploymentMode) {
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = localDockerRuntimeInfo(report);
+            String requestedDeploymentMode, ArtemisRuntimeSource runtimeSource) {
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = localDockerRuntimeInfo(report, runtimeSource);
         DeploymentPackageManifest.Database database = selectedDatabase(report, "local-container");
         if (database == null) {
             database = new DeploymentPackageManifest.Database(RuntimePackageConstants.DATABASE_TYPE, "local-container");
@@ -533,7 +585,7 @@ public class DeploymentPackageService {
         boolean jenkinsSelected = ciProvider != null && "jenkins".equals(ciProvider.type());
         DeploymentPackageManifest.Readiness readiness = localDockerReadiness(jenkinsSelected);
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
-                requestedDeploymentMode, List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO),
+                requestedDeploymentMode, List.of(RuntimePackageConstants.RUNTIME_MODE_LOCAL_REPO, RuntimePackageConstants.RUNTIME_MODE_REMOTE_IMAGE),
                 new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
                 new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, ciProvider,
                 report.technicalSelection(), packagePaths, requiredEnvVars, readiness);
@@ -543,22 +595,24 @@ public class DeploymentPackageService {
      * Builds a selection-aware Artemis runtime note.
      *
      * @param report generation report.
+     * @param runtimeSource resolved runtime provenance.
      * @return runtime information.
      */
-    private DeploymentPackageManifest.ArtemisRuntimeInfo localDockerRuntimeInfo(GenerationReport report) {
+    private DeploymentPackageManifest.ArtemisRuntimeInfo localDockerRuntimeInfo(GenerationReport report, ArtemisRuntimeSource runtimeSource) {
         TechnicalSelectionMetadata metadata = report.technicalSelection();
         if (metadata == null) {
             String curatedNote = "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including "
                     + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a "
                     + "different commit may not match all keys.";
-            return new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT, curatedNote);
+            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(), runtimeSource.imageRepository(), runtimeSource.imageDigest(),
+                    curatedNote);
         }
 
         String runtimeDescription = "a generated stack for database '" + metadata.databaseId() + "' and CI provider '"
                 + metadata.ciProviderId() + "'";
         String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the "
                 + "referenced Artemis commit; a checkout at a different commit may not match all keys.";
-        return new DeploymentPackageManifest.ArtemisRuntimeInfo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT, note);
+        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(), runtimeSource.imageRepository(), runtimeSource.imageDigest(), note);
     }
 
     /**

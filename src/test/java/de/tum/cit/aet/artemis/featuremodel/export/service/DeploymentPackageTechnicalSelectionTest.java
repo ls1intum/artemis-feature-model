@@ -21,6 +21,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
@@ -66,7 +67,9 @@ class DeploymentPackageTechnicalSelectionTest {
                 new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(), objectMapper);
+                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                new ArtemisRuntimeSourceResolver(new LocalSnapshotRepository(SnapshotProperties.classpathFallback(), objectMapper),
+                        new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
     }
 
     @Test
@@ -168,10 +171,14 @@ class DeploymentPackageTechnicalSelectionTest {
 
     private void assertLocalDockerCombination(GeneratedArtifactPackage result, TechnicalScenario scenario) {
         String stack = content(file(result, DeploymentPackageService.TECHNICAL_STACK_FILE));
+        String remoteStack = content(file(result, DeploymentPackageService.REMOTE_IMAGE_STACK_FILE));
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/docker/artemis.yml");
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + scenario.databaseComposeFile());
         assertThat(stack).contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"");
         assertThat(stack).contains("ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
+        assertThat(remoteStack).contains("image: \"ghcr.io/ls1intum/artemis:latest\"")
+                .contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"")
+                .doesNotContain("FM_ARTEMIS_REPO", "extends:");
 
         String readme = content(file(result, DeploymentPackageService.PACKAGE_README_FILE));
         assertDetailedDockerReadme(readme, scenario);
@@ -207,22 +214,17 @@ class DeploymentPackageTechnicalSelectionTest {
     }
 
     private void assertDetailedDockerReadme(String readme, TechnicalScenario scenario) {
-        assertThat(readme).contains("## Supported host environments", "Linux with Docker Engine", "macOS with Docker Desktop",
-                "Windows with Docker Desktop", "WSL2 distribution",
-                "Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported",
-                "Enhanced Container Isolation blocks this mount by default", "## Prerequisites",
-                "## Step 1 — Inspect and validate the package",
-                "## Step 2A — Quick start with DEMO values", "## Step 2B — Start with your own integration values",
-                "## Step 3 — Follow startup and verify Artemis", "## Step 4 — Stop or reset the stack",
-                "## Troubleshooting", "./scripts/prepare-env.sh --demo --force",
-                "docker compose -p artemis-feature-model-local logs -f artemis-app", scenario.databaseComposeFile());
+        assertThat(readme).contains("## Host support and Docker socket", "Linux with Docker Engine", "macOS with Docker Desktop",
+                "WSL2 distribution",
+                "Native PowerShell", "Command Prompt, Git Bash, and Windows containers are not supported",
+                "Enhanced Container Isolation", "## Quick Start", "bash scripts/start-demo.sh /absolute/path/to/Artemis",
+                "bash scripts/start-demo.sh", "## Runtime provenance", "latest", "not guaranteed", "./scripts/stop.sh");
 
         if ("jenkins".equals(scenario.ciProviderId())) {
-            assertThat(readme).contains("### External Jenkins required", "contains no Jenkins", "http://jenkins:8080",
-                    "http://host.docker.internal:8082", "`localhost` inside that container");
+            assertThat(readme).contains("Jenkins limitation", "no Jenkins service is included");
         }
         else {
-            assertThat(readme).contains("### Integrated Code Lifecycle", "mounted host Docker", "FM_DOCKER_GID");
+            assertThat(readme).contains("Integrated Code Lifecycle mounts", "/var/run/docker.sock", "FM_DOCKER_GID");
         }
     }
 
