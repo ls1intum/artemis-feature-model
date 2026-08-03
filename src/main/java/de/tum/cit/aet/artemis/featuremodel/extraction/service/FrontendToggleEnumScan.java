@@ -7,6 +7,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
 
 /**
  * Scans the frontend {@code FeatureToggle} enum mirroring the backend {@code Feature} enum. The service file is
@@ -15,13 +17,12 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class FrontendToggleEnumScan {
 
-    static final String DEFAULT_TOGGLE_SERVICE_PATH = "src/main/webapp/app/foundation/feature-toggle/feature-toggle.service.ts";
-
-    private static final String TOGGLE_SERVICE_FILE_NAME = "feature-toggle.service.ts";
-
-    private static final Pattern ENUM_START_PATTERN = Pattern.compile("^export enum FeatureToggle\\s*\\{\\s*$");
+    private static final Pattern ENUM_START_PATTERN = Pattern
+            .compile("^export enum " + Pattern.quote(ArtemisSourceConventions.Symbols.FRONTEND_FEATURE_ENUM) + "\\s*\\{\\s*$");
 
     private static final Pattern MEMBER_PATTERN = Pattern.compile("^\\s*(\\w+)\\s*=\\s*'([^']*)',?\\s*$");
+
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One scanned frontend enum member.
@@ -60,7 +61,9 @@ class FrontendToggleEnumScan {
      * @throws IllegalArgumentException if the service file cannot be located or contains no enum block.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateToggleServiceFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.FRONTEND_TOGGLE_SERVICE,
+                "enum " + ArtemisSourceConventions.Symbols.FRONTEND_FEATURE_ENUM,
+                content -> content.contains("enum " + ArtemisSourceConventions.Symbols.FRONTEND_FEATURE_ENUM));
         List<String> lines = source.readLines(file);
         List<ScannedToggleMember> members = new ArrayList<>();
         boolean insideEnum = false;
@@ -78,25 +81,7 @@ class FrontendToggleEnumScan {
                 members.add(new ScannedToggleMember(matcher.group(1), matcher.group(2), index + 1));
             }
         }
-        throw new IllegalArgumentException("File " + file + " does not declare an export enum FeatureToggle block.");
-    }
-
-    /**
-     * Locates the feature toggle service file, preferring the known location and falling back to a name-based search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the service file.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no service file can be found.
-     */
-    private String locateToggleServiceFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_TOGGLE_SERVICE_PATH)) {
-            return DEFAULT_TOGGLE_SERVICE_PATH;
-        }
-        List<String> matches = source.findFilesByName("src/main/webapp", TOGGLE_SERVICE_FILE_NAME);
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException("No " + TOGGLE_SERVICE_FILE_NAME + " found under src/main/webapp.");
-        }
-        return matches.getFirst();
+        throw new IllegalArgumentException(
+                "File " + file + " does not declare an export enum " + ArtemisSourceConventions.Symbols.FRONTEND_FEATURE_ENUM + " block.");
     }
 }

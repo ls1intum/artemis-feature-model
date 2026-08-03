@@ -3,13 +3,15 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /**
  * Scans the backend {@code Feature} enum that declares the runtime feature toggles. The enum is located by symbol: a
@@ -18,9 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class BackendFeatureEnumScan {
 
-    static final String DEFAULT_FEATURE_ENUM_PATH = "src/main/java/de/tum/cit/aet/artemis/core/service/feature/Feature.java";
-
-    private static final String ENUM_NAME = "Feature";
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One scanned enum member.
@@ -58,10 +58,14 @@ class BackendFeatureEnumScan {
      * @throws IllegalArgumentException if no feature enum can be located or parsed.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateFeatureEnumFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.BACKEND_FEATURE_ENUM,
+                "enum " + ArtemisSourceConventions.Symbols.BACKEND_FEATURE_ENUM,
+                content -> content.contains("enum " + ArtemisSourceConventions.Symbols.BACKEND_FEATURE_ENUM));
         CompilationUnit unit = JavaSourceParser.parse(source.readFile(file), file);
-        EnumDeclaration enumDeclaration = unit.findAll(EnumDeclaration.class).stream().filter(declaration -> ENUM_NAME.equals(declaration.getNameAsString())).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("File " + file + " does not declare enum " + ENUM_NAME + "."));
+        EnumDeclaration enumDeclaration = unit.findAll(EnumDeclaration.class).stream()
+                .filter(declaration -> ArtemisSourceConventions.Symbols.BACKEND_FEATURE_ENUM.equals(declaration.getNameAsString())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "File " + file + " does not declare enum " + ArtemisSourceConventions.Symbols.BACKEND_FEATURE_ENUM + "."));
         List<ScannedEnumMember> members = new ArrayList<>();
         for (EnumConstantDeclaration constant : enumDeclaration.getEntries()) {
             members.add(new ScannedEnumMember(constant.getNameAsString(), JavaSourceParser.lineOf(constant)));
@@ -69,40 +73,4 @@ class BackendFeatureEnumScan {
         return new Result(file, List.copyOf(members));
     }
 
-    /**
-     * Locates the feature enum file, preferring the known location and falling back to a content-checked name search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the feature enum.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no feature enum file can be found.
-     */
-    private String locateFeatureEnumFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_FEATURE_ENUM_PATH)) {
-            return DEFAULT_FEATURE_ENUM_PATH;
-        }
-        for (String candidate : source.findFilesByName("src/main/java", "Feature.java")) {
-            Optional<String> content = readIfPossible(source, candidate);
-            if (content.isPresent() && content.get().contains("enum " + ENUM_NAME)) {
-                return candidate;
-            }
-        }
-        throw new IllegalArgumentException("No Feature.java declaring enum Feature found under src/main/java.");
-    }
-
-    /**
-     * Reads a file and swallows read failures so a broken sibling file cannot abort the location search.
-     *
-     * @param source Artemis source repository.
-     * @param relativePath checkout-relative path.
-     * @return file content, or empty when unreadable.
-     */
-    private Optional<String> readIfPossible(ArtemisSourceRepository source, String relativePath) {
-        try {
-            return Optional.of(source.readFile(relativePath));
-        }
-        catch (IOException e) {
-            return Optional.empty();
-        }
-    }
 }

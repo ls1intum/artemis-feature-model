@@ -20,13 +20,11 @@ import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /** Reads {@code @ArtemisFeature} semantics from Java source without loading annotated classes. */
 class ArtemisFeatureAnnotationScan {
-
-    private static final String JAVA_SOURCE_ROOT = "src/main/java";
-
-    private static final String ANNOTATION_NAME = "ArtemisFeature";
 
     private static final Set<String> ATTRIBUTE_NAMES = Set.of("id", "group", "parent", "kind", "requiresCapabilities", "providesCapabilities", "name", "description",
             "documentationUrl");
@@ -88,11 +86,11 @@ class ArtemisFeatureAnnotationScan {
     Result scan(ArtemisSourceRepository source) throws IOException {
         List<AnnotatedAnchor> annotations = new ArrayList<>();
         List<ReportItem> errors = new ArrayList<>();
-        for (String file : source.findFiles(JAVA_SOURCE_ROOT, ".java")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.JAVA, ArtemisSourceConventions.Naming.JAVA_SUFFIX)) {
             String content;
             try {
                 content = source.readFile(file);
-                if (!content.contains("@" + ANNOTATION_NAME)) {
+                if (!content.contains("@" + ArtemisSourceConventions.Symbols.ARTEMIS_FEATURE_ANNOTATION)) {
                     continue;
                 }
                 scanFile(content, file, annotations);
@@ -140,7 +138,8 @@ class ArtemisFeatureAnnotationScan {
      * @return the feature annotation, or empty.
      */
     private Optional<AnnotationExpr> findAnnotation(NodeWithAnnotations<?> node) {
-        return node.getAnnotations().stream().filter(annotation -> ANNOTATION_NAME.equals(annotation.getName().getIdentifier())).findFirst();
+        return node.getAnnotations().stream()
+                .filter(annotation -> ArtemisSourceConventions.Symbols.ARTEMIS_FEATURE_ANNOTATION.equals(annotation.getName().getIdentifier())).findFirst();
     }
 
     /**

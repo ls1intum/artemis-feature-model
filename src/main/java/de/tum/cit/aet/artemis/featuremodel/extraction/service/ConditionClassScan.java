@@ -19,6 +19,8 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /**
  * Scans all {@code *Enabled} Spring condition classes of the checkout. Classes are identified by symbol: any class
@@ -26,12 +28,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  * per-module {@code config} packages but not all of them. A single unparseable file is reported and skipped.
  */
 class ConditionClassScan {
-
-    private static final String JAVA_SOURCE_ROOT = "src/main/java";
-
-    private static final String CONDITION_INTERFACE = "Condition";
-
-    private static final String PROPERTY_CONSTANT_SUFFIX = "_PROPERTY_NAME";
 
     /**
      * One scanned condition class.
@@ -77,7 +73,7 @@ class ConditionClassScan {
     Result scan(ArtemisSourceRepository source) throws IOException {
         List<ScannedCondition> conditions = new ArrayList<>();
         List<ReportItem> errors = new ArrayList<>();
-        for (String file : source.findFiles(JAVA_SOURCE_ROOT, "Enabled.java")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.JAVA, ArtemisSourceConventions.Naming.CONDITION_FILE_SUFFIX)) {
             try {
                 scanFile(source, file).ifPresent(conditions::add);
             }
@@ -102,7 +98,8 @@ class ConditionClassScan {
         CompilationUnit unit = JavaSourceParser.parse(source.readFile(file), file);
         String packageName = unit.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
         for (ClassOrInterfaceDeclaration type : unit.findAll(ClassOrInterfaceDeclaration.class)) {
-            boolean implementsCondition = type.getImplementedTypes().stream().anyMatch(implemented -> CONDITION_INTERFACE.equals(implemented.getNameAsString()));
+            boolean implementsCondition = type.getImplementedTypes().stream()
+                    .anyMatch(implemented -> ArtemisSourceConventions.Symbols.CONDITION_INTERFACE.equals(implemented.getNameAsString()));
             if (!implementsCondition) {
                 continue;
             }
@@ -134,9 +131,11 @@ class ConditionClassScan {
                     resolvePropertyArgument(call, localConstants, literalPropertyKeys, propertyConstantNames);
                 }
             });
-            body.findAll(NameExpr.class).stream().map(NameExpr::getNameAsString).filter(name -> name.endsWith(PROPERTY_CONSTANT_SUFFIX) && !localConstants.containsKey(name))
+            body.findAll(NameExpr.class).stream().map(NameExpr::getNameAsString)
+                    .filter(name -> name.endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX) && !localConstants.containsKey(name))
                     .forEach(propertyConstantNames::add);
-            body.findAll(FieldAccessExpr.class).stream().map(FieldAccessExpr::getNameAsString).filter(name -> name.endsWith(PROPERTY_CONSTANT_SUFFIX))
+            body.findAll(FieldAccessExpr.class).stream().map(FieldAccessExpr::getNameAsString)
+                    .filter(name -> name.endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX))
                     .forEach(propertyConstantNames::add);
         });
         String javadoc = type.getJavadoc().map(doc -> doc.getDescription().toText().trim()).orElse(null);
@@ -160,10 +159,11 @@ class ConditionClassScan {
         else if (argument instanceof NameExpr name && localConstants.containsKey(name.getNameAsString())) {
             literalPropertyKeys.add(localConstants.get(name.getNameAsString()));
         }
-        else if (argument instanceof NameExpr name && name.getNameAsString().endsWith(PROPERTY_CONSTANT_SUFFIX)) {
+        else if (argument instanceof NameExpr name && name.getNameAsString().endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX)) {
             propertyConstantNames.add(name.getNameAsString());
         }
-        else if (argument instanceof FieldAccessExpr fieldAccess && fieldAccess.getNameAsString().endsWith(PROPERTY_CONSTANT_SUFFIX)) {
+        else if (argument instanceof FieldAccessExpr fieldAccess
+                && fieldAccess.getNameAsString().endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX)) {
             propertyConstantNames.add(fieldAccess.getNameAsString());
         }
     }

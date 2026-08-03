@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /**
  * Scans the top-level Docker compose files for the paired database alternatives (mysql versus postgres stacks) and
@@ -14,13 +15,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class ComposeFileScan {
 
-    static final String DOCKER_DIRECTORY = "docker";
-
     static final String MYSQL_TOKEN = "mysql";
 
     private static final List<String> POSTGRES_TOKENS = List.of("postgres", "postgresql");
-
-    private static final String JENKINS_FILE = DOCKER_DIRECTORY + "/jenkins.yml";
 
     /**
      * One compose file with its paired alternative, when one exists.
@@ -68,7 +65,7 @@ class ComposeFileScan {
                 findPostgresToken(fileName).ifPresent(token -> alternatives.add(new ComposeAlternative(file, token, findMysqlTwin(source, file, token).orElse(null))));
             }
         }
-        String jenkinsComposeFile = source.fileExists(JENKINS_FILE) ? JENKINS_FILE : null;
+        String jenkinsComposeFile = source.fileExists(ArtemisSourceConventions.Files.JENKINS_COMPOSE) ? ArtemisSourceConventions.Files.JENKINS_COMPOSE : null;
         return new Result(List.copyOf(alternatives), jenkinsComposeFile);
     }
 
@@ -81,7 +78,7 @@ class ComposeFileScan {
      */
     private List<String> listTopLevelComposeFiles(ArtemisSourceRepository source) throws IOException {
         List<String> files = new ArrayList<>();
-        for (String file : source.findFiles(DOCKER_DIRECTORY, ".yml")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.DOCKER, ArtemisSourceConventions.Naming.YAML_SUFFIX)) {
             if (file.chars().filter(character -> character == '/').count() == 1) {
                 files.add(file);
             }

@@ -3,13 +3,15 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /**
  * Scans the backend {@code Constants} class for string constants: module feature ids, enabled property names, and
@@ -18,7 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class BackendConstantScan {
 
-    static final String DEFAULT_CONSTANTS_PATH = "src/main/java/de/tum/cit/aet/artemis/core/config/Constants.java";
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One scanned string constant.
@@ -58,7 +60,9 @@ class BackendConstantScan {
      * @throws IllegalArgumentException if the constants file cannot be located or parsed.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateConstantsFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.BACKEND_CONSTANTS,
+                "symbol prefix " + ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX,
+                content -> content.contains(ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX));
         CompilationUnit unit = JavaSourceParser.parse(source.readFile(file), file);
         List<ScannedConstant> constants = new ArrayList<>();
         for (FieldDeclaration field : unit.findAll(FieldDeclaration.class)) {
@@ -75,41 +79,4 @@ class BackendConstantScan {
         return new Result(file, List.copyOf(constants));
     }
 
-    /**
-     * Locates the backend constants file, preferring the known location and falling back to a name-based search so a
-     * moved file is still found by symbol.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the constants file.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no constants file declaring module features can be found.
-     */
-    private String locateConstantsFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_CONSTANTS_PATH)) {
-            return DEFAULT_CONSTANTS_PATH;
-        }
-        for (String candidate : source.findFilesByName("src/main/java", "Constants.java")) {
-            Optional<String> content = readIfPossible(source, candidate);
-            if (content.isPresent() && content.get().contains("MODULE_FEATURE_")) {
-                return candidate;
-            }
-        }
-        throw new IllegalArgumentException("No Constants.java declaring MODULE_FEATURE_ constants found under src/main/java.");
-    }
-
-    /**
-     * Reads a file and swallows read failures so a broken sibling file cannot abort the location search.
-     *
-     * @param source Artemis source repository.
-     * @param relativePath checkout-relative path.
-     * @return file content, or empty when unreadable.
-     */
-    private Optional<String> readIfPossible(ArtemisSourceRepository source, String relativePath) {
-        try {
-            return Optional.of(source.readFile(relativePath));
-        }
-        catch (IOException e) {
-            return Optional.empty();
-        }
-    }
 }

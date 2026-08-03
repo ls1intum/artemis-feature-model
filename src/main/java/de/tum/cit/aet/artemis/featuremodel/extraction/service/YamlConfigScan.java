@@ -15,6 +15,7 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /**
  * Scans all {@code application*.yml} configuration defaults of the checkout into a flat index of dotted keys with
@@ -23,12 +24,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class YamlConfigScan {
 
-    static final String CONFIG_DIRECTORY = "src/main/resources/config";
-
-    private static final String APPLICATION_FILE_PREFIX = "application";
-
     /** Files whose defaults take precedence when a key occurs in several configuration files. */
-    private static final List<String> PREFERRED_DEFAULT_FILES = List.of(CONFIG_DIRECTORY + "/application-core.yml", CONFIG_DIRECTORY + "/application.yml");
+    private static final List<String> PREFERRED_DEFAULT_FILES = List.of(ArtemisSourceConventions.Files.APPLICATION_CORE,
+            ArtemisSourceConventions.Files.APPLICATION);
 
     /**
      * One occurrence of a configuration key.
@@ -101,9 +99,9 @@ class YamlConfigScan {
      */
     private List<String> listApplicationFiles(ArtemisSourceRepository source) throws IOException {
         List<String> files = new ArrayList<>();
-        for (String file : source.findFiles(CONFIG_DIRECTORY, ".yml")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.CONFIG, ArtemisSourceConventions.Naming.YAML_SUFFIX)) {
             String fileName = file.substring(file.lastIndexOf('/') + 1);
-            if (fileName.startsWith(APPLICATION_FILE_PREFIX)) {
+            if (fileName.startsWith(ArtemisSourceConventions.Naming.APPLICATION_FILE_PREFIX)) {
                 files.add(file);
             }
         }

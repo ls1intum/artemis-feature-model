@@ -7,6 +7,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
 
 /**
  * Scans {@code app.constants.ts} for the frontend module feature and profile constants. The accepted shape is a
@@ -14,9 +16,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class FrontendConstantScan {
 
-    static final String DEFAULT_APP_CONSTANTS_PATH = "src/main/webapp/app/app.constants.ts";
+    private static final Pattern CONSTANT_PATTERN = Pattern.compile("^export const (" + Pattern.quote(ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX)
+            + "\\w+|" + Pattern.quote(ArtemisSourceConventions.Symbols.PROFILE_CONSTANT_PREFIX) + "\\w+)\\s*=\\s*'([^']*)';\\s*$");
 
-    private static final Pattern CONSTANT_PATTERN = Pattern.compile("^export const (MODULE_FEATURE_\\w+|PROFILE_\\w+)\\s*=\\s*'([^']*)';\\s*$");
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One scanned frontend constant.
@@ -55,7 +58,7 @@ class FrontendConstantScan {
      * @throws IllegalArgumentException if the constants file cannot be located.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateConstantsFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.FRONTEND_CONSTANTS);
         List<ScannedFrontendConstant> constants = new ArrayList<>();
         List<String> lines = source.readLines(file);
         for (int index = 0; index < lines.size(); index++) {
@@ -67,22 +70,4 @@ class FrontendConstantScan {
         return new Result(file, List.copyOf(constants));
     }
 
-    /**
-     * Locates the frontend constants file, preferring the known location and falling back to a name-based search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the constants file.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no constants file can be found.
-     */
-    private String locateConstantsFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_APP_CONSTANTS_PATH)) {
-            return DEFAULT_APP_CONSTANTS_PATH;
-        }
-        List<String> matches = source.findFilesByName("src/main/webapp", "app.constants.ts");
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException("No app.constants.ts found under src/main/webapp.");
-        }
-        return matches.getFirst();
-    }
 }

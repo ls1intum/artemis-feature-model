@@ -14,6 +14,9 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /**
  * Scans {@code ArtemisConfigHelper}: the per-module {@code isXEnabled} accessors with the property constants they
@@ -21,11 +24,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class ConfigHelperScan {
 
-    static final String DEFAULT_CONFIG_HELPER_PATH = "src/main/java/de/tum/cit/aet/artemis/core/config/ArtemisConfigHelper.java";
-
-    private static final String PROPERTY_CONSTANT_SUFFIX = "_PROPERTY_NAME";
-
-    private static final String ENUMERATION_METHOD_NAME = "getEnabledFeatures";
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One scanned accessor method.
@@ -75,12 +74,14 @@ class ConfigHelperScan {
      * @throws IllegalArgumentException if the config helper cannot be located or parsed.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateConfigHelperFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.CONFIG_HELPER,
+                "type " + ArtemisSourceConventions.Symbols.CONFIG_HELPER_TYPE,
+                content -> content.contains("class " + ArtemisSourceConventions.Symbols.CONFIG_HELPER_TYPE));
         CompilationUnit unit = JavaSourceParser.parse(source.readFile(file), file);
         List<ScannedAccessor> accessors = new ArrayList<>();
         List<EnumerationEntry> enumerationEntries = new ArrayList<>();
         for (MethodDeclaration method : unit.findAll(MethodDeclaration.class)) {
-            if (ENUMERATION_METHOD_NAME.equals(method.getNameAsString())) {
+            if (ArtemisSourceConventions.Symbols.ENABLED_FEATURES_METHOD.equals(method.getNameAsString())) {
                 enumerationEntries.addAll(scanEnumeration(method));
             }
             else if (method.getNameAsString().startsWith("is")) {
@@ -100,8 +101,10 @@ class ConfigHelperScan {
         Set<String> propertyConstants = new LinkedHashSet<>();
         Set<String> nestedAccessors = new LinkedHashSet<>();
         method.getBody().ifPresent(body -> {
-            body.findAll(NameExpr.class).stream().map(NameExpr::getNameAsString).filter(name -> name.endsWith(PROPERTY_CONSTANT_SUFFIX)).forEach(propertyConstants::add);
-            body.findAll(FieldAccessExpr.class).stream().map(FieldAccessExpr::getNameAsString).filter(name -> name.endsWith(PROPERTY_CONSTANT_SUFFIX))
+            body.findAll(NameExpr.class).stream().map(NameExpr::getNameAsString)
+                    .filter(name -> name.endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX)).forEach(propertyConstants::add);
+            body.findAll(FieldAccessExpr.class).stream().map(FieldAccessExpr::getNameAsString)
+                    .filter(name -> name.endsWith(ArtemisSourceConventions.Naming.PROPERTY_CONSTANT_SUFFIX))
                     .forEach(propertyConstants::add);
             body.findAll(MethodCallExpr.class).stream().map(MethodCallExpr::getNameAsString).filter(name -> name.startsWith("is") && !name.equals(method.getNameAsString()))
                     .forEach(nestedAccessors::add);
@@ -132,22 +135,4 @@ class ConfigHelperScan {
         return entries;
     }
 
-    /**
-     * Locates the config helper file, preferring the known location and falling back to a name-based search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the config helper.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no config helper file can be found.
-     */
-    private String locateConfigHelperFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_CONFIG_HELPER_PATH)) {
-            return DEFAULT_CONFIG_HELPER_PATH;
-        }
-        List<String> matches = source.findFilesByName("src/main/java", "ArtemisConfigHelper.java");
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException("No ArtemisConfigHelper.java found under src/main/java.");
-        }
-        return matches.getFirst();
-    }
 }

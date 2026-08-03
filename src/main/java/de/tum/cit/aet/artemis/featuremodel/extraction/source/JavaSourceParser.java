@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.source;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -6,12 +6,8 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 
-/**
- * Thin wrapper around JavaParser with a shared configuration for all backend anchor scans. JavaParser was chosen over
- * line-based parsing because the anchors need structural facts (javadoc, initializers, method bodies), and the next
- * phase requires annotation parsing anyway.
- */
-final class JavaSourceParser {
+/** Shared JavaParser configuration and source-position support for upstream Artemis scanners. */
+public final class JavaSourceParser {
 
     private static final ParserConfiguration CONFIGURATION = new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.BLEEDING_EDGE);
 
@@ -26,7 +22,7 @@ final class JavaSourceParser {
      * @return parsed compilation unit.
      * @throws IllegalArgumentException if the source cannot be parsed.
      */
-    static CompilationUnit parse(String source, String sourceLabel) {
+    public static CompilationUnit parse(String source, String sourceLabel) {
         ParseResult<CompilationUnit> result = new JavaParser(CONFIGURATION).parse(source);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
             throw new IllegalArgumentException("Could not parse " + sourceLabel + ": " + result.getProblems());
@@ -40,7 +36,7 @@ final class JavaSourceParser {
      * @param node parsed node.
      * @return begin line, or null when the node carries no position information.
      */
-    static Integer lineOf(Node node) {
+    public static Integer lineOf(Node node) {
         return node.getBegin().map(position -> position.line).orElse(null);
     }
 }

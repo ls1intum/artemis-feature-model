@@ -2,10 +2,11 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -14,8 +15,6 @@ import tools.jackson.databind.ObjectMapper;
  * descriptions, and disable warnings for module features, runtime toggles, and displayed profiles.
  */
 class FeatureI18nScan {
-
-    static final String DEFAULT_I18N_PATH = "src/main/webapp/i18n/en/featureToggles.json";
 
     private static final String SECTION_MODULES = "modules";
 
@@ -55,6 +54,8 @@ class FeatureI18nScan {
 
     private final ObjectMapper objectMapper;
 
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
+
     /**
      * Creates the scan with the shared Jackson mapper.
      *
@@ -73,7 +74,8 @@ class FeatureI18nScan {
      * @throws IllegalArgumentException if the i18n file cannot be located or lacks the features section.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateI18nFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.FEATURE_I18N, "artemisApp root",
+                content -> content.contains("\"artemisApp\""));
         JsonNode root = objectMapper.readTree(source.readFile(file));
         JsonNode features = root.path("artemisApp").path("features");
         if (features.isMissingNode()) {
@@ -114,22 +116,4 @@ class FeatureI18nScan {
         return value.isMissingNode() || value.isNull() ? null : value.asString();
     }
 
-    /**
-     * Locates the i18n file, preferring the known location and falling back to a name-based search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the i18n file.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no i18n file can be found.
-     */
-    private String locateI18nFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_I18N_PATH)) {
-            return DEFAULT_I18N_PATH;
-        }
-        List<String> matches = source.findFilesByName("src/main/webapp/i18n/en", "featureToggles.json");
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException("No featureToggles.json found under src/main/webapp/i18n/en.");
-        }
-        return matches.getFirst();
-    }
 }

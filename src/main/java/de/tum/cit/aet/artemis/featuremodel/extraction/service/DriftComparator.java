@@ -17,6 +17,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /**
  * Compares the extraction result against the active curated feature model and the config key catalog. Matching keys
@@ -30,8 +31,6 @@ class DriftComparator {
     private static final Pattern EVIDENCE_REFERENCE_PATTERN = Pattern.compile("([^:]+):([0-9,\\-]+)");
 
     /** Checkout roots searched when resolving curated evidence file names. */
-    private static final List<String> EVIDENCE_SEARCH_ROOTS = List.of("src/main/java", "src/main/resources", "src/main/webapp", "docker");
-
     /**
      * Compares candidates and scanned keys against the curated model and catalog.
      *
@@ -268,7 +267,7 @@ class DriftComparator {
             }
         }
         Map<String, List<String>> fileIndex = new LinkedHashMap<>();
-        for (String root : EVIDENCE_SEARCH_ROOTS) {
+        for (String root : ArtemisSourceConventions.Roots.EVIDENCE) {
             try {
                 for (String file : source.findFiles(root, "")) {
                     String fileName = file.substring(file.lastIndexOf('/') + 1);

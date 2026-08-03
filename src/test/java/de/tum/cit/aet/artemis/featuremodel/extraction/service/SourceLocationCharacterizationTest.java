@@ -12,11 +12,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /** Characterizes the source-target fallback behavior that the source boundary must preserve or make fail-closed. */
 class SourceLocationCharacterizationTest {
 
     private static final Path FIXTURE_PATH = Path.of("src/test/resources/extraction/mini-artemis");
+
+    private static final Path EXTRACTION_SOURCE_PATH = Path.of("src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction");
 
     @TempDir
     private Path temporaryDirectory;
@@ -24,7 +27,7 @@ class SourceLocationCharacterizationTest {
     @Test
     void relocatedConstantsAreFoundByNameAndRequiredSymbol() throws IOException {
         Path checkout = copyFixture("relocated");
-        Path preferred = checkout.resolve(BackendConstantScan.DEFAULT_CONSTANTS_PATH);
+        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath());
         Path relocated = checkout.resolve("src/main/java/relocated/Constants.java");
         Files.createDirectories(relocated.getParent());
         Files.move(preferred, relocated);
@@ -39,16 +42,16 @@ class SourceLocationCharacterizationTest {
     @Test
     void missingConstantsProduceAnActionableControlledFailure() throws IOException {
         Path checkout = copyFixture("missing");
-        Files.delete(checkout.resolve(BackendConstantScan.DEFAULT_CONSTANTS_PATH));
+        Files.delete(checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath()));
 
         assertThatThrownBy(() -> new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Constants.java").hasMessageContaining("MODULE_FEATURE_").hasMessageContaining("src/main/java");
     }
 
     @Test
-    void ambiguousConstantsFallbackCurrentlySelectsTheFirstSortedVerifiedMatch() throws IOException {
+    void ambiguousConstantsFallbackIsRejectedWithEveryVerifiedMatchNamed() throws IOException {
         Path checkout = copyFixture("ambiguous");
-        Path preferred = checkout.resolve(BackendConstantScan.DEFAULT_CONSTANTS_PATH);
+        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath());
         Path first = checkout.resolve("src/main/java/a/Constants.java");
         Path second = checkout.resolve("src/main/java/b/Constants.java");
         Files.createDirectories(first.getParent());
@@ -57,9 +60,20 @@ class SourceLocationCharacterizationTest {
         Files.copy(preferred, second);
         Files.delete(preferred);
 
-        BackendConstantScan.Result result = new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout));
+        assertThatThrownBy(() -> new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ambiguous backend constants target").hasMessageContaining("src/main/java/a/Constants.java")
+                .hasMessageContaining("src/main/java/b/Constants.java");
+    }
 
-        assertThat(result.file()).isEqualTo("src/main/java/a/Constants.java");
+    @Test
+    void scannerImplementationsDoNotReintroduceConventionOwnedSourceRootLiterals() throws IOException {
+        try (var paths = Files.walk(EXTRACTION_SOURCE_PATH)) {
+            for (Path path : paths.filter(Files::isRegularFile).filter(file -> file.toString().endsWith(".java"))
+                    .filter(file -> !file.getFileName().toString().equals("ArtemisSourceConventions.java")).toList()) {
+                assertThat(Files.readString(path)).as("source conventions in %s", path).doesNotContain("\"src/main/java", "\"src/main/resources",
+                        "\"src/main/webapp", "\"docker\"");
+            }
+        }
     }
 
     /**

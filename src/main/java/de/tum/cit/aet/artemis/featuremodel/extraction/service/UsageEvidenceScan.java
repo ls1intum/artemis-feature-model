@@ -7,6 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /**
  * Lexically scans production sources for usage evidence: {@code @FeatureToggle} guards, {@code jhiFeatureToggle*}
@@ -15,10 +16,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  * thousands of files would add cost without adding information.
  */
 class UsageEvidenceScan {
-
-    private static final String JAVA_SOURCE_ROOT = "src/main/java";
-
-    private static final String WEBAPP_SOURCE_ROOT = "src/main/webapp/app";
 
     private static final Pattern FEATURE_TOGGLE_ANNOTATION_PATTERN = Pattern.compile("@FeatureToggle\\(");
 
@@ -71,11 +68,11 @@ class UsageEvidenceScan {
     Result scan(ArtemisSourceRepository source) throws IOException {
         List<UsageSite> featureToggleSites = new ArrayList<>();
         List<UsageSite> conditionalSites = new ArrayList<>();
-        for (String file : source.findFiles(JAVA_SOURCE_ROOT, ".java")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.JAVA, ArtemisSourceConventions.Naming.JAVA_SUFFIX)) {
             scanLines(source, file, featureToggleSites, conditionalSites);
         }
         List<UsageSite> templateToggleSites = new ArrayList<>();
-        for (String file : source.findFiles(WEBAPP_SOURCE_ROOT, ".html")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.WEBAPP_APP, ArtemisSourceConventions.Naming.HTML_SUFFIX)) {
             scanTemplate(source, file, templateToggleSites);
         }
         return new Result(List.copyOf(featureToggleSites), List.copyOf(templateToggleSites), List.copyOf(conditionalSites));

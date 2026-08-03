@@ -16,6 +16,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
 /**
  * Joins the raw anchor scans into namespaced feature candidates with evidence, relation candidates from composite
@@ -24,15 +25,15 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class CandidateAssembler {
 
-    private static final String MODULE_CONSTANT_PREFIX = "MODULE_FEATURE_";
+    private static final String MODULE_CONSTANT_PREFIX = ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX;
 
-    private static final String PROFILE_CONSTANT_PREFIX = "PROFILE_";
+    private static final String PROFILE_CONSTANT_PREFIX = ArtemisSourceConventions.Symbols.PROFILE_CONSTANT_PREFIX;
 
-    private static final String PROPERTY_CONSTANT_SUFFIX = "_ENABLED_PROPERTY_NAME";
+    private static final String PROPERTY_CONSTANT_SUFFIX = ArtemisSourceConventions.Naming.ENABLED_PROPERTY_CONSTANT_SUFFIX;
 
-    private static final String CONDITION_CLASS_SUFFIX = "Enabled";
+    private static final String CONDITION_CLASS_SUFFIX = ArtemisSourceConventions.Naming.CONDITION_CLASS_SUFFIX;
 
-    private static final String TOGGLE_DOC_IDENTIFIER_PREFIX = "FeatureToggle.";
+    private static final String TOGGLE_DOC_IDENTIFIER_PREFIX = ArtemisSourceConventions.Symbols.FRONTEND_TOGGLE_REFERENCE_PREFIX;
 
     private static final String RELATION_ID_PREFIX = "relation:";
 
@@ -582,7 +583,7 @@ class CandidateAssembler {
             if (frontendConstant != null) {
                 addEvidence(candidateId, EvidenceItem.KIND_FRONTEND_CONSTANT, frontendConstantScan.file(), frontendConstant.line(), frontendConstant.name(), null);
             }
-            String profileYaml = YamlConfigScan.CONFIG_DIRECTORY + "/application-" + profileId + ".yml";
+            String profileYaml = ArtemisSourceConventions.Files.profileConfiguration(profileId);
             if (source.fileExists(profileYaml)) {
                 addEvidence(candidateId, EvidenceItem.KIND_PROFILE_YAML, profileYaml, null, profileId, null);
             }
