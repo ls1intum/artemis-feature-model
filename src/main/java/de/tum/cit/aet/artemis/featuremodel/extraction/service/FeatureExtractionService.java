@@ -24,6 +24,8 @@ class FeatureExtractionService {
 
     private final ObjectMapper objectMapper;
 
+    private final CandidateAssembler candidateAssembler;
+
     /**
      * Creates the extraction service.
      *
@@ -31,6 +33,7 @@ class FeatureExtractionService {
      */
     FeatureExtractionService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        candidateAssembler = new CandidateAssembler();
     }
 
     /**
@@ -74,9 +77,10 @@ class FeatureExtractionService {
         appendWholeScannerDiagnostics(scanResults, items);
         appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan), items);
 
-        CandidateAssembler.Result assembly = new CandidateAssembler().assemble(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
+        CandidateAssemblyInput assemblyInput = new CandidateAssemblyInput(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
                 backendToggleScan.facts(), frontendConstantScan.facts(), frontendToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
                 composeScan.facts(), usageScan.facts());
+        CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());
         items.addAll(new DriftComparator().compare(source, curatedModel, catalog, assembly.candidates(), yamlScan.facts(), source.commit()));
 
