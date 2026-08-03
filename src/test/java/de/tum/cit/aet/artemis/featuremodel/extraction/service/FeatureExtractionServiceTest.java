@@ -26,10 +26,21 @@ class FeatureExtractionServiceTest {
 
     private static FeatureExtractionService.Outcome outcome;
 
+    private static FeatureExtractionService extractionService;
+
     @BeforeAll
     static void extractFixture() {
-        FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        outcome = service.scan(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        extractionService = new FeatureExtractionService(new ObjectMapper());
+        outcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(),
+                ExtractionTestModels.fixtureCatalog());
+    }
+
+    @Test
+    void scansTwiceThroughTheSameFacadeWithoutLeakingState() {
+        FeatureExtractionService.Outcome secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH),
+                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+
+        assertThat(secondOutcome).isEqualTo(outcome);
     }
 
     @Test

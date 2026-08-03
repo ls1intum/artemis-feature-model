@@ -5,7 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +51,28 @@ class ExtractionPipelineCharacterizationTest {
     private static final String OTHER_COMMIT = "bbbbbbbbccccccccddddddddeeeeeeeeffffffff";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
+            Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
+            Map.entry("model/generated-feature-model.json", "56f318c03592df496aa81fd23d9e1a218f0e4e1b415881320b76b65e7768805d"),
+            Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("model/model-diff-report.json", "9864da10c3167751017abfeee45c22bf14e3731153edbd9f36c21268fc396400"),
+            Map.entry("model/model-result.json", "ce44b7b09956750cfd1455b7849a0708e49e86cc5be321934647bb716aab4661"),
+            Map.entry("report/extraction-report.json", "e12e075941d76f979e9f7d2bbecc1056ec90075532daa5097d1d0ae84bd57708"),
+            Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
+            Map.entry("scan/evidence.json", "a4f0eec398a4d26e4937e107713b5604b384631b153f0dab2e1911040687dd8d"),
+            Map.entry("scan/feature-candidates.json", "dd09a1a2a7e705dd1bcf372207c2b662355e12fb474d8158797b4dc21457a6be"),
+            Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
+            Map.entry("scan/scan-diagnostics.json", "9018aa50ef7a0a7cb54aa2fc46ac8348e8b5d0bd51a04906bf7698357a00e783"),
+            Map.entry("snapshot/checksum.txt", "2cbfaf7446dc286644bc24a05bc64e371910ad4fd5ea56312907aa027c60917a"),
+            Map.entry("snapshot/feature-model.json", "56f318c03592df496aa81fd23d9e1a218f0e4e1b415881320b76b65e7768805d"),
+            Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("snapshot/metadata.json", "d4c8ccce563aae8f1d608bfdd3852685fc65a584bcff1f24932b768b17d4a9f3"),
+            Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
+            Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("workflow/workflow-result.json", "10cfacbb27af50a92d9f2633c023025a2f1fc5f4dca06e9a61490ee062edfbe9"));
 
     @TempDir
     private Path outputRoot;
@@ -131,6 +158,13 @@ class ExtractionPipelineCharacterizationTest {
                 SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
             assertThat(layout.snapshotDirectory().resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
         }
+    }
+
+    @Test
+    void deterministicMiniArtemisArtifactsMatchTheRecordedStageOneBaseline() throws Exception {
+        runPipeline();
+
+        assertThat(deterministicArtifactDigests()).isEqualTo(RECORDED_STAGE_ONE_DIGESTS);
     }
 
     @Test
@@ -316,5 +350,43 @@ class ExtractionPipelineCharacterizationTest {
      */
     private List<String> reportCodes(ExtractionReport report) {
         return report.items().stream().map(ReportItem::code).distinct().toList();
+    }
+
+    /**
+     * Hashes every deterministic mini-Artemis artifact. Scan metadata is excluded because it intentionally records
+     * wall-clock timestamps and the temporary checkout path. The scan envelope is also excluded from this
+     * cross-process baseline because its existing {@link Map#copyOf(Map)} digest map does not retain insertion order;
+     * the round-trip test still guards it within one command process until Stage 2 replaces that artifact contract.
+     *
+     * @return artifact digests keyed by run-relative path.
+     * @throws Exception if an artifact cannot be listed, read, or hashed.
+     */
+    private Map<String, String> deterministicArtifactDigests() throws Exception {
+        Map<String, String> digests = new TreeMap<>();
+        try (var paths = Files.walk(layout.root())) {
+            for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                String relativePath = layout.root().relativize(path).toString().replace('\\', '/');
+                if (!relativePath.equals("scan/" + ExtractionArtifactStore.SCAN_METADATA_FILE)
+                        && !relativePath.equals("scan/" + ExtractionArtifactStore.SCAN_RESULT_FILE)) {
+                    digests.put(relativePath, sha256(Files.readAllBytes(path)));
+                }
+            }
+        }
+        return digests;
+    }
+
+    /**
+     * Computes an unprefixed lowercase SHA-256 digest for a byte-parity assertion.
+     *
+     * @param bytes artifact bytes.
+     * @return lowercase digest.
+     */
+    private String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is not available.", e);
+        }
     }
 }

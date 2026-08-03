@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,12 +34,25 @@ class ExtractionDeterminismTest {
         ExtractionArtifactLayout firstRun = runAndWrite(temporaryDirectory.resolve("first"));
         ExtractionArtifactLayout secondRun = runAndWrite(temporaryDirectory.resolve("second"));
 
-        for (String fileName : new String[] { ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
-                ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE,
-                ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE }) {
+        for (String fileName : scanArtifactFileNames()) {
             byte[] firstBytes = Files.readAllBytes(firstRun.scanDirectory().resolve(fileName));
             byte[] secondBytes = Files.readAllBytes(secondRun.scanDirectory().resolve(fileName));
             assertThat(secondBytes).as("output file %s must be byte-identical across runs", fileName).isEqualTo(firstBytes);
+        }
+    }
+
+    @Test
+    void persistedScanFactsRoundTripWithoutChangingArtifactBytes() throws IOException {
+        ExtractionArtifactLayout firstRun = runAndWrite(temporaryDirectory.resolve("round-trip-source"));
+        ExtractionArtifactStore store = new ExtractionArtifactStore(new ObjectMapper());
+        ExtractionArtifactStore.LoadedScan loaded = store.readScan(firstRun, new LocalArtemisSourceRepository(FIXTURE_PATH).commit());
+        ExtractionArtifactLayout roundTrip = ExtractionArtifactLayout.forCommit(temporaryDirectory.resolve("round-trip-target"), loaded.result().artemisCommit());
+
+        store.writeScan(roundTrip, loaded.metadata(), loaded.outcome());
+
+        for (String fileName : scanArtifactFileNames()) {
+            assertThat(Files.readAllBytes(roundTrip.scanDirectory().resolve(fileName))).as("round-tripped artifact %s", fileName)
+                    .isEqualTo(Files.readAllBytes(firstRun.scanDirectory().resolve(fileName)));
         }
     }
 
@@ -60,5 +74,16 @@ class ExtractionDeterminismTest {
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, source.commit());
         new ExtractionArtifactStore(objectMapper).writeScan(layout, metadata, outcome);
         return layout;
+    }
+
+    /**
+     * Lists the complete persisted scan artifact contract in write order.
+     *
+     * @return scan artifact file names.
+     */
+    private List<String> scanArtifactFileNames() {
+        return List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE, ExtractionArtifactStore.EVIDENCE_FILE,
+                ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE, ExtractionArtifactStore.CONFIG_DEFAULTS_FILE,
+                ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE);
     }
 }
