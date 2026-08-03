@@ -6,6 +6,7 @@ import java.util.List;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
@@ -62,7 +63,7 @@ class ModelAssemblyService {
      * @param artemisCommit resolved commit the scan was taken from.
      * @return generated artifacts and diagnostics.
      */
-    Outcome assemble(FeatureScopeManifest manifest, FeatureExtractionService.Outcome scan, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog,
+    Outcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog,
             DeploymentProfile bundledProfile, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations());

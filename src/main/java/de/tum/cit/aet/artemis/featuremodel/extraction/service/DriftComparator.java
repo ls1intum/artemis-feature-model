@@ -15,6 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
@@ -43,7 +44,7 @@ class DriftComparator {
      * @return drift report items in discovery order; the report assembly sorts them.
      */
     List<ReportItem> compare(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog, List<FeatureCandidate> candidates,
-            YamlConfigScan.Result yamlScan, String artemisCommit) {
+            ExtractedConfigurationDefaults yamlScan, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         Map<String, FeatureCandidate> moduleCandidatesByConfigKey = new LinkedHashMap<>();
         Map<String, FeatureCandidate> moduleCandidatesByConditionClass = new LinkedHashMap<>();
@@ -148,7 +149,7 @@ class DriftComparator {
      * @param artemisCommit resolved commit of the scanned checkout.
      * @param items report item sink.
      */
-    private void compareCatalog(ArtemisConfigKeyCatalog catalog, List<FeatureCandidate> candidates, YamlConfigScan.Result yamlScan, String artemisCommit,
+    private void compareCatalog(ArtemisConfigKeyCatalog catalog, List<FeatureCandidate> candidates, ExtractedConfigurationDefaults yamlScan, String artemisCommit,
             List<ReportItem> items) {
         String pin = catalog.verifiedAgainstArtemisCommit();
         if (pin == null || artemisCommit == null || !artemisCommit.startsWith(pin)) {

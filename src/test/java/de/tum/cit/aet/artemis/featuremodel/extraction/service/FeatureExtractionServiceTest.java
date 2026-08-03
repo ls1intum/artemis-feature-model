@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -24,7 +25,7 @@ class FeatureExtractionServiceTest {
 
     private static final Path FIXTURE_PATH = Path.of("src/test/resources/extraction/mini-artemis");
 
-    private static FeatureExtractionService.Outcome outcome;
+    private static ExtractedSourceFacts outcome;
 
     private static FeatureExtractionService extractionService;
 
@@ -37,7 +38,7 @@ class FeatureExtractionServiceTest {
 
     @Test
     void scansTwiceThroughTheSameFacadeWithoutLeakingState() {
-        FeatureExtractionService.Outcome secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH),
+        ExtractedSourceFacts secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH),
                 ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
 
         assertThat(secondOutcome).isEqualTo(outcome);

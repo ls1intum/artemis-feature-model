@@ -15,6 +15,9 @@ import java.util.TreeMap;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
@@ -27,7 +30,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
 import tools.jackson.core.util.DefaultIndenter;
 import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.databind.ObjectMapper;
@@ -108,7 +110,7 @@ class ExtractionArtifactStore {
      * @param metadata scan metadata.
      * @param outcome source facts of the scan.
      */
-    record LoadedScan(ScanResult result, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) {
+    record LoadedScan(ScanResult result, ScanMetadata metadata, ExtractedSourceFacts outcome) {
     }
 
     /**
@@ -154,7 +156,7 @@ class ExtractionArtifactStore {
      * @return the written scan envelope.
      * @throws IOException if a file cannot be written.
      */
-    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) throws IOException {
+    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, ExtractedSourceFacts outcome) throws IOException {
         Path directory = Files.createDirectories(layout.scanDirectory());
         writeJson(directory.resolve(SCAN_METADATA_FILE), metadata);
         writeJson(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
@@ -189,12 +191,12 @@ class ExtractionArtifactStore {
         requireEqual("scan", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
         verifyPayloadDigests(directory, result.payloadDigests());
 
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService.Outcome(
+        ExtractedSourceFacts outcome = new ExtractedSourceFacts(
                 List.of(readJson(directory.resolve(FEATURE_CANDIDATES_FILE), FeatureCandidate[].class, "scan")),
                 List.of(readJson(directory.resolve(EVIDENCE_FILE), EvidenceItem[].class, "scan")),
                 List.of(readJson(directory.resolve(RELATION_CANDIDATES_FILE), RelationCandidate[].class, "scan")),
-                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), AnnotatedAnchor[].class, "scan")),
-                readJson(directory.resolve(CONFIG_DEFAULTS_FILE), YamlConfigScan.Result.class, "scan"),
+                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), ExtractedAnnotation[].class, "scan")),
+                readJson(directory.resolve(CONFIG_DEFAULTS_FILE), ExtractedConfigurationDefaults.class, "scan"),
                 List.of(readJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), ReportItem[].class, "scan")));
         return new LoadedScan(result, readJson(directory.resolve(SCAN_METADATA_FILE), ScanMetadata.class, "scan"), outcome);
     }

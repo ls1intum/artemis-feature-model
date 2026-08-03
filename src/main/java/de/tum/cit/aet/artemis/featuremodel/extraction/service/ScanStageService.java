@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
@@ -76,7 +77,7 @@ public class ScanStageService {
         new ArtemisSourcePreflight().verify(source, manifest.artemisCommitSha());
 
         String scanStartedAt = Instant.now().toString();
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).scan(source, inputLoader.curatedModel(inputs),
+        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source, inputLoader.curatedModel(inputs),
                 inputLoader.bootstrapCatalog(inputs));
         String scanFinishedAt = Instant.now().toString();
 

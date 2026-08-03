@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -32,7 +34,7 @@ class ExtractionFailSoftTest {
     @Test
     void unparseableSourceBecomesErrorItemAndScanCompletes() {
         FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        FeatureExtractionService.Outcome outcome = service.scan(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH),
+        ExtractedSourceFacts outcome = service.scan(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH),
                 ExtractionTestModels.minimalCuratedModel(), new ArtemisConfigKeyCatalog("0.0.1-test", "fixturepin", "synthetic", null));
 
         assertThat(outcome.items()).anySatisfy(item -> {
@@ -48,17 +50,23 @@ class ExtractionFailSoftTest {
     void perFileConditionFailureIsReportedWithoutDiscardingSiblingFacts() throws IOException {
         Path checkout = temporaryDirectory.resolve("per-file-failure");
         copyFixture(COMPLETE_FIXTURE_PATH, checkout);
-        Path brokenCondition = checkout.resolve("src/main/java/de/tum/cit/aet/artemis/alpha/config/AlphaEnabled.java");
+        String brokenConditionPath = "src/main/java/de/tum/cit/aet/artemis/alpha/config/AlphaEnabled.java";
+        Path brokenCondition = checkout.resolve(brokenConditionPath);
         Files.writeString(brokenCondition, "this is not Java source");
 
-        ConditionClassScan.Result result = new ConditionClassScan().scan(new LocalArtemisSourceRepository(checkout));
+        SourceScanResult<ConditionClassScan.Result> result = new ConditionClassScan().scan(new LocalArtemisSourceRepository(checkout));
 
-        assertThat(result.conditions()).extracting(ConditionClassScan.ScannedCondition::className).contains("BetaEnabled").doesNotContain("AlphaEnabled");
-        assertThat(result.errors()).singleElement().satisfies(item -> {
+        assertThat(result.facts().conditions()).extracting(ConditionClassScan.ScannedCondition::className).contains("BetaEnabled").doesNotContain("AlphaEnabled");
+        assertThat(result.diagnostics()).singleElement().satisfies(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_EXTRACTOR_ERROR);
-            assertThat(item.subject()).isEqualTo("src/main/java/de/tum/cit/aet/artemis/alpha/config/AlphaEnabled.java");
+            assertThat(item.subject()).isEqualTo(brokenConditionPath);
             assertThat(item.message()).startsWith("Could not parse condition class candidate:");
         });
+
+        ExtractedSourceFacts outcome = new FeatureExtractionService(new ObjectMapper()).scan(new LocalArtemisSourceRepository(checkout),
+                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        assertThat(outcome.items()).filteredOn(item -> ReportItem.CODE_EXTRACTOR_ERROR.equals(item.code()) && brokenConditionPath.equals(item.subject()))
+                .singleElement();
     }
 
     /**

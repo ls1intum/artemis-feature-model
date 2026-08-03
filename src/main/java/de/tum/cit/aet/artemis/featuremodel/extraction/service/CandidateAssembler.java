@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -98,7 +100,7 @@ class CandidateAssembler {
 
     private FeatureI18nScan.Result i18nScan = FeatureI18nScan.Result.empty();
 
-    private YamlConfigScan.Result yamlScan = YamlConfigScan.Result.empty();
+    private ExtractedConfigurationDefaults yamlScan = ExtractedConfigurationDefaults.empty();
 
     private ComposeFileScan.Result composeScan = ComposeFileScan.Result.empty();
 
@@ -123,8 +125,8 @@ class CandidateAssembler {
      */
     Result assemble(ArtemisSourceRepository source, BackendConstantScan.Result constantScan, ConfigHelperScan.Result configHelperScan,
             ConditionClassScan.Result conditionScan, BackendFeatureEnumScan.Result backendToggleScan, FrontendConstantScan.Result frontendConstantScan,
-            FrontendToggleEnumScan.Result frontendToggleScan, AdminPageScan.Result adminPageScan, FeatureI18nScan.Result i18nScan, YamlConfigScan.Result yamlScan,
-            ComposeFileScan.Result composeScan, UsageEvidenceScan.Result usageScan) {
+            FrontendToggleEnumScan.Result frontendToggleScan, AdminPageScan.Result adminPageScan, FeatureI18nScan.Result i18nScan,
+            ExtractedConfigurationDefaults yamlScan, ComposeFileScan.Result composeScan, UsageEvidenceScan.Result usageScan) {
         this.constantScan = constantScan;
         this.configHelperScan = configHelperScan;
         this.conditionScan = conditionScan;
@@ -331,7 +333,7 @@ class CandidateAssembler {
             if (draft.configKey == null) {
                 continue;
             }
-            YamlConfigScan.KeyOccurrence occurrence = yamlScan.preferredOccurrence(draft.configKey);
+            ExtractedConfigurationDefault occurrence = yamlScan.preferredOccurrence(draft.configKey);
             if (occurrence != null) {
                 addEvidence(draft.candidateId(), EvidenceItem.KIND_YAML_DEFAULT, occurrence.file(), occurrence.line(), draft.configKey, String.valueOf(occurrence.value()));
             }
@@ -644,7 +646,7 @@ class CandidateAssembler {
             }
             String candidateId = FeatureCandidate.NAMESPACE_CONFIG_KEY + constant.value();
             addEvidence(candidateId, EvidenceItem.KIND_BACKEND_CONSTANT, constantScan.file(), constant.line(), constant.name(), null);
-            YamlConfigScan.KeyOccurrence occurrence = yamlScan.preferredOccurrence(constant.value());
+            ExtractedConfigurationDefault occurrence = yamlScan.preferredOccurrence(constant.value());
             if (occurrence != null) {
                 addEvidence(candidateId, EvidenceItem.KIND_YAML_DEFAULT, occurrence.file(), occurrence.line(), constant.value(), String.valueOf(occurrence.value()));
             }
@@ -747,7 +749,7 @@ class CandidateAssembler {
      * @param occurrence key occurrence, or null.
      * @return scalar value, or null.
      */
-    private Object valueOf(YamlConfigScan.KeyOccurrence occurrence) {
+    private Object valueOf(ExtractedConfigurationDefault occurrence) {
         return occurrence == null ? null : occurrence.value();
     }
 

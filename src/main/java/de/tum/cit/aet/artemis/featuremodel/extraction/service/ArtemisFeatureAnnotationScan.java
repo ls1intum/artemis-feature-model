@@ -18,10 +18,13 @@ import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 
 /** Reads {@code @ArtemisFeature} semantics from Java source without loading annotated classes. */
 class ArtemisFeatureAnnotationScan {
@@ -30,61 +33,14 @@ class ArtemisFeatureAnnotationScan {
             "documentationUrl");
 
     /**
-     * Parsed annotation values. Null optional values mean that the attribute was not explicitly present and therefore
-     * must not override manifest semantics.
-     *
-     * @param id required curated id.
-     * @param group group override.
-     * @param parent parent override.
-     * @param kind kind override.
-     * @param requiresCapabilities required capabilities override.
-     * @param providesCapabilities provided capabilities override.
-     * @param name name override.
-     * @param description description override.
-     * @param documentationUrl documentation URL override.
-     */
-    record AnnotationSemantics(String id, String group, String parent, String kind, List<String> requiresCapabilities, List<String> providesCapabilities, String name,
-            String description, String documentationUrl) {
-    }
-
-    /**
-     * One annotated source anchor.
-     *
-     * @param anchor fully-qualified type, field symbol, or namespaced enum-member anchor.
-     * @param semantics parsed values.
-     * @param file checkout-relative source file.
-     * @param line annotation target line.
-     */
-    record AnnotatedAnchor(String anchor, AnnotationSemantics semantics, String file, Integer line) {
-    }
-
-    /**
-     * Annotation scan output.
-     *
-     * @param annotations annotations sorted by anchor, file, and line.
-     * @param errors per-file annotation parse failures.
-     */
-    record Result(List<AnnotatedAnchor> annotations, List<ReportItem> errors) {
-
-        /**
-         * Creates an empty scan result.
-         *
-         * @return empty result.
-         */
-        static Result empty() {
-            return new Result(List.of(), List.of());
-        }
-    }
-
-    /**
      * Scans Java files containing the annotation marker.
      *
      * @param source Artemis source repository.
      * @return parsed annotations and isolated parse errors.
      * @throws IOException if the source tree cannot be traversed.
      */
-    Result scan(ArtemisSourceRepository source) throws IOException {
-        List<AnnotatedAnchor> annotations = new ArrayList<>();
+    SourceScanResult<List<ExtractedAnnotation>> scan(ArtemisSourceRepository source) throws IOException {
+        List<ExtractedAnnotation> annotations = new ArrayList<>();
         List<ReportItem> errors = new ArrayList<>();
         for (String file : source.findFiles(ArtemisSourceConventions.Roots.JAVA, ArtemisSourceConventions.Naming.JAVA_SUFFIX)) {
             String content;
@@ -99,9 +55,9 @@ class ArtemisFeatureAnnotationScan {
                 errors.add(ReportItem.error(ReportItem.CODE_EXTRACTOR_ERROR, file, "Could not parse ArtemisFeature annotation: " + e.getMessage()));
             }
         }
-        annotations.sort(Comparator.comparing(AnnotatedAnchor::anchor).thenComparing(AnnotatedAnchor::file)
-                .thenComparing(AnnotatedAnchor::line, Comparator.nullsLast(Integer::compareTo)));
-        return new Result(List.copyOf(annotations), List.copyOf(errors));
+        annotations.sort(Comparator.comparing(ExtractedAnnotation::anchor).thenComparing(ExtractedAnnotation::file)
+                .thenComparing(ExtractedAnnotation::line, Comparator.nullsLast(Integer::compareTo)));
+        return SourceScanResult.withDiagnostics(List.copyOf(annotations), errors);
     }
 
     /**
@@ -112,21 +68,21 @@ class ArtemisFeatureAnnotationScan {
      * @param annotations annotation sink.
      * @throws IllegalArgumentException if the file or an annotation shape cannot be parsed.
      */
-    private void scanFile(String content, String file, List<AnnotatedAnchor> annotations) {
+    private void scanFile(String content, String file, List<ExtractedAnnotation> annotations) {
         CompilationUnit unit = JavaSourceParser.parse(content, file);
         String packageName = unit.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
         for (TypeDeclaration<?> type : unit.findAll(TypeDeclaration.class)) {
             findAnnotation(type).ifPresent(annotation -> {
                 String anchor = packageName.isEmpty() ? type.getNameAsString() : packageName + "." + type.getNameAsString();
-                annotations.add(new AnnotatedAnchor(anchor, parseSemantics(annotation, file), file, JavaSourceParser.lineOf(type)));
+                annotations.add(new ExtractedAnnotation(anchor, parseSemantics(annotation, file), file, JavaSourceParser.lineOf(type)));
             });
         }
         for (FieldDeclaration field : unit.findAll(FieldDeclaration.class)) {
             findAnnotation(field).ifPresent(annotation -> field.getVariables().forEach(variable -> annotations
-                    .add(new AnnotatedAnchor(variable.getNameAsString(), parseSemantics(annotation, file), file, JavaSourceParser.lineOf(variable)))));
+                    .add(new ExtractedAnnotation(variable.getNameAsString(), parseSemantics(annotation, file), file, JavaSourceParser.lineOf(variable)))));
         }
         for (EnumConstantDeclaration constant : unit.findAll(EnumConstantDeclaration.class)) {
-            findAnnotation(constant).ifPresent(annotation -> annotations.add(new AnnotatedAnchor("toggle:" + constant.getNameAsString(), parseSemantics(annotation, file),
+            findAnnotation(constant).ifPresent(annotation -> annotations.add(new ExtractedAnnotation("toggle:" + constant.getNameAsString(), parseSemantics(annotation, file),
                     file, JavaSourceParser.lineOf(constant))));
         }
     }
@@ -150,7 +106,7 @@ class ArtemisFeatureAnnotationScan {
      * @return parsed semantics.
      * @throws IllegalArgumentException if the annotation uses an unsupported shape or unknown attributes.
      */
-    private AnnotationSemantics parseSemantics(AnnotationExpr annotation, String file) {
+    private ExtractedAnnotationSemantics parseSemantics(AnnotationExpr annotation, String file) {
         if (!(annotation instanceof NormalAnnotationExpr normal)) {
             throw new IllegalArgumentException("@ArtemisFeature in " + file + " must use named attributes.");
         }
@@ -159,7 +115,7 @@ class ArtemisFeatureAnnotationScan {
             throw new IllegalArgumentException("@ArtemisFeature in " + file + " contains unknown attribute(s): " + unknownAttributes + ".");
         }
         String id = requiredString(normal, "id", file);
-        return new AnnotationSemantics(id, optionalString(normal, "group", file), optionalString(normal, "parent", file), optionalString(normal, "kind", file),
+        return new ExtractedAnnotationSemantics(id, optionalString(normal, "group", file), optionalString(normal, "parent", file), optionalString(normal, "kind", file),
                 optionalStringList(normal, "requiresCapabilities", file), optionalStringList(normal, "providesCapabilities", file), optionalString(normal, "name", file),
                 optionalString(normal, "description", file), optionalString(normal, "documentationUrl", file));
     }

@@ -12,6 +12,8 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
@@ -69,10 +71,10 @@ class GeneratedCatalogAssemblerTest {
         return new FeatureModel(new ModelMetadata("generated", "Generated", "0.0.1"), List.of(alpha), List.of(), List.of());
     }
 
-    private YamlConfigScan.Result yamlScan() {
-        return new YamlConfigScan.Result(Map.of(
-                "artemis.alpha.enabled", List.of(new YamlConfigScan.KeyOccurrence("src/main/resources/config/application-core.yml", 2, Boolean.TRUE)),
-                "artemis.alpha.url", List.of(new YamlConfigScan.KeyOccurrence("src/main/resources/config/application-core.yml", 3, "http://localhost:5100"))),
+    private ExtractedConfigurationDefaults yamlScan() {
+        return new ExtractedConfigurationDefaults(Map.of(
+                "artemis.alpha.enabled", List.of(new ExtractedConfigurationDefault("src/main/resources/config/application-core.yml", 2, Boolean.TRUE)),
+                "artemis.alpha.url", List.of(new ExtractedConfigurationDefault("src/main/resources/config/application-core.yml", 3, "http://localhost:5100"))),
                 List.of());
     }
 }

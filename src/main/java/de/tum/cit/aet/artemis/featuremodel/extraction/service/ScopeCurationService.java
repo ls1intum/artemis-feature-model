@@ -12,14 +12,14 @@ import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotationSemantics;
 
 /**
  * Applies manifest membership to the extracted candidates and merges source annotation semantics for included
@@ -63,11 +63,11 @@ class ScopeCurationService {
      * @param annotations parsed source annotations.
      * @return classifications, resolved include semantics, and diagnostics.
      */
-    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<AnnotatedAnchor> annotations) {
+    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<ExtractedAnnotation> annotations) {
         List<ReportItem> items = new ArrayList<>();
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveMembership(manifest, resolver, items);
-        Map<String, AnnotatedAnchor> annotationsByCandidate = resolveAnnotations(annotations, resolver, items);
+        Map<String, ExtractedAnnotation> annotationsByCandidate = resolveAnnotations(annotations, resolver, items);
 
         List<CurationDecision> decisions = new ArrayList<>();
         List<ResolvedFeatureScope> includedFeatures = new ArrayList<>();
@@ -172,9 +172,9 @@ class ScopeCurationService {
      * @param items report item sink.
      * @return annotation per resolved candidate id.
      */
-    private Map<String, AnnotatedAnchor> resolveAnnotations(List<AnnotatedAnchor> annotations, CandidateResolver resolver, List<ReportItem> items) {
-        Map<String, AnnotatedAnchor> annotationsByCandidate = new LinkedHashMap<>();
-        for (AnnotatedAnchor annotation : annotations) {
+    private Map<String, ExtractedAnnotation> resolveAnnotations(List<ExtractedAnnotation> annotations, CandidateResolver resolver, List<ReportItem> items) {
+        Map<String, ExtractedAnnotation> annotationsByCandidate = new LinkedHashMap<>();
+        for (ExtractedAnnotation annotation : annotations) {
             CandidateResolver.Resolution resolution = resolver.resolve(annotation.anchor());
             if (resolution.problem() != null) {
                 items.add(ReportItem.warning(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, annotation.anchor(),
@@ -201,7 +201,7 @@ class ScopeCurationService {
      * @param includedFeatures resolved include semantics sink.
      * @param items report item sink.
      */
-    private void classifyCandidate(FeatureCandidate candidate, Membership membership, AnnotatedAnchor annotation, List<CurationDecision> decisions,
+    private void classifyCandidate(FeatureCandidate candidate, Membership membership, ExtractedAnnotation annotation, List<CurationDecision> decisions,
             List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
         if (membership != null && membership.include() != null) {
             ResolvedFeatureScope scope = resolveSemantics(candidate, membership.include(), annotation, items);
@@ -274,7 +274,7 @@ class ScopeCurationService {
      * @param items report item sink.
      * @return resolved semantics with their source marker.
      */
-    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated, List<ReportItem> items) {
+    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, IncludeEntry manifest, ExtractedAnnotation annotated, List<ReportItem> items) {
         String optionality = firstNonNull(manifest.optionality(), FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         if (annotated == null) {
             return new ResolvedFeatureScope(candidate.id(), manifest.id(), manifest.group(), manifest.parent(), kind(manifest.kind(), candidate), optionality,
@@ -282,7 +282,7 @@ class ScopeCurationService {
                     manifest.artifactMappings(), manifest.name(), manifest.description(), manifest.documentationUrl(), SEMANTIC_SOURCE_MANIFEST);
         }
         // The annotation contract carries no category, default state, order, or mapping hints yet; those stay manifest data.
-        AnnotationSemantics annotation = annotated.semantics();
+        ExtractedAnnotationSemantics annotation = annotated.semantics();
         reportContradictedAnnotationAttributes(candidate, manifest, annotated, items);
         String semanticSource = annotationFilledAnOpenAttribute(manifest, annotation) ? SEMANTIC_SOURCE_ANNOTATION : SEMANTIC_SOURCE_MANIFEST;
         return new ResolvedFeatureScope(candidate.id(), manifest.id(), firstNonNull(manifest.group(), annotation.group()),
@@ -303,8 +303,9 @@ class ScopeCurationService {
      * @param annotated source annotation resolved to the candidate.
      * @param items report item sink.
      */
-    private void reportContradictedAnnotationAttributes(FeatureCandidate candidate, IncludeEntry manifest, AnnotatedAnchor annotated, List<ReportItem> items) {
-        AnnotationSemantics annotation = annotated.semantics();
+    private void reportContradictedAnnotationAttributes(FeatureCandidate candidate, IncludeEntry manifest, ExtractedAnnotation annotated,
+            List<ReportItem> items) {
+        ExtractedAnnotationSemantics annotation = annotated.semantics();
         List<String> contradicted = new ArrayList<>();
         addContradiction(contradicted, "id", manifest.id(), annotation.id());
         addContradiction(contradicted, "group", manifest.group(), annotation.group());
@@ -343,7 +344,7 @@ class ScopeCurationService {
      * @param annotation parsed annotation semantics.
      * @return true when at least one resolved value came from the annotation.
      */
-    private boolean annotationFilledAnOpenAttribute(IncludeEntry manifest, AnnotationSemantics annotation) {
+    private boolean annotationFilledAnOpenAttribute(IncludeEntry manifest, ExtractedAnnotationSemantics annotation) {
         return fillsGap(manifest.group(), annotation.group()) || fillsGap(manifest.parent(), annotation.parent())
                 || fillsGap(manifest.kind(), annotation.kind()) || fillsGap(manifest.name(), annotation.name())
                 || fillsGap(manifest.description(), annotation.description()) || fillsGap(manifest.documentationUrl(), annotation.documentationUrl())
@@ -428,7 +429,7 @@ class ScopeCurationService {
      * @param state manifest state of the candidate.
      * @return annotated-but-unscoped warning.
      */
-    private ReportItem annotatedButUnscoped(FeatureCandidate candidate, AnnotatedAnchor annotation, String state) {
+    private ReportItem annotatedButUnscoped(FeatureCandidate candidate, ExtractedAnnotation annotation, String state) {
         return ReportItem.warning(ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, candidate.id(),
                 "Source annotation at " + annotation.file() + ":" + annotation.line() + " does not grant membership; manifest state is '" + state + "'.");
     }

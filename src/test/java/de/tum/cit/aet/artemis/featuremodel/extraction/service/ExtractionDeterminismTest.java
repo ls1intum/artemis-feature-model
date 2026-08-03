@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
@@ -66,7 +67,7 @@ class ExtractionDeterminismTest {
     private ExtractionArtifactLayout runAndWrite(Path outputRoot) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(FIXTURE_PATH);
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).scan(source, ExtractionTestModels.fixtureCuratedModel(),
+        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source, ExtractionTestModels.fixtureCuratedModel(),
                 ExtractionTestModels.fixtureCatalog());
         ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
                 FIXED_TIMESTAMP, FIXED_TIMESTAMP, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),

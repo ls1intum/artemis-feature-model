@@ -11,6 +11,8 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
@@ -42,7 +44,7 @@ class GeneratedCatalogAssembler {
      * @param artemisCommit resolved commit of the scanned checkout.
      * @return regenerated catalog and diagnostics.
      */
-    Result assemble(FeatureModel generatedModel, YamlConfigScan.Result yamlScan, String artemisCommit) {
+    Result assemble(FeatureModel generatedModel, ExtractedConfigurationDefaults yamlScan, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         TreeSet<String> keys = new TreeSet<>();
         for (FeatureNode feature : generatedModel.features()) {
@@ -54,7 +56,7 @@ class GeneratedCatalogAssembler {
         }
         List<ArtemisConfigKeyCatalog.CatalogKey> catalogKeys = new ArrayList<>();
         for (String key : keys) {
-            YamlConfigScan.KeyOccurrence occurrence = yamlScan.preferredOccurrence(key);
+            ExtractedConfigurationDefault occurrence = yamlScan.preferredOccurrence(key);
             if (occurrence == null) {
                 items.add(ReportItem.info(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, key,
                         "Overlay mapping key '" + key + "' was not observed in the scanned Artemis YAML defaults; its type is derived from the key name."));
@@ -122,7 +124,7 @@ class GeneratedCatalogAssembler {
      * @param occurrence preferred scanned default, or null when the key has no YAML default.
      * @return accepted value type.
      */
-    private String keyType(String key, YamlConfigScan.KeyOccurrence occurrence) {
+    private String keyType(String key, ExtractedConfigurationDefault occurrence) {
         if (occurrence != null && occurrence.value() instanceof Boolean) {
             return ArtemisConfigKeyCatalog.TYPE_BOOLEAN;
         }

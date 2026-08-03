@@ -21,6 +21,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 
 /**
  * Scans all {@code *Enabled} Spring condition classes of the checkout. Classes are identified by symbol: any class
@@ -49,9 +50,8 @@ class ConditionClassScan {
      * Scan result over all condition classes.
      *
      * @param conditions scanned condition classes sorted by class name.
-     * @param errors report items for files that could not be parsed.
      */
-    record Result(List<ScannedCondition> conditions, List<ReportItem> errors) {
+    record Result(List<ScannedCondition> conditions) {
 
         /**
          * Creates an empty result for a failed or skipped scan.
@@ -59,7 +59,7 @@ class ConditionClassScan {
          * @return result without conditions.
          */
         static Result empty() {
-            return new Result(List.of(), List.of());
+            return new Result(List.of());
         }
     }
 
@@ -70,7 +70,7 @@ class ConditionClassScan {
      * @return scanned condition classes and per-file parse errors.
      * @throws IOException if the source tree cannot be traversed.
      */
-    Result scan(ArtemisSourceRepository source) throws IOException {
+    SourceScanResult<Result> scan(ArtemisSourceRepository source) throws IOException {
         List<ScannedCondition> conditions = new ArrayList<>();
         List<ReportItem> errors = new ArrayList<>();
         for (String file : source.findFiles(ArtemisSourceConventions.Roots.JAVA, ArtemisSourceConventions.Naming.CONDITION_FILE_SUFFIX)) {
@@ -82,7 +82,7 @@ class ConditionClassScan {
             }
         }
         conditions.sort((first, second) -> first.className().compareTo(second.className()));
-        return new Result(List.copyOf(conditions), List.copyOf(errors));
+        return SourceScanResult.withDiagnostics(new Result(List.copyOf(conditions)), errors);
     }
 
     /**
