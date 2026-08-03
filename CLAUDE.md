@@ -119,7 +119,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `build/feature-extraction/<artemis-sha>/{scan,model,workflow,report,snapshot}`
   and consumes upstream artifacts only through digest-verified envelopes, so a
   stale or foreign intermediate artifact is rejected instead of composed.
-  Configuration enters through `FeatureExtractionInputs`; the local checkout
+  Configuration enters through `FeatureExtractionInputs`. Each command reads
+  the manifest once and binds its parsed content, byte digest, pinned commit,
+  and commit-scoped layout in `ExtractionRunContext`; the local checkout
   resolves from `-PartemisPath` (or user-level `gradle.properties`), then
   `ARTEMIS_PATH`, and no developer path is committed. Override the relocatable
   manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
@@ -213,9 +215,12 @@ Server package areas:
 - `export` owns Level 1 configuration artifact generation, the Level 2 local
   runtime deployment package, and static overlay validation against the Artemis
   config key catalog.
-- `extraction` owns the read-only Artemis checkout scan: anchor extractors,
-  candidate assembly with evidence, relation candidates, the drift comparison
-  against the active curated model, and the deterministic output writers.
+- `extraction` owns the manifest-driven staged pipeline. `extraction.source`
+  owns upstream source conventions, verified location, and shared parse/scan
+  results; `extraction.domain` owns persisted scan and envelope contracts;
+  `extraction.service` owns scanners, stateless feature-family assembly, and
+  command orchestration; `extraction.artifact` owns deterministic JSON bytes,
+  SHA-256 calculation, and artifact-directory lifecycle operations.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:

@@ -1,5 +1,6 @@
 /**
- * Domain records for the feature extraction pipeline: scan metadata, feature candidates, evidence items, relation
- * candidates, and report items. These records define the shape of the five extraction output files.
+ * Stable domain and persisted-contract records for the staged extraction pipeline: source facts, candidates,
+ * evidence, configuration defaults, annotations, stage envelopes, conformance results, and diagnostics. Service
+ * implementation types must not define JSON contracts written below an extraction run directory.
  */
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;

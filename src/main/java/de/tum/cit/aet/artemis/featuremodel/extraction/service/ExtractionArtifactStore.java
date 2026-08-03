@@ -32,10 +32,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Reads and writes the intermediate artifacts of the extraction stages as deterministic pretty-printed JSON: fixed
- * field order from the domain records, two-space indentation, and line feed separators independent of the operating
- * system. Apart from the timestamps in {@code scan-metadata.json}, two runs on the same commit produce byte-identical
- * files.
+ * Reads and writes the intermediate artifacts and digest-verified envelopes of the extraction stages. Deterministic
+ * JSON formatting, SHA-256 calculation, and recursive directory lifecycle mechanics are delegated to the narrowly
+ * scoped {@code extraction.artifact} components. Apart from the timestamps in {@code scan-metadata.json}, two runs on
+ * the same commit produce byte-identical payload files.
  *
  * <p>
  * Every stage writes an envelope next to its payload that records the extractor version, the Artemis commit, and the

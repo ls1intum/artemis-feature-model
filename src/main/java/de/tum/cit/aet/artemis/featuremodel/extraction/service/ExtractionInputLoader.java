@@ -15,9 +15,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Loads the repository-relative inputs every extraction stage shares. The stages read their inputs from files rather
- * than from the classpath so that one configuration boundary decides which manifest, workflow, profile, model, and
- * catalog a run consumes.
+ * Loads the repository-relative inputs every extraction stage shares. One manifest byte read produces the parsed
+ * manifest, digest, pinned commit, and artifact layout in an {@link ExtractionRunContext}; other inputs remain
+ * independently loaded files because their stages consume them at different boundaries.
  */
 class ExtractionInputLoader {
 
