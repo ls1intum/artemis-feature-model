@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -64,20 +63,19 @@ public class ModelStageService {
      *             written before the failure and no model is assembled.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.artemisCommitSha();
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
-        artifactStore.invalidateFrom(layout, ExtractionStage.MODEL);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        FeatureScopeManifest manifest = context.manifest();
+        artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
+        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
 
         ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.curatedModel(inputs),
-                inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), artemisCommit);
-        artifactStore.writeModel(layout, outcome, scan.result().payloadDigest(), inputLoader.manifestDigest(inputs), artemisCommit);
+                inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), context.artemisCommit());
+        artifactStore.writeModel(context.layout(), outcome, scan.result().payloadDigest(), context.manifestDigest(), context.artemisCommit());
         failIfNotConformant(outcome.conformance());
 
-        return new Summary(artemisCommit, layout.modelDirectory(), outcome.curation().stateCounts(), outcome.generatedModel().features().size(),
-                outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(), outcome.generatedCatalog().keys().size(),
-                outcome.modelDiff().classificationCounts(), outcome.modelIntegrityValid());
+        return new Summary(context.artemisCommit(), context.layout().modelDirectory(), outcome.curation().stateCounts(),
+                outcome.generatedModel().features().size(), outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(),
+                outcome.generatedCatalog().keys().size(), outcome.modelDiff().classificationCounts(), outcome.modelIntegrityValid());
     }
 
     /**

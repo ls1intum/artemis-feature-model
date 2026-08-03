@@ -6,11 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
 
@@ -58,27 +57,26 @@ public class PackageStageService {
      * @throws IllegalStateException if the run is ineligible; diagnostics are written before the failure.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.artemisCommitSha();
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
-        String manifestDigest = inputLoader.manifestDigest(inputs);
-        artifactStore.invalidateFrom(layout, ExtractionStage.PACKAGE);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
-        ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(layout, artemisCommit, scan.result().payloadDigest(), manifestDigest);
-        ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(layout, artemisCommit, model.result().generatedModelDigest(),
-                ExtractionArtifactStore.digestOf(inputs.authoredWorkflowFile()));
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        artifactStore.invalidateFrom(context.layout(), ExtractionStage.PACKAGE);
+        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+        ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
+                context.manifestDigest());
+        ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(),
+                model.result().generatedModelDigest(), Sha256Digest.of(inputs.authoredWorkflowFile()));
 
         List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
         stageItems.addAll(model.items());
         stageItems.addAll(workflow.items());
-        ExtractionReport report = new ExtractionReportAssembler().assemble(inputLoader.curatedModel(inputs), artemisCommit, model.result().curation(),
-                stageItems);
-        artifactStore.writeReport(layout, report);
+        ExtractionReport report = new ExtractionReportAssembler().assemble(inputLoader.curatedModel(inputs), context.artemisCommit(),
+                model.result().curation(), stageItems);
+        artifactStore.writeReport(context.layout(), report);
 
         boolean eligible = model.result().modelIntegrityValid() && workflow.result().workflowIntegrityValid();
-        boolean published = snapshotPublisher.publish(layout, model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(), artemisCommit,
-                manifest.artemisImageDigest(), eligible);
-        Summary summary = new Summary(layout.reportDirectory(), published ? layout.snapshotDirectory() : null, report.severityCounts(), report.codeCounts());
+        boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(),
+                context.artemisCommit(), context.manifest().artemisImageDigest(), eligible);
+        Summary summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null, report.severityCounts(),
+                report.codeCounts());
         failIfIneligible(eligible);
         return summary;
     }

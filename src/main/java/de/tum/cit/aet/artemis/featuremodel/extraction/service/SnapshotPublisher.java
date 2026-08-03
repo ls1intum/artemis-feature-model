@@ -9,10 +9,11 @@ import java.util.UUID;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.SnapshotMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ArtifactDirectoryOperations;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
-import tools.jackson.core.util.DefaultIndenter;
-import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -35,9 +36,9 @@ class SnapshotPublisher {
 
     private static final String LINE_FEED = "\n";
 
-    private final ObjectMapper objectMapper;
+    private final ExtractionJsonWriter jsonWriter;
 
-    private final DefaultPrettyPrinter prettyPrinter;
+    private final ArtifactDirectoryOperations directoryOperations;
 
     /**
      * Creates the publisher with the shared Jackson mapper.
@@ -45,9 +46,8 @@ class SnapshotPublisher {
      * @param objectMapper Jackson mapper used for serialization.
      */
     SnapshotPublisher(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-        DefaultIndenter indenter = new DefaultIndenter("  ", LINE_FEED);
-        this.prettyPrinter = new DefaultPrettyPrinter().withObjectIndenter(indenter).withArrayIndenter(indenter);
+        jsonWriter = new ExtractionJsonWriter(objectMapper);
+        directoryOperations = new ArtifactDirectoryOperations();
     }
 
     /**
@@ -79,7 +79,7 @@ class SnapshotPublisher {
             return true;
         }
         finally {
-            ExtractionArtifactStore.deleteRecursively(temporaryDirectory);
+            directoryOperations.deleteRecursively(temporaryDirectory);
         }
     }
 
@@ -97,15 +97,15 @@ class SnapshotPublisher {
     private void writeSnapshotContents(Path snapshotDirectory, FeatureModel generatedModel, byte[] workflowBytes, String artemisPath, String artemisCommit,
             String imageDigest) throws IOException {
         Path modelFile = snapshotDirectory.resolve(SNAPSHOT_MODEL_FILE);
-        writeJson(modelFile, generatedModel);
+        jsonWriter.write(modelFile, generatedModel);
         Files.write(snapshotDirectory.resolve(SNAPSHOT_WORKFLOW_FILE), workflowBytes);
         String version = generatedModel.model().version();
         String snapshotId = "generated-" + (artemisCommit == null ? "unknown" : artemisCommit.substring(0, Math.min(SHORT_COMMIT_LENGTH, artemisCommit.length())));
         SnapshotMetadata snapshotMetadata = new SnapshotMetadata(generatedModel.model().id(), snapshotId, version, "generated", artemisPath, null, artemisCommit,
                 imageDigest, "feature-model-extractor@" + ScanResult.EXTRACTOR_VERSION, null, null, null, null);
-        writeJson(snapshotDirectory.resolve(SNAPSHOT_METADATA_FILE), snapshotMetadata);
+        jsonWriter.write(snapshotDirectory.resolve(SNAPSHOT_METADATA_FILE), snapshotMetadata);
         Files.write(snapshotDirectory.resolve(SNAPSHOT_CHECKSUM_FILE),
-                (ExtractionArtifactStore.digestOf(modelFile) + "  " + SNAPSHOT_MODEL_FILE + LINE_FEED).getBytes(StandardCharsets.UTF_8));
+                (Sha256Digest.of(modelFile) + "  " + SNAPSHOT_MODEL_FILE + LINE_FEED).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -133,7 +133,7 @@ class SnapshotPublisher {
             throw e;
         }
         if (previousMoved) {
-            ExtractionArtifactStore.deleteRecursively(previousSnapshot);
+            directoryOperations.deleteRecursively(previousSnapshot);
         }
     }
 
@@ -150,18 +150,6 @@ class SnapshotPublisher {
         }
         Path invalidSnapshot = snapshotDirectory.resolveSibling(".snapshot-ineligible-" + UUID.randomUUID());
         Files.move(snapshotDirectory, invalidSnapshot, StandardCopyOption.ATOMIC_MOVE);
-        ExtractionArtifactStore.deleteRecursively(invalidSnapshot);
-    }
-
-    /**
-     * Serializes one payload deterministically and writes it with a trailing line feed.
-     *
-     * @param file target file.
-     * @param payload payload to serialize.
-     * @throws IOException if the file cannot be written.
-     */
-    private void writeJson(Path file, Object payload) throws IOException {
-        String json = objectMapper.writer().with(prettyPrinter).writeValueAsString(payload);
-        Files.write(file, (json + LINE_FEED).getBytes(StandardCharsets.UTF_8));
+        directoryOperations.deleteRecursively(invalidSnapshot);
     }
 }
