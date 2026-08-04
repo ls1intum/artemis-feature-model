@@ -51,6 +51,8 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final String OTHER_COMMIT = "bbbbbbbbccccccccddddddddeeeeeeeeffffffff";
 
+    private static final String PINNED_REPOSITORY_COMMIT = "fedcba9876543210fedcba9876543210fedcba98";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
@@ -68,10 +70,13 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "5f1bd016aeac2a82ceb1786baa80e7975f930cd3c269240f976f5b7597a3ac9c"),
-            Map.entry("snapshot/checksum.txt", "13b43ad0bc443c55720e574be3fdb1e61fd52b8891029833f8c11c91e02c62f8"),
+            Map.entry("snapshot/checksums.txt", "2deb095d235f058e9d8f8faddd90930b5a3d2f55467947265216a6ebe3fdffcd"),
+            Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
+            Map.entry("snapshot/generation-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
             Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
-            Map.entry("snapshot/metadata.json", "d4c8ccce563aae8f1d608bfdd3852685fc65a584bcff1f24932b768b17d4a9f3"),
+            Map.entry("snapshot/metadata.json", "4221b0e6fee56b21091923326506c787a7419c03eaa23fc6556c5eda526ad9c3"),
+            Map.entry("snapshot/provenance.json", "f83289526bc099a480c7272e6620a2ea23f5347bd12451b2366b8efd06da06b0"),
             Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
             Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
@@ -155,8 +160,9 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
 
-        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, SnapshotPublisher.SNAPSHOT_METADATA_FILE,
-                SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
+        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
+                SnapshotPublisher.SNAPSHOT_CATALOG_FILE, SnapshotPublisher.SNAPSHOT_REPORT_FILE, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE,
+                SnapshotPublisher.SNAPSHOT_METADATA_FILE, SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
             assertThat(layout.snapshotDirectory().resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
         }
     }
@@ -199,7 +205,8 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated model digest");
         assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
@@ -280,7 +287,8 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.workflowDirectory().resolve(ExtractionArtifactStore.PREPARED_WORKFLOW_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("prepared workflow digest");
 
         assertFailureReportExists();
@@ -349,7 +357,7 @@ class ExtractionPipelineCharacterizationTest {
         runScan();
         new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
         new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
-        new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout());
     }
 
     /**

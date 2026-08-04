@@ -26,15 +26,28 @@ public class PackageStageService {
 
     private final SnapshotPublisher snapshotPublisher;
 
+    private final String featureModelRepositoryCommit;
+
     /**
      * Creates the snapshot packaging command.
      *
      * @param objectMapper Jackson mapper shared with the artifact store and the snapshot publisher.
      */
     public PackageStageService(ObjectMapper objectMapper) {
+        this(objectMapper, null);
+    }
+
+    /**
+     * Creates the command with a fixed repository commit for deterministic fixture characterization.
+     *
+     * @param objectMapper Jackson mapper shared with artifact services.
+     * @param featureModelRepositoryCommit fixed repository commit, or null to resolve the current Git commit.
+     */
+    PackageStageService(ObjectMapper objectMapper, String featureModelRepositoryCommit) {
         this.inputLoader = new ExtractionInputLoader(objectMapper);
         this.artifactStore = new ExtractionArtifactStore(objectMapper);
         this.snapshotPublisher = new SnapshotPublisher(objectMapper);
+        this.featureModelRepositoryCommit = featureModelRepositoryCommit;
     }
 
     /**
@@ -80,12 +93,18 @@ public class PackageStageService {
         ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
                 stageItems, eligible);
         artifactStore.writeReport(context.layout(), report);
-        boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(),
-                context.artemisCommit(), context.manifest().artemisImageDigest(), eligible);
+        boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(),
+                artifactStore.readGeneratedCatalog(context.layout()), report, context.artemisCommit(), context.manifestDigest(),
+                repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()), context.manifest().artemisImageDigest(),
+                eligible);
         Summary summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null, report.severityCounts(),
                 report.codeCounts());
         failIfIneligible(eligible);
         return summary;
+    }
+
+    private String repositoryCommit() throws IOException {
+        return featureModelRepositoryCommit == null ? new FeatureModelRepositoryCommitResolver().resolve() : featureModelRepositoryCommit;
     }
 
     /**
