@@ -96,6 +96,16 @@ class SnapshotPublisher {
         }
     }
 
+    /**
+     * Removes a publication that failed complete post-write validation.
+     *
+     * @param layout run artifact layout.
+     * @throws IOException if invalidation fails.
+     */
+    void invalidate(ExtractionArtifactLayout layout) throws IOException {
+        removePublishedSnapshot(layout.snapshotDirectory());
+    }
+
     private void writeSnapshotContents(Path directory, FeatureModel model, byte[] workflowBytes, ArtemisConfigKeyCatalog catalog, ExtractionReport report,
             String artemisCommit, String manifestDigest, String repositoryCommit, String profileDigest, String imageDigest) throws IOException {
         Path modelFile = directory.resolve(SNAPSHOT_MODEL_FILE);

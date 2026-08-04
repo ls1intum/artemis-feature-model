@@ -20,6 +20,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 public class PackageStageService {
 
+    private final ObjectMapper objectMapper;
+
     private final ExtractionInputLoader inputLoader;
 
     private final ExtractionArtifactStore artifactStore;
@@ -44,6 +46,7 @@ public class PackageStageService {
      * @param featureModelRepositoryCommit fixed repository commit, or null to resolve the current Git commit.
      */
     PackageStageService(ObjectMapper objectMapper, String featureModelRepositoryCommit) {
+        this.objectMapper = objectMapper;
         this.inputLoader = new ExtractionInputLoader(objectMapper);
         this.artifactStore = new ExtractionArtifactStore(objectMapper);
         this.snapshotPublisher = new SnapshotPublisher(objectMapper);
@@ -97,6 +100,15 @@ public class PackageStageService {
                 artifactStore.readGeneratedCatalog(context.layout()), report, context.artemisCommit(), context.manifestDigest(),
                 repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()), context.manifest().artemisImageDigest(),
                 eligible);
+        if (published) {
+            try {
+                new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
+            }
+            catch (IOException | RuntimeException failure) {
+                snapshotPublisher.invalidate(context.layout());
+                throw failure;
+            }
+        }
         Summary summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null, report.severityCounts(),
                 report.codeCounts());
         failIfIneligible(eligible);
