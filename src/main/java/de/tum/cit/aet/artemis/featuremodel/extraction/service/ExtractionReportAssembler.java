@@ -2,22 +2,18 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
 /**
  * Consolidates the diagnostics of all extraction stages into the deterministic {@code extraction-report.json}. It is
- * the only place that sees scan, model, and workflow diagnostics together, so it also resolves the one cross-stage
- * rule: a generic new-candidate drift warning is dropped once the manifest documents a permanent exclusion.
+ * the only place that sees scan, model, and workflow diagnostics together.
  */
 class ExtractionReportAssembler {
 
@@ -30,12 +26,7 @@ class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_DANGLING_GENERATED_CONSTRAINT,
                     "A manifest constraint references a feature that was not emitted into the generated model."),
             Map.entry(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, "The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json."),
-            Map.entry(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL, "A module or toggle candidate found in Artemis has no matching feature in the active curated model."),
-            Map.entry(ReportItem.CODE_CURATED_ANCHOR_MISSING, "A curated feature references a config key, condition class, or client constant the scan did not find."),
-            Map.entry(ReportItem.CODE_CURATED_EVIDENCE_STALE, "A curated file:line evidence reference no longer matches the scanned Artemis sources."),
-            Map.entry(ReportItem.CODE_UNANCHORED_CURATED_FEATURE, "A curated feature has no config anchor; expected for conceptual aggregates and always-on modules."),
             Map.entry(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, "Client and server disagree about a module feature constant or runtime toggle enum member."),
-            Map.entry(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, "The curated config key catalog disagrees with the scanned Artemis configuration keys or commit pin."),
             Map.entry(ReportItem.CODE_EXTRACTOR_ERROR, "One extractor failed to parse its source; the scan continued without its contribution."),
             Map.entry(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Server enabled property constants and module feature constants are asymmetric."),
             Map.entry(ReportItem.CODE_UNDECLARED_CANDIDATE, "An extracted candidate has no manifest include or exclude decision, so the run cannot be published."),
@@ -49,15 +40,15 @@ class ExtractionReportAssembler {
      * Assembles the consolidated report: documented codes, counts, and items sorted by code, subject, message, and
      * severity.
      *
-     * @param curatedModel active curated model the drift section compared against.
      * @param artemisCommit resolved commit of the scanned checkout.
+     * @param manifestDigest digest of the manifest bytes used by the run.
      * @param curation manifest curation section.
      * @param stageItems diagnostics of every stage that ran, in stage order.
+     * @param eligible whether all deterministic delivery gates passed.
      * @return assembled report.
      */
-    ExtractionReport assemble(FeatureModel curatedModel, String artemisCommit, CurationReport curation, List<ReportItem> stageItems) {
+    ExtractionReport assemble(String artemisCommit, String manifestDigest, CurationReport curation, List<ReportItem> stageItems, boolean eligible) {
         List<ReportItem> sortedItems = new ArrayList<>(stageItems);
-        suppressExplicitlyExcludedNewCandidateItems(sortedItems, curation);
         sortedItems.sort(Comparator.comparing(ReportItem::code).thenComparing(ReportItem::subject).thenComparing(ReportItem::message).thenComparing(ReportItem::severity));
         Map<String, Integer> severityCounts = new TreeMap<>();
         Map<String, Integer> codeCounts = new TreeMap<>();
@@ -65,21 +56,8 @@ class ExtractionReportAssembler {
             severityCounts.merge(item.severity(), 1, Integer::sum);
             codeCounts.merge(item.code(), 1, Integer::sum);
         }
-        return new ExtractionReport(artemisCommit, curatedModel.model().id(), curatedModel.model().version(), curation, new LinkedHashMap<>(CODE_DOCUMENTATION),
-                severityCounts, codeCounts, List.copyOf(sortedItems));
-    }
-
-    /**
-     * Removes generic new-candidate drift warnings after the manifest has documented a permanent exclusion. Included
-     * candidates retain the drift warning because the generated-versus-curated diff supersedes it.
-     *
-     * @param items collected diagnostics.
-     * @param curation manifest curation section.
-     */
-    private void suppressExplicitlyExcludedNewCandidateItems(List<ReportItem> items, CurationReport curation) {
-        Set<String> excludedCandidateIds = new HashSet<>();
-        curation.decisions().stream().filter(decision -> ScopeCurationService.STATE_EXCLUDE.equals(decision.state()))
-                .forEach(decision -> excludedCandidateIds.add(decision.candidateId()));
-        items.removeIf(item -> ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL.equals(item.code()) && excludedCandidateIds.contains(item.subject()));
+        String status = eligible ? ExtractionReport.STATUS_PASS : ExtractionReport.STATUS_FAIL;
+        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, artemisCommit, manifestDigest, curation,
+                new LinkedHashMap<>(CODE_DOCUMENTATION), severityCounts, codeCounts, List.copyOf(sortedItems));
     }
 }

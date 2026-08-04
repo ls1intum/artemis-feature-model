@@ -33,7 +33,7 @@ class ExtractionInputLoaderTest {
             readCount.incrementAndGet();
             return expectedBytes;
         });
-        FeatureExtractionInputs inputs = new FeatureExtractionInputs(null, MANIFEST, MANIFEST, MANIFEST, MANIFEST, MANIFEST, outputRoot);
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(null, MANIFEST, MANIFEST, MANIFEST, outputRoot);
 
         ExtractionRunContext context = loader.runContext(inputs);
 

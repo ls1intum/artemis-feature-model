@@ -68,11 +68,10 @@ public class PackageStageService {
         List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
         stageItems.addAll(model.items());
         stageItems.addAll(workflow.items());
-        ExtractionReport report = new ExtractionReportAssembler().assemble(inputLoader.curatedModel(inputs), context.artemisCommit(),
-                model.result().curation(), stageItems);
-        artifactStore.writeReport(context.layout(), report);
-
         boolean eligible = model.result().modelIntegrityValid() && workflow.result().workflowIntegrityValid();
+        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
+                stageItems, eligible);
+        artifactStore.writeReport(context.layout(), report);
         boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(),
                 context.artemisCommit(), context.manifest().artemisImageDigest(), eligible);
         Summary summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null, report.severityCounts(),

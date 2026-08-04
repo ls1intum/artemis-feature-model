@@ -48,8 +48,6 @@ def featureExtraction = [
                 .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path),
         authoredWorkflow : layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path,
         deploymentProfile: layout.projectDirectory.file('src/main/resources/deployment-profiles/default-artemis-profile.json').asFile.path,
-        curatedModel     : layout.projectDirectory.file('src/main/resources/feature-model/functional-feature-model.json').asFile.path,
-        bootstrapCatalog : layout.projectDirectory.file('src/main/resources/feature-model/artemis-config-key-catalog.json').asFile.path,
         outputRoot       : layout.buildDirectory.dir('feature-extraction').get().asFile.path,
         artemisPath      : providers.gradleProperty('artemisPath').orElse(providers.environmentVariable('ARTEMIS_PATH')),
 ]
@@ -65,8 +63,7 @@ def registerExtractionCommand = { String taskName, String command, String taskDe
         mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionCli'
         outputs.upToDateWhen { false }
         args = [command, "--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
-                "--deployment-profile=${featureExtraction.deploymentProfile}", "--curated-model=${featureExtraction.curatedModel}",
-                "--bootstrap-catalog=${featureExtraction.bootstrapCatalog}", "--output-root=${featureExtraction.outputRoot}"]
+                "--deployment-profile=${featureExtraction.deploymentProfile}", "--output-root=${featureExtraction.outputRoot}"]
         if (readsArtemisCheckout && featureExtraction.artemisPath.isPresent()) {
             // An absent checkout is not reported here: the command itself must run so that it invalidates its stale
             // output before failing, and it already prints the actionable message.

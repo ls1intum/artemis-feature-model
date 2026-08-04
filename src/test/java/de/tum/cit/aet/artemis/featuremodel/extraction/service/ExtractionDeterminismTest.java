@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -57,6 +59,43 @@ class ExtractionDeterminismTest {
         }
     }
 
+    @Test
+    void scanEnvelopeBytesAreStableAcrossSeparateJvmProcesses() throws Exception {
+        String expected = null;
+        for (int invocation = 0; invocation < 6; invocation++) {
+            Process process = new ProcessBuilder(javaExecutable(), "-cp", System.getProperty("java.class.path"), ScanResultWriter.class.getName())
+                    .redirectErrorStream(true).start();
+            String output = new String(process.getInputStream().readAllBytes());
+            assertThat(process.waitFor()).as("child JVM output: %s", output).isZero();
+            if (expected == null) {
+                expected = output;
+            }
+            assertThat(output).isEqualTo(expected);
+            assertThat(output.indexOf("a.json")).isLessThan(output.indexOf("b.json"));
+        }
+    }
+
+    /** Writes a representative scan envelope in a fresh JVM for the parent-process byte assertion. */
+    public static final class ScanResultWriter {
+
+        private ScanResultWriter() {
+        }
+
+        /**
+         * Serializes one ordered envelope.
+         *
+         * @param arguments unused command arguments.
+         * @throws Exception if serialization fails.
+         */
+        public static void main(String[] arguments) throws Exception {
+            Map<String, String> digests = new LinkedHashMap<>();
+            digests.put("a.json", "sha256:aaaa");
+            digests.put("b.json", "sha256:bbbb");
+            ScanResult result = new ScanResult(1, "test", "0123456789abcdef0123456789abcdef01234567", digests, "sha256:combined");
+            System.out.print(new ObjectMapper().writeValueAsString(result));
+        }
+    }
+
     /**
      * Runs one full scan over the fixture and writes all scan artifacts with fixed timestamps.
      *
@@ -67,14 +106,22 @@ class ExtractionDeterminismTest {
     private ExtractionArtifactLayout runAndWrite(Path outputRoot) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(FIXTURE_PATH);
-        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source, ExtractionTestModels.fixtureCuratedModel(),
-                ExtractionTestModels.fixtureCatalog());
+        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
         ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
                 FIXED_TIMESTAMP, FIXED_TIMESTAMP, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
                 outcome.items().size());
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(outputRoot, source.commit());
         new ExtractionArtifactStore(objectMapper).writeScan(layout, metadata, outcome);
         return layout;
+    }
+
+    /**
+     * Resolves the Java executable running the test suite.
+     *
+     * @return absolute Java executable path.
+     */
+    private String javaExecutable() {
+        return Path.of(System.getProperty("java.home"), "bin", "java").toString();
     }
 
     /**

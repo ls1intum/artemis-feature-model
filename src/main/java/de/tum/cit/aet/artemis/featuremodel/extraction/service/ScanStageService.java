@@ -74,8 +74,7 @@ public class ScanStageService {
         new ArtemisSourcePreflight().verify(source, context.artemisCommit());
 
         String scanStartedAt = Instant.now().toString();
-        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source, inputLoader.curatedModel(inputs),
-                inputLoader.bootstrapCatalog(inputs));
+        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
         String scanFinishedAt = Instant.now().toString();
 
         ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),

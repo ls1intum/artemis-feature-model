@@ -1,10 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
@@ -13,7 +10,6 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
 /**
@@ -67,54 +63,6 @@ class GeneratedCatalogAssembler {
         ArtemisConfigKeyCatalog catalog = new ArtemisConfigKeyCatalog(GeneratedModelAssembler.generatedVersion(artemisCommit), artemisCommit, source,
                 catalogKeys);
         return new Result(catalog, List.copyOf(items));
-    }
-
-    /**
-     * Diffs the regenerated catalog against the curated catalog.
-     *
-     * @param curated curated classpath catalog.
-     * @param generated regenerated catalog.
-     * @return catalog diff with added and removed keys and type changes.
-     */
-    ModelDiffReport.CatalogDiff diff(ArtemisConfigKeyCatalog curated, ArtemisConfigKeyCatalog generated) {
-        Map<String, String> curatedTypes = typesByKey(curated);
-        Map<String, String> generatedTypes = typesByKey(generated);
-        List<String> addedKeys = new ArrayList<>();
-        List<String> removedKeys = new ArrayList<>();
-        List<ModelDiffReport.CatalogDiff.TypeChange> typeChanges = new ArrayList<>();
-        for (Map.Entry<String, String> entry : generatedTypes.entrySet()) {
-            String curatedType = curatedTypes.get(entry.getKey());
-            if (curatedType == null) {
-                addedKeys.add(entry.getKey());
-            }
-            else if (!curatedType.equals(entry.getValue())) {
-                typeChanges.add(new ModelDiffReport.CatalogDiff.TypeChange(entry.getKey(), curatedType, entry.getValue()));
-            }
-        }
-        for (String key : curatedTypes.keySet()) {
-            if (!generatedTypes.containsKey(key)) {
-                removedKeys.add(key);
-            }
-        }
-        addedKeys.sort(String::compareTo);
-        removedKeys.sort(String::compareTo);
-        typeChanges.sort(Comparator.comparing(ModelDiffReport.CatalogDiff.TypeChange::key));
-        return new ModelDiffReport.CatalogDiff(curated.catalogVersion(), curated.verifiedAgainstArtemisCommit(), generated.verifiedAgainstArtemisCommit(),
-                List.copyOf(addedKeys), List.copyOf(removedKeys), List.copyOf(typeChanges));
-    }
-
-    /**
-     * Indexes a catalog's accepted types by key, keeping the catalog order for deterministic iteration.
-     *
-     * @param catalog catalog to index.
-     * @return accepted type per key.
-     */
-    private Map<String, String> typesByKey(ArtemisConfigKeyCatalog catalog) {
-        Map<String, String> typesByKey = new LinkedHashMap<>();
-        for (ArtemisConfigKeyCatalog.CatalogKey key : catalog.keys()) {
-            typesByKey.putIfAbsent(key.key(), key.type());
-        }
-        return typesByKey;
     }
 
     /**

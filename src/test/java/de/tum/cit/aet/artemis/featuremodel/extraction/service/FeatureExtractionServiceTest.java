@@ -32,14 +32,12 @@ class FeatureExtractionServiceTest {
     @BeforeAll
     static void extractFixture() {
         extractionService = new FeatureExtractionService(new ObjectMapper());
-        outcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(),
-                ExtractionTestModels.fixtureCatalog());
+        outcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
     }
 
     @Test
     void scansTwiceThroughTheSameFacadeWithoutLeakingState() {
-        ExtractedSourceFacts secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH),
-                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        ExtractedSourceFacts secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
 
         assertThat(secondOutcome).isEqualTo(outcome);
     }
@@ -202,46 +200,6 @@ class FeatureExtractionServiceTest {
             assertThat(item.file()).isEqualTo("docker/e2e-only-postgres.yml");
             assertThat(item.detail()).isEqualTo("no paired alternative found");
         });
-    }
-
-    @Test
-    void rediscoverdriftAgainstCuratedModelWithoutFalseAlarms() {
-        List<String> newCandidateSubjects = itemsWithCode(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL).stream().map(ReportItem::subject).toList();
-        assertThat(newCandidateSubjects).containsExactlyInAnyOrder("module:beta", "module:beta-extra", "module:delta", "module:gamma", "toggle:ClientOnlyToggle",
-                "toggle:ServerOnlyToggle", "toggle:ToggleOne", "toggle:ToggleTwo");
-        assertThat(newCandidateSubjects).doesNotContain("module:alpha");
-        assertThat(itemsWithCode(ReportItem.CODE_CURATED_ANCHOR_MISSING)).singleElement().satisfies(item -> {
-            assertThat(item.subject()).isEqualTo("ghost");
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
-        });
-        assertThat(itemsWithCode(ReportItem.CODE_UNANCHORED_CURATED_FEATURE)).singleElement()
-                .satisfies(item -> assertThat(item.subject()).isEqualTo("fixture-root"));
-    }
-
-    @Test
-    void verifiesCuratedEvidenceAndFlagsOnlyMovedReferences() {
-        List<ReportItem> staleItems = itemsWithCode(ReportItem.CODE_CURATED_EVIDENCE_STALE);
-        assertThat(staleItems).singleElement().satisfies(item -> {
-            assertThat(item.subject()).isEqualTo("alpha-feature");
-            assertThat(item.message()).contains("Constants.java:999").contains("no longer at the referenced lines");
-        });
-    }
-
-    @Test
-    void reportsConfigKeyCatalogDrift() {
-        List<ReportItem> catalogItems = itemsWithCode(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT);
-        assertThat(catalogItems).hasSize(5);
-        assertThat(catalogItems).anySatisfy(item -> assertThat(item.message()).contains("pinned to Artemis commit 'fixturepin'"));
-        assertThat(catalogItems).anySatisfy(item -> {
-            assertThat(item.subject()).isEqualTo("artemis.ghost.enabled");
-            assertThat(item.message()).contains("no longer declared");
-        });
-        assertThat(catalogItems).anySatisfy(item -> {
-            assertThat(item.subject()).isEqualTo("artemis.absent.url");
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO);
-        });
-        assertThat(catalogItems.stream().map(ReportItem::subject)).contains("artemis.alpha.gamma.enabled", "artemis.user-management.beta.enabled")
-                .doesNotContain("artemis.alpha.url");
     }
 
     @Test

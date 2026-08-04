@@ -14,11 +14,10 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
 
-/** Covers catalog regeneration from overlay mappings, value type derivation, and the diff against the curated catalog. */
+/** Covers catalog regeneration from overlay mappings and value type derivation. */
 class GeneratedCatalogAssemblerTest {
 
     private final GeneratedCatalogAssembler assembler = new GeneratedCatalogAssembler();
@@ -37,26 +36,6 @@ class GeneratedCatalogAssemblerTest {
         assertThat(result.items()).singleElement().satisfies(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT);
             assertThat(item.subject()).isEqualTo("artemis.alpha.secret");
-        });
-    }
-
-    @Test
-    void diffsRegeneratedCatalogAgainstCuratedCatalog() {
-        ArtemisConfigKeyCatalog curated = new ArtemisConfigKeyCatalog("1.0.0", "oldpin1234", "curated", List.of(
-                new ArtemisConfigKeyCatalog.CatalogKey("artemis.alpha.enabled", "boolean"), new ArtemisConfigKeyCatalog.CatalogKey("artemis.alpha.url", "string"),
-                new ArtemisConfigKeyCatalog.CatalogKey("artemis.gone.enabled", "boolean")));
-        ArtemisConfigKeyCatalog generated = assembler.assemble(generatedModel(), yamlScan(), "0123456789abcdef").catalog();
-
-        ModelDiffReport.CatalogDiff diff = assembler.diff(curated, generated);
-
-        assertThat(diff.curatedVerifiedAgainstArtemisCommit()).isEqualTo("oldpin1234");
-        assertThat(diff.generatedVerifiedAgainstArtemisCommit()).isEqualTo("0123456789abcdef");
-        assertThat(diff.addedKeys()).containsExactly("artemis.alpha.secret");
-        assertThat(diff.removedKeys()).containsExactly("artemis.gone.enabled");
-        assertThat(diff.typeChanges()).singleElement().satisfies(change -> {
-            assertThat(change.key()).isEqualTo("artemis.alpha.url");
-            assertThat(change.curatedType()).isEqualTo("string");
-            assertThat(change.generatedType()).isEqualTo("url");
         });
     }
 

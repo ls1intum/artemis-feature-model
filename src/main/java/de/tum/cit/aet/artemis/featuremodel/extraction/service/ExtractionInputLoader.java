@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
@@ -72,28 +70,6 @@ class ExtractionInputLoader {
         String artemisCommit = manifest.artemisCommitSha();
         return new ExtractionRunContext(manifestBytes, manifest, Sha256Digest.of(manifestBytes), artemisCommit,
                 ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit));
-    }
-
-    /**
-     * Loads the curated feature model used by the drift and diff comparison.
-     *
-     * @param inputs resolved command inputs.
-     * @return curated model.
-     * @throws IOException if the model cannot be read.
-     */
-    FeatureModel curatedModel(FeatureExtractionInputs inputs) throws IOException {
-        return readJson(inputs.curatedModelFile(), FeatureModel.class);
-    }
-
-    /**
-     * Loads the bootstrap config key catalog used by the drift and diff comparison.
-     *
-     * @param inputs resolved command inputs.
-     * @return curated catalog.
-     * @throws IOException if the catalog cannot be read.
-     */
-    ArtemisConfigKeyCatalog bootstrapCatalog(FeatureExtractionInputs inputs) throws IOException {
-        return readJson(inputs.bootstrapCatalogFile(), ArtemisConfigKeyCatalog.class);
     }
 
     /**

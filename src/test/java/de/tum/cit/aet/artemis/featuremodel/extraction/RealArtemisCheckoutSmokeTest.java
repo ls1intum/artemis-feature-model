@@ -74,8 +74,7 @@ class RealArtemisCheckoutSmokeTest {
                 Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
                 Path.of("src/main/resources/feature-model/guided-workflow.json"),
                 Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
-                Path.of("src/main/resources/feature-model/functional-feature-model.json"),
-                Path.of("src/main/resources/feature-model/artemis-config-key-catalog.json"), outputRoot);
+                outputRoot);
     }
 
     /**

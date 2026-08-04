@@ -90,8 +90,6 @@ class FeatureExtractionInputsTest {
         options.put(FeatureExtractionInputs.OPTION_MANIFEST, "manifest.yml");
         options.put(FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, "guided-workflow.json");
         options.put(FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, "profile.json");
-        options.put(FeatureExtractionInputs.OPTION_CURATED_MODEL, "feature-model.json");
-        options.put(FeatureExtractionInputs.OPTION_BOOTSTRAP_CATALOG, "catalog.json");
         options.put(FeatureExtractionInputs.OPTION_OUTPUT_ROOT, "build/feature-extraction");
         return options;
     }

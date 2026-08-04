@@ -57,7 +57,6 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidation
 import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
@@ -103,8 +102,6 @@ class GeneratedModelImportParityTest {
 
     private WorkflowStageService.Summary workflowSummary;
 
-    private ModelDiffReport modelDiff;
-
     private String snapshotId;
 
     private Path dataRoot;
@@ -115,8 +112,7 @@ class GeneratedModelImportParityTest {
                 Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
                 Path.of("src/main/resources/feature-model/guided-workflow.json"),
                 Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
-                Path.of("src/main/resources/feature-model/functional-feature-model.json"),
-                Path.of("src/main/resources/feature-model/artemis-config-key-catalog.json"), workingDirectory.resolve("extraction"));
+                workingDirectory.resolve("extraction"));
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
         new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
@@ -125,8 +121,6 @@ class GeneratedModelImportParityTest {
         new PackageStageService(objectMapper).run(inputs);
 
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), source.commit());
-        modelDiff = objectMapper.readValue(Files.readAllBytes(layout.modelDirectory().resolve("model-diff-report.json")), ModelDiffReport.class);
-
         dataRoot = workingDirectory.resolve("data");
         SnapshotService snapshotService = new SnapshotService(
                 new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper), objectMapper,
@@ -137,13 +131,10 @@ class GeneratedModelImportParityTest {
     }
 
     @Test
-    void generationValidatesCleanlyAndClassifiesEveryDifference() {
+    void generationValidatesCleanly() {
         assertThat(modelSummary.modelIntegrityValid()).isTrue();
         assertThat(workflowSummary.workflowIntegrityValid()).isTrue();
         assertThat(workflowSummary.validationStatus()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
-        assertThat(modelDiff.classificationCounts()).containsEntry(ModelDiffReport.CLASS_EXTRACTOR_GAP, 0);
-        int classifiedTotal = modelDiff.classificationCounts().values().stream().mapToInt(Integer::intValue).sum();
-        assertThat(classifiedTotal).isEqualTo(modelDiff.entries().size());
     }
 
     @Test

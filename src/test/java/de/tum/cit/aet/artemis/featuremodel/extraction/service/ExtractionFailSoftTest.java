@@ -10,7 +10,6 @@ import java.nio.file.StandardCopyOption;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -34,8 +33,7 @@ class ExtractionFailSoftTest {
     @Test
     void unparseableSourceBecomesErrorItemAndScanCompletes() {
         FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        ExtractedSourceFacts outcome = service.scan(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH),
-                ExtractionTestModels.minimalCuratedModel(), new ArtemisConfigKeyCatalog("0.0.1-test", "fixturepin", "synthetic", null));
+        ExtractedSourceFacts outcome = service.scan(new LocalArtemisSourceRepository(BROKEN_FIXTURE_PATH));
 
         assertThat(outcome.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_EXTRACTOR_ERROR);
@@ -63,8 +61,7 @@ class ExtractionFailSoftTest {
             assertThat(item.message()).startsWith("Could not parse condition class candidate:");
         });
 
-        ExtractedSourceFacts outcome = new FeatureExtractionService(new ObjectMapper()).scan(new LocalArtemisSourceRepository(checkout),
-                ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        ExtractedSourceFacts outcome = new FeatureExtractionService(new ObjectMapper()).scan(new LocalArtemisSourceRepository(checkout));
         assertThat(outcome.items()).filteredOn(item -> ReportItem.CODE_EXTRACTOR_ERROR.equals(item.code()) && brokenConditionPath.equals(item.subject()))
                 .singleElement();
     }

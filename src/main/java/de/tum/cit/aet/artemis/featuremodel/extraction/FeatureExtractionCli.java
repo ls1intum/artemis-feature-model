@@ -31,8 +31,7 @@ public final class FeatureExtractionCli {
     private static final String PREFLIGHT_COMMAND = "preflight";
 
     private static final Set<String> SUPPORTED_OPTIONS = Set.of(FeatureExtractionInputs.OPTION_ARTEMIS_PATH, FeatureExtractionInputs.OPTION_MANIFEST,
-            FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, FeatureExtractionInputs.OPTION_CURATED_MODEL,
-            FeatureExtractionInputs.OPTION_BOOTSTRAP_CATALOG, FeatureExtractionInputs.OPTION_OUTPUT_ROOT);
+            FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, FeatureExtractionInputs.OPTION_OUTPUT_ROOT);
 
     private FeatureExtractionCli() {
     }
@@ -116,7 +115,6 @@ public final class FeatureExtractionCli {
         System.out.println("  Generated model: " + summary.featureCount() + " features, " + summary.relationCount() + " relations, " + summary.constraintCount()
                 + " constraints");
         System.out.println("  Generated catalog: " + summary.catalogKeyCount() + " keys");
-        System.out.println("  Model diff: " + summary.diffCounts());
         System.out.println("  Model integrity valid: " + summary.modelIntegrityValid());
         System.out.println("  Output: " + summary.modelDirectory());
     }

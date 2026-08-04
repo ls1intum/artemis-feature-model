@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,6 +27,6 @@ public record ScanResult(int schemaVersion, String extractorVersion, String arte
      * Normalizes the digest map to an immutable copy.
      */
     public ScanResult {
-        payloadDigests = payloadDigests == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(payloadDigests));
+        payloadDigests = payloadDigests == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(payloadDigests));
     }
 }

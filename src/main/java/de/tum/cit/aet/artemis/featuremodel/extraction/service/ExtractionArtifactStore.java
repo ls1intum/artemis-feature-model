@@ -23,6 +23,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -65,7 +66,7 @@ class ExtractionArtifactStore {
 
     static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
 
-    static final String MODEL_DIFF_FILE = "model-diff-report.json";
+    static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
 
     static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
 
@@ -215,9 +216,18 @@ class ExtractionArtifactStore {
         if (outcome.conformance().conformant()) {
             jsonWriter.write(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
             jsonWriter.write(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
-            jsonWriter.write(directory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
             generatedModelDigest = Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE));
         }
+
+        List<String> featureIds = outcome.generatedModel() == null ? List.of() : outcome.generatedModel().features().stream().map(feature -> feature.id()).toList();
+        List<String> relationIds = outcome.generatedModel() == null ? List.of()
+                : outcome.generatedModel().relations().stream().map(relation -> relation.parentId() + "->" + relation.childId()).toList();
+        List<String> constraintIds = outcome.generatedModel() == null ? List.of()
+                : outcome.generatedModel().constraints().stream().map(constraint -> constraint.id()).toList();
+        String status = outcome.conformance().conformant() ? ManifestConformanceReport.STATUS_PASS : ManifestConformanceReport.STATUS_FAIL;
+        ManifestConformanceReport conformanceReport = new ManifestConformanceReport(ManifestConformanceReport.CURRENT_SCHEMA_VERSION, status, artemisCommit,
+                manifestDigest, outcome.conformance(), outcome.curation(), featureIds, relationIds, constraintIds, generatedModelDigest);
+        jsonWriter.write(directory.resolve(MANIFEST_CONFORMANCE_FILE), conformanceReport);
 
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
                 generatedModelDigest, outcome.modelIntegrityValid(), outcome.conformance(), outcome.curation());

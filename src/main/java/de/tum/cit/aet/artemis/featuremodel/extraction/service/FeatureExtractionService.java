@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
@@ -16,8 +14,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Runs the source discovery half of one extraction run: executes every anchor scan fail-soft, assembles candidates
- * with evidence and relation candidates, and compares the result against the active curated model. It records source
- * facts only — manifest membership and generated artifacts belong to the later stages. The service itself produces no
+ * with evidence and relation candidates. It records source facts only — manifest membership and generated artifacts belong to the later stages. The service itself produces no
  * timestamps; scan metadata is the caller's concern so this outcome stays reproducible.
  */
 class FeatureExtractionService {
@@ -37,14 +34,12 @@ class FeatureExtractionService {
     }
 
     /**
-     * Scans a checkout for feature candidates, evidence, relation candidates, and drift against the curated model.
+     * Scans a checkout for feature candidates, evidence, and relation candidates.
      *
      * @param source Artemis source repository.
-     * @param curatedModel active curated feature model for the drift comparison.
-     * @param catalog curated config key catalog for the drift comparison.
      * @return deterministic source discovery outcome.
      */
-    ExtractedSourceFacts scan(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog) {
+    ExtractedSourceFacts scan(ArtemisSourceRepository source) {
         List<ReportItem> items = new ArrayList<>();
 
         SourceScanResult<ServerConstantScan.Result> constantScan = runScan("server constants",
@@ -82,8 +77,6 @@ class FeatureExtractionService {
                 composeScan.facts(), usageScan.facts());
         CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());
-        items.addAll(new DriftComparator().compare(source, curatedModel, catalog, assembly.candidates(), yamlScan.facts(), source.commit()));
-
         return new ExtractedSourceFacts(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), annotationScan.facts(), yamlScan.facts(),
                 List.copyOf(items));
     }

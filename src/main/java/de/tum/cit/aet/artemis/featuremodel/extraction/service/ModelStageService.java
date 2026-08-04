@@ -13,7 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * The {@code assembleFeatureModel} command: applies the manifest to an existing scan and assembles the generated
- * feature model, the regenerated config key catalog, and the classified comparison against the curated model. It
+ * feature model, the regenerated config key catalog, and the standalone manifest-conformance verdict. It
  * consumes the scan artifacts through the artifact store and never reopens the Artemis checkout, and it fails without
  * a model when the manifest leaves any discovered candidate or relation undecided.
  */
@@ -46,11 +46,10 @@ public class ModelStageService {
      * @param relationCount number of relations in the generated model.
      * @param constraintCount number of constraints in the generated model.
      * @param catalogKeyCount number of keys in the regenerated catalog.
-     * @param diffCounts classified difference counts against the curated model.
      * @param modelIntegrityValid whether the generated model passed structural integrity validation.
      */
     public record Summary(String artemisCommit, Path modelDirectory, Map<String, Integer> curationCounts, int featureCount, int relationCount,
-            int constraintCount, int catalogKeyCount, Map<String, Integer> diffCounts, boolean modelIntegrityValid) {
+            int constraintCount, int catalogKeyCount, boolean modelIntegrityValid) {
     }
 
     /**
@@ -68,14 +67,14 @@ public class ModelStageService {
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
         ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
 
-        ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.curatedModel(inputs),
-                inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), context.artemisCommit());
+        ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
+                context.artemisCommit());
         artifactStore.writeModel(context.layout(), outcome, scan.result().payloadDigest(), context.manifestDigest(), context.artemisCommit());
         failIfNotConformant(outcome.conformance());
 
         return new Summary(context.artemisCommit(), context.layout().modelDirectory(), outcome.curation().stateCounts(),
                 outcome.generatedModel().features().size(), outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(),
-                outcome.generatedCatalog().keys().size(), outcome.modelDiff().classificationCounts(), outcome.modelIntegrityValid());
+                outcome.generatedCatalog().keys().size(), outcome.modelIntegrityValid());
     }
 
     /**
