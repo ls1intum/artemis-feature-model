@@ -25,10 +25,10 @@ class GeneratedModelValidator {
     /**
      * Validation result.
      *
-     * @param modelIntegrityValid whether the generated model passed the shared structural integrity validation.
+     * @param deliveryEligible whether structural, role, and profile checks all passed.
      * @param items validation diagnostics for the extraction report.
      */
-    record Result(boolean modelIntegrityValid, List<ReportItem> items) {
+    record Result(boolean modelIntegrityValid, boolean deliveryEligible, List<ReportItem> items) {
     }
 
     /**
@@ -44,7 +44,8 @@ class GeneratedModelValidator {
         boolean modelIntegrityValid = validateModelIntegrity(generatedModel, items);
         validateRoleVisibility(generatedModel, items);
         validateProvidedCapabilities(includedFeatures, bundledProfile, items);
-        return new Result(modelIntegrityValid, List.copyOf(items));
+        boolean deliveryEligible = modelIntegrityValid && items.stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
+        return new Result(modelIntegrityValid, deliveryEligible, List.copyOf(items));
     }
 
     /**
@@ -85,8 +86,8 @@ class GeneratedModelValidator {
 
     /**
      * Cross-checks the capabilities included technical features provide against the bundled profile's provided
-     * capabilities. A mismatch is a warning: the profile and the technical selection describe the same deployment
-     * context and should agree. The model schema carries no provides list, so the check consumes the resolved
+     * capabilities. A mismatch blocks delivery because the profile and technical selection describe the same deployment
+     * context and must agree. The model schema carries no provides list, so the check consumes the resolved
      * manifest declarations directly.
      *
      * @param includedFeatures resolved include semantics.
@@ -100,7 +101,7 @@ class GeneratedModelValidator {
             }
             for (String capability : included.providesCapabilities()) {
                 if (!bundledProfile.providesCapability(capability)) {
-                    items.add(ReportItem.warning(ReportItem.CODE_PROFILE_CAPABILITY_MISMATCH, included.id(), "Technical feature '" + included.id()
+                    items.add(ReportItem.error(ReportItem.CODE_PROFILE_CAPABILITY_MISMATCH, included.id(), "Technical feature '" + included.id()
                             + "' provides capability '" + capability + "' which the bundled profile '" + bundledProfile.id() + "' does not list."));
                 }
             }

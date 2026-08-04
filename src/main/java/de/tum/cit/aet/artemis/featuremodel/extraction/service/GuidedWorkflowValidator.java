@@ -28,10 +28,11 @@ class GuidedWorkflowValidator {
      * Validation result.
      *
      * @param workflowIntegrityValid whether the workflow passed hard reference validation against the model.
+     * @param deliveryEligible whether hard references and all automation diagnostics passed.
      * @param guidedValidation coverage and consistency findings of the workflow against the generated model.
      * @param items validation diagnostics for the extraction report.
      */
-    record Result(boolean workflowIntegrityValid, GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
+    record Result(boolean workflowIntegrityValid, boolean deliveryEligible, GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
     }
 
     /**
@@ -46,7 +47,8 @@ class GuidedWorkflowValidator {
         List<ReportItem> items = new ArrayList<>();
         boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, authoredWorkflow, items);
         GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, bundledProfile, items);
-        return new Result(workflowIntegrityValid, guidedValidation, List.copyOf(items));
+        boolean deliveryEligible = workflowIntegrityValid && GuidedWorkflowValidationReport.STATUS_PASS.equals(guidedValidation.status());
+        return new Result(workflowIntegrityValid, deliveryEligible, guidedValidation, List.copyOf(items));
     }
 
     /**
@@ -87,7 +89,7 @@ class GuidedWorkflowValidator {
         findings.forEach(finding -> codeCounts.merge(finding.code(), 1, Integer::sum));
         String status = findings.isEmpty() ? GuidedWorkflowValidationReport.STATUS_PASS : GuidedWorkflowValidationReport.STATUS_FINDINGS;
         if (!findings.isEmpty()) {
-            items.add(ReportItem.warning(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(),
+            items.add(ReportItem.error(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(),
                     "Guided workflow validation against the generated model produced " + findings.size() + " finding(s); see guided-workflow-validation.json."));
         }
         return new GuidedWorkflowValidationReport(status, generatedModel.model().id(), generatedModel.model().version(), codeCounts, findings);

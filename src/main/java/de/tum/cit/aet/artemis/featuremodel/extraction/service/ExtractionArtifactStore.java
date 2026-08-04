@@ -230,7 +230,7 @@ class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(MANIFEST_CONFORMANCE_FILE), conformanceReport);
 
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
-                generatedModelDigest, outcome.modelIntegrityValid(), outcome.conformance(), outcome.curation());
+                generatedModelDigest, outcome.modelIntegrityValid(), outcome.deliveryEligible(), outcome.conformance(), outcome.curation());
         jsonWriter.write(directory.resolve(MODEL_RESULT_FILE), result);
         return result;
     }
@@ -284,7 +284,8 @@ class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), validation.items());
 
         WorkflowResult result = new WorkflowResult(WorkflowResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, generatedModelDigest,
-                Sha256Digest.of(authoredWorkflowBytes), Sha256Digest.of(directory.resolve(PREPARED_WORKFLOW_FILE)), validation.workflowIntegrityValid());
+                Sha256Digest.of(authoredWorkflowBytes), Sha256Digest.of(directory.resolve(PREPARED_WORKFLOW_FILE)), validation.workflowIntegrityValid(),
+                validation.deliveryEligible());
         jsonWriter.write(directory.resolve(WORKFLOW_RESULT_FILE), result);
         return result;
     }

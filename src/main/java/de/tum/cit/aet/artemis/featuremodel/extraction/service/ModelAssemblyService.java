@@ -43,10 +43,11 @@ class ModelAssemblyService {
      * @param generatedModel assembled generated feature model, or null when conformance failed.
      * @param generatedCatalog regenerated config key catalog, or null when conformance failed.
      * @param modelIntegrityValid whether the generated model passed the shared structural integrity validation.
+     * @param deliveryEligible whether every model, catalog, and profile delivery gate passed.
      * @param items model assembly diagnostics.
      */
     record Outcome(List<ResolvedFeatureScope> includedFeatures, CurationReport curation, ManifestConformance conformance, FeatureModel generatedModel,
-            ArtemisConfigKeyCatalog generatedCatalog, boolean modelIntegrityValid, List<ReportItem> items) {
+            ArtemisConfigKeyCatalog generatedCatalog, boolean modelIntegrityValid, boolean deliveryEligible, List<ReportItem> items) {
     }
 
     /**
@@ -66,7 +67,7 @@ class ModelAssemblyService {
                 scan.relationCandidates(), curation.report(), curation.items(), scan.items());
         items.addAll(conformance.items());
         if (!conformance.conformance().conformant()) {
-            return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, false, List.copyOf(items));
+            return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, false, false, List.copyOf(items));
         }
 
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, curation.includedFeatures(), scan.candidates(),
@@ -79,7 +80,8 @@ class ModelAssemblyService {
         GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model(), curation.includedFeatures(), bundledProfile);
         items.addAll(validation.items());
 
+        boolean catalogEligible = generatedCatalog.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(),
-                validation.modelIntegrityValid(), List.copyOf(items));
+                validation.modelIntegrityValid(), validation.deliveryEligible() && catalogEligible, List.copyOf(items));
     }
 }

@@ -54,8 +54,8 @@ class GeneratedCatalogAssembler {
         for (String key : keys) {
             ExtractedConfigurationDefault occurrence = yamlScan.preferredOccurrence(key);
             if (occurrence == null) {
-                items.add(ReportItem.info(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, key,
-                        "Overlay mapping key '" + key + "' was not observed in the scanned Artemis YAML defaults; its type is derived from the key name."));
+                items.add(ReportItem.error(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, key,
+                        "Overlay mapping key '" + key + "' was not observed in the scanned Artemis YAML defaults, so the generated catalog cannot prove it compatible."));
             }
             catalogKeys.add(new ArtemisConfigKeyCatalog.CatalogKey(key, keyType(key, occurrence)));
         }

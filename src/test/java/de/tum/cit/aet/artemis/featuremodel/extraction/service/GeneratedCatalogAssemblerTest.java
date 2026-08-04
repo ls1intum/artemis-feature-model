@@ -35,6 +35,7 @@ class GeneratedCatalogAssemblerTest {
         // The non-overlay .env mapping never enters the catalog; the unobserved secret key is reported as info.
         assertThat(result.items()).singleElement().satisfies(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.subject()).isEqualTo("artemis.alpha.secret");
         });
     }

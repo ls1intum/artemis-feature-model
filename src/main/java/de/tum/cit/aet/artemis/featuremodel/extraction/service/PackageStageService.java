@@ -68,7 +68,7 @@ public class PackageStageService {
         List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
         stageItems.addAll(model.items());
         stageItems.addAll(workflow.items());
-        boolean eligible = model.result().modelIntegrityValid() && workflow.result().workflowIntegrityValid();
+        boolean eligible = model.result().deliveryEligible() && workflow.result().deliveryEligible();
         ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
                 stageItems, eligible);
         artifactStore.writeReport(context.layout(), report);
@@ -88,7 +88,7 @@ public class PackageStageService {
      */
     private void failIfIneligible(boolean eligible) {
         if (!eligible) {
-            throw new IllegalStateException("Generated model or workflow failed hard integrity validation. Diagnostics were written, but no importable "
+            throw new IllegalStateException("A generated model, catalog, profile, or workflow delivery gate failed. Diagnostics were written, but no "
                     + "snapshot was published.");
         }
     }

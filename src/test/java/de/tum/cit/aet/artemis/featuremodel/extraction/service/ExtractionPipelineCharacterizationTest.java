@@ -58,7 +58,7 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("model/manifest-conformance-report.json", "f4b1343cc2afbed9e064c5e939481a5390116eef90782b0801a5ef0948606c5d"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "af606383eb16bf7eacdea483fb57e0215c09d99e97a020b0aff3628f6b4fe306"),
+            Map.entry("model/model-result.json", "e04ec465b8d99525561320c3bdcd78407f0dc618334258a8864110a8a0b38d9b"),
             Map.entry("report/extraction-report.json", "ce8f090c1f6f8e14cd48c0c2740c5d8f8257b7bd78934a5be2c439917d1afa15"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
@@ -74,7 +74,7 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
             Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "d7d258efd801463094767e79c531d860d5d61372bd97a5c43f4161c524e347a0"));
+            Map.entry("workflow/workflow-result.json", "f95da8ba6033a801520525f45250adea4a24df203f97967ee4f776ac6e083dfc"));
 
     @TempDir
     private Path outputRoot;
