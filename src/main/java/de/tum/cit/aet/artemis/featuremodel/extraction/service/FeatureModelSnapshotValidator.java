@@ -198,7 +198,7 @@ public class FeatureModelSnapshotValidator {
     }
 
     private void validateStaticValue(String key, String type, JsonNode value) {
-        if (value == null) {
+        if (value == null || value.isNull()) {
             return;
         }
         boolean compatible = ArtemisConfigKeyCatalog.TYPE_BOOLEAN.equals(type) ? value.isBoolean() : value.isString();
