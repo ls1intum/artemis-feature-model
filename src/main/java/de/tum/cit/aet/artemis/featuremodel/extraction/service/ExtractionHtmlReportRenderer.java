@@ -40,7 +40,8 @@ class ExtractionHtmlReportRenderer {
         section(html, "Raw artifacts");
         html.append("<ul><li><a href=\"extraction-report.json\">extraction-report.json</a></li>")
                 .append("<li><a href=\"../model/manifest-conformance-report.json\">manifest-conformance-report.json</a></li>")
-                .append("<li><a href=\"../workflow/guided-workflow-validation.json\">guided-workflow-validation.json</a></li></ul>")
+                .append("<li><a href=\"../workflow/guided-workflow-validation.json\">guided-workflow-validation.json</a></li>")
+                .append("<li><a href=\"release-delta-report.json\">release-delta-report.json</a></li></ul>")
                 .append("</body></html>\n");
         return html.toString().getBytes(StandardCharsets.UTF_8);
     }

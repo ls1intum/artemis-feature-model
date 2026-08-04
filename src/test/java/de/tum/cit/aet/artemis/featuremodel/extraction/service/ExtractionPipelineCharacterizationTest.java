@@ -62,7 +62,8 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("model/model-result.json", "e04ec465b8d99525561320c3bdcd78407f0dc618334258a8864110a8a0b38d9b"),
             Map.entry("report/extraction-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
-            Map.entry("report/index.html", "33fa426d8fe77e84da3a0e38b02f78e819d224a25233b0f825de30a9741a26bb"),
+            Map.entry("report/index.html", "e184f8ccb677509371407a9ebad122767e3abc46ea8969b1a61ff90aeda705aa"),
+            Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
             Map.entry("scan/evidence.json", "beede58e239dd3f73a9754a955838de594ce5753be9a23c764e85fb0b0fc3567"),
@@ -159,6 +160,8 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
         assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).content().contains("\"status\" : \"skipped\"")
+                .contains("\"blocking\" : false");
 
         for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
                 SnapshotPublisher.SNAPSHOT_CATALOG_FILE, SnapshotPublisher.SNAPSHOT_REPORT_FILE, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE,
@@ -315,6 +318,7 @@ class ExtractionPipelineCharacterizationTest {
     private void assertFailureReportExists() {
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).isRegularFile();
     }
 
     /**

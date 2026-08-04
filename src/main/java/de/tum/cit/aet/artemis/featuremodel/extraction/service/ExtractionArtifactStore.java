@@ -26,6 +26,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValid
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReleaseDeltaReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
@@ -83,6 +84,8 @@ class ExtractionArtifactStore {
     static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
 
     static final String HTML_REPORT_FILE = "index.html";
+
+    static final String RELEASE_DELTA_REPORT_FILE = "release-delta-report.json";
 
     private static final String LINE_FEED = "\n";
 
@@ -329,6 +332,7 @@ class ExtractionArtifactStore {
     void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
         Path directory = Files.createDirectories(layout.reportDirectory());
         jsonWriter.write(directory.resolve(EXTRACTION_REPORT_FILE), report);
+        jsonWriter.write(directory.resolve(RELEASE_DELTA_REPORT_FILE), ReleaseDeltaReport.noBaseline());
         Files.write(directory.resolve(HTML_REPORT_FILE), new ExtractionHtmlReportRenderer().render(report));
     }
 
