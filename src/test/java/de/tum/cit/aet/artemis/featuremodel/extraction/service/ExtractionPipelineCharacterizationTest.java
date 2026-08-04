@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -54,25 +55,25 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
-            Map.entry("model/generated-feature-model.json", "56f318c03592df496aa81fd23d9e1a218f0e4e1b415881320b76b65e7768805d"),
+            Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-diff-report.json", "9864da10c3167751017abfeee45c22bf14e3731153edbd9f36c21268fc396400"),
-            Map.entry("model/model-result.json", "ce44b7b09956750cfd1455b7849a0708e49e86cc5be321934647bb716aab4661"),
-            Map.entry("report/extraction-report.json", "e12e075941d76f979e9f7d2bbecc1056ec90075532daa5097d1d0ae84bd57708"),
+            Map.entry("model/model-diff-report.json", "2969f47351b51a97008e772c0447c91fbf12049d3aad3232a1c8e66dab6fcdf9"),
+            Map.entry("model/model-result.json", "fa01d79759c0738553ec6c5944c8e2cd210d2b7d397b9de52e5f71bb1064df73"),
+            Map.entry("report/extraction-report.json", "f6abc7091eca177dde98600c0ab682ec79f35324a8f739dedf6a0fbbad8bd4b6"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
-            Map.entry("scan/evidence.json", "a4f0eec398a4d26e4937e107713b5604b384631b153f0dab2e1911040687dd8d"),
-            Map.entry("scan/feature-candidates.json", "dd09a1a2a7e705dd1bcf372207c2b662355e12fb474d8158797b4dc21457a6be"),
+            Map.entry("scan/evidence.json", "beede58e239dd3f73a9754a955838de594ce5753be9a23c764e85fb0b0fc3567"),
+            Map.entry("scan/feature-candidates.json", "e173b8730fc85d878bae0cbda90849b462039e008577f8fdda8644db012c7412"),
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
-            Map.entry("scan/scan-diagnostics.json", "9018aa50ef7a0a7cb54aa2fc46ac8348e8b5d0bd51a04906bf7698357a00e783"),
-            Map.entry("snapshot/checksum.txt", "2cbfaf7446dc286644bc24a05bc64e371910ad4fd5ea56312907aa027c60917a"),
-            Map.entry("snapshot/feature-model.json", "56f318c03592df496aa81fd23d9e1a218f0e4e1b415881320b76b65e7768805d"),
+            Map.entry("scan/scan-diagnostics.json", "6ac90e54808b5205e9d559a2b81cb4600bc017c683a69c19149ebbbbae006fa2"),
+            Map.entry("snapshot/checksum.txt", "13b43ad0bc443c55720e574be3fdb1e61fd52b8891029833f8c11c91e02c62f8"),
+            Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
             Map.entry("snapshot/metadata.json", "d4c8ccce563aae8f1d608bfdd3852685fc65a584bcff1f24932b768b17d4a9f3"),
             Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
             Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "10cfacbb27af50a92d9f2633c023025a2f1fc5f4dca06e9a61490ee062edfbe9"));
+            Map.entry("workflow/workflow-result.json", "d7d258efd801463094767e79c531d860d5d61372bd97a5c43f4161c524e347a0"));
 
     @TempDir
     private Path outputRoot;
@@ -146,7 +147,7 @@ class ExtractionPipelineCharacterizationTest {
         ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
                 ExtractionReport.class);
         assertThat(reportCodes(report)).contains(ReportItem.CODE_CURATED_ANCHOR_MISSING, ReportItem.CODE_CURATED_EVIDENCE_STALE,
-                ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_FE_BE_MIRROR_MISMATCH, ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT,
+                ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT,
                 ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
         assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
@@ -165,6 +166,19 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
 
         assertThat(deterministicArtifactDigests()).isEqualTo(RECORDED_STAGE_ONE_DIGESTS);
+    }
+
+    @Test
+    void generatedArtifactsUseClientAndServerTerminology() throws Exception {
+        runPipeline();
+        List<String> retiredTerms = List.of("front" + "end", "back" + "end");
+
+        try (var paths = Files.walk(layout.root())) {
+            for (Path artifact : paths.filter(Files::isRegularFile).toList()) {
+                String content = Files.readString(artifact).toLowerCase(Locale.ROOT);
+                assertThat(retiredTerms).as("terminology in %s", artifact).noneMatch(content::contains);
+            }
+        }
     }
 
     @Test

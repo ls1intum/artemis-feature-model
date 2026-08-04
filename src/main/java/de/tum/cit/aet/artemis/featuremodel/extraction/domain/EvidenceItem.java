@@ -5,7 +5,7 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  * path and line only document where the symbol was seen at scan time.
  *
  * @param candidateId id of the candidate or relation candidate the evidence belongs to.
- * @param kind evidence kind, for example {@code backend-constant}, {@code condition-class}, or {@code yaml-default}.
+ * @param kind evidence kind, for example {@code server-constant}, {@code condition-class}, or {@code yaml-default}.
  * @param file path of the evidence file relative to the Artemis checkout root.
  * @param line 1-based line number of the evidence, or null when the source format has no useful line resolution.
  * @param symbol symbol observed at the evidence location, or null when the evidence is file-level.
@@ -13,11 +13,11 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  */
 public record EvidenceItem(String candidateId, String kind, String file, Integer line, String symbol, String detail) {
 
-    public static final String KIND_BACKEND_CONSTANT = "backend-constant";
+    public static final String KIND_SERVER_CONSTANT = "server-constant";
 
-    public static final String KIND_BACKEND_ENUM = "backend-enum";
+    public static final String KIND_SERVER_ENUM = "server-enum";
 
-    public static final String KIND_BACKEND_ENUMERATION = "backend-enumeration";
+    public static final String KIND_SERVER_ENUMERATION = "server-enumeration";
 
     public static final String KIND_CONFIG_HELPER_ACCESSOR = "config-helper-accessor";
 
@@ -25,9 +25,9 @@ public record EvidenceItem(String candidateId, String kind, String file, Integer
 
     public static final String KIND_YAML_DEFAULT = "yaml-default";
 
-    public static final String KIND_FRONTEND_CONSTANT = "frontend-constant";
+    public static final String KIND_CLIENT_CONSTANT = "client-constant";
 
-    public static final String KIND_FRONTEND_ENUM = "frontend-enum";
+    public static final String KIND_CLIENT_ENUM = "client-enum";
 
     public static final String KIND_ADMIN_PAGE = "admin-page";
 

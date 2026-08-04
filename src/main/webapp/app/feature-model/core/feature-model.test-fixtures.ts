@@ -24,8 +24,8 @@ interface FeatureSpec {
     category?: FeatureCategory;
     configKey?: string;
     springProfile?: string;
-    frontendConstant?: string;
-    backendConditionClass?: string;
+    clientConstant?: string;
+    serverConditionClass?: string;
     evidence?: string[];
 }
 
@@ -48,7 +48,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
         defaultState: 'enabled',
         description: 'Optional module controlled by artemis.lecture.enabled; ordinary core deployments enable it by default.',
         configKey: 'artemis.lecture.enabled',
-        backendConditionClass: 'LectureEnabled',
+        serverConditionClass: 'LectureEnabled',
         evidence: ['LectureEnabled.java:13,23', 'LectureResource.java:77'],
     },
     {
@@ -58,7 +58,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
         selectable: true,
         defaultState: 'enabled',
         configKey: 'artemis.tutorialgroup.enabled',
-        backendConditionClass: 'TutorialGroupEnabled',
+        serverConditionClass: 'TutorialGroupEnabled',
     },
     { id: 'course-workflow', name: 'Course Workflow', kind: 'module', selectable: true, defaultState: 'enabled' },
     { id: 'communication', name: 'Communication', kind: 'module', selectable: true, defaultState: 'enabled' },
@@ -73,7 +73,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
         selectable: true,
         defaultState: 'enabled',
         configKey: 'artemis.text.enabled',
-        frontendConstant: 'MODULE_FEATURE_TEXT',
+        clientConstant: 'MODULE_FEATURE_TEXT',
     },
     {
         id: 'modeling',
@@ -82,7 +82,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
         selectable: true,
         defaultState: 'enabled',
         configKey: 'artemis.modeling.enabled',
-        frontendConstant: 'MODULE_FEATURE_MODELING',
+        clientConstant: 'MODULE_FEATURE_MODELING',
     },
     {
         id: 'file-upload',
@@ -91,7 +91,7 @@ const FEATURE_SPECS: FeatureSpec[] = [
         selectable: true,
         defaultState: 'enabled',
         configKey: 'artemis.file-upload.enabled',
-        frontendConstant: 'MODULE_FEATURE_FILEUPLOAD',
+        clientConstant: 'MODULE_FEATURE_FILEUPLOAD',
     },
     { id: 'assessment-and-integrity', name: 'Assessment and Integrity', kind: 'group', selectable: false, defaultState: 'not_applicable' },
     { id: 'exam', name: 'Exam', kind: 'module', selectable: true, defaultState: 'enabled', configKey: 'artemis.exam.enabled' },
@@ -332,7 +332,7 @@ const DEFAULT_ARTEMIS_PROFILE_SUMMARY: DeploymentProfileSummary = {
 };
 
 /**
- * Builds profile-aware availability derived from the model and guided workflow fixtures, mirroring the backend
+ * Builds profile-aware availability derived from the model and guided workflow fixtures, mirroring the server
  * CapabilityResolutionService and the single bundled deployment context. By default every referenced capability is
  * provided, so all guided options are available. Pass `providedCapabilities` to simulate a maintainer local override
  * that restricts capabilities (used to exercise the latent gating and advanced debug surfaces).
@@ -423,8 +423,8 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
     const hasSourceData =
         spec.configKey !== undefined ||
         spec.springProfile !== undefined ||
-        spec.frontendConstant !== undefined ||
-        spec.backendConditionClass !== undefined ||
+        spec.clientConstant !== undefined ||
+        spec.serverConditionClass !== undefined ||
         (spec.evidence !== undefined && spec.evidence.length > 0);
     if (!hasSourceData) {
         return null;
@@ -432,8 +432,8 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
     return {
         configKey: spec.configKey ?? null,
         springProfile: spec.springProfile ?? null,
-        frontendConstant: spec.frontendConstant ?? null,
-        backendConditionClass: spec.backendConditionClass ?? null,
+        clientConstant: spec.clientConstant ?? null,
+        serverConditionClass: spec.serverConditionClass ?? null,
         evidence: spec.evidence ?? [],
     };
 }

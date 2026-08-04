@@ -48,7 +48,7 @@ class DriftComparator {
         List<ReportItem> items = new ArrayList<>();
         Map<String, FeatureCandidate> moduleCandidatesByConfigKey = new LinkedHashMap<>();
         Map<String, FeatureCandidate> moduleCandidatesByConditionClass = new LinkedHashMap<>();
-        Set<String> scannedFrontendConstants = new LinkedHashSet<>();
+        Set<String> scannedClientConstants = new LinkedHashSet<>();
         for (FeatureCandidate candidate : candidates) {
             if (!FeatureCandidate.KIND_MODULE_FEATURE.equals(candidate.kind())) {
                 continue;
@@ -56,16 +56,16 @@ class DriftComparator {
             if (candidate.configKey() != null) {
                 moduleCandidatesByConfigKey.putIfAbsent(candidate.configKey(), candidate);
             }
-            if (candidate.backendConditionClass() != null) {
-                moduleCandidatesByConditionClass.putIfAbsent(candidate.backendConditionClass(), candidate);
+            if (candidate.serverConditionClass() != null) {
+                moduleCandidatesByConditionClass.putIfAbsent(candidate.serverConditionClass(), candidate);
             }
-            if (candidate.frontendConstant() != null) {
-                scannedFrontendConstants.add(candidate.frontendConstant());
+            if (candidate.clientConstant() != null) {
+                scannedClientConstants.add(candidate.clientConstant());
             }
         }
 
         Set<String> matchedCandidateIds = compareCuratedFeatures(source, curatedModel, moduleCandidatesByConfigKey, moduleCandidatesByConditionClass,
-                scannedFrontendConstants, items);
+                scannedClientConstants, items);
         reportNewCandidates(candidates, matchedCandidateIds, items);
         compareCatalog(catalog, candidates, yamlScan, artemisCommit, items);
         return items;
@@ -78,18 +78,18 @@ class DriftComparator {
      * @param curatedModel active curated feature model.
      * @param moduleCandidatesByConfigKey module candidates by config key.
      * @param moduleCandidatesByConditionClass module candidates by condition class.
-     * @param scannedFrontendConstants frontend constant names observed in the scan.
+     * @param scannedClientConstants client constant names observed in the scan.
      * @param items report item sink.
      * @return candidate ids matched by curated features.
      */
     private Set<String> compareCuratedFeatures(ArtemisSourceRepository source, FeatureModel curatedModel, Map<String, FeatureCandidate> moduleCandidatesByConfigKey,
-            Map<String, FeatureCandidate> moduleCandidatesByConditionClass, Set<String> scannedFrontendConstants, List<ReportItem> items) {
+            Map<String, FeatureCandidate> moduleCandidatesByConditionClass, Set<String> scannedClientConstants, List<ReportItem> items) {
         Set<String> matchedCandidateIds = new LinkedHashSet<>();
         Map<String, List<String>> fileIndex = buildEvidenceFileIndex(source, curatedModel);
         for (FeatureNode feature : curatedModel.features()) {
             FeatureSource featureSource = feature.source();
             String configKey = featureSource == null ? null : featureSource.configKey();
-            String conditionClass = featureSource == null ? null : featureSource.backendConditionClass();
+            String conditionClass = featureSource == null ? null : featureSource.serverConditionClass();
             if (configKey == null && conditionClass == null) {
                 items.add(ReportItem.info(ReportItem.CODE_UNANCHORED_CURATED_FEATURE, feature.id(),
                         "Curated feature '" + feature.id() + "' has no config key or condition class anchor; expected for conceptual aggregates and always-on modules."));
@@ -105,14 +105,14 @@ class DriftComparator {
                 continue;
             }
             matchedCandidateIds.add(match.id());
-            if (conditionClass != null && !conditionClass.equals(match.backendConditionClass())) {
+            if (conditionClass != null && !conditionClass.equals(match.serverConditionClass())) {
                 items.add(ReportItem.warning(ReportItem.CODE_CURATED_ANCHOR_MISSING, feature.id(), "Curated feature '" + feature.id() + "' references condition class '"
                         + conditionClass + "' but the scan attributes " + describeCandidateCondition(match) + " to candidate '" + match.id() + "'."));
             }
-            String frontendConstant = featureSource.frontendConstant();
-            if (frontendConstant != null && !scannedFrontendConstants.contains(frontendConstant)) {
+            String clientConstant = featureSource.clientConstant();
+            if (clientConstant != null && !scannedClientConstants.contains(clientConstant)) {
                 items.add(ReportItem.warning(ReportItem.CODE_CURATED_ANCHOR_MISSING, feature.id(),
-                        "Curated feature '" + feature.id() + "' references frontend constant '" + frontendConstant + "' which the scan did not find."));
+                        "Curated feature '" + feature.id() + "' references client constant '" + clientConstant + "' which the scan did not find."));
             }
             verifyEvidenceReferences(source, feature, featureSource, fileIndex, items);
         }
@@ -289,7 +289,7 @@ class DriftComparator {
      * Collects the anchor tokens of a curated source block used for evidence line verification.
      *
      * @param featureSource curated source block.
-     * @return anchor tokens; config key, condition class, frontend constant, and the config key module segment.
+     * @return anchor tokens; config key, condition class, client constant, and the config key module segment.
      */
     private List<String> anchorTokens(FeatureSource featureSource) {
         List<String> tokens = new ArrayList<>();
@@ -300,11 +300,11 @@ class DriftComparator {
                 tokens.add(segments[segments.length - 2]);
             }
         }
-        if (featureSource.backendConditionClass() != null) {
-            tokens.add(featureSource.backendConditionClass());
+        if (featureSource.serverConditionClass() != null) {
+            tokens.add(featureSource.serverConditionClass());
         }
-        if (featureSource.frontendConstant() != null) {
-            tokens.add(featureSource.frontendConstant());
+        if (featureSource.clientConstant() != null) {
+            tokens.add(featureSource.clientConstant());
         }
         return tokens;
     }
@@ -408,6 +408,6 @@ class DriftComparator {
      * @return human-readable condition description.
      */
     private String describeCandidateCondition(FeatureCandidate candidate) {
-        return candidate.backendConditionClass() == null ? "no condition class" : "condition class '" + candidate.backendConditionClass() + "'";
+        return candidate.serverConditionClass() == null ? "no condition class" : "condition class '" + candidate.serverConditionClass() + "'";
     }
 }

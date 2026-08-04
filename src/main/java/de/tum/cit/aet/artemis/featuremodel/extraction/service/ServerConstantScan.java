@@ -14,11 +14,11 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocato
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 
 /**
- * Scans the backend {@code Constants} class for string constants: module feature ids, enabled property names, and
+ * Scans the server {@code Constants} class for string constants: module feature ids, enabled property names, and
  * Spring profile names. Constants with non-literal initializers (such as concatenated profile expressions) are
  * deliberately skipped because they do not declare a single anchor value.
  */
-class BackendConstantScan {
+class ServerConstantScan {
 
     private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
@@ -60,7 +60,7 @@ class BackendConstantScan {
      * @throws IllegalArgumentException if the constants file cannot be located or parsed.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.BACKEND_CONSTANTS,
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.SERVER_CONSTANTS,
                 "symbol prefix " + ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX,
                 content -> content.contains(ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX));
         CompilationUnit unit = JavaSourceParser.parse(source.readFile(file), file);

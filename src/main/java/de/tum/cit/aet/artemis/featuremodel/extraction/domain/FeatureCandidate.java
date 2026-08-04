@@ -12,18 +12,18 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  * @param disableWarning disable warning text from Artemis i18n, only present for runtime toggles.
  * @param configKey backing configuration key, or null when the candidate has no configuration anchor.
  * @param defaultValue default value of the configuration key found in the scanned Artemis YAML defaults, or null.
- * @param backendConstant backend constant symbol declaring the anchor, or null.
- * @param frontendConstant frontend constant or enum symbol mirroring the anchor, or null.
- * @param backendConditionClass simple name of the backing Spring condition class, or null.
+ * @param serverConstant server constant symbol declaring the anchor, or null.
+ * @param clientConstant client constant or enum symbol mirroring the anchor, or null.
+ * @param serverConditionClass simple name of the backing Spring condition class, or null.
  * @param springProfile Spring profile id for profile candidates, or null.
- * @param enumeratedByBackend true when the module id is returned by {@code ArtemisConfigHelper.getEnabledFeatures},
+ * @param enumeratedByServer true when the module id is returned by {@code ArtemisConfigHelper.getEnabledFeatures},
  *            null for candidates where the enumeration does not apply.
  * @param displayedOnAdminPage true when the admin Features page displays this candidate, null when the display
  *            membership does not apply to the candidate kind.
  * @param documentationUrl documentation link curated on the admin Features page, or null.
  */
 public record FeatureCandidate(String id, String kind, String name, String description, String disableWarning, String configKey, Object defaultValue,
-        String backendConstant, String frontendConstant, String backendConditionClass, String springProfile, Boolean enumeratedByBackend, Boolean displayedOnAdminPage,
+        String serverConstant, String clientConstant, String serverConditionClass, String springProfile, Boolean enumeratedByServer, Boolean displayedOnAdminPage,
         String documentationUrl) {
 
     public static final String KIND_MODULE_FEATURE = "module-feature";

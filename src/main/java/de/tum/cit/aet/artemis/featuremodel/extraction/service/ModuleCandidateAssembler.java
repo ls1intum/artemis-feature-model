@@ -61,17 +61,17 @@ final class ModuleCandidateAssembler {
 
         private String displayId;
 
-        private BackendConstantScan.ScannedConstant backendModuleConstant;
+        private ServerConstantScan.ScannedConstant serverModuleConstant;
 
-        private BackendConstantScan.ScannedConstant propertyConstant;
+        private ServerConstantScan.ScannedConstant propertyConstant;
 
-        private FrontendConstantScan.ScannedFrontendConstant frontendConstant;
+        private ClientConstantScan.ScannedClientConstant clientConstant;
 
         private ConditionClassScan.ScannedCondition ownCondition;
 
         private String configKey;
 
-        private boolean enumeratedByBackend;
+        private boolean enumeratedByServer;
 
         private boolean displayedOnAdminPage;
 
@@ -166,29 +166,29 @@ final class ModuleCandidateAssembler {
 
         /** Builds invocation-local drafts from constants and conditions. */
         private void buildModuleDrafts(Map<String, Set<String>> conditionPropertyKeys) {
-            for (BackendConstantScan.ScannedConstant constant : input.backendConstants().constants()) {
+            for (ServerConstantScan.ScannedConstant constant : input.serverConstants().constants()) {
                 if (constant.name().startsWith(MODULE_CONSTANT_PREFIX)) {
                     ModuleDraft draft = draftFor(constant.value(), constant.value());
-                    draft.backendModuleConstant = constant;
-                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_BACKEND_CONSTANT, input.backendConstants().file(), constant.line(), constant.name(),
+                    draft.serverModuleConstant = constant;
+                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_SERVER_CONSTANT, input.serverConstants().file(), constant.line(), constant.name(),
                             null);
                 }
             }
-            for (FrontendConstantScan.ScannedFrontendConstant constant : input.frontendConstants().constants()) {
+            for (ClientConstantScan.ScannedClientConstant constant : input.clientConstants().constants()) {
                 if (constant.name().startsWith(MODULE_CONSTANT_PREFIX)) {
                     ModuleDraft draft = draftFor(constant.value(), constant.value());
-                    draft.frontendConstant = constant;
-                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_FRONTEND_CONSTANT, input.frontendConstants().file(), constant.line(), constant.name(),
+                    draft.clientConstant = constant;
+                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_CLIENT_CONSTANT, input.clientConstants().file(), constant.line(), constant.name(),
                             null);
                 }
             }
-            for (BackendConstantScan.ScannedConstant constant : input.backendConstants().constants()) {
+            for (ServerConstantScan.ScannedConstant constant : input.serverConstants().constants()) {
                 if (constant.name().endsWith(PROPERTY_CONSTANT_SUFFIX)) {
                     String stem = normalize(constant.name().substring(0, constant.name().length() - PROPERTY_CONSTANT_SUFFIX.length()));
                     ModuleDraft draft = draftFor(stem, stem);
                     draft.propertyConstant = constant;
                     draft.configKey = constant.value();
-                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_BACKEND_CONSTANT, input.backendConstants().file(), constant.line(), constant.name(),
+                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_SERVER_CONSTANT, input.serverConstants().file(), constant.line(), constant.name(),
                             null);
                 }
             }
@@ -216,13 +216,13 @@ final class ModuleCandidateAssembler {
             context.addEvidence(draft.candidateId(), EvidenceItem.KIND_CONDITION_CLASS, condition.file(), condition.line(), condition.className(), null);
         }
 
-        /** Joins the backend enabled-feature enumeration. */
+        /** Joins the server enabled-feature enumeration. */
         private void joinEnumeration() {
             for (ConfigHelperScan.EnumerationEntry entry : input.configHelper().enumerationEntries()) {
                 findConstant(entry.constantName()).ifPresent(constant -> {
                     ModuleDraft draft = draftFor(constant.value(), constant.value());
-                    draft.enumeratedByBackend = true;
-                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_BACKEND_ENUMERATION, input.configHelper().file(), entry.line(), entry.constantName(),
+                    draft.enumeratedByServer = true;
+                    context.addEvidence(draft.candidateId(), EvidenceItem.KIND_SERVER_ENUMERATION, input.configHelper().file(), entry.line(), entry.constantName(),
                             null);
                 });
             }
@@ -230,10 +230,10 @@ final class ModuleCandidateAssembler {
 
         /** Joins admin display membership, documentation links, and translated module texts. */
         private void joinAdminPageAndI18n() {
-            Map<String, String> frontendValuesByName = new LinkedHashMap<>();
-            input.frontendConstants().constants().forEach(constant -> frontendValuesByName.putIfAbsent(constant.name(), constant.value()));
+            Map<String, String> clientValuesByName = new LinkedHashMap<>();
+            input.clientConstants().constants().forEach(constant -> clientValuesByName.putIfAbsent(constant.name(), constant.value()));
             for (AdminPageScan.MembershipEntry entry : input.adminPage().displayedModuleFeatures()) {
-                String value = frontendValuesByName.get(entry.identifier());
+                String value = clientValuesByName.get(entry.identifier());
                 ModuleDraft draft = value == null ? null : moduleDraftsByStem.get(normalize(value));
                 if (draft != null) {
                     draft.displayedOnAdminPage = true;
@@ -243,7 +243,7 @@ final class ModuleCandidateAssembler {
             }
             for (AdminPageScan.DocumentationEntry entry : input.adminPage().documentationEntries()) {
                 if (entry.identifier().startsWith(MODULE_CONSTANT_PREFIX)) {
-                    String value = frontendValuesByName.get(entry.identifier());
+                    String value = clientValuesByName.get(entry.identifier());
                     ModuleDraft draft = value == null ? null : moduleDraftsByStem.get(normalize(value));
                     if (draft != null) {
                         draft.documentationUrl = entry.url();
@@ -286,37 +286,37 @@ final class ModuleCandidateAssembler {
 
         /** Reports module mirror mismatches and internal enabled-property asymmetry. */
         private void reportMirrorAndAsymmetry() {
-            Set<String> backendValues = new LinkedHashSet<>();
-            Set<String> frontendValues = new LinkedHashSet<>();
-            input.backendConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
-                    .forEach(constant -> backendValues.add(constant.value()));
-            input.frontendConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
-                    .forEach(constant -> frontendValues.add(constant.value()));
-            for (String value : backendValues) {
-                if (!frontendValues.contains(value)) {
-                    context.addItem(ReportItem.warning(ReportItem.CODE_FE_BE_MIRROR_MISMATCH, FeatureCandidate.NAMESPACE_MODULE + value,
-                            "Module feature constant for '" + value + "' exists in the backend but has no frontend MODULE_FEATURE_ mirror."));
+            Set<String> serverValues = new LinkedHashSet<>();
+            Set<String> clientValues = new LinkedHashSet<>();
+            input.serverConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
+                    .forEach(constant -> serverValues.add(constant.value()));
+            input.clientConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
+                    .forEach(constant -> clientValues.add(constant.value()));
+            for (String value : serverValues) {
+                if (!clientValues.contains(value)) {
+                    context.addItem(ReportItem.warning(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, FeatureCandidate.NAMESPACE_MODULE + value,
+                            "Module feature constant for '" + value + "' exists in the server but has no client MODULE_FEATURE_ mirror."));
                 }
             }
-            for (String value : frontendValues) {
-                if (!backendValues.contains(value)) {
+            for (String value : clientValues) {
+                if (!serverValues.contains(value)) {
                     ModuleDraft draft = moduleDraftsByStem.get(normalize(value));
-                    String enumerationHint = draft != null && draft.enumeratedByBackend
-                            ? " The backend still enumerates the id at runtime through a non-MODULE_FEATURE constant."
+                    String enumerationHint = draft != null && draft.enumeratedByServer
+                            ? " The server still enumerates the id at runtime through a non-MODULE_FEATURE constant."
                             : "";
-                    context.addItem(ReportItem.warning(ReportItem.CODE_FE_BE_MIRROR_MISMATCH, FeatureCandidate.NAMESPACE_MODULE + value,
-                            "Module feature constant for '" + value + "' exists only in the frontend." + enumerationHint));
+                    context.addItem(ReportItem.warning(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, FeatureCandidate.NAMESPACE_MODULE + value,
+                            "Module feature constant for '" + value + "' exists only in the client." + enumerationHint));
                 }
             }
             Set<String> moduleStems = new LinkedHashSet<>();
-            input.backendConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
+            input.serverConstants().constants().stream().filter(constant -> constant.name().startsWith(MODULE_CONSTANT_PREFIX))
                     .forEach(constant -> moduleStems.add(normalize(constant.value())));
-            for (BackendConstantScan.ScannedConstant constant : input.backendConstants().constants()) {
+            for (ServerConstantScan.ScannedConstant constant : input.serverConstants().constants()) {
                 if (constant.name().endsWith(PROPERTY_CONSTANT_SUFFIX)) {
                     String stem = normalize(stripSuffix(constant.name(), PROPERTY_CONSTANT_SUFFIX));
                     if (!moduleStems.contains(stem)) {
                         context.addItem(ReportItem.info(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, constant.name(),
-                                "Enabled property constant '" + constant.name() + "' has no matching backend MODULE_FEATURE_ constant."));
+                                "Enabled property constant '" + constant.name() + "' has no matching server MODULE_FEATURE_ constant."));
                     }
                 }
             }
@@ -327,12 +327,12 @@ final class ModuleCandidateAssembler {
             List<FeatureCandidate> candidates = new ArrayList<>();
             for (ModuleDraft draft : moduleDraftsByStem.values()) {
                 Object defaultValue = draft.configKey == null ? null : valueOf(input.configurationDefaults().preferredOccurrence(draft.configKey));
-                String backendConstant = draft.backendModuleConstant != null ? draft.backendModuleConstant.name()
+                String serverConstant = draft.serverModuleConstant != null ? draft.serverModuleConstant.name()
                         : draft.propertyConstant != null ? draft.propertyConstant.name() : null;
                 candidates.add(new FeatureCandidate(draft.candidateId(), FeatureCandidate.KIND_MODULE_FEATURE,
-                        draft.texts == null ? null : draft.texts.name(), moduleDescription(draft), null, draft.configKey, defaultValue, backendConstant,
-                        draft.frontendConstant == null ? null : draft.frontendConstant.name(),
-                        draft.ownCondition == null ? null : draft.ownCondition.className(), null, draft.enumeratedByBackend, draft.displayedOnAdminPage,
+                        draft.texts == null ? null : draft.texts.name(), moduleDescription(draft), null, draft.configKey, defaultValue, serverConstant,
+                        draft.clientConstant == null ? null : draft.clientConstant.name(),
+                        draft.ownCondition == null ? null : draft.ownCondition.className(), null, draft.enumeratedByServer, draft.displayedOnAdminPage,
                         draft.documentationUrl));
             }
             return candidates;
@@ -346,8 +346,8 @@ final class ModuleCandidateAssembler {
             if (draft.propertyConstant != null && draft.propertyConstant.javadoc() != null) {
                 return draft.propertyConstant.javadoc();
             }
-            if (draft.backendModuleConstant != null && draft.backendModuleConstant.javadoc() != null) {
-                return draft.backendModuleConstant.javadoc();
+            if (draft.serverModuleConstant != null && draft.serverModuleConstant.javadoc() != null) {
+                return draft.serverModuleConstant.javadoc();
             }
             return draft.ownCondition == null ? null : draft.ownCondition.javadoc();
         }
@@ -394,9 +394,9 @@ final class ModuleCandidateAssembler {
             return null;
         }
 
-        /** Finds one backend constant by exact name. */
-        private Optional<BackendConstantScan.ScannedConstant> findConstant(String name) {
-            return input.backendConstants().constants().stream().filter(constant -> constant.name().equals(name)).findFirst();
+        /** Finds one server constant by exact name. */
+        private Optional<ServerConstantScan.ScannedConstant> findConstant(String name) {
+            return input.serverConstants().constants().stream().filter(constant -> constant.name().equals(name)).findFirst();
         }
 
         /** Extracts the scalar value of an occurrence. */

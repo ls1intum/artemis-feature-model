@@ -15,22 +15,22 @@ public final class ArtemisSourceConventions {
     /** Checkout-relative source roots scanned for facts or evidence. */
     public static final class Roots {
 
-        /** Backend production Java sources. */
+        /** Server production Java sources. */
         public static final String JAVA = "src/main/java";
 
-        /** Backend production resources. */
+        /** Server production resources. */
         public static final String RESOURCES = "src/main/resources";
 
         /** Spring application configuration resources. */
         public static final String CONFIG = RESOURCES + "/config";
 
-        /** Complete frontend source root. */
+        /** Complete client source root. */
         public static final String WEBAPP = "src/main/webapp";
 
-        /** Frontend application sources. */
+        /** Client application sources. */
         public static final String WEBAPP_APP = WEBAPP + "/app";
 
-        /** English frontend translations. */
+        /** English client translations. */
         public static final String ENGLISH_I18N = WEBAPP + "/i18n/en";
 
         /** Top-level Docker Compose inputs. */
@@ -46,24 +46,24 @@ public final class ArtemisSourceConventions {
     /** Known source files whose preferred location may move within one verified fallback root. */
     public static final class Files {
 
-        /** Backend constants class. */
-        public static final SourceFileTarget BACKEND_CONSTANTS = target("backend constants",
+        /** Server constants class. */
+        public static final SourceFileTarget SERVER_CONSTANTS = target("server constants",
                 Roots.JAVA + "/de/tum/cit/aet/artemis/core/config/Constants.java", Roots.JAVA, "Constants.java");
 
-        /** Backend module configuration helper. */
+        /** Server module configuration helper. */
         public static final SourceFileTarget CONFIG_HELPER = target("configuration helper",
                 Roots.JAVA + "/de/tum/cit/aet/artemis/core/config/ArtemisConfigHelper.java", Roots.JAVA, "ArtemisConfigHelper.java");
 
-        /** Backend runtime feature enum. */
-        public static final SourceFileTarget BACKEND_FEATURE_ENUM = target("backend feature enum",
+        /** Server runtime feature enum. */
+        public static final SourceFileTarget SERVER_FEATURE_ENUM = target("server feature enum",
                 Roots.JAVA + "/de/tum/cit/aet/artemis/core/service/feature/Feature.java", Roots.JAVA, "Feature.java");
 
-        /** Frontend module and profile constants. */
-        public static final SourceFileTarget FRONTEND_CONSTANTS = target("frontend constants", Roots.WEBAPP_APP + "/app.constants.ts", Roots.WEBAPP,
+        /** Client module and profile constants. */
+        public static final SourceFileTarget CLIENT_CONSTANTS = target("client constants", Roots.WEBAPP_APP + "/app.constants.ts", Roots.WEBAPP,
                 "app.constants.ts");
 
-        /** Frontend runtime feature-toggle enum service. */
-        public static final SourceFileTarget FRONTEND_TOGGLE_SERVICE = target("frontend feature-toggle service",
+        /** Client runtime feature-toggle enum service. */
+        public static final SourceFileTarget CLIENT_TOGGLE_SERVICE = target("client feature-toggle service",
                 Roots.WEBAPP_APP + "/foundation/feature-toggle/feature-toggle.service.ts", Roots.WEBAPP, "feature-toggle.service.ts");
 
         /** Administrator feature display component. */
@@ -104,29 +104,29 @@ public final class ArtemisSourceConventions {
     /** Stable upstream symbols used to verify targets or join scan facts. */
     public static final class Symbols {
 
-        /** Backend and frontend module constant prefix. */
+        /** Server and client module constant prefix. */
         public static final String MODULE_FEATURE_PREFIX = "MODULE_FEATURE_";
 
-        /** Backend and frontend profile constant prefix. */
+        /** Server and client profile constant prefix. */
         public static final String PROFILE_CONSTANT_PREFIX = "PROFILE_";
 
-        /** Backend configuration helper type. */
+        /** Server configuration helper type. */
         public static final String CONFIG_HELPER_TYPE = "ArtemisConfigHelper";
 
-        /** Backend enabled-feature enumeration method. */
+        /** Server enabled-feature enumeration method. */
         public static final String ENABLED_FEATURES_METHOD = "getEnabledFeatures";
 
         /** Spring condition interface. */
         public static final String CONDITION_INTERFACE = "Condition";
 
-        /** Backend runtime feature enum type. */
-        public static final String BACKEND_FEATURE_ENUM = "Feature";
+        /** Server runtime feature enum type. */
+        public static final String SERVER_FEATURE_ENUM = "Feature";
 
-        /** Frontend runtime feature enum type. */
-        public static final String FRONTEND_FEATURE_ENUM = "FeatureToggle";
+        /** Client runtime feature enum type. */
+        public static final String CLIENT_FEATURE_ENUM = "FeatureToggle";
 
-        /** Frontend admin-page documentation key prefix for runtime toggles. */
-        public static final String FRONTEND_TOGGLE_REFERENCE_PREFIX = FRONTEND_FEATURE_ENUM + ".";
+        /** Client admin-page documentation key prefix for runtime toggles. */
+        public static final String CLIENT_TOGGLE_REFERENCE_PREFIX = CLIENT_FEATURE_ENUM + ".";
 
         /** Opt-in extraction annotation simple name. */
         public static final String ARTEMIS_FEATURE_ANNOTATION = "ArtemisFeature";

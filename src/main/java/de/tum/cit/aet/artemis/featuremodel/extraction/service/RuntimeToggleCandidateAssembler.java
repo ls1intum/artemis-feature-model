@@ -12,10 +12,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 
-/** Assembles the mirrored backend/frontend runtime-toggle family, including usage and mirror diagnostics. */
+/** Assembles the mirrored server/client runtime-toggle family, including usage and mirror diagnostics. */
 final class RuntimeToggleCandidateAssembler {
 
-    private static final String TOGGLE_DOC_IDENTIFIER_PREFIX = ArtemisSourceConventions.Symbols.FRONTEND_TOGGLE_REFERENCE_PREFIX;
+    private static final String TOGGLE_DOC_IDENTIFIER_PREFIX = ArtemisSourceConventions.Symbols.CLIENT_TOGGLE_REFERENCE_PREFIX;
 
     /**
      * Assembles runtime-toggle candidates in enum order.
@@ -25,17 +25,17 @@ final class RuntimeToggleCandidateAssembler {
      * @return runtime-toggle candidates.
      */
     List<FeatureCandidate> assemble(CandidateAssemblyInput input, CandidateAssemblyContext context) {
-        Map<String, BackendFeatureEnumScan.ScannedEnumMember> backendMembers = new LinkedHashMap<>();
-        input.backendToggles().members().forEach(member -> backendMembers.putIfAbsent(member.name(), member));
-        Map<String, FrontendToggleEnumScan.ScannedToggleMember> frontendMembers = new LinkedHashMap<>();
-        input.frontendToggles().members().forEach(member -> frontendMembers.putIfAbsent(member.name(), member));
+        Map<String, ServerFeatureEnumScan.ScannedEnumMember> serverMembers = new LinkedHashMap<>();
+        input.serverToggles().members().forEach(member -> serverMembers.putIfAbsent(member.name(), member));
+        Map<String, ClientToggleEnumScan.ScannedToggleMember> clientMembers = new LinkedHashMap<>();
+        input.clientToggles().members().forEach(member -> clientMembers.putIfAbsent(member.name(), member));
 
         Set<String> toggleNames = new LinkedHashSet<>();
-        toggleNames.addAll(backendMembers.keySet());
-        toggleNames.addAll(frontendMembers.keySet());
+        toggleNames.addAll(serverMembers.keySet());
+        toggleNames.addAll(clientMembers.keySet());
 
         Map<String, String> documentationLinks = documentationLinks(input, context, toggleNames);
-        List<FeatureCandidate> candidates = emitCandidates(input, context, backendMembers, frontendMembers, toggleNames, documentationLinks);
+        List<FeatureCandidate> candidates = emitCandidates(input, context, serverMembers, clientMembers, toggleNames, documentationLinks);
         attachUsageEvidence(input, context, toggleNames);
         return candidates;
     }
@@ -56,28 +56,28 @@ final class RuntimeToggleCandidateAssembler {
         return links;
     }
 
-    /** Emits candidates and frontend/backend mirror diagnostics. */
+    /** Emits candidates and client/server mirror diagnostics. */
     private List<FeatureCandidate> emitCandidates(CandidateAssemblyInput input, CandidateAssemblyContext context,
-            Map<String, BackendFeatureEnumScan.ScannedEnumMember> backendMembers,
-            Map<String, FrontendToggleEnumScan.ScannedToggleMember> frontendMembers, Set<String> toggleNames, Map<String, String> documentationLinks) {
+            Map<String, ServerFeatureEnumScan.ScannedEnumMember> serverMembers,
+            Map<String, ClientToggleEnumScan.ScannedToggleMember> clientMembers, Set<String> toggleNames, Map<String, String> documentationLinks) {
         List<FeatureCandidate> candidates = new ArrayList<>();
         for (String name : toggleNames) {
             String candidateId = FeatureCandidate.NAMESPACE_TOGGLE + name;
-            BackendFeatureEnumScan.ScannedEnumMember backendMember = backendMembers.get(name);
-            FrontendToggleEnumScan.ScannedToggleMember frontendMember = frontendMembers.get(name);
-            if (backendMember != null) {
-                context.addEvidence(candidateId, EvidenceItem.KIND_BACKEND_ENUM, input.backendToggles().file(), backendMember.line(), name, null);
+            ServerFeatureEnumScan.ScannedEnumMember serverMember = serverMembers.get(name);
+            ClientToggleEnumScan.ScannedToggleMember clientMember = clientMembers.get(name);
+            if (serverMember != null) {
+                context.addEvidence(candidateId, EvidenceItem.KIND_SERVER_ENUM, input.serverToggles().file(), serverMember.line(), name, null);
             }
             else {
-                context.addItem(ReportItem.error(ReportItem.CODE_FE_BE_MIRROR_MISMATCH, candidateId,
-                        "Runtime toggle '" + name + "' exists in the frontend FeatureToggle enum but not in the backend Feature enum."));
+                context.addItem(ReportItem.error(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, candidateId,
+                        "Runtime toggle '" + name + "' exists in the client FeatureToggle enum but not in the server Feature enum."));
             }
-            if (frontendMember != null) {
-                context.addEvidence(candidateId, EvidenceItem.KIND_FRONTEND_ENUM, input.frontendToggles().file(), frontendMember.line(), name, null);
+            if (clientMember != null) {
+                context.addEvidence(candidateId, EvidenceItem.KIND_CLIENT_ENUM, input.clientToggles().file(), clientMember.line(), name, null);
             }
             else {
-                context.addItem(ReportItem.error(ReportItem.CODE_FE_BE_MIRROR_MISMATCH, candidateId,
-                        "Runtime toggle '" + name + "' exists in the backend Feature enum but not in the frontend FeatureToggle enum."));
+                context.addItem(ReportItem.error(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, candidateId,
+                        "Runtime toggle '" + name + "' exists in the server Feature enum but not in the client FeatureToggle enum."));
             }
             FeatureI18nScan.FeatureTexts texts = input.featureTexts().toggleTexts().get(name);
             if (texts != null) {
@@ -85,13 +85,13 @@ final class RuntimeToggleCandidateAssembler {
             }
             candidates.add(new FeatureCandidate(candidateId, FeatureCandidate.KIND_RUNTIME_TOGGLE, texts == null ? null : texts.name(),
                     texts == null ? null : texts.description(), texts == null ? null : texts.disableWarning(), null, null,
-                    backendMember == null ? null : "Feature." + name, frontendMember == null ? null : "FeatureToggle." + name, null, null, null,
-                    frontendMember != null, documentationLinks.get(name)));
+                    serverMember == null ? null : "Feature." + name, clientMember == null ? null : "FeatureToggle." + name, null, null, null,
+                    clientMember != null, documentationLinks.get(name)));
         }
         return candidates;
     }
 
-    /** Attaches backend annotation and frontend template usage evidence. */
+    /** Attaches server annotation and client template usage evidence. */
     private void attachUsageEvidence(CandidateAssemblyInput input, CandidateAssemblyContext context, Set<String> toggleNames) {
         for (UsageEvidenceScan.UsageSite site : input.usageEvidence().featureToggleSites()) {
             if (toggleNames.contains(site.symbol())) {

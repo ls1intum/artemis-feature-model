@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,13 +29,13 @@ class SourceLocationCharacterizationTest {
     @Test
     void relocatedConstantsAreFoundByNameAndRequiredSymbol() throws IOException {
         Path checkout = copyFixture("relocated");
-        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath());
+        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.SERVER_CONSTANTS.preferredPath());
         Path relocated = checkout.resolve("src/main/java/relocated/Constants.java");
         Files.createDirectories(relocated.getParent());
         Files.move(preferred, relocated);
 
-        BackendConstantScan.Result baseline = new BackendConstantScan().scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
-        BackendConstantScan.Result result = new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout));
+        ServerConstantScan.Result baseline = new ServerConstantScan().scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
+        ServerConstantScan.Result result = new ServerConstantScan().scan(new LocalArtemisSourceRepository(checkout));
 
         assertThat(result.file()).isEqualTo("src/main/java/relocated/Constants.java");
         assertThat(result.constants()).isEqualTo(baseline.constants());
@@ -42,16 +44,16 @@ class SourceLocationCharacterizationTest {
     @Test
     void missingConstantsProduceAnActionableControlledFailure() throws IOException {
         Path checkout = copyFixture("missing");
-        Files.delete(checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath()));
+        Files.delete(checkout.resolve(ArtemisSourceConventions.Files.SERVER_CONSTANTS.preferredPath()));
 
-        assertThatThrownBy(() -> new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> new ServerConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Constants.java").hasMessageContaining("MODULE_FEATURE_").hasMessageContaining("src/main/java");
     }
 
     @Test
     void ambiguousConstantsFallbackIsRejectedWithEveryVerifiedMatchNamed() throws IOException {
         Path checkout = copyFixture("ambiguous");
-        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.BACKEND_CONSTANTS.preferredPath());
+        Path preferred = checkout.resolve(ArtemisSourceConventions.Files.SERVER_CONSTANTS.preferredPath());
         Path first = checkout.resolve("src/main/java/a/Constants.java");
         Path second = checkout.resolve("src/main/java/b/Constants.java");
         Files.createDirectories(first.getParent());
@@ -60,8 +62,8 @@ class SourceLocationCharacterizationTest {
         Files.copy(preferred, second);
         Files.delete(preferred);
 
-        assertThatThrownBy(() -> new BackendConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Ambiguous backend constants target").hasMessageContaining("src/main/java/a/Constants.java")
+        assertThatThrownBy(() -> new ServerConstantScan().scan(new LocalArtemisSourceRepository(checkout))).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ambiguous server constants target").hasMessageContaining("src/main/java/a/Constants.java")
                 .hasMessageContaining("src/main/java/b/Constants.java");
     }
 
@@ -72,6 +74,18 @@ class SourceLocationCharacterizationTest {
                     .filter(file -> !file.getFileName().toString().equals("ArtemisSourceConventions.java")).toList()) {
                 assertThat(Files.readString(path)).as("source conventions in %s", path).doesNotContain("\"src/main/java", "\"src/main/resources",
                         "\"src/main/webapp", "\"docker\"");
+            }
+        }
+    }
+
+    @Test
+    void extractionSourcesUseClientAndServerTerminology() throws IOException {
+        List<String> retiredTerms = List.of("front" + "end", "back" + "end");
+        try (var paths = Files.walk(EXTRACTION_SOURCE_PATH)) {
+            for (Path path : paths.filter(Files::isRegularFile).filter(file -> file.toString().endsWith(".java")).toList()) {
+                String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
+                String source = Files.readString(path).toLowerCase(Locale.ROOT);
+                assertThat(retiredTerms).as("terminology in %s", path).noneMatch(fileName::contains).noneMatch(source::contains);
             }
         }
     }

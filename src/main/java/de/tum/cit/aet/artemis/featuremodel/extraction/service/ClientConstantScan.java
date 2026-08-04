@@ -11,10 +11,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConven
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
 
 /**
- * Scans {@code app.constants.ts} for the frontend module feature and profile constants. The accepted shape is a
+ * Scans {@code app.constants.ts} for the client module feature and profile constants. The accepted shape is a
  * single-line literal export ({@code export const MODULE_FEATURE_X = 'value';}); the fixture tests pin this shape.
  */
-class FrontendConstantScan {
+class ClientConstantScan {
 
     private static final Pattern CONSTANT_PATTERN = Pattern.compile("^export const (" + Pattern.quote(ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX)
             + "\\w+|" + Pattern.quote(ArtemisSourceConventions.Symbols.PROFILE_CONSTANT_PREFIX) + "\\w+)\\s*=\\s*'([^']*)';\\s*$");
@@ -22,22 +22,22 @@ class FrontendConstantScan {
     private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
-     * One scanned frontend constant.
+     * One scanned client constant.
      *
      * @param name constant name, for example {@code MODULE_FEATURE_PASSKEY}.
      * @param value literal string value.
      * @param line 1-based declaration line.
      */
-    record ScannedFrontendConstant(String name, String value, Integer line) {
+    record ScannedClientConstant(String name, String value, Integer line) {
     }
 
     /**
-     * Scan result of the frontend constants file.
+     * Scan result of the client constants file.
      *
      * @param file checkout-relative path of the scanned file.
      * @param constants scanned constants in declaration order.
      */
-    record Result(String file, List<ScannedFrontendConstant> constants) {
+    record Result(String file, List<ScannedClientConstant> constants) {
 
         /**
          * Creates an empty result for a failed or skipped scan.
@@ -50,21 +50,21 @@ class FrontendConstantScan {
     }
 
     /**
-     * Scans the frontend constants of the given checkout.
+     * Scans the client constants of the given checkout.
      *
      * @param source Artemis source repository.
-     * @return scanned frontend constants.
+     * @return scanned client constants.
      * @throws IOException if the constants file cannot be read.
      * @throws IllegalArgumentException if the constants file cannot be located.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.FRONTEND_CONSTANTS);
-        List<ScannedFrontendConstant> constants = new ArrayList<>();
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.CLIENT_CONSTANTS);
+        List<ScannedClientConstant> constants = new ArrayList<>();
         List<String> lines = source.readLines(file);
         for (int index = 0; index < lines.size(); index++) {
             Matcher matcher = CONSTANT_PATTERN.matcher(lines.get(index));
             if (matcher.matches()) {
-                constants.add(new ScannedFrontendConstant(matcher.group(1), matcher.group(2), index + 1));
+                constants.add(new ScannedClientConstant(matcher.group(1), matcher.group(2), index + 1));
             }
         }
         return new Result(file, List.copyOf(constants));

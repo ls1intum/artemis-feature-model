@@ -31,21 +31,21 @@ final class DeploymentCandidateAssembler {
         return candidates;
     }
 
-    /** Emits Spring profile candidates from backend/frontend constants and profile evidence. */
+    /** Emits Spring profile candidates from server/client constants and profile evidence. */
     private List<FeatureCandidate> assembleProfiles(CandidateAssemblyInput input, CandidateAssemblyContext context) {
-        Map<String, BackendConstantScan.ScannedConstant> backendProfiles = new LinkedHashMap<>();
-        input.backendConstants().constants().stream().filter(constant -> constant.name().startsWith(PROFILE_CONSTANT_PREFIX))
-                .forEach(constant -> backendProfiles.putIfAbsent(constant.value(), constant));
-        Map<String, FrontendConstantScan.ScannedFrontendConstant> frontendProfiles = new LinkedHashMap<>();
-        input.frontendConstants().constants().stream().filter(constant -> constant.name().startsWith(PROFILE_CONSTANT_PREFIX))
-                .forEach(constant -> frontendProfiles.putIfAbsent(constant.value(), constant));
+        Map<String, ServerConstantScan.ScannedConstant> serverProfiles = new LinkedHashMap<>();
+        input.serverConstants().constants().stream().filter(constant -> constant.name().startsWith(PROFILE_CONSTANT_PREFIX))
+                .forEach(constant -> serverProfiles.putIfAbsent(constant.value(), constant));
+        Map<String, ClientConstantScan.ScannedClientConstant> clientProfiles = new LinkedHashMap<>();
+        input.clientConstants().constants().stream().filter(constant -> constant.name().startsWith(PROFILE_CONSTANT_PREFIX))
+                .forEach(constant -> clientProfiles.putIfAbsent(constant.value(), constant));
 
-        Map<String, String> frontendValuesByName = new LinkedHashMap<>();
-        input.frontendConstants().constants().forEach(constant -> frontendValuesByName.putIfAbsent(constant.name(), constant.value()));
+        Map<String, String> clientValuesByName = new LinkedHashMap<>();
+        input.clientConstants().constants().forEach(constant -> clientValuesByName.putIfAbsent(constant.name(), constant.value()));
         Set<String> displayedProfiles = new LinkedHashSet<>();
         Map<String, AdminPageScan.MembershipEntry> displayedProfileEntries = new LinkedHashMap<>();
         for (AdminPageScan.MembershipEntry entry : input.adminPage().displayedProfiles()) {
-            String value = frontendValuesByName.get(entry.identifier());
+            String value = clientValuesByName.get(entry.identifier());
             if (value != null) {
                 displayedProfiles.add(value);
                 displayedProfileEntries.putIfAbsent(value, entry);
@@ -54,7 +54,7 @@ final class DeploymentCandidateAssembler {
         Map<String, AdminPageScan.DocumentationEntry> profileDocumentation = new LinkedHashMap<>();
         for (AdminPageScan.DocumentationEntry entry : input.adminPage().documentationEntries()) {
             if (entry.identifier().startsWith(PROFILE_CONSTANT_PREFIX)) {
-                String value = frontendValuesByName.get(entry.identifier());
+                String value = clientValuesByName.get(entry.identifier());
                 if (value != null) {
                     profileDocumentation.putIfAbsent(value, entry);
                 }
@@ -62,20 +62,20 @@ final class DeploymentCandidateAssembler {
         }
 
         Set<String> profileIds = new LinkedHashSet<>();
-        profileIds.addAll(backendProfiles.keySet());
-        profileIds.addAll(frontendProfiles.keySet());
+        profileIds.addAll(serverProfiles.keySet());
+        profileIds.addAll(clientProfiles.keySet());
         List<FeatureCandidate> candidates = new ArrayList<>();
         for (String profileId : profileIds) {
             String candidateId = FeatureCandidate.NAMESPACE_PROFILE + profileId;
-            BackendConstantScan.ScannedConstant backendConstant = backendProfiles.get(profileId);
-            FrontendConstantScan.ScannedFrontendConstant frontendConstant = frontendProfiles.get(profileId);
-            if (backendConstant != null) {
-                context.addEvidence(candidateId, EvidenceItem.KIND_BACKEND_CONSTANT, input.backendConstants().file(), backendConstant.line(),
-                        backendConstant.name(), null);
+            ServerConstantScan.ScannedConstant serverConstant = serverProfiles.get(profileId);
+            ClientConstantScan.ScannedClientConstant clientConstant = clientProfiles.get(profileId);
+            if (serverConstant != null) {
+                context.addEvidence(candidateId, EvidenceItem.KIND_SERVER_CONSTANT, input.serverConstants().file(), serverConstant.line(),
+                        serverConstant.name(), null);
             }
-            if (frontendConstant != null) {
-                context.addEvidence(candidateId, EvidenceItem.KIND_FRONTEND_CONSTANT, input.frontendConstants().file(), frontendConstant.line(),
-                        frontendConstant.name(), null);
+            if (clientConstant != null) {
+                context.addEvidence(candidateId, EvidenceItem.KIND_CLIENT_CONSTANT, input.clientConstants().file(), clientConstant.line(),
+                        clientConstant.name(), null);
             }
             String profileYaml = ArtemisSourceConventions.Files.profileConfiguration(profileId);
             if (input.source().fileExists(profileYaml)) {
@@ -95,8 +95,8 @@ final class DeploymentCandidateAssembler {
             }
             AdminPageScan.DocumentationEntry documentationEntry = profileDocumentation.get(profileId);
             candidates.add(new FeatureCandidate(candidateId, FeatureCandidate.KIND_SPRING_PROFILE, texts == null ? null : texts.name(),
-                    texts == null ? null : texts.description(), null, null, null, backendConstant == null ? null : backendConstant.name(),
-                    frontendConstant == null ? null : frontendConstant.name(), null, profileId, null, displayedProfiles.contains(profileId),
+                    texts == null ? null : texts.description(), null, null, null, serverConstant == null ? null : serverConstant.name(),
+                    clientConstant == null ? null : clientConstant.name(), null, profileId, null, displayedProfiles.contains(profileId),
                     documentationEntry == null ? null : documentationEntry.url()));
         }
         return candidates;

@@ -174,10 +174,10 @@ class ModelDiffService {
         }
         addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-config-key", curated.id(), curatedSource.configKey(),
                 generatedSource.configKey(), "The scanned configuration key disagrees with the curated declaration.");
-        addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-condition-class", curated.id(), curatedSource.backendConditionClass(),
-                generatedSource.backendConditionClass(), "The scanned condition class disagrees with the curated declaration.");
-        addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-frontend-constant", curated.id(), curatedSource.frontendConstant(),
-                generatedSource.frontendConstant(), "The scanned frontend constant disagrees with the curated declaration.");
+        addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-condition-class", curated.id(), curatedSource.serverConditionClass(),
+                generatedSource.serverConditionClass(), "The scanned condition class disagrees with the curated declaration.");
+        addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-client-constant", curated.id(), curatedSource.clientConstant(),
+                generatedSource.clientConstant(), "The scanned client constant disagrees with the curated declaration.");
         addIfDifferent(entries, ModelDiffReport.CLASS_ARTEMIS_DRIFT, "feature-source-spring-profile", curated.id(), curatedSource.springProfile(),
                 generatedSource.springProfile(), "The scanned Spring profile disagrees with the curated declaration.");
         addIfDifferent(entries, ModelDiffReport.CLASS_INTENTIONAL_CURATION, "feature-source-evidence", curated.id(), String.valueOf(curatedSource.evidence()),
@@ -318,7 +318,7 @@ class ModelDiffService {
         if (source == null) {
             return null;
         }
-        return "configKey=" + source.configKey() + ", conditionClass=" + source.backendConditionClass() + ", evidence=" + source.evidence().size() + " item(s)";
+        return "configKey=" + source.configKey() + ", conditionClass=" + source.serverConditionClass() + ", evidence=" + source.evidence().size() + " item(s)";
     }
 
     /**

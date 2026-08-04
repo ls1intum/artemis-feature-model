@@ -14,7 +14,7 @@ final class ConfigKeyCandidateAssembler {
     private static final String PROPERTY_CONSTANT_SUFFIX = ArtemisSourceConventions.Naming.ENABLED_PROPERTY_CONSTANT_SUFFIX;
 
     /**
-     * Assembles configuration-key candidates in backend declaration order.
+     * Assembles configuration-key candidates in server declaration order.
      *
      * @param input complete candidate-assembly input.
      * @param context invocation-local evidence context.
@@ -22,12 +22,12 @@ final class ConfigKeyCandidateAssembler {
      */
     List<FeatureCandidate> assemble(CandidateAssemblyInput input, CandidateAssemblyContext context) {
         List<FeatureCandidate> candidates = new ArrayList<>();
-        for (BackendConstantScan.ScannedConstant constant : input.backendConstants().constants()) {
+        for (ServerConstantScan.ScannedConstant constant : input.serverConstants().constants()) {
             if (!constant.name().endsWith(PROPERTY_CONSTANT_SUFFIX)) {
                 continue;
             }
             String candidateId = FeatureCandidate.NAMESPACE_CONFIG_KEY + constant.value();
-            context.addEvidence(candidateId, EvidenceItem.KIND_BACKEND_CONSTANT, input.backendConstants().file(), constant.line(), constant.name(), null);
+            context.addEvidence(candidateId, EvidenceItem.KIND_SERVER_CONSTANT, input.serverConstants().file(), constant.line(), constant.name(), null);
             ExtractedConfigurationDefault occurrence = input.configurationDefaults().preferredOccurrence(constant.value());
             if (occurrence != null) {
                 context.addEvidence(candidateId, EvidenceItem.KIND_YAML_DEFAULT, occurrence.file(), occurrence.line(), constant.value(),

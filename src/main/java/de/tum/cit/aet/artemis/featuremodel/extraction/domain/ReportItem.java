@@ -29,8 +29,8 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A curated feature has no config-key or condition-class anchor; expected for conceptual aggregates. */
     public static final String CODE_UNANCHORED_CURATED_FEATURE = "UNANCHORED_CURATED_FEATURE";
 
-    /** Frontend and backend disagree about a module feature constant or runtime toggle enum member. */
-    public static final String CODE_FE_BE_MIRROR_MISMATCH = "FE_BE_MIRROR_MISMATCH";
+    /** Client and server disagree about a module feature constant or runtime toggle enum member. */
+    public static final String CODE_CLIENT_SERVER_MIRROR_MISMATCH = "CLIENT_SERVER_MIRROR_MISMATCH";
 
     /** The curated config key catalog disagrees with the scanned Artemis configuration keys or commit pin. */
     public static final String CODE_CONFIG_KEY_CATALOG_DRIFT = "CONFIG_KEY_CATALOG_DRIFT";
@@ -38,7 +38,7 @@ public record ReportItem(String severity, String code, String subject, String me
     /** One extractor failed to parse its source; the scan continued without its contribution. */
     public static final String CODE_EXTRACTOR_ERROR = "EXTRACTOR_ERROR";
 
-    /** A backend property name constant has no matching backend module feature constant, or vice versa. */
+    /** A server property name constant has no matching server module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
     /** An extracted candidate is absent from both manifest membership lists, so its scope is undecided. */

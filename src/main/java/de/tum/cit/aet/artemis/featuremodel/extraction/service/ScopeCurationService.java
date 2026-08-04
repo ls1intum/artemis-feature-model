@@ -523,8 +523,8 @@ class ScopeCurationService {
         }
 
         /**
-         * Resolves an anchor written as a namespaced candidate id or as a source symbol: a condition class, a backend
-         * constant, or a frontend constant, optionally package-qualified.
+         * Resolves an anchor written as a namespaced candidate id or as a source symbol: a condition class, a server
+         * constant, or a client constant, optionally package-qualified.
          *
          * @param anchor manifest or annotation anchor.
          * @return successful resolution, or the failure description.
@@ -551,8 +551,8 @@ class ScopeCurationService {
          * @return true if the anchor matches a symbol of the candidate.
          */
         private boolean matches(FeatureCandidate candidate, String anchor) {
-            return matchesSymbol(anchor, candidate.backendConditionClass()) || matchesSymbol(anchor, candidate.backendConstant())
-                    || matchesSymbol(anchor, candidate.frontendConstant());
+            return matchesSymbol(anchor, candidate.serverConditionClass()) || matchesSymbol(anchor, candidate.serverConstant())
+                    || matchesSymbol(anchor, candidate.clientConstant());
         }
 
         /**

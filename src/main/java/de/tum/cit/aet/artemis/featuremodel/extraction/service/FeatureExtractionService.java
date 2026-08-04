@@ -47,18 +47,18 @@ class FeatureExtractionService {
     ExtractedSourceFacts scan(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog) {
         List<ReportItem> items = new ArrayList<>();
 
-        SourceScanResult<BackendConstantScan.Result> constantScan = runScan("backend constants",
-                () -> SourceScanResult.success(new BackendConstantScan().scan(source)), BackendConstantScan.Result.empty());
+        SourceScanResult<ServerConstantScan.Result> constantScan = runScan("server constants",
+                () -> SourceScanResult.success(new ServerConstantScan().scan(source)), ServerConstantScan.Result.empty());
         SourceScanResult<ConfigHelperScan.Result> configHelperScan = runScan("config helper",
                 () -> SourceScanResult.success(new ConfigHelperScan().scan(source)), ConfigHelperScan.Result.empty());
         SourceScanResult<ConditionClassScan.Result> conditionScan = runScan("condition classes", () -> new ConditionClassScan().scan(source),
                 ConditionClassScan.Result.empty());
-        SourceScanResult<BackendFeatureEnumScan.Result> backendToggleScan = runScan("backend feature enum",
-                () -> SourceScanResult.success(new BackendFeatureEnumScan().scan(source)), BackendFeatureEnumScan.Result.empty());
-        SourceScanResult<FrontendConstantScan.Result> frontendConstantScan = runScan("frontend constants",
-                () -> SourceScanResult.success(new FrontendConstantScan().scan(source)), FrontendConstantScan.Result.empty());
-        SourceScanResult<FrontendToggleEnumScan.Result> frontendToggleScan = runScan("frontend toggle enum",
-                () -> SourceScanResult.success(new FrontendToggleEnumScan().scan(source)), FrontendToggleEnumScan.Result.empty());
+        SourceScanResult<ServerFeatureEnumScan.Result> serverToggleScan = runScan("server feature enum",
+                () -> SourceScanResult.success(new ServerFeatureEnumScan().scan(source)), ServerFeatureEnumScan.Result.empty());
+        SourceScanResult<ClientConstantScan.Result> clientConstantScan = runScan("client constants",
+                () -> SourceScanResult.success(new ClientConstantScan().scan(source)), ClientConstantScan.Result.empty());
+        SourceScanResult<ClientToggleEnumScan.Result> clientToggleScan = runScan("client toggle enum",
+                () -> SourceScanResult.success(new ClientToggleEnumScan().scan(source)), ClientToggleEnumScan.Result.empty());
         SourceScanResult<AdminPageScan.Result> adminPageScan = runScan("admin features page",
                 () -> SourceScanResult.success(new AdminPageScan().scan(source)), AdminPageScan.Result.empty());
         SourceScanResult<FeatureI18nScan.Result> i18nScan = runScan("feature i18n",
@@ -72,13 +72,13 @@ class FeatureExtractionService {
         SourceScanResult<List<ExtractedAnnotation>> annotationScan = runScan("ArtemisFeature annotations", () -> new ArtemisFeatureAnnotationScan().scan(source),
                 List.of());
 
-        List<SourceScanResult<?>> scanResults = List.of(constantScan, configHelperScan, conditionScan, backendToggleScan, frontendConstantScan,
-                frontendToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan);
+        List<SourceScanResult<?>> scanResults = List.of(constantScan, configHelperScan, conditionScan, serverToggleScan, clientConstantScan,
+                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan);
         appendWholeScannerDiagnostics(scanResults, items);
         appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan), items);
 
         CandidateAssemblyInput assemblyInput = new CandidateAssemblyInput(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
-                backendToggleScan.facts(), frontendConstantScan.facts(), frontendToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
+                serverToggleScan.facts(), clientConstantScan.facts(), clientToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
                 composeScan.facts(), usageScan.facts());
         CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());

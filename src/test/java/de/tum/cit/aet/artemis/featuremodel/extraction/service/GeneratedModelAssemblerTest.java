@@ -100,7 +100,7 @@ class GeneratedModelAssemblerTest {
 
         FeatureNode alpha = feature(model, "alpha");
         assertThat(alpha.source().configKey()).isEqualTo("artemis.alpha.enabled");
-        assertThat(alpha.source().backendConditionClass()).isEqualTo("AlphaEnabled");
+        assertThat(alpha.source().serverConditionClass()).isEqualTo("AlphaEnabled");
         assertThat(alpha.source().evidence()).containsExactly("AlphaEnabled.java:12,30", "Constants.java:5", "config/i18n.json");
     }
 
@@ -175,7 +175,7 @@ class GeneratedModelAssemblerTest {
     private List<EvidenceItem> evidence() {
         return List.of(new EvidenceItem("module:alpha", EvidenceItem.KIND_CONDITION_CLASS, "src/main/java/AlphaEnabled.java", 12, "AlphaEnabled", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_CONDITION_CLASS, "src/main/java/AlphaEnabled.java", 30, "AlphaEnabled", null),
-                new EvidenceItem("module:alpha", EvidenceItem.KIND_BACKEND_CONSTANT, "src/main/java/Constants.java", 5, "MODULE_FEATURE_ALPHA", null),
+                new EvidenceItem("module:alpha", EvidenceItem.KIND_SERVER_CONSTANT, "src/main/java/Constants.java", 5, "MODULE_FEATURE_ALPHA", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_I18N, "config/i18n.json", null, "alpha", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_USAGE_FEATURE_TOGGLE, "src/main/java/AlphaResource.java", 44, "alpha", null));
     }

@@ -15,7 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocato
 /**
  * Scans the admin Features page component for the curated display membership lists and per-feature documentation
  * links. Identifiers in the arrays and map keys are constant or enum symbols; the assembler resolves them against the
- * frontend constant and enum scans. Only the page structure matters here — its live enablement state reflects one
+ * client constant and enum scans. Only the page structure matters here — its live enablement state reflects one
  * deployment and is irrelevant to extraction.
  */
 class AdminPageScan {

@@ -42,9 +42,9 @@ class UsageEvidenceScan {
     /**
      * Scan result over all usage evidence.
      *
-     * @param featureToggleSites backend {@code @FeatureToggle} sites in path order.
-     * @param templateToggleSites frontend template directive sites in path order.
-     * @param conditionalSites backend {@code @Conditional} sites referencing condition classes, in path order.
+     * @param featureToggleSites server {@code @FeatureToggle} sites in path order.
+     * @param templateToggleSites client template directive sites in path order.
+     * @param conditionalSites server {@code @Conditional} sites referencing condition classes, in path order.
      */
     record Result(List<UsageSite> featureToggleSites, List<UsageSite> templateToggleSites, List<UsageSite> conditionalSites) {
 

@@ -40,10 +40,10 @@ class ExtractionFailSoftTest {
         assertThat(outcome.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_EXTRACTOR_ERROR);
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
-            assertThat(item.subject()).isEqualTo("backend constants");
+            assertThat(item.subject()).isEqualTo("server constants");
         });
         assertThat(outcome.candidates()).extracting(FeatureCandidate::id).contains("toggle:ToggleOne", "toggle:ToggleTwo");
-        assertThat(outcome.items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_FE_BE_MIRROR_MISMATCH));
+        assertThat(outcome.items()).noneSatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH));
     }
 
     @Test

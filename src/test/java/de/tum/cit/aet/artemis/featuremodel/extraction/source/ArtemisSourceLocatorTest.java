@@ -17,7 +17,7 @@ class ArtemisSourceLocatorTest {
     void rejectsFallbackCandidateOutsideTheConventionOwnedRoot() {
         ArtemisSourceRepository source = new OutsideCandidateSourceRepository();
 
-        assertThatThrownBy(() -> new ArtemisSourceLocator().locate(source, ArtemisSourceConventions.Files.BACKEND_CONSTANTS,
+        assertThatThrownBy(() -> new ArtemisSourceLocator().locate(source, ArtemisSourceConventions.Files.SERVER_CONSTANTS,
                 "symbol prefix " + ArtemisSourceConventions.Symbols.MODULE_FEATURE_PREFIX, content -> true)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("escapes fallback root").hasMessageContaining("../outside/Constants.java");
     }

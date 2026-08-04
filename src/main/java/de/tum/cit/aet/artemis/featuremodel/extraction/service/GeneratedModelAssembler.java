@@ -285,7 +285,7 @@ class GeneratedModelAssembler {
         String defaultState = defaultState(included, candidate);
         FeatureSource source = source(candidate, evidenceByCandidate.getOrDefault(included.candidateId(), List.of()));
         List<ArtifactMapping> mappings = artifactMappings(included, candidate);
-        String confidence = candidate != null && candidate.configKey() != null && candidate.backendConditionClass() != null ? "high" : "medium";
+        String confidence = candidate != null && candidate.configKey() != null && candidate.serverConditionClass() != null ? "high" : "medium";
         return new FeatureNode(node.id(), name, node.kind(), selectable, description, defaultState, source, category, visibleTo, configurableBy,
                 included.requiresCapabilities(), mappings, new ExtractionMetadata("automatic", confidence, "generated"));
     }
@@ -334,7 +334,7 @@ class GeneratedModelAssembler {
         if (candidate == null) {
             return null;
         }
-        return new FeatureSource(candidate.configKey(), candidate.springProfile(), candidate.frontendConstant(), candidate.backendConditionClass(),
+        return new FeatureSource(candidate.configKey(), candidate.springProfile(), candidate.clientConstant(), candidate.serverConditionClass(),
                 evidenceReferences(evidence));
     }
 
