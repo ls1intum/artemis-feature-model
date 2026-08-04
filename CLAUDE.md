@@ -147,9 +147,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   the shared loader/integrity/diagnostics code paths, and classifies every
   generated-versus-curated difference as `intentional-curation`,
   `missing-manifest-entry`, `artemis-drift`, or `extractor-gap`. It also
-  emits a `snapshot/` folder importable via the snapshot API; the curated
-  bundled model stays canonical and the generated model remains a parallel
-  artifact with matching technical features. `StaticConfigValidationService`
+  emits a complete deterministic `snapshot/` folder. The manifest-driven generated
+  model is canonical for delivery and is independent of the curated classpath
+  development fixture; runtime still uses the classpath fixture until the explicit
+  source-mode cutover in Phase E4 Stage 3. `StaticConfigValidationService`
   accepts an explicitly selected generated catalog via
   `featuremodel.static-validation.catalog-location`;
   the curated catalog remains the default.
@@ -166,6 +167,13 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `./gradlew syncGuidedWorkflowScaffold` is a deliberate maintainer task that
   stubs newly included features with TODO prose, flags orphans without
   deleting, and leaves an already-covered workflow byte-identical.
+- Successful and controlled failed extraction runs write a dependency-free
+  `report/index.html` plus raw conformance, extraction, workflow, and release-delta
+  JSON. Successful runs publish seven checksummed snapshot files: model, workflow,
+  generated config-key catalog, generation report, deterministic provenance,
+  metadata, and `checksums.txt`. `./gradlew validateFeatureModelSnapshot
+  -PsnapshotPath=<snapshot>` validates the complete snapshot read-only; generation
+  invokes the same validator before exposing a snapshot.
 
 ## Build and Development Commands
 
