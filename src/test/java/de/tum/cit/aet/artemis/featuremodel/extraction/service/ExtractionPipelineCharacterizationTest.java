@@ -59,7 +59,8 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/manifest-conformance-report.json", "f4b1343cc2afbed9e064c5e939481a5390116eef90782b0801a5ef0948606c5d"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("model/model-result.json", "e04ec465b8d99525561320c3bdcd78407f0dc618334258a8864110a8a0b38d9b"),
-            Map.entry("report/extraction-report.json", "ce8f090c1f6f8e14cd48c0c2740c5d8f8257b7bd78934a5be2c439917d1afa15"),
+            Map.entry("report/extraction-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
+            Map.entry("report/index.html", "33fa426d8fe77e84da3a0e38b02f78e819d224a25233b0f825de30a9741a26bb"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
             Map.entry("scan/evidence.json", "beede58e239dd3f73a9754a955838de594ce5753be9a23c764e85fb0b0fc3567"),
@@ -152,6 +153,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(report.artemisCommit()).isEqualTo(PINNED_COMMIT);
         assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
         assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
 
         for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, SnapshotPublisher.SNAPSHOT_METADATA_FILE,
                 SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
@@ -188,7 +190,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.RELATION_CANDIDATES_FILE);
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -199,7 +201,7 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated model digest");
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -241,7 +243,9 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIAGNOSTICS_FILE)).isRegularFile();
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
+        String html = Files.readString(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE));
+        assertThat(html).contains("Overall verdict: FAIL", "module:gamma", "UNDECLARED_CANDIDATE");
         assertThat(layout.snapshotDirectory()).doesNotExist();
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
@@ -267,7 +271,7 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -279,7 +283,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("prepared workflow digest");
 
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -296,8 +300,13 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.scanDirectory()).doesNotExist();
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    private void assertFailureReportExists() {
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
     }
 
     /**

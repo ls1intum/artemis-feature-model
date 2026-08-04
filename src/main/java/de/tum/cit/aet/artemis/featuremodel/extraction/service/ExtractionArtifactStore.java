@@ -82,6 +82,8 @@ class ExtractionArtifactStore {
 
     static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
 
+    static final String HTML_REPORT_FILE = "index.html";
+
     private static final String LINE_FEED = "\n";
 
     private final ObjectMapper objectMapper;
@@ -325,7 +327,9 @@ class ExtractionArtifactStore {
      * @throws IOException if the report cannot be written.
      */
     void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
-        jsonWriter.write(Files.createDirectories(layout.reportDirectory()).resolve(EXTRACTION_REPORT_FILE), report);
+        Path directory = Files.createDirectories(layout.reportDirectory());
+        jsonWriter.write(directory.resolve(EXTRACTION_REPORT_FILE), report);
+        Files.write(directory.resolve(HTML_REPORT_FILE), new ExtractionHtmlReportRenderer().render(report));
     }
 
     /**

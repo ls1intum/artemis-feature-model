@@ -80,6 +80,9 @@ public record ReportItem(String severity, String code, String subject, String me
     /** The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json. */
     public static final String CODE_GUIDED_WORKFLOW_FINDINGS = "GUIDED_WORKFLOW_FINDINGS";
 
+    /** A staged command could not verify or consume the artifact contract required for the run. */
+    public static final String CODE_PIPELINE_ARTIFACT_INVALID = "PIPELINE_ARTIFACT_INVALID";
+
     /**
      * Creates an error item.
      *

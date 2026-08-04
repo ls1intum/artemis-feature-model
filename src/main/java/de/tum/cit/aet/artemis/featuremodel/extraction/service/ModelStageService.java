@@ -2,6 +2,8 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
@@ -9,6 +11,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionIn
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -65,16 +68,35 @@ public class ModelStageService {
         ExtractionRunContext context = inputLoader.runContext(inputs);
         FeatureScopeManifest manifest = context.manifest();
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-
-        ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
-                context.artemisCommit());
+        ExtractionArtifactStore.LoadedScan scan;
+        ModelAssemblyService.Outcome outcome;
+        try {
+            scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
+                    context.artemisCommit());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
         artifactStore.writeModel(context.layout(), outcome, scan.result().payloadDigest(), context.manifestDigest(), context.artemisCommit());
+        writeFailureReport(context, scan, outcome);
         failIfNotConformant(outcome.conformance());
 
         return new Summary(context.artemisCommit(), context.layout().modelDirectory(), outcome.curation().stateCounts(),
                 outcome.generatedModel().features().size(), outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(),
                 outcome.generatedCatalog().keys().size(), outcome.modelIntegrityValid());
+    }
+
+    private void writeFailureReport(ExtractionRunContext context, ExtractionArtifactStore.LoadedScan scan, ModelAssemblyService.Outcome outcome)
+            throws IOException {
+        if (outcome.conformance().conformant()) {
+            return;
+        }
+        List<ReportItem> items = new ArrayList<>(scan.outcome().items());
+        items.addAll(outcome.items());
+        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(), items, false);
+        artifactStore.writeReport(context.layout(), report);
     }
 
     /**

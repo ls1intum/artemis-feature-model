@@ -26,6 +26,7 @@ class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_DANGLING_GENERATED_CONSTRAINT,
                     "A manifest constraint references a feature that was not emitted into the generated model."),
             Map.entry(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, "The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json."),
+            Map.entry(ReportItem.CODE_PIPELINE_ARTIFACT_INVALID, "A staged command could not verify or consume its required artifact contract."),
             Map.entry(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, "Client and server disagree about a module feature constant or runtime toggle enum member."),
             Map.entry(ReportItem.CODE_EXTRACTOR_ERROR, "One extractor failed to parse its source; the scan continued without its contribution."),
             Map.entry(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Server enabled property constants and module feature constants are asymmetric."),

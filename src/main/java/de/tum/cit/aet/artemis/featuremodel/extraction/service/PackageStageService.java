@@ -59,11 +59,19 @@ public class PackageStageService {
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         ExtractionRunContext context = inputLoader.runContext(inputs);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.PACKAGE);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-        ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
-                context.manifestDigest());
-        ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(),
-                model.result().generatedModelDigest(), Sha256Digest.of(inputs.authoredWorkflowFile()));
+        ExtractionArtifactStore.LoadedScan scan;
+        ExtractionArtifactStore.LoadedModel model;
+        ExtractionArtifactStore.LoadedWorkflow workflow;
+        try {
+            scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(), context.manifestDigest());
+            workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(), model.result().generatedModelDigest(),
+                    Sha256Digest.of(inputs.authoredWorkflowFile()));
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
 
         List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
         stageItems.addAll(model.items());

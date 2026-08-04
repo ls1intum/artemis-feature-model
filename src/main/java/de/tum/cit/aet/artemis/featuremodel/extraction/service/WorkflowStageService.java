@@ -53,17 +53,23 @@ public class WorkflowStageService {
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         ExtractionRunContext context = inputLoader.runContext(inputs);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.WORKFLOW);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-        ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
-                context.manifestDigest());
+        try {
+            ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
+                    context.manifestDigest());
 
-        byte[] authoredWorkflowBytes = inputLoader.authoredWorkflowBytes(inputs);
-        GuidedWorkflow authoredWorkflow = objectMapper.readValue(authoredWorkflowBytes, GuidedWorkflow.class);
-        GuidedWorkflowValidator.Result validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow,
-                inputLoader.deploymentProfile(inputs));
-        artifactStore.writeWorkflow(context.layout(), validation, authoredWorkflowBytes, model.result().generatedModelDigest(), context.artemisCommit());
+            byte[] authoredWorkflowBytes = inputLoader.authoredWorkflowBytes(inputs);
+            GuidedWorkflow authoredWorkflow = objectMapper.readValue(authoredWorkflowBytes, GuidedWorkflow.class);
+            GuidedWorkflowValidator.Result validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow,
+                    inputLoader.deploymentProfile(inputs));
+            artifactStore.writeWorkflow(context.layout(), validation, authoredWorkflowBytes, model.result().generatedModelDigest(), context.artemisCommit());
 
-        return new Summary(context.layout().workflowDirectory(), validation.guidedValidation().status(), validation.guidedValidation().findings().size(),
-                validation.workflowIntegrityValid());
+            return new Summary(context.layout().workflowDirectory(), validation.guidedValidation().status(), validation.guidedValidation().findings().size(),
+                    validation.workflowIntegrityValid());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
     }
 }

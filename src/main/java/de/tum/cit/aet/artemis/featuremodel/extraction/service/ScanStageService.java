@@ -70,18 +70,24 @@ public class ScanStageService {
     public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
         ExtractionRunContext context = inputLoader.runContext(inputs);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.SCAN);
-        ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
-        new ArtemisSourcePreflight().verify(source, context.artemisCommit());
+        try {
+            ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
+            new ArtemisSourcePreflight().verify(source, context.artemisCommit());
 
-        String scanStartedAt = Instant.now().toString();
-        ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
-        String scanFinishedAt = Instant.now().toString();
+            String scanStartedAt = Instant.now().toString();
+            ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
+            String scanFinishedAt = Instant.now().toString();
 
-        ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
-                scanStartedAt, scanFinishedAt, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
-                outcome.items().size());
-        artifactStore.writeScan(context.layout(), metadata, outcome);
-        return new Summary(source.commit(), context.layout().scanDirectory(), outcome.candidates().size(), outcome.evidence().size(),
-                outcome.relationCandidates().size(), outcome.items().size());
+            ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
+                    scanStartedAt, scanFinishedAt, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
+                    outcome.items().size());
+            artifactStore.writeScan(context.layout(), metadata, outcome);
+            return new Summary(source.commit(), context.layout().scanDirectory(), outcome.candidates().size(), outcome.evidence().size(),
+                    outcome.relationCandidates().size(), outcome.items().size());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
     }
 }
