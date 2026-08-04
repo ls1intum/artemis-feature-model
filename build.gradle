@@ -103,6 +103,20 @@ tasks.register('extractFeatureModel') {
     }
 }
 
+tasks.register('validateFeatureModelSnapshot', JavaExec) {
+    description = 'Validates a complete generated feature model snapshot without copying or activating it.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureModelSnapshotValidatorCli'
+    def snapshotPath = providers.gradleProperty('snapshotPath')
+    doFirst {
+        if (!snapshotPath.isPresent() || snapshotPath.get().isBlank()) {
+            throw new GradleException('Missing -PsnapshotPath=<snapshot-directory> for validateFeatureModelSnapshot.')
+        }
+        args = ["--snapshot-path=${snapshotPath.get()}"]
+    }
+}
+
 tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
     description = 'Synchronizes the authored guided workflow scaffold with the manifest include set without touching prose.'
     group = 'feature model'
