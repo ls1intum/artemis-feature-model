@@ -24,7 +24,6 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
-import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
@@ -56,10 +55,13 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapshotValidator;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;
@@ -73,19 +75,17 @@ import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowAssem
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
-import de.tum.cit.aet.artemis.featuremodel.snapshot.dto.ImportSnapshotRequest;
-import de.tum.cit.aet.artemis.featuremodel.snapshot.dto.ImportSnapshotResultDTO;
-import de.tum.cit.aet.artemis.featuremodel.snapshot.service.SnapshotService;
 import de.tum.cit.aet.artemis.featuremodel.validation.dto.ValidationRequest;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Opt-in end-to-end proof on a real Artemis checkout: run the full extraction and generation pipeline, import the
- * generated snapshot through the snapshot subsystem, activate it, and spot-check API-level parity between the curated
- * and the generated model on the curated intersection. Enabled only when the {@code artemisPath} system property is
- * set; skipped silently otherwise.
+ * Opt-in end-to-end proof on a real Artemis checkout: run the full extraction and generation pipeline, validate the
+ * complete snapshot through the Stage 2 offline trust boundary, then spot-check API-level parity between the curated
+ * and generated payloads on the curated intersection. Until Stage 3 provides the production v2 runtime loader, a
+ * test-only legacy runtime fixture exposes the already validated model and workflow to existing application services.
+ * Enabled only when the {@code artemisPath} system property is set; skipped silently otherwise.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfSystemProperty(named = "artemisPath", matches = ".+")
@@ -107,7 +107,7 @@ class GeneratedModelImportParityTest {
     private Path dataRoot;
 
     @BeforeAll
-    void runPipelineAndImportSnapshot() throws Exception {
+    void runPipelineAndValidateSnapshot() throws Exception {
         FeatureExtractionInputs inputs = new FeatureExtractionInputs(Path.of(System.getProperty("artemisPath")),
                 Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
                 Path.of("src/main/resources/feature-model/guided-workflow.json"),
@@ -121,13 +121,27 @@ class GeneratedModelImportParityTest {
         new PackageStageService(objectMapper).run(inputs);
 
         ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), source.commit());
+        SnapshotValidationResult validation = new FeatureModelSnapshotValidator(objectMapper).validate(layout.snapshotDirectory());
+        snapshotId = validation.snapshotId();
         dataRoot = workingDirectory.resolve("data");
-        SnapshotService snapshotService = new SnapshotService(
-                new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper), objectMapper,
-                new FeatureModelIntegrityService(), new GuidedWorkflowIntegrityService());
-        ImportSnapshotResultDTO result = snapshotService
-                .importSnapshot(new ImportSnapshotRequest(layout.snapshotDirectory().toString(), null, false));
-        snapshotId = result.snapshotId();
+        prepareLegacyRuntimeFixture(layout.snapshotDirectory());
+    }
+
+    /**
+     * Copies only the validated runtime payloads into the legacy repository layout used by pre-Stage 3 services. The
+     * legacy checksum is deliberately regenerated for its model-only grammar; it is not a validation substitute for
+     * the complete v2 snapshot validator invoked before this method.
+     *
+     * @param validatedSnapshot complete v2 snapshot that already passed offline validation.
+     * @throws Exception if the test fixture cannot be created.
+     */
+    private void prepareLegacyRuntimeFixture(Path validatedSnapshot) throws Exception {
+        Path runtimeDirectory = Files.createDirectories(dataRoot.resolve("imported-models").resolve(snapshotId));
+        for (String fileName : List.of("feature-model.json", "guided-workflow.json", "generation-report.json", "metadata.json")) {
+            Files.copy(validatedSnapshot.resolve(fileName), runtimeDirectory.resolve(fileName));
+        }
+        Files.writeString(runtimeDirectory.resolve("checksums.txt"), Sha256Digest.of(runtimeDirectory.resolve("feature-model.json"))
+                + "  feature-model.json\n");
     }
 
     @Test
