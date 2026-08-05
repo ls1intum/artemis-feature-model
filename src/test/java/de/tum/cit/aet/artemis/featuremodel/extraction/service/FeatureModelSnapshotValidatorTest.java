@@ -116,6 +116,38 @@ class FeatureModelSnapshotValidatorTest {
                 .hasMessageContaining("manifest digest");
     }
 
+    @Test
+    void rejectsNonGeneratedMetadataStatusEvenWithUpdatedChecksum() throws Exception {
+        replaceMetadata("\"status\" : \"generated\"", "\"status\" : \"failed\"");
+
+        assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("status must be generated");
+    }
+
+    @Test
+    void rejectsForeignExtractorIdentityEvenWithUpdatedChecksum() throws Exception {
+        replaceMetadata("feature-model-extractor@0.3.0", "different-extractor@0.3.0");
+
+        assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("extractor identity");
+    }
+
+    @Test
+    void rejectsInvalidImageIdentityEvenWithUpdatedChecksum() throws Exception {
+        replaceMetadata("\"imageDigest\" : \"latest\"", "\"imageDigest\" : \"mutable-main\"");
+
+        assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("image identity");
+    }
+
+    private void replaceMetadata(String original, String replacement) throws Exception {
+        Path metadata = snapshot.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE);
+        String content = Files.readString(metadata);
+        assertThat(content).contains(original);
+        Files.writeString(metadata, content.replace(original, replacement));
+        rewriteChecksums();
+    }
+
     private void rewriteChecksums() throws Exception {
         StringBuilder content = new StringBuilder();
         for (String fileName : SnapshotPublisher.PAYLOAD_FILES) {

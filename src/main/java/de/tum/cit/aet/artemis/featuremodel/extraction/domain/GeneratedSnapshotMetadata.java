@@ -26,4 +26,10 @@ public record GeneratedSnapshotMetadata(int schemaVersion, int snapshotFormatVer
 
     /** Current metadata schema. */
     public static final int CURRENT_SCHEMA_VERSION = 2;
+
+    /** Lifecycle status of a snapshot produced successfully by the extraction pipeline. */
+    public static final String STATUS_GENERATED = "generated";
+
+    /** Stable prefix of the extractor identity recorded in snapshot metadata. */
+    public static final String EXTRACTOR_ID_PREFIX = "feature-model-extractor@";
 }

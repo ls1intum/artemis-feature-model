@@ -124,9 +124,9 @@ class SnapshotPublisher {
 
         String snapshotId = snapshotId(artemisCommit, manifestDigest);
         GeneratedSnapshotMetadata metadata = new GeneratedSnapshotMetadata(GeneratedSnapshotMetadata.CURRENT_SCHEMA_VERSION,
-                SnapshotProvenance.CURRENT_FORMAT_VERSION, model.model().id(), snapshotId, model.model().version(), "generated", artemisCommit, imageDigest,
-                "feature-model-extractor@" + ScanResult.EXTRACTOR_VERSION, SNAPSHOT_MODEL_FILE, SNAPSHOT_WORKFLOW_FILE, SNAPSHOT_CATALOG_FILE,
-                SNAPSHOT_REPORT_FILE, SNAPSHOT_PROVENANCE_FILE, SNAPSHOT_CHECKSUM_FILE);
+                SnapshotProvenance.CURRENT_FORMAT_VERSION, model.model().id(), snapshotId, model.model().version(), GeneratedSnapshotMetadata.STATUS_GENERATED,
+                artemisCommit, imageDigest, GeneratedSnapshotMetadata.EXTRACTOR_ID_PREFIX + ScanResult.EXTRACTOR_VERSION, SNAPSHOT_MODEL_FILE,
+                SNAPSHOT_WORKFLOW_FILE, SNAPSHOT_CATALOG_FILE, SNAPSHOT_REPORT_FILE, SNAPSHOT_PROVENANCE_FILE, SNAPSHOT_CHECKSUM_FILE);
         jsonWriter.write(directory.resolve(SNAPSHOT_METADATA_FILE), metadata);
         writeChecksums(directory);
     }

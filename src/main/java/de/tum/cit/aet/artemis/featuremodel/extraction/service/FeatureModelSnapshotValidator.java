@@ -37,6 +37,8 @@ public class FeatureModelSnapshotValidator {
 
     private static final Pattern COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
 
+    private static final Pattern IMAGE_IDENTITY = Pattern.compile("latest|sha256:[0-9a-f]{64}");
+
     private final ObjectMapper objectMapper;
 
     /**
@@ -144,6 +146,14 @@ public class FeatureModelSnapshotValidator {
         }
         if (!model.model().id().equals(metadata.modelId()) || !model.model().version().equals(metadata.version())) {
             fail("Snapshot metadata does not match the feature model identity.");
+        }
+        if (!GeneratedSnapshotMetadata.STATUS_GENERATED.equals(metadata.status())) {
+            fail("Snapshot metadata status must be generated.");
+        }
+        requireEqual("extractor identity", metadata.extractorVersion(),
+                GeneratedSnapshotMetadata.EXTRACTOR_ID_PREFIX + provenance.extractorVersion());
+        if (!IMAGE_IDENTITY.matcher(metadata.imageDigest() == null ? "" : metadata.imageDigest()).matches()) {
+            fail("Snapshot metadata contains an invalid Artemis image identity.");
         }
         String expectedId = snapshotId(provenance.artemisCommit(), provenance.manifestDigest());
         if (!expectedId.equals(metadata.snapshotId())) {
