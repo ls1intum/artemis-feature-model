@@ -75,42 +75,37 @@ public class PackageStageService {
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
         ExtractionRunContext context = inputLoader.runContext(inputs);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.PACKAGE);
-        ExtractionArtifactStore.LoadedScan scan;
-        ExtractionArtifactStore.LoadedModel model;
-        ExtractionArtifactStore.LoadedWorkflow workflow;
+        Summary summary;
+        boolean eligible;
         try {
-            scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-            model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(), context.manifestDigest());
-            workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(), model.result().generatedModelDigest(),
+            ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
+                    context.manifestDigest());
+            ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(),
+                    model.result().generatedModelDigest(),
                     Sha256Digest.of(inputs.authoredWorkflowFile()));
+
+            List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
+            stageItems.addAll(model.items());
+            stageItems.addAll(workflow.items());
+            eligible = model.result().deliveryEligible() && workflow.result().deliveryEligible();
+            ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
+                    stageItems, eligible);
+            artifactStore.writeReport(context.layout(), report);
+            boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), model.generatedCatalog(), report,
+                    context.artemisCommit(), context.manifestDigest(), repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()),
+                    context.manifest().artemisImageDigest(), eligible);
+            if (published) {
+                new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
+            }
+            summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null,
+                    report.severityCounts(), report.codeCounts());
         }
         catch (IOException | RuntimeException failure) {
+            snapshotPublisher.invalidate(context.layout());
             new ControlledFailureReportWriter(artifactStore).write(context, failure);
             throw failure;
         }
-
-        List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
-        stageItems.addAll(model.items());
-        stageItems.addAll(workflow.items());
-        boolean eligible = model.result().deliveryEligible() && workflow.result().deliveryEligible();
-        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
-                stageItems, eligible);
-        artifactStore.writeReport(context.layout(), report);
-        boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(),
-                artifactStore.readGeneratedCatalog(context.layout()), report, context.artemisCommit(), context.manifestDigest(),
-                repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()), context.manifest().artemisImageDigest(),
-                eligible);
-        if (published) {
-            try {
-                new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
-            }
-            catch (IOException | RuntimeException failure) {
-                snapshotPublisher.invalidate(context.layout());
-                throw failure;
-            }
-        }
-        Summary summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null, report.severityCounts(),
-                report.codeCounts());
         failIfIneligible(eligible);
         return summary;
     }

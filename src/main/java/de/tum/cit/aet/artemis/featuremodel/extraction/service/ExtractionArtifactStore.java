@@ -121,9 +121,10 @@ class ExtractionArtifactStore {
      *
      * @param result model envelope.
      * @param generatedModel generated feature model.
+     * @param generatedCatalog generated config-key catalog.
      * @param items model assembly diagnostics.
      */
-    record LoadedModel(ModelResult result, FeatureModel generatedModel, List<ReportItem> items) {
+    record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
     }
 
     /**
@@ -218,10 +219,12 @@ class ExtractionArtifactStore {
         Path directory = Files.createDirectories(layout.modelDirectory());
         jsonWriter.write(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
         String generatedModelDigest = null;
+        String generatedCatalogDigest = null;
         if (outcome.conformance().conformant()) {
             jsonWriter.write(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
             jsonWriter.write(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
             generatedModelDigest = Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE));
+            generatedCatalogDigest = Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE));
         }
 
         List<String> featureIds = outcome.generatedModel() == null ? List.of() : outcome.generatedModel().features().stream().map(feature -> feature.id()).toList();
@@ -235,7 +238,8 @@ class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(MANIFEST_CONFORMANCE_FILE), conformanceReport);
 
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
-                generatedModelDigest, outcome.modelIntegrityValid(), outcome.deliveryEligible(), outcome.conformance(), outcome.curation());
+                generatedModelDigest, generatedCatalogDigest, outcome.modelIntegrityValid(), outcome.deliveryEligible(), outcome.conformance(),
+                outcome.curation());
         jsonWriter.write(directory.resolve(MODEL_RESULT_FILE), result);
         return result;
     }
@@ -265,9 +269,12 @@ class ExtractionArtifactStore {
                     + result.conformance().describeFindings() + ".");
         }
         requireEqual("model", "generated model digest", Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
+        requireEqual("model", "generated catalog digest", Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE)), result.generatedCatalogDigest());
 
         FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");
-        return new LoadedModel(result, generatedModel, List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
+        ArtemisConfigKeyCatalog generatedCatalog = readJson(directory.resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
+        return new LoadedModel(result, generatedModel, generatedCatalog,
+                List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
     }
 
     /**
@@ -334,18 +341,6 @@ class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(EXTRACTION_REPORT_FILE), report);
         jsonWriter.write(directory.resolve(RELEASE_DELTA_REPORT_FILE), ReleaseDeltaReport.noBaseline());
         Files.write(directory.resolve(HTML_REPORT_FILE), new ExtractionHtmlReportRenderer().render(report));
-    }
-
-    /**
-     * Reads the generated config key catalog of this run.
-     *
-     * @param layout output layout of this run.
-     * @return regenerated catalog.
-     * @throws IOException if the catalog cannot be read.
-     * @throws ExtractionArtifactException if the catalog is missing.
-     */
-    ArtemisConfigKeyCatalog readGeneratedCatalog(ExtractionArtifactLayout layout) throws IOException {
-        return readJson(layout.modelDirectory().resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
     }
 
     /**

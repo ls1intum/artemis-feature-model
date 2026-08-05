@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
@@ -60,7 +61,7 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("model/manifest-conformance-report.json", "f4b1343cc2afbed9e064c5e939481a5390116eef90782b0801a5ef0948606c5d"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "e04ec465b8d99525561320c3bdcd78407f0dc618334258a8864110a8a0b38d9b"),
+            Map.entry("model/model-result.json", "93b297d91db9635247528ce2d2b28f60d2823bf2aca659463ecaa9ab2c1b0d20"),
             Map.entry("report/extraction-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
             Map.entry("report/index.html", "e184f8ccb677509371407a9ebad122767e3abc46ea8969b1a61ff90aeda705aa"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
@@ -216,6 +217,40 @@ class ExtractionPipelineCharacterizationTest {
     }
 
     @Test
+    void rejectsATamperedGeneratedCatalogBeforePackaging() throws Exception {
+        runPipeline();
+        Path catalogFile = layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE);
+        Files.writeString(catalogFile, Files.readString(catalogFile).replace(PINNED_COMMIT, OTHER_COMMIT));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("generated catalog digest");
+
+        assertFailureReportExists();
+        assertFailureVerdictMentions("generated catalog digest");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void catalogParseFailureOverwritesTheEarlierPassingReport() throws Exception {
+        runPipeline();
+        Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE), "invalid json\n");
+        ModelResult result = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE)),
+                ModelResult.class);
+        ModelResult matchingDigest = new ModelResult(result.schemaVersion(), result.extractorVersion(), result.artemisCommit(), result.scanDigest(),
+                result.manifestDigest(), result.generatedModelDigest(), Sha256Digest.of(
+                        layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), result.modelIntegrityValid(),
+                result.deliveryEligible(), result.conformance(), result.curation());
+        Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(matchingDigest));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(RuntimeException.class);
+
+        assertFailureVerdictMentions("unrecognized token");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
     void rejectsAScanTakenFromAnotherArtemisCommit() throws Exception {
         runScan();
         ScanResult scanResult = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)),
@@ -319,6 +354,14 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).isRegularFile();
+    }
+
+    private void assertFailureVerdictMentions(String detail) throws Exception {
+        ExtractionReport report = OBJECT_MAPPER.readValue(
+                Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)), ExtractionReport.class);
+        assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_FAIL);
+        assertThat(report.items()).extracting(ReportItem::message).anyMatch(message -> message.toLowerCase(Locale.ROOT).contains(detail.toLowerCase(Locale.ROOT)));
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).content().contains("Overall verdict: FAIL");
     }
 
     /**
