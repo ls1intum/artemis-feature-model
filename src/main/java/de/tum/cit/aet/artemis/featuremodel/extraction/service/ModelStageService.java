@@ -81,7 +81,7 @@ public class ModelStageService {
         }
         artifactStore.writeModel(context.layout(), outcome, scan.result().payloadDigest(), context.manifestDigest(), context.artemisCommit());
         writeFailureReport(context, scan, outcome);
-        failIfNotConformant(outcome.conformance());
+        failIfNotConformant(outcome);
 
         return new Summary(context.artemisCommit(), context.layout().modelDirectory(), outcome.curation().stateCounts(),
                 outcome.generatedModel().features().size(), outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(),
@@ -90,7 +90,7 @@ public class ModelStageService {
 
     private void writeFailureReport(ExtractionRunContext context, ExtractionArtifactStore.LoadedScan scan, ModelAssemblyService.Outcome outcome)
             throws IOException {
-        if (outcome.conformance().conformant()) {
+        if (outcome.conformance().conformant() && outcome.generatedOutputConformant()) {
             return;
         }
         List<ReportItem> items = new ArrayList<>(scan.outcome().items());
@@ -102,13 +102,18 @@ public class ModelStageService {
     /**
      * Fails the command after the diagnostics of an incomplete curation have been written.
      *
-     * @param conformance conformance verdict of the run.
+     * @param outcome model assembly outcome containing both source and generated-output conformance.
      * @throws ManifestConformanceException if the manifest does not describe the scanned source completely.
      */
-    private void failIfNotConformant(ManifestConformance conformance) {
+    private void failIfNotConformant(ModelAssemblyService.Outcome outcome) {
+        ManifestConformance conformance = outcome.conformance();
         if (!conformance.conformant()) {
             throw new ManifestConformanceException("The manifest does not describe the scanned Artemis commit completely: " + conformance.describeFindings()
                     + ". Diagnostics were written, but no feature model was assembled.");
+        }
+        if (!outcome.generatedOutputConformant()) {
+            throw new ManifestConformanceException("The generated model differs from the resolved manifest semantics. Diagnostics were written, and no "
+                    + "downstream artifact may consume this model.");
         }
     }
 }

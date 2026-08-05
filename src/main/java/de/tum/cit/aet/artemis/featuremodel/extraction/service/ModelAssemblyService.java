@@ -42,12 +42,14 @@ class ModelAssemblyService {
      * @param conformance verdict on whether the manifest describes the scanned source completely.
      * @param generatedModel assembled generated feature model, or null when conformance failed.
      * @param generatedCatalog regenerated config key catalog, or null when conformance failed.
+     * @param generatedOutputConformant whether the generated model exactly matches the resolved manifest semantics.
      * @param modelIntegrityValid whether the generated model passed the shared structural integrity validation.
      * @param deliveryEligible whether every model, catalog, and profile delivery gate passed.
      * @param items model assembly diagnostics.
      */
     record Outcome(List<ResolvedFeatureScope> includedFeatures, CurationReport curation, ManifestConformance conformance, FeatureModel generatedModel,
-            ArtemisConfigKeyCatalog generatedCatalog, boolean modelIntegrityValid, boolean deliveryEligible, List<ReportItem> items) {
+            ArtemisConfigKeyCatalog generatedCatalog, boolean generatedOutputConformant, boolean modelIntegrityValid, boolean deliveryEligible,
+            List<ReportItem> items) {
     }
 
     /**
@@ -67,7 +69,7 @@ class ModelAssemblyService {
                 scan.relationCandidates(), curation.report(), curation.items(), scan.items());
         items.addAll(conformance.items());
         if (!conformance.conformance().conformant()) {
-            return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, false, false, List.copyOf(items));
+            return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, false, false, false, List.copyOf(items));
         }
 
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, curation.includedFeatures(), scan.candidates(),
@@ -77,11 +79,16 @@ class ModelAssemblyService {
         GeneratedCatalogAssembler.Result generatedCatalog = new GeneratedCatalogAssembler().assemble(generated.model(), scan.configDefaults(), artemisCommit);
         items.addAll(generatedCatalog.items());
 
+        List<ReportItem> generatedOutputFindings = new GeneratedModelConformanceService(objectMapper).validate(manifest, curation.includedFeatures(),
+                scan.candidates(), generated.model(), artemisCommit);
+        items.addAll(generatedOutputFindings);
+
         GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model(), curation.includedFeatures(), bundledProfile);
         items.addAll(validation.items());
 
         boolean catalogEligible = generatedCatalog.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         return new Outcome(curation.includedFeatures(), curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(),
-                validation.modelIntegrityValid(), validation.deliveryEligible() && catalogEligible, List.copyOf(items));
+                generatedOutputFindings.isEmpty(), validation.modelIntegrityValid(),
+                validation.deliveryEligible() && catalogEligible && generatedOutputFindings.isEmpty(), List.copyOf(items));
     }
 }

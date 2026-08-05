@@ -62,6 +62,9 @@ public record ReportItem(String severity, String code, String subject, String me
     /** The assembled generated model failed the shared structural integrity validation. */
     public static final String CODE_GENERATED_MODEL_INVALID = "GENERATED_MODEL_INVALID";
 
+    /** The assembled model differs semantically from the resolved manifest contract. */
+    public static final String CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH = "GENERATED_MODEL_CONFORMANCE_MISMATCH";
+
     /** The bundled guided workflow failed its hard reference validation against the generated model. */
     public static final String CODE_GENERATED_WORKFLOW_INVALID = "GENERATED_WORKFLOW_INVALID";
 

@@ -59,9 +59,9 @@ class ExtractionPipelineCharacterizationTest {
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
-            Map.entry("model/manifest-conformance-report.json", "f4b1343cc2afbed9e064c5e939481a5390116eef90782b0801a5ef0948606c5d"),
+            Map.entry("model/manifest-conformance-report.json", "57156cbfbde5bc0070222c2c78145fc7053b00e6067b1543547a55d59b1fdfee"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "93b297d91db9635247528ce2d2b28f60d2823bf2aca659463ecaa9ab2c1b0d20"),
+            Map.entry("model/model-result.json", "1e30a8bc466479952e867244f650db91f7e35bd415ffd75e4e93ca70476b5eff"),
             Map.entry("report/extraction-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
             Map.entry("report/index.html", "e184f8ccb677509371407a9ebad122767e3abc46ea8969b1a61ff90aeda705aa"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
@@ -139,6 +139,7 @@ class ExtractionPipelineCharacterizationTest {
                 Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MANIFEST_CONFORMANCE_FILE)), ManifestConformanceReport.class);
         assertThat(conformance.status()).isEqualTo(ManifestConformanceReport.STATUS_PASS);
         assertThat(conformance.generatedFeatureIds()).containsExactly("fixture-root", "alpha-feature");
+        assertThat(conformance.generatedOutputFindings()).isEmpty();
     }
 
     @Test
@@ -239,8 +240,8 @@ class ExtractionPipelineCharacterizationTest {
                 ModelResult.class);
         ModelResult matchingDigest = new ModelResult(result.schemaVersion(), result.extractorVersion(), result.artemisCommit(), result.scanDigest(),
                 result.manifestDigest(), result.generatedModelDigest(), Sha256Digest.of(
-                        layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), result.modelIntegrityValid(),
-                result.deliveryEligible(), result.conformance(), result.curation());
+                        layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), result.generatedOutputConformant(),
+                result.modelIntegrityValid(), result.deliveryEligible(), result.conformance(), result.curation());
         Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(matchingDigest));
 
         assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))

@@ -232,14 +232,18 @@ class ExtractionArtifactStore {
                 : outcome.generatedModel().relations().stream().map(relation -> relation.parentId() + "->" + relation.childId()).toList();
         List<String> constraintIds = outcome.generatedModel() == null ? List.of()
                 : outcome.generatedModel().constraints().stream().map(constraint -> constraint.id()).toList();
-        String status = outcome.conformance().conformant() ? ManifestConformanceReport.STATUS_PASS : ManifestConformanceReport.STATUS_FAIL;
+        List<ReportItem> generatedOutputFindings = outcome.items().stream()
+                .filter(item -> ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH.equals(item.code())).toList();
+        String status = outcome.conformance().conformant() && outcome.generatedOutputConformant() ? ManifestConformanceReport.STATUS_PASS
+                : ManifestConformanceReport.STATUS_FAIL;
         ManifestConformanceReport conformanceReport = new ManifestConformanceReport(ManifestConformanceReport.CURRENT_SCHEMA_VERSION, status, artemisCommit,
-                manifestDigest, outcome.conformance(), outcome.curation(), featureIds, relationIds, constraintIds, generatedModelDigest);
+                manifestDigest, outcome.conformance(), outcome.curation(), featureIds, relationIds, constraintIds, generatedModelDigest,
+                generatedOutputFindings);
         jsonWriter.write(directory.resolve(MANIFEST_CONFORMANCE_FILE), conformanceReport);
 
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
-                generatedModelDigest, generatedCatalogDigest, outcome.modelIntegrityValid(), outcome.deliveryEligible(), outcome.conformance(),
-                outcome.curation());
+                generatedModelDigest, generatedCatalogDigest, outcome.generatedOutputConformant(), outcome.modelIntegrityValid(), outcome.deliveryEligible(),
+                outcome.conformance(), outcome.curation());
         jsonWriter.write(directory.resolve(MODEL_RESULT_FILE), result);
         return result;
     }
@@ -267,6 +271,9 @@ class ExtractionArtifactStore {
         if (!result.conformance().conformant()) {
             throw new ExtractionArtifactException("The model stage found the manifest incomplete for this scan and produced no model: "
                     + result.conformance().describeFindings() + ".");
+        }
+        if (!result.generatedOutputConformant()) {
+            throw new ExtractionArtifactException("The generated model does not conform to the resolved manifest semantics; rerun the model command.");
         }
         requireEqual("model", "generated model digest", Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
         requireEqual("model", "generated catalog digest", Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE)), result.generatedCatalogDigest());
