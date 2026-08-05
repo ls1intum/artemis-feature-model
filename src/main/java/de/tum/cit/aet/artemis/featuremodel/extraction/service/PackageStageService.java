@@ -102,8 +102,8 @@ public class PackageStageService {
                     report.severityCounts(), report.codeCounts());
         }
         catch (IOException | RuntimeException failure) {
-            snapshotPublisher.invalidate(context.layout());
             new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            snapshotPublisher.invalidate(context.layout());
             throw failure;
         }
         failIfIneligible(eligible);
