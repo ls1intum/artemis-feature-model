@@ -54,6 +54,9 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final String PINNED_REPOSITORY_COMMIT = "fedcba9876543210fedcba9876543210fedcba98";
 
+    /** Verdict badge the HTML report renders for a run that cannot be published. */
+    private static final String FAILED_VERDICT_BADGE = "<span class=\"verdict bad\">FAIL</span>";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
@@ -63,7 +66,7 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("model/model-result.json", "1e30a8bc466479952e867244f650db91f7e35bd415ffd75e4e93ca70476b5eff"),
             Map.entry("report/extraction-report.json", "90c04105aae2037be436460a5a895eabbe8dfbf094c46411299c2e35bcd15963"),
-            Map.entry("report/index.html", "e184f8ccb677509371407a9ebad122767e3abc46ea8969b1a61ff90aeda705aa"),
+            Map.entry("report/index.html", "abacb186797cce9d2530d71e8458968774118a39998e62128c875511edf863ad"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
@@ -309,7 +312,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.workflowDirectory()).doesNotExist();
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
         String html = Files.readString(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE));
-        assertThat(html).contains("Overall verdict: FAIL", "module:gamma", "UNDECLARED_CANDIDATE");
+        assertThat(html).contains(FAILED_VERDICT_BADGE, "module:gamma", "UNDECLARED_CANDIDATE");
         assertThat(layout.snapshotDirectory()).doesNotExist();
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
@@ -380,7 +383,7 @@ class ExtractionPipelineCharacterizationTest {
                 Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)), ExtractionReport.class);
         assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_FAIL);
         assertThat(report.items()).extracting(ReportItem::message).anyMatch(message -> message.toLowerCase(Locale.ROOT).contains(detail.toLowerCase(Locale.ROOT)));
-        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).content().contains("Overall verdict: FAIL");
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).content().contains(FAILED_VERDICT_BADGE);
     }
 
     /**
