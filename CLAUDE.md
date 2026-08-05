@@ -118,7 +118,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   alias of the aggregate. Each command owns one directory of
   `build/feature-extraction/<artemis-sha>/{scan,model,workflow,report,snapshot}`
   and consumes upstream artifacts only through digest-verified envelopes, so a
-  stale or foreign intermediate artifact is rejected instead of composed.
+  stale or foreign intermediate artifact is rejected instead of composed. The
+  model envelope covers both the generated feature model and generated config-key
+  catalog; packaging never reads either as an unverified side file.
   Configuration enters through `FeatureExtractionInputs`. Each command reads
   the manifest once and binds its parsed content, byte digest, pinned commit,
   and commit-scoped layout in `ExtractionRunContext`; the local checkout
@@ -144,9 +146,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   mandatory `localvc` baseline, enforced through `alternative` group relations
   and `excludes` constraints) — regenerates the Artemis config-key catalog
   from the scanned YAML defaults, validates model and bundled workflow through
-  the shared loader/integrity/diagnostics code paths, and classifies every
-  generated-versus-curated difference as `intentional-curation`,
-  `missing-manifest-entry`, `artemis-drift`, or `extractor-gap`. It also
+  the shared loader/integrity/diagnostics code paths, and independently compares
+  the emitted model with the resolved manifest contract, including membership,
+  kind/category/defaults, hierarchy and group semantics, required capabilities,
+  artifact mappings, constraints, and relation ordering. Any mismatch is a
+  blocking conformance finding in JSON and HTML. It also
   emits a complete deterministic `snapshot/` folder. The manifest-driven generated
   model is canonical for delivery and is independent of the curated classpath
   development fixture; runtime still uses the classpath fixture until the explicit
@@ -173,7 +177,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   generated config-key catalog, generation report, deterministic provenance,
   metadata, and `checksums.txt`. `./gradlew validateFeatureModelSnapshot
   -PsnapshotPath=<snapshot>` validates the complete snapshot read-only; generation
-  invokes the same validator before exposing a snapshot.
+  invokes the same validator before exposing a snapshot. Metadata validation is
+  fail-closed for generated lifecycle status, extractor identity, and immutable
+  image identity as well as payload names and cross-artifact provenance.
 
 ## Build and Development Commands
 
