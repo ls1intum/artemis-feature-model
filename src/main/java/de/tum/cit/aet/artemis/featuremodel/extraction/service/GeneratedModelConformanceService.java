@@ -53,8 +53,8 @@ class GeneratedModelConformanceService {
     }
 
     /** Model fields whose values are directly determined by the resolved manifest and scanned candidate. */
-    private record FeatureContract(String kind, boolean selectable, String category, String defaultState, List<String> requiresCapabilities,
-            List<ArtifactMapping> artifactMappings) {
+    private record FeatureContract(String name, String description, String kind, boolean selectable, String category, String defaultState,
+            List<String> requiresCapabilities, List<ArtifactMapping> artifactMappings) {
     }
 
     /**
@@ -170,6 +170,8 @@ class GeneratedModelConformanceService {
                 continue;
             }
             FeatureContract expected = expectedFeature(node, candidatesById);
+            requireEqual(findings, node.id(), "name", actual.name(), expected.name());
+            requireEqual(findings, node.id(), "description", actual.description(), expected.description());
             requireEqual(findings, node.id(), "kind", actual.kind(), expected.kind());
             requireEqual(findings, node.id(), "selectable state", actual.selectable(), expected.selectable());
             requireEqual(findings, node.id(), "category", actual.category(), expected.category());
@@ -192,12 +194,17 @@ class GeneratedModelConformanceService {
         boolean selectable = !structural;
         String category = node.category() == null ? structural ? CATEGORY_DERIVED : CATEGORY_FUNCTIONAL : node.category();
         if (node.included() == null) {
-            return new FeatureContract(node.kind(), selectable, category, structural ? "not_applicable" : "enabled", List.of(), List.of());
+            ConceptualNode conceptual = node.conceptual();
+            String name = conceptual.name() == null ? node.id() : conceptual.name();
+            return new FeatureContract(name, conceptual.description(), node.kind(), selectable, category,
+                    structural ? "not_applicable" : "enabled", List.of(), List.of());
         }
         ResolvedFeatureScope included = node.included();
         FeatureCandidate candidate = candidatesById.get(included.candidateId());
-        return new FeatureContract(node.kind(), selectable, category, expectedDefaultState(included, candidate), included.requiresCapabilities(),
-                expectedMappings(included, candidate));
+        String name = included.name() != null ? included.name() : candidate != null && candidate.name() != null ? candidate.name() : node.id();
+        String description = included.description() != null ? included.description() : candidate == null ? null : candidate.description();
+        return new FeatureContract(name, description, node.kind(), selectable, category, expectedDefaultState(included, candidate),
+                included.requiresCapabilities(), expectedMappings(included, candidate));
     }
 
     /**

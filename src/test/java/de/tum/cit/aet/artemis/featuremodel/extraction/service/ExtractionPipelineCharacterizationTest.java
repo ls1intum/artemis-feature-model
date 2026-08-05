@@ -252,6 +252,24 @@ class ExtractionPipelineCharacterizationTest {
     }
 
     @Test
+    void generatedSemanticConformanceFailureBlocksPublication() throws Exception {
+        runPipeline();
+        Path resultFile = layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE);
+        ModelResult result = OBJECT_MAPPER.readValue(Files.readAllBytes(resultFile), ModelResult.class);
+        ModelResult failedConformance = new ModelResult(result.schemaVersion(), result.extractorVersion(), result.artemisCommit(), result.scanDigest(),
+                result.manifestDigest(), result.generatedModelDigest(), result.generatedCatalogDigest(), false, result.modelIntegrityValid(), false,
+                result.conformance(), result.curation());
+        Files.writeString(resultFile, OBJECT_MAPPER.writeValueAsString(failedConformance));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("does not conform to the resolved manifest semantics");
+
+        assertFailureVerdictMentions("does not conform to the resolved manifest semantics");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
     void rejectsAScanTakenFromAnotherArtemisCommit() throws Exception {
         runScan();
         ScanResult scanResult = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)),

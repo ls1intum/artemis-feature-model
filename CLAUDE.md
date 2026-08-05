@@ -148,9 +148,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   from the scanned YAML defaults, validates model and bundled workflow through
   the shared loader/integrity/diagnostics code paths, and independently compares
   the emitted model with the resolved manifest contract, including membership,
-  kind/category/defaults, hierarchy and group semantics, required capabilities,
-  artifact mappings, constraints, and relation ordering. Any mismatch is a
-  blocking conformance finding in JSON and HTML. It also
+  names/descriptions, kind/category/defaults, hierarchy and group semantics,
+  required capabilities, artifact mappings, constraints, and relation ordering.
+  Any mismatch is a blocking conformance finding in JSON and HTML. It also
   emits a complete deterministic `snapshot/` folder. The manifest-driven generated
   model is canonical for delivery and is independent of the curated classpath
   development fixture; runtime still uses the classpath fixture until the explicit

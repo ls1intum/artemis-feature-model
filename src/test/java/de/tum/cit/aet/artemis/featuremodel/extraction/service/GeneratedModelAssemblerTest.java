@@ -181,6 +181,45 @@ class GeneratedModelAssemblerTest {
                 .anyMatch(message -> message.contains("constraint semantics"));
     }
 
+    @Test
+    void semanticConformanceRejectsAManifestControlledNameChange() {
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureNode alpha = feature(assembled, "alpha");
+        FeatureNode changedAlpha = copyWithText(alpha, "Assembler ignored manifest name", alpha.description());
+
+        assertTextMismatch(assembled, alpha, changedAlpha, "name");
+    }
+
+    @Test
+    void semanticConformanceRejectsAManifestControlledDescriptionChange() {
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureNode techA = feature(assembled, "tech-a");
+        FeatureNode changedTechA = copyWithText(techA, techA.name(), "Assembler ignored manifest description");
+
+        assertTextMismatch(assembled, techA, changedTechA, "description");
+    }
+
+    private FeatureNode copyWithText(FeatureNode feature, String name, String description) {
+        return new FeatureNode(feature.id(), name, feature.kind(), feature.selectable(), description, feature.defaultState(), feature.source(),
+                feature.category(), feature.visibleTo(), feature.configurableBy(), feature.requiresCapabilities(), feature.artifactMappings(),
+                feature.extraction());
+    }
+
+    private void assertTextMismatch(FeatureModel assembled, FeatureNode original, FeatureNode changed, String field) {
+        List<FeatureNode> features = new ArrayList<>(assembled.features());
+        features.set(features.indexOf(original), changed);
+        FeatureModel changedModel = new FeatureModel(assembled.model(), features, assembled.relations(), assembled.constraints());
+
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), changedModel,
+                ARTEMIS_COMMIT);
+
+        assertThat(findings).singleElement().satisfies(finding -> {
+            assertThat(finding.code()).isEqualTo(ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH);
+            assertThat(finding.subject()).isEqualTo(original.id());
+            assertThat(finding.message()).contains("Generated " + field + " differs from the resolved manifest");
+        });
+    }
+
     private FeatureScopeManifest manifest() {
         List<IncludeEntry> declarations = List.of(declaration("module:alpha", "alpha", "alpha-group"),
                 declaration("infra:tech-a", "tech-a", "tech-group"), declaration("infra:tech-b", "tech-b", "tech-group"));
