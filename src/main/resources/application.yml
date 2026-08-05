@@ -5,13 +5,14 @@ spring:
   application:
     name: artemis-feature-model
 
-# Local feature model snapshot loading.
-# Leave active-snapshot-id blank to load the bootstrap classpath model and guided workflow.
-# Set it to an imported snapshot id under <data-root>/imported-models to load that snapshot instead.
+# Local development loads the hand-maintained classpath model, workflow, and catalog as one bundle.
+# Production-like runs must select snapshot mode explicitly and provide a complete generated snapshot.
 artemis:
   feature-model:
+    source-mode: classpath
     data-root: data
     active-snapshot-id:
+    snapshot-admin-api-enabled: false
     runtime:
       source-commit: f4428ab20bab3595d4c51a420c2004bf0a6afbe3
       image-digest: latest
