@@ -117,6 +117,22 @@ tasks.register('validateFeatureModelSnapshot', JavaExec) {
     }
 }
 
+tasks.register('stageFeatureModelDockerContext', JavaExec) {
+    description = 'Validates and atomically stages one snapshot as a controlled Docker BuildKit named context.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureModelDockerContextCli'
+    outputs.upToDateWhen { false }
+    def snapshotPath = providers.gradleProperty('snapshotPath')
+    def outputPath = layout.buildDirectory.dir('docker/feature-model-snapshot')
+    doFirst {
+        if (!snapshotPath.isPresent() || snapshotPath.get().isBlank()) {
+            throw new GradleException('Missing -PsnapshotPath=<snapshot-directory> for stageFeatureModelDockerContext.')
+        }
+        args = ["--snapshot-path=${snapshotPath.get()}", "--output-path=${outputPath.get().asFile.path}"]
+    }
+}
+
 tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
     description = 'Synchronizes the authored guided workflow scaffold with the manifest include set without touching prose.'
     group = 'feature model'
