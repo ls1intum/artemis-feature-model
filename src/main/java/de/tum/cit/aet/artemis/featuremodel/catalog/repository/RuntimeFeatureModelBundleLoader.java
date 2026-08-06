@@ -111,8 +111,13 @@ public class RuntimeFeatureModelBundleLoader {
             ArtemisConfigKeyCatalog catalog = readFile(directory, CATALOG_FILE, ArtemisConfigKeyCatalog.class);
             GeneratedSnapshotMetadata metadata = readFile(directory, METADATA_FILE, GeneratedSnapshotMetadata.class);
             SnapshotProvenance snapshotProvenance = readFile(directory, PROVENANCE_FILE, SnapshotProvenance.class);
+            SnapshotValidationResult finalValidation = new FeatureModelSnapshotValidator(objectMapper).validate(directory);
+            if (!validation.equals(finalValidation)) {
+                throw loadFailure("Active feature model snapshot changed while it was loading.");
+            }
             RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(FeatureModelSourceMode.SNAPSHOT, model.model().id(),
-                    model.model().version(), validation.snapshotId(), validation.snapshotDigest(), validation.artemisCommit(), validation.manifestDigest(),
+                    model.model().version(), finalValidation.snapshotId(), finalValidation.snapshotDigest(), finalValidation.artemisCommit(),
+                    finalValidation.manifestDigest(),
                     snapshotProvenance.featureModelRepositoryCommit(), snapshotProvenance.extractorVersion());
             return new RuntimeFeatureModelBundle(model, workflow, catalog, provenance, metadata);
         }
