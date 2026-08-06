@@ -178,6 +178,15 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   invokes the same validator before exposing a snapshot. Metadata validation is
   fail-closed for generated lifecycle status, extractor identity, and immutable
   image identity as well as payload names and cross-artifact provenance.
+- GitHub delivery reuses one read-only validation workflow for pull requests,
+  development-branch pushes, and publication. It resolves the Artemis SHA through
+  `featureModelManifestPreflight`, uploads HTML/raw reports even on failure, validates
+  the snapshot offline, and smoke-tests the snapshot image before it can be passed
+  to the publication job. Only pushes to `deployment/image-publish-test` enter the
+  branch-restricted `image-publish-test` Environment and receive `packages: write`;
+  they publish one `linux/amd64` GHCR discovery tag and record the registry digest.
+  No workflow publishes `latest`, deploys the image, or updates
+  `LAST_VERIFIED_IMAGE_DIGEST`; deployment and rollback remain deferred.
 - Runtime source mode is explicit under `artemis.feature-model.source-mode`.
   Local development defaults to `classpath`, which loads and validates the
   hand-maintained model, workflow, and config-key catalog as one bundle and
