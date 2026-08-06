@@ -21,7 +21,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
 
 - The backend exposes `GET /api/feature-model`,
   `POST /api/feature-model/validate`, `GET /api/feature-model/guided-workflow`,
-  local snapshot endpoints under `/api/feature-model/snapshots`, deployment
+  safe read-only runtime provenance at `GET /api/feature-model/provenance`, deployment
   profile endpoints (`GET /api/deployment-profiles`,
   `GET /api/deployment-profiles/{id}`), profile-aware availability
   (`GET /api/feature-model/profile-availability`), Level 1 configuration
@@ -153,11 +153,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   Any mismatch is a blocking conformance finding in JSON and HTML. It also
   emits a complete deterministic `snapshot/` folder. The manifest-driven generated
   model is canonical for delivery and is independent of the curated classpath
-  development fixture; runtime still uses the classpath fixture until the explicit
-  source-mode cutover in Phase E4 Stage 3. `StaticConfigValidationService`
-  accepts an explicitly selected generated catalog via
-  `featuremodel.static-validation.catalog-location`;
-  the curated catalog remains the default.
+  development fixture. Runtime selects the complete classpath or snapshot bundle
+  explicitly, and `StaticConfigValidationService` always consumes the catalog from
+  that same validated bundle.
 - The authored `guided-workflow.json` is lean: decision structure and teacher
   prose only. Model-owned wiring — option `requiresCapabilities` and
   `artifactImpacts`, the workflow's feature model pin, and review group
@@ -180,6 +178,17 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   invokes the same validator before exposing a snapshot. Metadata validation is
   fail-closed for generated lifecycle status, extractor identity, and immutable
   image identity as well as payload names and cross-artifact provenance.
+- Runtime source mode is explicit under `artemis.feature-model.source-mode`.
+  Local development defaults to `classpath`, which loads and validates the
+  hand-maintained model, workflow, and config-key catalog as one bundle and
+  rejects an active snapshot id. Production-like execution uses `snapshot`,
+  requires `data-root` plus `active-snapshot-id`, validates the complete v2
+  snapshot during startup, and never falls back to classpath artifacts. The
+  legacy `/api/feature-model/snapshots/**` administration resource is absent by
+  default and can only be enabled explicitly in classpath mode. A controlled
+  Docker named-context task stages one revalidated snapshot; the production
+  image embeds it read-only, selects snapshot mode explicitly, runs as uid
+  10001 without a model volume, and records snapshot/source OCI labels.
 
 ## Build and Development Commands
 
@@ -224,7 +233,8 @@ Server package areas:
 - `validation` owns model and selection validation.
 - `visualization` owns derived tree/read-model structures.
 - `selection` owns user selection concepts and future selection sessions.
-- `snapshot` owns local feature model snapshot listing, import, and export.
+- `snapshot` owns the legacy, explicit-development-only local snapshot listing,
+  import, and export surface.
 - `deployment` owns deployment profiles, profile loading, and capability resolution.
 - `export` owns Level 1 configuration artifact generation, the Level 2 local
   runtime deployment package, and static overlay validation against the Artemis

@@ -5,7 +5,9 @@
 - `POST /api/feature-model/validate` validates a submitted selection.
 - `GET /api/feature-model/guided-workflow` returns the guided workflow
   metadata, templates, steps, decision options, and review groups.
-- `GET /api/feature-model/snapshots...` lists, details, imports, and exports local snapshots.
+- `GET /api/feature-model/provenance` exposes safe, read-only active runtime bundle identity.
+- `/api/feature-model/snapshots...` lists, details, imports, and exports local snapshots only when the
+  explicit classpath-development administration property is enabled; it is absent by default and in snapshot mode.
 - `GET /api/deployment-profiles` and `GET /api/deployment-profiles/{id}` return deployment profile summaries and detail.
 - `GET /api/feature-model/profile-availability` returns profile-aware option and feature availability; an optional `profileId` is for tests/maintainers, not the regular UI.
 - Bootstrap profiles live in `src/main/resources/deployment-profiles`; local overrides under `<data-root>/deployment-profiles`.

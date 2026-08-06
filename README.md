@@ -43,9 +43,13 @@ Current server capabilities:
   config key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`),
   reporting unknown keys and value-type mismatches; a drift-guard test keeps the
   catalog in sync with the model's mapping paths.
-- The server loads the runtime classpath JSON through `FeatureModelStore`.
-- The guided workflow is loaded from the runtime classpath JSON through the
-  selection service boundary.
+- The server uses an explicit `classpath` or `snapshot` source mode. The model,
+  guided workflow, and config-key catalog are loaded and validated as one
+  process-stable bundle; snapshot mode validates the complete generated
+  snapshot and never falls back to classpath resources.
+- `GET /api/feature-model/provenance` returns safe active bundle identity.
+  Legacy snapshot administration routes are absent unless classpath
+  development explicitly enables them.
 - Model integrity checks, tree derivation, default selection derivation,
   mandatory hierarchy validation, unknown selected id reporting, and synthetic
   `requires`, `excludes`, and unsupported `expression` constraint handling are
@@ -171,39 +175,47 @@ For CI or Docker builds that already created `build/webapp/browser`, use:
 ./gradlew bootJar -PskipFrontendBuild=true
 ```
 
-Build the local Docker image with:
+Local development defaults to the hand-maintained classpath bundle:
 
 ```bash
-docker build -t artemis-feature-model .
-docker volume create artemis-feature-model-data
-docker run --rm \
-  -p 8090:8080 \
-  -v artemis-feature-model-data:/app/data \
-  artemis-feature-model
+./gradlew bootRun
+curl http://localhost:8090/api/feature-model/provenance
 ```
 
-The container listens on port `8080`; the example exposes it on
-`http://localhost:8090`. Imported snapshots and local deployment-profile
-overrides are stored under `/app/data`, which is backed by the named volume so
-they survive container replacement.
+The legacy local snapshot administration API is disabled by default. A focused
+classpath development session may opt in explicitly with
+`./gradlew bootRun --args='--artemis.feature-model.snapshot-admin-api-enabled=true'`.
+Snapshot mode never accepts this opt-in.
 
-Snapshot import paths are resolved inside the container. To import snapshots
-from the host, mount their parent directory read-only and submit the
-corresponding `/imports/...` path to the snapshot import API:
+For a production-like image, first generate or select a complete snapshot,
+validate it, and stage the controlled BuildKit named context:
 
 ```bash
-docker run --rm \
-  -p 8090:8080 \
-  -v artemis-feature-model-data:/app/data \
-  -v /absolute/path/to/snapshots:/imports:ro \
-  artemis-feature-model
+./gradlew validateFeatureModelSnapshot \
+  -PsnapshotPath=build/feature-extraction/<artemis-sha>/snapshot
+./gradlew stageFeatureModelDockerContext \
+  -PsnapshotPath=build/feature-extraction/<artemis-sha>/snapshot
+scripts/build-snapshot-image.sh \
+  build/docker/feature-model-snapshot \
+  artemis-feature-model:snapshot-local
+scripts/verify-snapshot-image.sh \
+  artemis-feature-model:snapshot-local \
+  build/docker/feature-model-snapshot
 ```
 
-```json
-{
-  "sourcePath": "/imports/example-snapshot"
-}
+Run the verified image without a model volume:
+
+```bash
+docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  -p 8090:8080 \
+  artemis-feature-model:snapshot-local
 ```
+
+The image embeds exactly one read-only snapshot under
+`/opt/artemis-feature-model/data/imported-models/<snapshot-id>/`, runs as uid
+`10001`, and selects snapshot mode through explicit environment variables. The
+container needs no data volume for normal operation. Image tags are convenient
+local names; registry delivery in the next stage must use an immutable digest.
 
 The repository CI workflow runs frontend tests, the frontend production build,
 backend tests, and the Spring Boot jar build on every branch. A separate,
