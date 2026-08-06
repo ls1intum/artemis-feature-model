@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.FeatureModelSourceMode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
@@ -31,7 +32,9 @@ class SnapshotServiceTest {
     Path sourceRoot;
 
     private SnapshotService service(String activeSnapshotId) {
-        LocalSnapshotRepository repository = new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), activeSnapshotId), objectMapper);
+        SnapshotProperties properties = activeSnapshotId == null ? new SnapshotProperties(dataRoot.toString(), null)
+                : new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), activeSnapshotId, false);
+        LocalSnapshotRepository repository = new LocalSnapshotRepository(properties, objectMapper);
         return new SnapshotService(repository, objectMapper, new FeatureModelIntegrityService(), new GuidedWorkflowIntegrityService());
     }
 

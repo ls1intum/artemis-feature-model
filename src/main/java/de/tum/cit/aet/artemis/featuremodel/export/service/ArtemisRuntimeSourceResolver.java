@@ -2,9 +2,9 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import org.springframework.stereotype.Component;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.SnapshotMetadata;
-import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundle;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
 /** Resolves Artemis runtime provenance from the active snapshot or the classpath runtime properties. */
@@ -13,18 +13,18 @@ public class ArtemisRuntimeSourceResolver {
 
     private static final String IMAGE_REPOSITORY = "ghcr.io/ls1intum/artemis";
 
-    private final LocalSnapshotRepository snapshotRepository;
+    private final RuntimeFeatureModelBundle runtimeBundle;
 
     private final ArtemisRuntimeProperties runtimeProperties;
 
     /**
      * Creates the resolver.
      *
-     * @param snapshotRepository repository used to inspect active snapshot metadata.
+     * @param runtimeBundle validated runtime bundle used to inspect snapshot metadata.
      * @param runtimeProperties classpath fallback runtime properties.
      */
-    public ArtemisRuntimeSourceResolver(LocalSnapshotRepository snapshotRepository, ArtemisRuntimeProperties runtimeProperties) {
-        this.snapshotRepository = snapshotRepository;
+    public ArtemisRuntimeSourceResolver(RuntimeFeatureModelBundle runtimeBundle, ArtemisRuntimeProperties runtimeProperties) {
+        this.runtimeBundle = runtimeBundle;
         this.runtimeProperties = runtimeProperties;
     }
 
@@ -35,7 +35,7 @@ public class ArtemisRuntimeSourceResolver {
      * @throws ArtifactGenerationException if the selected source lacks a required value.
      */
     public ArtemisRuntimeSource resolveForLocalDocker() {
-        SnapshotMetadata metadata = snapshotRepository.activeSnapshotMetadata().orElse(null);
+        GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
         ArtemisRuntimeSource source = metadata == null ? fromClasspath() : fromSnapshot(metadata);
         requireValue(source.sourceCommit(), sourceLabel(metadata, "sourceCommit"));
         requireValue(source.imageDigest(), sourceLabel(metadata, "imageDigest"));
@@ -48,7 +48,8 @@ public class ArtemisRuntimeSourceResolver {
      * @return Artemis runtime source whose values may be absent for a legacy snapshot.
      */
     public ArtemisRuntimeSource resolveForDevIde() {
-        return snapshotRepository.activeSnapshotMetadata().map(this::fromSnapshot).orElseGet(this::fromClasspath);
+        GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
+        return metadata == null ? fromClasspath() : fromSnapshot(metadata);
     }
 
     /**
@@ -57,7 +58,7 @@ public class ArtemisRuntimeSourceResolver {
      * @param metadata active snapshot metadata.
      * @return snapshot-derived runtime source.
      */
-    private ArtemisRuntimeSource fromSnapshot(SnapshotMetadata metadata) {
+    private ArtemisRuntimeSource fromSnapshot(GeneratedSnapshotMetadata metadata) {
         return new ArtemisRuntimeSource(metadata.sourceCommit(), IMAGE_REPOSITORY, metadata.imageDigest());
     }
 
@@ -77,7 +78,7 @@ public class ArtemisRuntimeSourceResolver {
      * @param field missing Java field name.
      * @return actionable source label.
      */
-    private String sourceLabel(SnapshotMetadata metadata, String field) {
+    private String sourceLabel(GeneratedSnapshotMetadata metadata, String field) {
         if (metadata != null) {
             return "active snapshot '" + metadata.snapshotId() + "' metadata." + field
                     + "; regenerate the snapshot with current extraction metadata";

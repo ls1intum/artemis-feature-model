@@ -1,6 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * Configuration for the complete runtime feature-model artifact source.
@@ -22,6 +23,7 @@ public record SnapshotProperties(FeatureModelSourceMode sourceMode, String dataR
      * @param activeSnapshotId id of the active generated snapshot.
      * @param snapshotAdminApiEnabled whether the legacy snapshot administration API is explicitly enabled.
      */
+    @ConstructorBinding
     public SnapshotProperties {
         sourceMode = sourceMode == null ? FeatureModelSourceMode.CLASSPATH : sourceMode;
         activeSnapshotId = normalize(activeSnapshotId);

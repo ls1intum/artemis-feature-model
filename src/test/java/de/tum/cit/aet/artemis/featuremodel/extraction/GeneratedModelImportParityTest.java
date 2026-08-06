@@ -22,7 +22,9 @@ import org.springframework.core.io.DefaultResourceLoader;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
-import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.FeatureModelSourceMode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundle;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundleLoader;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -55,7 +57,6 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.StaticConfigValidationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.TechnicalSelectionResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
-import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
@@ -124,24 +125,22 @@ class GeneratedModelImportParityTest {
         SnapshotValidationResult validation = new FeatureModelSnapshotValidator(objectMapper).validate(layout.snapshotDirectory());
         snapshotId = validation.snapshotId();
         dataRoot = workingDirectory.resolve("data");
-        prepareLegacyRuntimeFixture(layout.snapshotDirectory());
+        prepareRuntimeFixture(layout.snapshotDirectory());
     }
 
     /**
-     * Copies only the validated runtime payloads into the legacy repository layout used by pre-Stage 3 services. The
-     * legacy checksum is deliberately regenerated for its model-only grammar; it is not a validation substitute for
-     * the complete v2 snapshot validator invoked before this method.
+     * Copies the complete validated snapshot into the runtime repository layout.
      *
      * @param validatedSnapshot complete v2 snapshot that already passed offline validation.
      * @throws Exception if the test fixture cannot be created.
      */
-    private void prepareLegacyRuntimeFixture(Path validatedSnapshot) throws Exception {
+    private void prepareRuntimeFixture(Path validatedSnapshot) throws Exception {
         Path runtimeDirectory = Files.createDirectories(dataRoot.resolve("imported-models").resolve(snapshotId));
-        for (String fileName : List.of("feature-model.json", "guided-workflow.json", "generation-report.json", "metadata.json")) {
-            Files.copy(validatedSnapshot.resolve(fileName), runtimeDirectory.resolve(fileName));
+        try (var files = Files.list(validatedSnapshot)) {
+            for (Path file : files.toList()) {
+                Files.copy(file, runtimeDirectory.resolve(file.getFileName()));
+            }
         }
-        Files.writeString(runtimeDirectory.resolve("checksums.txt"), Sha256Digest.of(runtimeDirectory.resolve("feature-model.json"))
-                + "  feature-model.json\n");
     }
 
     @Test
@@ -154,7 +153,7 @@ class GeneratedModelImportParityTest {
     @Test
     void importedSnapshotServesEveryCuratedFeatureWithMatchingDefaults() {
         FeatureModelCatalogService curatedStack = catalogService(SnapshotProperties.classpathFallback());
-        FeatureModelCatalogService generatedStack = catalogService(new SnapshotProperties(dataRoot.toString(), snapshotId));
+        FeatureModelCatalogService generatedStack = catalogService(snapshotProperties());
 
         FeatureModel curated = curatedStack.loadActiveModel();
         FeatureModel generated = generatedStack.loadActiveModel();
@@ -172,7 +171,7 @@ class GeneratedModelImportParityTest {
 
     @Test
     void importedSnapshotValidatesItsOwnDefaultSelection() {
-        FeatureModelCatalogService generatedStack = catalogService(new SnapshotProperties(dataRoot.toString(), snapshotId));
+        FeatureModelCatalogService generatedStack = catalogService(snapshotProperties());
         FeatureModelValidationService validationService = new FeatureModelValidationService(generatedStack, new FeatureModelTreeService());
 
         FeatureModel generated = generatedStack.loadActiveModel();
@@ -184,7 +183,7 @@ class GeneratedModelImportParityTest {
     @Test
     void importedSnapshotServesTheGuidedWorkflowWithIdenticalDerivedWiring() {
         GuidedWorkflow curatedServed = guidedWorkflowService(SnapshotProperties.classpathFallback()).getActiveGuidedWorkflow();
-        GuidedWorkflow generatedServed = guidedWorkflowService(new SnapshotProperties(dataRoot.toString(), snapshotId)).getActiveGuidedWorkflow();
+        GuidedWorkflow generatedServed = guidedWorkflowService(snapshotProperties()).getActiveGuidedWorkflow();
 
         assertThat(generatedServed.workflow().featureModelId()).isEqualTo("artemis-generated-feature-model");
         Map<String, GuidedDecisionOption> curatedOptions = optionsById(curatedServed);
@@ -201,7 +200,7 @@ class GeneratedModelImportParityTest {
     @Test
     void importedSnapshotKeepsTechnicalFeaturesOutOfTheTeacherSurface() {
         WorkflowAvailabilityDTO curatedAvailability = capabilityResolutionService(SnapshotProperties.classpathFallback()).resolveAvailability(null);
-        WorkflowAvailabilityDTO generatedAvailability = capabilityResolutionService(new SnapshotProperties(dataRoot.toString(), snapshotId))
+        WorkflowAvailabilityDTO generatedAvailability = capabilityResolutionService(snapshotProperties())
                 .resolveAvailability(null);
 
         Map<String, Boolean> curatedOptionAvailability = curatedAvailability.options().stream()
@@ -219,7 +218,7 @@ class GeneratedModelImportParityTest {
 
     @Test
     void deploymentPackagesConsumeAllTechnicalCombinations() {
-        SnapshotProperties properties = new SnapshotProperties(dataRoot.toString(), snapshotId);
+        SnapshotProperties properties = snapshotProperties();
         FeatureModelCatalogService generatedCatalog = catalogService(properties);
         FeatureModel generatedModel = generatedCatalog.loadActiveModel();
         List<String> defaultSelection = generatedCatalog.defaultSelectedFeatureIds(generatedModel);
@@ -237,14 +236,12 @@ class GeneratedModelImportParityTest {
     }
 
     private FeatureModelCatalogService catalogService(SnapshotProperties properties) {
-        LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
-        JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper, snapshotRepository);
+        JsonFeatureModelStore store = new JsonFeatureModelStore(runtimeBundle(properties));
         return new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), new FeatureModelTreeService());
     }
 
     private GuidedWorkflowService guidedWorkflowService(SnapshotProperties properties) {
-        LocalSnapshotRepository snapshotRepository = new LocalSnapshotRepository(properties, objectMapper);
-        JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(resourceLoader, objectMapper, snapshotRepository);
+        JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(runtimeBundle(properties));
         return new GuidedWorkflowService(workflowStore, catalogService(properties), new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler(),
                 new GuidedWorkflowDiagnosticsService());
     }
@@ -264,10 +261,18 @@ class GeneratedModelImportParityTest {
         ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
                 new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
-                new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
+                new StaticConfigValidationService(runtimeBundle(properties)), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
-                new ArtemisRuntimeSourceResolver(new LocalSnapshotRepository(properties, objectMapper),
+                new ArtemisRuntimeSourceResolver(runtimeBundle(properties),
                         new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
+    }
+
+    private SnapshotProperties snapshotProperties() {
+        return new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), snapshotId, false);
+    }
+
+    private RuntimeFeatureModelBundle runtimeBundle(SnapshotProperties properties) {
+        return new RuntimeFeatureModelBundleLoader(properties, resourceLoader, objectMapper).load();
     }
 
     private ArtifactGenerationRequest packageRequest(List<String> selectedFeatureIds, String deploymentMode) {
