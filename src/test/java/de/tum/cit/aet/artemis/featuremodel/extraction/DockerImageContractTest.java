@@ -14,6 +14,7 @@ class DockerImageContractTest {
         String dockerfile = Files.readString(Path.of("Dockerfile"));
 
         assertThat(dockerfile).contains("COPY --from=feature_model_snapshot")
+                .contains("COPY --from=application_jar")
                 .contains("/opt/artemis-feature-model/data/imported-models/${SNAPSHOT_ID}/")
                 .contains("ARTEMIS_FEATURE_MODEL_SOURCE_MODE=snapshot")
                 .contains("ARTEMIS_FEATURE_MODEL_ACTIVE_SNAPSHOT_ID=${SNAPSHOT_ID}")
