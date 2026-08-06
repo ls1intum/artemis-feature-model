@@ -17,6 +17,9 @@ snapshot and cannot fall back to them.
 7. runs the provenance, read-only runtime, absent-admin-endpoint, missing-snapshot, and tampered-snapshot smoke checks;
 8. uploads the smoke-tested image for the publication job only after every gate passes.
 
+Normal CI runs for development-branch pushes and pull requests and also provides a read-only manual dispatch for
+maintainer revalidation. Manual dispatch cannot enter the publication workflow or receive package-write permission.
+
 `.github/workflows/publish-snapshot-image.yml` triggers only on a push to `deployment/image-publish-test`. Its
 validation job still has only `contents: read`. A separate job uses the branch-restricted `image-publish-test` GitHub
 Environment and receives only `contents: read` plus `packages: write`. It loads the exact smoke-tested image, publishes
