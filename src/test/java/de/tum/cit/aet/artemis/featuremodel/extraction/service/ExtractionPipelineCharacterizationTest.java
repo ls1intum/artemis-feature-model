@@ -62,30 +62,30 @@ class ExtractionPipelineCharacterizationTest {
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
-            Map.entry("model/manifest-conformance-report.json", "57156cbfbde5bc0070222c2c78145fc7053b00e6067b1543547a55d59b1fdfee"),
+            Map.entry("model/manifest-conformance-report.json", "2d80f6a8e07105f45aec5e67bb40ed9612769040d6e1aaf2a4c9fa9130587bdb"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "1e30a8bc466479952e867244f650db91f7e35bd415ffd75e4e93ca70476b5eff"),
-            Map.entry("report/extraction-report.json", "7786b7c3c18a6ca7573f397c3274b7a488f772b91f81e21e9ced6ef8ec9ca550"),
-            Map.entry("report/index.html", "abacb186797cce9d2530d71e8458968774118a39998e62128c875511edf863ad"),
+            Map.entry("model/model-result.json", "4f810c62a5636a38ab970df9bb14373017d8a9982c36a01392283b7477e771da"),
+            Map.entry("report/extraction-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
+            Map.entry("report/index.html", "1682de7820a9229d04b79536b31df2f8fe8e58bb302bc9b47160b54c207e7ef4"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
-            Map.entry("scan/evidence.json", "beede58e239dd3f73a9754a955838de594ce5753be9a23c764e85fb0b0fc3567"),
-            Map.entry("scan/feature-candidates.json", "e173b8730fc85d878bae0cbda90849b462039e008577f8fdda8644db012c7412"),
+            Map.entry("scan/evidence.json", "e2a8098c07ff01667fdf26f4379752187adf29fe079caec341781bb6bebb5f36"),
+            Map.entry("scan/feature-candidates.json", "a9dcac02f05af8308090f3de00ff52e58d285a2f42b311fda7937fb3516e7b58"),
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
-            Map.entry("scan/scan-result.json", "5f1bd016aeac2a82ceb1786baa80e7975f930cd3c269240f976f5b7597a3ac9c"),
-            Map.entry("snapshot/checksums.txt", "0397894b4fc8b859834716c97cc746e8244c6f2c07d2fefb222a753c0c5e99a0"),
+            Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
+            Map.entry("snapshot/checksums.txt", "9d93d0fc3c9170664f8bb59bf3efad0a471a2971f02ee8259ea8de3a99abd660"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
-            Map.entry("snapshot/generation-report.json", "7786b7c3c18a6ca7573f397c3274b7a488f772b91f81e21e9ced6ef8ec9ca550"),
+            Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
             Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
-            Map.entry("snapshot/metadata.json", "4221b0e6fee56b21091923326506c787a7419c03eaa23fc6556c5eda526ad9c3"),
-            Map.entry("snapshot/provenance.json", "3bfae4e83a2ea02be4ee0725795cff1ce51226ee0f574baf6bc15974254bb2b7"),
+            Map.entry("snapshot/metadata.json", "49bcf54a85bf77dca9178d103f230db507172b277adb55dc0ff67c3a8210f6ab"),
+            Map.entry("snapshot/provenance.json", "a9f779f11cf7aafd5c937d6c526a2ef4de01009f37931feb109bb30923e037e7"),
             Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
             Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "f95da8ba6033a801520525f45250adea4a24df203f97967ee4f776ac6e083dfc"));
+            Map.entry("workflow/workflow-result.json", "ad7c4d85fedb41cb8960c92a9152571e9a9d40d8e569cfa82a365b2cd959f189"));
 
     @TempDir
     private Path outputRoot;
@@ -105,7 +105,7 @@ class ExtractionPipelineCharacterizationTest {
     void scanWritesOnlyTheRawSourceDiscoveryArtifacts() throws Exception {
         ScanStageService.Summary summary = runScan();
 
-        assertThat(summary.candidateCount()).isEqualTo(18);
+        assertThat(summary.candidateCount()).isEqualTo(15);
         assertThat(summary.relationCandidateCount()).isEqualTo(2);
         assertThat(summary.artemisCommit()).isEqualTo(PINNED_COMMIT);
         for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
@@ -125,7 +125,7 @@ class ExtractionPipelineCharacterizationTest {
 
         ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
 
-        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("undeclared", 0);
+        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 14).containsEntry("undeclared", 0);
         assertThat(summary.featureCount()).isEqualTo(2);
         assertThat(summary.relationCount()).isEqualTo(1);
         assertThat(summary.constraintCount()).isZero();
@@ -163,7 +163,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.artemisCommit()).isEqualTo(PINNED_COMMIT);
         assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
-        assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
+        assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 14);
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).content().contains("\"status\" : \"skipped\"")
                 .contains("\"blocking\" : false");

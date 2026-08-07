@@ -53,7 +53,7 @@ class ExtractionHtmlReportRendererTest {
     void quantifiesTheVerdictWithSeverityAndCandidateTiles() {
         List<ReportItem> items = List.of(ReportItem.warning(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "alpha", "Asymmetric constants."),
                 ReportItem.info(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, "beta", "Mirror mismatch."));
-        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"), excluded("configkey:beta", "deferred"))), items);
+        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"), excluded("profile:beta", "deferred"))), items);
 
         String html = render(report);
 
@@ -117,15 +117,15 @@ class ExtractionHtmlReportRendererTest {
 
     @Test
     void rendersTheKindByStateMatrixAndTheSemanticSourceOfIncludedCandidates() {
-        List<CurationDecision> decisions = List.of(included("module:alpha"), excluded("configkey:beta", "internal-mechanism"),
-                excluded("configkey:gamma", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null));
+        List<CurationDecision> decisions = List.of(included("module:alpha"), excluded("infra:mysql", "internal-mechanism"),
+                excluded("infra:postgres", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null));
         ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(decisions), List.of());
 
         String html = render(report);
 
         assertThat(html).contains("<caption>Candidate decisions by kind</caption>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>module-feature</code></th><td class=\"num\">1</td>");
-        assertThat(html).contains("<tr><th scope=\"row\"><code>config-key</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
+        assertThat(html).contains("<tr><th scope=\"row\"><code>infrastructure</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
         assertThat(html).contains("<span class=\"tag\">manifest</span>");
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
         assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
@@ -229,7 +229,8 @@ class ExtractionHtmlReportRendererTest {
     }
 
     private CurationDecision excluded(String candidateId, String reason) {
-        String kind = candidateId.startsWith("profile:") ? FeatureCandidate.KIND_SPRING_PROFILE : FeatureCandidate.KIND_CONFIG_KEY;
+        String kind = candidateId.startsWith("profile:") ? FeatureCandidate.KIND_SPRING_PROFILE
+                : candidateId.startsWith("infra:") ? FeatureCandidate.KIND_INFRASTRUCTURE : FeatureCandidate.KIND_MODULE_FEATURE;
         return new CurationDecision(candidateId, kind, ScopeCurationService.STATE_EXCLUDE, null, reason, null);
     }
 

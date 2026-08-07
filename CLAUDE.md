@@ -159,6 +159,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   development fixture. Runtime selects the complete classpath or snapshot bundle
   explicitly, and `StaticConfigValidationService` always consumes the catalog from
   that same validated bundle.
+- Enabled configuration keys are not standalone feature candidates and therefore
+  need no manifest membership entries. Their constants, YAML defaults, and usage
+  remain evidence on the owning module candidate and inputs to artifact mappings
+  and the generated config-key catalog; new enabled-property anchors still surface
+  through their module candidates and remain fail-closed.
 - The authored `guided-workflow.json` is lean: decision structure and teacher
   prose only. Model-owned wiring — option `requiresCapabilities` and
   `artifactImpacts`, the workflow's feature model pin, and review group

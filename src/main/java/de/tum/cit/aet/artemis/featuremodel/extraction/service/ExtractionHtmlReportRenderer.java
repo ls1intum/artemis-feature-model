@@ -59,7 +59,7 @@ class ExtractionHtmlReportRenderer {
      * candidate kind appears.
      */
     private static final List<String> KIND_ORDER = List.of(FeatureCandidate.KIND_MODULE_FEATURE, FeatureCandidate.KIND_SPRING_PROFILE,
-            FeatureCandidate.KIND_CONFIG_KEY, FeatureCandidate.KIND_RUNTIME_TOGGLE, FeatureCandidate.KIND_INFRASTRUCTURE);
+            FeatureCandidate.KIND_RUNTIME_TOGGLE, FeatureCandidate.KIND_INFRASTRUCTURE);
 
     /** Placeholder for an attribute the run did not resolve. */
     private static final String NOT_AVAILABLE = "—";

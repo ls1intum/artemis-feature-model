@@ -4,8 +4,8 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  * One extracted feature candidate. Candidates are discovery output only: they never enter the curated model in this
  * phase, and namespaced ids keep the anchor kind explicit.
  *
- * @param id namespaced candidate id, for example {@code module:iris}, {@code toggle:Exports}, {@code profile:localci},
- *            {@code configkey:artemis.iris.enabled}, or {@code infra:mysql}.
+ * @param id namespaced candidate id, for example {@code module:iris}, {@code toggle:Exports},
+ *            {@code profile:localci}, or {@code infra:mysql}.
  * @param kind candidate kind, one of the {@code KIND_*} constants.
  * @param name human-readable name from Artemis i18n, or null when Artemis has none.
  * @param description human-readable description from Artemis i18n, or null when Artemis has none.
@@ -32,8 +32,6 @@ public record FeatureCandidate(String id, String kind, String name, String descr
 
     public static final String KIND_SPRING_PROFILE = "spring-profile";
 
-    public static final String KIND_CONFIG_KEY = "config-key";
-
     public static final String KIND_INFRASTRUCTURE = "infrastructure";
 
     public static final String NAMESPACE_MODULE = "module:";
@@ -41,8 +39,6 @@ public record FeatureCandidate(String id, String kind, String name, String descr
     public static final String NAMESPACE_TOGGLE = "toggle:";
 
     public static final String NAMESPACE_PROFILE = "profile:";
-
-    public static final String NAMESPACE_CONFIG_KEY = "configkey:";
 
     public static final String NAMESPACE_INFRASTRUCTURE = "infra:";
 }

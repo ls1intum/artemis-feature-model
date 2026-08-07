@@ -192,47 +192,6 @@ include:
       - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: localvc }
 
 exclude:
-  # Configuration-key candidates remain evidence for their owning module rather than duplicate feature nodes.
-  - { anchor: configkey:artemis.apollon.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.athena.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.atlas.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.exam.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.fileupload.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.hyperion.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.iris.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.lecture.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.lti.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.modeling.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.plagiarism.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.sharing.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.text.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.theia.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.tutorialgroup.enabled, reason: internal-mechanism }
-
-  - anchor: configkey:artemis.atlas.atlasml.enabled
-#    reason: sub-option
-#    rationale: AtlasML is an implementation sub-switch of Atlas and is not an independent functional module.
-
-  - anchor: configkey:artemis.user-management.ldap.enabled
-#    reason: deferred
-#    rationale: LDAP is an external user-management mechanism outside the current curated functional scope.
-
-  - anchor: configkey:artemis.user-management.oidc.enabled
-#    reason: deferred
-#    rationale: OIDC is an external user-management mechanism outside the current curated functional scope.
-
-  - anchor: configkey:artemis.user-management.passkey.enabled
-#    reason: deferred
-#    rationale: Passkey support is a user-management mechanism outside the current curated functional scope.
-
-  - anchor: configkey:artemis.user-management.saml2.enabled
-#    reason: deferred
-#    rationale: SAML2 is an external user-management mechanism outside the current curated functional scope.
-
-  - anchor: configkey:artemis.weaviate.enabled
-#    reason: internal-mechanism
-#    rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
-
   # Module-level discoveries that are policy details or backing infrastructure.
 
   - anchor: module:passkey-admin

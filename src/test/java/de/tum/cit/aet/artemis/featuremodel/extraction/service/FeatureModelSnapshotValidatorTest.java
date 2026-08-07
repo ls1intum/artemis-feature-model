@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -126,7 +127,7 @@ class FeatureModelSnapshotValidatorTest {
 
     @Test
     void rejectsForeignExtractorIdentityEvenWithUpdatedChecksum() throws Exception {
-        replaceMetadata("feature-model-extractor@0.3.0", "different-extractor@0.3.0");
+        replaceMetadata("feature-model-extractor@" + ScanResult.EXTRACTOR_VERSION, "different-extractor@" + ScanResult.EXTRACTOR_VERSION);
 
         assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("extractor identity");
