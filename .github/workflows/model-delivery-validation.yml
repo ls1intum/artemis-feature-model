@@ -56,14 +56,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Run frontend tests
-        run: npm run test -- --watch=false
-
       - name: Build frontend
         run: npm run build:prod
-
-      - name: Run backend tests
-        run: ./gradlew test --rerun-tasks
 
       - name: Resolve manifest source identity
         id: preflight

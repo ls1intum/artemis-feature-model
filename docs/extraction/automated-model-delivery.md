@@ -8,7 +8,7 @@ snapshot and cannot fall back to them.
 
 `.github/workflows/model-delivery-validation.yml` is the shared, read-only gate used by normal CI and publication. It:
 
-1. runs frontend tests/build and backend tests;
+1. builds the frontend production bundle;
 2. obtains the exact Artemis commit and manifest digest from `featureModelManifestPreflight`;
 3. checks out that commit and verifies the checkout is exact and clean;
 4. runs `buildFeatureModelSnapshot` without invoking `syncGuidedWorkflowScaffold`;

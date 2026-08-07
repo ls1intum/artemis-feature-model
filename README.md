@@ -217,8 +217,8 @@ The image embeds exactly one read-only snapshot under
 container needs no data volume for normal operation. Image tags are convenient
 local names; registry delivery in the next stage must use an immutable digest.
 
-The repository delivery workflows run frontend/backend tests, resolve and check
-out the manifest-pinned Artemis commit, build the strict generated snapshot,
+The repository delivery workflows build the frontend, resolve and check out the
+manifest-pinned Artemis commit, build the strict generated snapshot,
 upload HTML/raw reports, validate the snapshot offline, and smoke-test the
 snapshot-bearing image. Pull requests and development branches have read-only
 repository permission and cannot publish. Only a push to
