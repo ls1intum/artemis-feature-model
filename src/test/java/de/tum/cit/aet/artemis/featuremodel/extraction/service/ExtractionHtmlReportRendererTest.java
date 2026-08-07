@@ -118,7 +118,7 @@ class ExtractionHtmlReportRendererTest {
     @Test
     void rendersTheKindByStateMatrixAndTheSemanticSourceOfIncludedCandidates() {
         List<CurationDecision> decisions = List.of(included("module:alpha"), excluded("configkey:beta", "internal-mechanism"),
-                excluded("configkey:gamma", "internal-mechanism"), excluded("profile:delta", "deferred"));
+                excluded("configkey:gamma", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null));
         ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(decisions), List.of());
 
         String html = render(report);
@@ -128,6 +128,7 @@ class ExtractionHtmlReportRendererTest {
         assertThat(html).contains("<tr><th scope=\"row\"><code>config-key</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
         assertThat(html).contains("<span class=\"tag\">manifest</span>");
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
+        assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
     }
 
     @Test

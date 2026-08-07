@@ -36,6 +36,9 @@ public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha,
     /** Category of maintainer-facing technical features that never enter the teacher surface. */
     public static final String CATEGORY_TECHNICAL = "technical";
 
+    /** Stable fallback used when an exclusion deliberately omits its optional reason code. */
+    public static final String EXCLUSION_REASON_UNSPECIFIED = "unspecified";
+
     /**
      * Normalizes manifest collections to immutable lists.
      */
@@ -85,13 +88,20 @@ public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha,
     }
 
     /**
-     * Explicit exclusion with a mandatory reason code.
+     * Explicit exclusion with an optional reason code.
      *
      * @param anchor candidate id or canonical source symbol.
-     * @param reason stable reason code.
+     * @param reason stable reason code; missing values normalize to {@link #EXCLUSION_REASON_UNSPECIFIED}.
      * @param rationale human-readable reasoning for the decision, or null.
      */
     public record ExcludeEntry(String anchor, String reason, String rationale) {
+
+        /**
+         * Normalizes an omitted reason to the stable report grouping fallback.
+         */
+        public ExcludeEntry {
+            reason = reason == null ? EXCLUSION_REASON_UNSPECIFIED : reason;
+        }
     }
 
     /**

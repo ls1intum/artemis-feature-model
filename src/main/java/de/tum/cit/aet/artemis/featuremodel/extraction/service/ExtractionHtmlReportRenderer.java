@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
 /**
@@ -59,9 +60,6 @@ class ExtractionHtmlReportRenderer {
      */
     private static final List<String> KIND_ORDER = List.of(FeatureCandidate.KIND_MODULE_FEATURE, FeatureCandidate.KIND_SPRING_PROFILE,
             FeatureCandidate.KIND_CONFIG_KEY, FeatureCandidate.KIND_RUNTIME_TOGGLE, FeatureCandidate.KIND_INFRASTRUCTURE);
-
-    /** Grouping key for excluded candidates whose manifest entry carries no reason code. */
-    private static final String UNSPECIFIED_REASON = "unspecified";
 
     /** Placeholder for an attribute the run did not resolve. */
     private static final String NOT_AVAILABLE = "—";
@@ -435,7 +433,7 @@ class ExtractionHtmlReportRenderer {
     private String excludedGroup(List<CurationDecision> excluded) {
         Map<String, List<CurationDecision>> byReason = new TreeMap<>();
         for (CurationDecision decision : excluded) {
-            String reason = decision.reason() == null ? UNSPECIFIED_REASON : decision.reason();
+            String reason = decision.reason() == null ? FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED : decision.reason();
             byReason.computeIfAbsent(reason, ignored -> new ArrayList<>()).add(decision);
         }
         List<Map.Entry<String, List<CurationDecision>>> ordered = new ArrayList<>(byReason.entrySet());

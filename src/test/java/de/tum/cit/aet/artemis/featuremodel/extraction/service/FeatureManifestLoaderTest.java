@@ -130,11 +130,25 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
-    void rejectsMissingExcludeReason() {
-        assertThatThrownBy(() -> load("""
+    void normalizesMissingExcludeReasonToUnspecified() {
+        FeatureScopeManifest manifest = load("""
                 manifestVersion: 2
                 artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
                 exclude: [{ anchor: toggle:RateLimit }]
+                """);
+
+        assertThat(manifest.exclude()).singleElement().satisfies(entry -> {
+            assertThat(entry.reason()).isEqualTo(FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED);
+            assertThat(entry.rationale()).isNull();
+        });
+    }
+
+    @Test
+    void rejectsBlankExcludeReasonWhenPresent() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                exclude: [{ anchor: toggle:RateLimit, reason: "" }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("exclude[0].reason");
     }
 

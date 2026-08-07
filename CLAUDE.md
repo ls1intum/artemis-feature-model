@@ -138,7 +138,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   extractor blocks the run, which writes diagnostics and exits non-zero without
   assembling a model. Manifest-authored semantics win over `@ArtemisFeature`
   annotations, which only fill attributes the manifest leaves open and never
-  grant membership.
+  grant membership. Exclusion reasons are optional: an omitted reason is
+  normalized to `unspecified` and reported as a non-blocking warning. Missing
+  rationale on an excluded runtime toggle also warns, while an included runtime
+  toggle without rationale remains a blocking curation conflict.
 - The extraction run additionally assembles a complete generated feature model
   from the manifest's include entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
