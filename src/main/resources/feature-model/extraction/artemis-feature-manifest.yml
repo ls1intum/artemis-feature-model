@@ -1,7 +1,7 @@
 manifestVersion: 2
 # Exact Artemis source commit this manifest curates. The scan verifies that the local checkout is at this commit
 # and clean before it reads a single file, so advancing the pin is a deliberate, reviewable change.
-artemisCommitSha: f4428ab20bab3595d4c51a420c2004bf0a6afbe3
+artemisCommitSha: 5eee99d5d62ee667026ae371be0045c0dd208ed1
 artemisImageDigest: latest
 
 # Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
