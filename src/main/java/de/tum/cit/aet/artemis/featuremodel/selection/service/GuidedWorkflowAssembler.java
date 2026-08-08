@@ -90,7 +90,7 @@ public class GuidedWorkflowAssembler {
         List<String> requiresCapabilities = derivedRequiredCapabilities(option, featuresById);
         List<String> artifactImpacts = derivedArtifactImpacts(option, featuresById);
         return new GuidedDecisionOption(option.id(), option.label(), option.description(), option.selects(), option.deselects(), requiresCapabilities,
-                artifactImpacts, option.enabledOutcome(), option.recommendedWhen(), option.thingsToKnow(), option.warnings());
+                artifactImpacts, option.enabledOutcome(), option.recommendedWhen(), option.thingsToKnow(), option.warnings(), option.status());
     }
 
     /**

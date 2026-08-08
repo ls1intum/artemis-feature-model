@@ -108,7 +108,7 @@ class GuidedWorkflowDiagnosticsServiceTest {
     void warnsForScaffoldStubProse() {
         GuidedDecisionOption stub = new GuidedDecisionOption("enable-athena-stub", "Athena", "TODO: describe this option.",
                 List.of("exercise-common", "programming", "quiz", "athena"), List.of(), null, null, List.of("TODO: describe the outcome."), List.of(),
-                List.of(), List.of());
+                List.of(), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
         GuidedWorkflow workflow = new GuidedWorkflow(metadata(), List.of(emptyDefaultTemplate()), List.of(step(stub)), List.of(reviewGroup()));
 
         List<GuidedWorkflowFinding> findings = service.findings(workflow, TestFeatureModels.baseModel());
@@ -134,7 +134,7 @@ class GuidedWorkflowDiagnosticsServiceTest {
 
     private GuidedDecisionOption option(String id, List<String> selects) {
         return new GuidedDecisionOption(id, "Option " + id, "Synthetic option.", selects, List.of(), null, null, List.of("Outcome."), List.of(), List.of(),
-                List.of());
+                List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
     }
 
     private GuidedWorkflowMetadata metadata() {

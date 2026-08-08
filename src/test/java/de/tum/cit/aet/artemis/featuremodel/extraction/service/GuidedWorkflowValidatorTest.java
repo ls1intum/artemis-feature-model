@@ -41,7 +41,7 @@ class GuidedWorkflowValidatorTest {
     @Test
     void reportsWorkflowReferencingUnknownFeatureAsHardError() {
         GuidedDecisionOption unknown = new GuidedDecisionOption("enable-ghost", "Ghost", "Synthetic option.", List.of("ghost"), List.of(), null, null,
-                List.of("Outcome."), List.of(), List.of(), List.of());
+                List.of("Outcome."), List.of(), List.of(), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
 
         GuidedWorkflowValidator.Result result = validator.validate(model(), workflow(List.of(unknown)), profile(List.of("alpha-service", "tech-capability")));
 
@@ -56,7 +56,7 @@ class GuidedWorkflowValidatorTest {
     @Test
     void reportsCoverageGapAsFindingsStatusWithoutFailing() {
         GuidedDecisionOption partial = new GuidedDecisionOption("enable-nothing", "Nothing", "Synthetic option.", List.of(), List.of(), null, null,
-                List.of("Outcome."), List.of(), List.of(), List.of());
+                List.of("Outcome."), List.of(), List.of(), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
 
         GuidedWorkflowValidator.Result result = validator.validate(model(), workflow(List.of(partial)), profile(List.of("alpha-service", "tech-capability")));
 
@@ -85,7 +85,7 @@ class GuidedWorkflowValidatorTest {
 
     private GuidedWorkflow coveringWorkflow() {
         GuidedDecisionOption option = new GuidedDecisionOption("enable-alpha", "Alpha", "Synthetic option.", List.of("alpha"), List.of(), null, null,
-                List.of("Outcome."), List.of(), List.of(), List.of());
+                List.of("Outcome."), List.of(), List.of(), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
         return workflow(List.of(option));
     }
 
