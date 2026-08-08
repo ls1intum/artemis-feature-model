@@ -15,6 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.DockerSnapshotConte
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -60,7 +61,7 @@ class DockerSnapshotContextStagerTest {
             assertThat(files.map(path -> path.getFileName().toString()).sorted().toList()).containsExactly("checksums.txt", "config-key-catalog.json",
                     "feature-model.json", "generation-report.json", "guided-workflow.json", "metadata.json", "provenance.json");
         }
-        assertThat(Files.readAllLines(context.propertiesFile())).startsWith("ARTEMIS_COMMIT=" + ARTEMIS_COMMIT, "EXTRACTOR_VERSION=0.3.0",
+        assertThat(Files.readAllLines(context.propertiesFile())).startsWith("ARTEMIS_COMMIT=" + ARTEMIS_COMMIT, "EXTRACTOR_VERSION=" + ScanResult.EXTRACTOR_VERSION,
                 "FEATURE_MODEL_REPOSITORY_COMMIT=" + REPOSITORY_COMMIT).anyMatch(line -> line.startsWith("MANIFEST_DIGEST=sha256:"))
                 .anyMatch(line -> line.startsWith("SNAPSHOT_DIGEST=sha256:")).anyMatch(line -> line.startsWith("SNAPSHOT_ID=generated-"));
     }

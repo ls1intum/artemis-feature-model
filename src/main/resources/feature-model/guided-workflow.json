@@ -3,7 +3,7 @@
   "workflow": {
     "id": "artemis-guided-configuration",
     "name": "Artemis Guided Configuration Workflow",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "defaultTemplateId": "custom-configuration"
   },
   "useCaseTemplates": [
@@ -230,6 +230,7 @@
           "options": [
             {
               "id": "enable-lecture-materials",
+              "status": "published",
               "label": "Enable lecture materials",
               "description": "Allow teachers to manage lectures and lecture units.",
               "selects": [
@@ -252,6 +253,7 @@
             },
             {
               "id": "enable-tutorial-groups",
+              "status": "published",
               "label": "Enable tutorial groups",
               "description": "Allow teachers to manage tutorial groups and related course organization.",
               "selects": [
@@ -274,6 +276,7 @@
             },
             {
               "id": "keep-core-course-workflow",
+              "status": "published",
               "label": "Keep core course workflow",
               "description": "Keep the mandatory course workflow and communication baseline selected.",
               "selects": [
@@ -315,6 +318,7 @@
           "options": [
             {
               "id": "enable-programming-and-quiz",
+              "status": "published",
               "label": "Programming and quiz exercises",
               "description": "Keep the default programming and quiz exercise baseline enabled.",
               "selects": [
@@ -341,6 +345,7 @@
             },
             {
               "id": "enable-written-exercise-types",
+              "status": "published",
               "label": "Written exercise types",
               "description": "Enable text, modeling, and file upload exercises.",
               "selects": [
@@ -381,6 +386,7 @@
           "options": [
             {
               "id": "enable-exams",
+              "status": "published",
               "label": "Enable exams",
               "description": "Allow exam creation and exam-specific workflows.",
               "selects": [
@@ -403,6 +409,7 @@
             },
             {
               "id": "enable-plagiarism",
+              "status": "published",
               "label": "Enable plagiarism checks",
               "description": "Allow plagiarism detection and related integrity workflows.",
               "selects": [
@@ -425,6 +432,7 @@
             },
             {
               "id": "enable-athena",
+              "status": "published",
               "label": "Enable Athena",
               "description": "Enable Athena-backed assessment assistance where supported.",
               "selects": [
@@ -465,6 +473,7 @@
           "options": [
             {
               "id": "enable-atlas",
+              "status": "published",
               "label": "Enable Atlas",
               "description": "Enable adaptive learning functionality.",
               "selects": [
@@ -487,6 +496,7 @@
             },
             {
               "id": "enable-iris",
+              "status": "published",
               "label": "Enable Iris AI Tutor",
               "description": "Enable AI tutoring support through Iris.",
               "selects": [
@@ -511,6 +521,7 @@
             },
             {
               "id": "enable-hyperion",
+              "status": "published",
               "label": "Enable Hyperion",
               "description": "Enable Hyperion functionality for future AI-supported workflows.",
               "selects": [
@@ -543,6 +554,7 @@
           "options": [
             {
               "id": "enable-lti",
+              "status": "published",
               "label": "Enable LTI",
               "description": "Enable LTI platform integration.",
               "selects": [
@@ -567,6 +579,7 @@
             },
             {
               "id": "enable-theia",
+              "status": "published",
               "label": "Enable EduIDE",
               "description": "Enable online IDE support through EduIDE.",
               "selects": [
@@ -591,6 +604,7 @@
             },
             {
               "id": "enable-apollon",
+              "status": "published",
               "label": "Enable Apollon",
               "description": "Enable UML diagram PDF export through the Apollon conversion service.",
               "selects": [
@@ -615,6 +629,7 @@
             },
             {
               "id": "enable-sharing",
+              "status": "published",
               "label": "Enable Sharing Platform",
               "description": "Enable programming exercise import and export through the external Sharing Platform.",
               "selects": [

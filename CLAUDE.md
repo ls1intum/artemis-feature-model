@@ -138,7 +138,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   extractor blocks the run, which writes diagnostics and exits non-zero without
   assembling a model. Manifest-authored semantics win over `@ArtemisFeature`
   annotations, which only fill attributes the manifest leaves open and never
-  grant membership.
+  grant membership. Exclusion reasons are optional: an omitted reason is
+  normalized to `unspecified` and reported as a non-blocking warning. Missing
+  rationale on an excluded runtime toggle also warns, while an included runtime
+  toggle without rationale remains a blocking curation conflict.
 - The extraction run additionally assembles a complete generated feature model
   from the manifest's include entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
@@ -156,6 +159,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   development fixture. Runtime selects the complete classpath or snapshot bundle
   explicitly, and `StaticConfigValidationService` always consumes the catalog from
   that same validated bundle.
+- Enabled configuration keys are not standalone feature candidates and therefore
+  need no manifest membership entries. Their constants, YAML defaults, and usage
+  remain evidence on the owning module candidate and inputs to artifact mappings
+  and the generated config-key catalog; new enabled-property anchors still surface
+  through their module candidates and remain fail-closed.
 - The authored `guided-workflow.json` is lean: decision structure and teacher
   prose only. Model-owned wiring — option `requiresCapabilities` and
   `artifactImpacts`, the workflow's feature model pin, and review group

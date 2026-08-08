@@ -126,8 +126,10 @@ public final class FeatureExtractionCli {
      */
     private static void printWorkflowSummary(WorkflowStageService.Summary summary) {
         System.out.println("Guided workflow preparation finished.");
-        System.out.println("  Guided workflow validation: " + summary.validationStatus() + " (" + summary.findingCount() + " finding(s))");
+        System.out.println("  Guided workflow validation: " + summary.validationStatus() + " " + summary.severityCounts());
+        summary.codeCounts().forEach((code, count) -> System.out.println("    " + code + ": " + count));
         System.out.println("  Workflow integrity valid: " + summary.workflowIntegrityValid());
+        System.out.println("  Delivery eligible: " + summary.deliveryEligible());
         System.out.println("  Output: " + summary.workflowDirectory());
     }
 

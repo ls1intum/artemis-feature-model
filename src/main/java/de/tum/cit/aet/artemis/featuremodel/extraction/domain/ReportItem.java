@@ -59,6 +59,12 @@ public record ReportItem(String severity, String code, String subject, String me
     /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
+    /** An excluded candidate omitted its optional reason and uses the stable unspecified fallback. */
+    public static final String CODE_EXCLUSION_REASON_UNSPECIFIED = "EXCLUSION_REASON_UNSPECIFIED";
+
+    /** An excluded runtime toggle omitted its optional human-readable rationale. */
+    public static final String CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING = "EXCLUDED_TOGGLE_RATIONALE_MISSING";
+
     /** The assembled generated model failed the shared structural integrity validation. */
     public static final String CODE_GENERATED_MODEL_INVALID = "GENERATED_MODEL_INVALID";
 

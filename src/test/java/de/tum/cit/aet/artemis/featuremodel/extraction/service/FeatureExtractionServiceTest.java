@@ -45,9 +45,10 @@ class FeatureExtractionServiceTest {
     @Test
     void extractsAllCandidateNamespacesSortedById() {
         List<String> ids = outcome.candidates().stream().map(FeatureCandidate::id).toList();
-        assertThat(ids).containsExactly("configkey:artemis.alpha.enabled", "configkey:artemis.alpha.gamma.enabled", "configkey:artemis.user-management.beta.enabled",
-                "infra:mysql", "infra:postgres", "module:alpha", "module:beta", "module:beta-extra", "module:delta", "module:gamma", "profile:agentx", "profile:cione",
-                "profile:feprofile", "profile:jenkins", "toggle:ClientOnlyToggle", "toggle:ServerOnlyToggle", "toggle:ToggleOne", "toggle:ToggleTwo");
+        assertThat(ids).containsExactly("infra:mysql", "infra:postgres", "module:alpha", "module:beta", "module:beta-extra", "module:delta", "module:gamma",
+                "profile:agentx", "profile:cione", "profile:feprofile", "profile:jenkins", "toggle:ClientOnlyToggle", "toggle:ServerOnlyToggle", "toggle:ToggleOne",
+                "toggle:ToggleTwo");
+        assertThat(ids).noneMatch(id -> id.startsWith("configkey:"));
     }
 
     @Test

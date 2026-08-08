@@ -277,10 +277,66 @@ describe('FeatureModelConfiguratorComponent', () => {
         const requestBody = flushValidation(httpMock, validResult());
         fixture.detectChanges();
 
-        expect(requestBody.selectedFeatureIds).toEqual(['course-workflow', 'communication', 'exercise-common', 'programming', 'quiz']);
+        // Guided-owned features follow the template presets, while functional features no guided option governs
+        // (tutorialgroup, exam, plagiarism, atlas) keep their current default-on state.
+        expect(requestBody.selectedFeatureIds).toHaveLength(9);
+        expect(requestBody.selectedFeatureIds).toEqual(
+            expect.arrayContaining([
+                'course-workflow',
+                'communication',
+                'exercise-common',
+                'programming',
+                'quiz',
+                'tutorialgroup',
+                'exam',
+                'plagiarism',
+                'atlas',
+            ]),
+        );
         expect(fixture.componentInstance.selectedFeatureIds().has('lecture')).toBe(false);
         expect(fixture.componentInstance.selectedFeatureIds().has('iris')).toBe(false);
-        expect(rootEl(fixture).querySelector('[data-testid="selected-count"]')?.textContent?.trim()).toBe('5');
+        expect(rootEl(fixture).querySelector('[data-testid="selected-count"]')?.textContent?.trim()).toBe('9');
+    });
+
+    it('preserves tree-only functional selections across template switches', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+
+        // Tree-only edits: athena on and exam off; neither feature is governed by a guided option.
+        const editedSelection = new Set(fixture.componentInstance.selectedFeatureIds());
+        editedSelection.add('athena');
+        editedSelection.delete('exam');
+        fixture.componentInstance.onReplaceSelection(editedSelection);
+        flushValidation(httpMock, validResult());
+
+        clickByTestId(fixture, 'template-card-ai-enabled-course');
+        const requestBody = flushValidation(httpMock, validResult());
+        fixture.detectChanges();
+
+        expect(requestBody.selectedFeatureIds).toEqual(expect.arrayContaining(['athena', 'iris', 'atlas', 'text']));
+        expect(requestBody.selectedFeatureIds).not.toContain('exam');
+        // Guided-owned features still follow the template: modeling is governed and not preset by the template.
+        expect(requestBody.selectedFeatureIds).not.toContain('modeling');
+    });
+
+    it('keeps tree-only selections when switching to the custom configuration template', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+
+        const editedSelection = new Set(fixture.componentInstance.selectedFeatureIds());
+        editedSelection.add('athena');
+        editedSelection.delete('exam');
+        fixture.componentInstance.onReplaceSelection(editedSelection);
+        flushValidation(httpMock, validResult());
+
+        clickByTestId(fixture, 'template-card-custom-configuration');
+        const requestBody = flushValidation(httpMock, validResult());
+        fixture.detectChanges();
+
+        expect(requestBody.selectedFeatureIds).toContain('athena');
+        expect(requestBody.selectedFeatureIds).not.toContain('exam');
+        // Guided-owned features return to the model defaults for the default template.
+        expect(requestBody.selectedFeatureIds).toEqual(expect.arrayContaining(['lecture', 'exercise-common', 'programming', 'quiz']));
     });
 
     it('preserves non-guided technical defaults when a template is chosen', () => {

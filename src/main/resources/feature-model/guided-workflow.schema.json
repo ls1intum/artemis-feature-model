@@ -196,6 +196,7 @@
       "type": "object",
       "required": [
         "id",
+        "status",
         "label",
         "description",
         "selects",
@@ -209,6 +210,10 @@
       "properties": {
         "id": {
           "$ref": "#/$defs/id"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published"]
         },
         "label": {
           "type": "string",

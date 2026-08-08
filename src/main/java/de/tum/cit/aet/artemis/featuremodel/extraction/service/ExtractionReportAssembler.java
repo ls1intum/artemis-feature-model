@@ -35,6 +35,10 @@ class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION, "A source annotation contradicts the manifest entry for the same anchor; the manifest value is used."),
             Map.entry(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, "An annotated source anchor could not be joined to an extracted candidate."),
             Map.entry(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "A manifest anchor matches no extraction candidate of this scan, or matches more than one."),
+            Map.entry(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED,
+                    "An excluded candidate omitted its optional reason code and is grouped under the stable unspecified fallback."),
+            Map.entry(ReportItem.CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING,
+                    "An excluded runtime toggle omitted its optional human-readable rationale."),
             Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries, annotations, or resolved semantics collide for this scan and need review.")));
 
     /**

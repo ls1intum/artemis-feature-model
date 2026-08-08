@@ -20,8 +20,6 @@ final class CandidateAssembler {
 
     private final DeploymentCandidateAssembler deploymentAssembler = new DeploymentCandidateAssembler();
 
-    private final ConfigKeyCandidateAssembler configKeyAssembler = new ConfigKeyCandidateAssembler();
-
     /**
      * Assembly result over all scans.
      *
@@ -47,7 +45,6 @@ final class CandidateAssembler {
         List<FeatureCandidate> candidates = new ArrayList<>(modules.candidates());
         candidates.addAll(runtimeToggleAssembler.assemble(input, context));
         candidates.addAll(deploymentAssembler.assemble(input, context));
-        candidates.addAll(configKeyAssembler.assemble(input, context));
         candidates.sort(Comparator.comparing(FeatureCandidate::id));
 
         return new Result(List.copyOf(candidates), context.sortedEvidence(), relations, context.items());

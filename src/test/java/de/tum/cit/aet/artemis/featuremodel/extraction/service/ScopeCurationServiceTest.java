@@ -100,7 +100,7 @@ class ScopeCurationServiceTest {
     }
 
     @Test
-    void flagsRuntimeToggleEntriesWithoutRationale() {
+    void blocksIncludedRuntimeToggleEntriesWithoutRationale() {
         IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of(), List.of());
         FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
@@ -114,6 +114,28 @@ class ScopeCurationServiceTest {
             assertThat(item.message()).contains("no rationale");
         });
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> assertThat(feature.id()).isEqualTo("toggle-one"));
+    }
+
+    @Test
+    void warnsButAcceptsExcludedRuntimeToggleWithoutReasonOrRationale() {
+        FeatureScopeManifest.ExcludeEntry excludedToggle = new FeatureScopeManifest.ExcludeEntry("toggle:ToggleOne", null, null);
+        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(), List.of(excludedToggle), List.of(), List.of(), List.of(),
+                List.of());
+        FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
+                null, null, null);
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of());
+        ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, result.includedFeatures(), List.of(), result.report(),
+                result.items(), List.of());
+
+        assertThat(result.report().decisions()).singleElement().satisfies(decision -> {
+            assertThat(decision.state()).isEqualTo(ScopeCurationService.STATE_EXCLUDE);
+            assertThat(decision.reason()).isEqualTo(FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED);
+        });
+        assertThat(result.items()).extracting(ReportItem::code).containsExactlyInAnyOrder(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED,
+                ReportItem.CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING);
+        assertThat(result.items()).allSatisfy(item -> assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING));
+        assertThat(conformance.conformance().conformant()).isTrue();
     }
 
     private FeatureCandidate module(String id, String conditionClass) {

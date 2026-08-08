@@ -85,7 +85,8 @@ class ScopeCurationService {
     /**
      * Resolves the include and exclude anchors onto candidates. An anchor that resolves to no candidate or to several
      * candidates yields an orphan diagnostic and is skipped; several entries resolving to the same candidate yield a
-     * conflict diagnostic and the first entry wins. Runtime-toggle entries without written rationale are flagged.
+     * conflict diagnostic and the first entry wins. Included runtime-toggle entries without written rationale block the
+     * run; excluded entries with omitted reason or runtime-toggle rationale produce non-blocking warnings.
      *
      * @param manifest loaded manifest.
      * @param resolver candidate resolver.
@@ -100,7 +101,7 @@ class ScopeCurationService {
                 continue;
             }
             membershipByCandidate.put(candidateId, new Membership(entry, null));
-            requireToggleRationale(resolver.candidate(candidateId), entry.anchor(), entry.rationale(), items);
+            requireIncludedToggleRationale(resolver.candidate(candidateId), entry.anchor(), entry.rationale(), items);
         }
         for (ExcludeEntry entry : manifest.exclude()) {
             String candidateId = resolveAnchor(entry.anchor(), resolver, items);
@@ -108,7 +109,7 @@ class ScopeCurationService {
                 continue;
             }
             membershipByCandidate.put(candidateId, new Membership(null, entry));
-            requireToggleRationale(resolver.candidate(candidateId), entry.anchor(), entry.rationale(), items);
+            reportIncompleteExclusionDocumentation(resolver.candidate(candidateId), entry, items);
         }
         return membershipByCandidate;
     }
@@ -149,17 +150,36 @@ class ScopeCurationService {
     }
 
     /**
-     * Flags runtime-toggle manifest entries without documented reasoning; every toggle decision must record why.
+     * Flags included runtime-toggle entries without documented reasoning; every included toggle decision must record
+     * why.
      *
      * @param candidate resolved candidate.
      * @param anchor manifest anchor of the entry.
      * @param rationale documented reasoning, or null.
      * @param items report item sink.
      */
-    private void requireToggleRationale(FeatureCandidate candidate, String anchor, String rationale, List<ReportItem> items) {
+    private void requireIncludedToggleRationale(FeatureCandidate candidate, String anchor, String rationale, List<ReportItem> items) {
         if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && rationale == null) {
             items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidate.id(),
-                    "Runtime toggle entry '" + anchor + "' has no rationale; every toggle decision must document its reasoning."));
+                    "Included runtime toggle entry '" + anchor + "' has no rationale; every included toggle decision must document its reasoning."));
+        }
+    }
+
+    /**
+     * Reports optional exclusion documentation that was omitted without making the curation decision non-conformant.
+     *
+     * @param candidate resolved excluded candidate.
+     * @param entry manifest exclusion entry.
+     * @param items report item sink.
+     */
+    private void reportIncompleteExclusionDocumentation(FeatureCandidate candidate, ExcludeEntry entry, List<ReportItem> items) {
+        if (FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED.equals(entry.reason())) {
+            items.add(ReportItem.warning(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED, candidate.id(),
+                    "Excluded candidate has no reason code; the curation report groups it under '" + FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED + "'."));
+        }
+        if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && entry.rationale() == null) {
+            items.add(ReportItem.warning(ReportItem.CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING, candidate.id(),
+                    "Excluded runtime toggle entry '" + entry.anchor() + "' has no rationale; document why it stays outside the model when practical."));
         }
     }
 
