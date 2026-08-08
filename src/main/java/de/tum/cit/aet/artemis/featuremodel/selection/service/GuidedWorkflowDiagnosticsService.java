@@ -19,22 +19,24 @@ import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.UseCaseTemplate;
 
 /**
- * Produces soft diagnostics about the guided workflow that must never fail a request: coverage of the selectable
- * functional features by guided decisions, validity of the capability ids the model references, template consistency,
- * and unfinished scaffold prose. Hard reference errors stay with {@link GuidedWorkflowIntegrityService} and keep
- * throwing; the findings here are a warning channel shared between the running app and the extraction pipeline's
- * generation report, so a coverage gap surfaces in both without ever turning into an HTTP 500.
+ * Produces graded diagnostics about the guided workflow that never fail a request in the running app: coverage of the
+ * selectable functional features by published guided decisions, validity of the capability ids the model references,
+ * template consistency, lifecycle states, and completeness of published prose. Hard reference errors stay with
+ * {@link GuidedWorkflowIntegrityService} and keep throwing; the findings here are a shared channel between the running
+ * app and the extraction pipeline's generation report. Severity is assigned together with the code: {@code error}
+ * findings describe an invalid or semantically incomplete published contract and block snapshot delivery, while
+ * {@code warning} findings describe incompleteness of the guided surface that publishes.
  */
 @Service
 public class GuidedWorkflowDiagnosticsService {
 
     private static final String CATEGORY_FUNCTIONAL = "functional";
 
-    /** Sentinel prefix that marks scaffold-generated prose awaiting a human author. */
-    private static final String STUB_PROSE_PREFIX = "TODO";
+    private final GuidedWorkflowProjectionService projectionService = new GuidedWorkflowProjectionService();
 
     /**
-     * Collects coverage, template-consistency, and stub-prose findings for a workflow against a model.
+     * Collects coverage, template-consistency, lifecycle, and published-completeness findings for a workflow against
+     * a model.
      *
      * @param workflow guided workflow, lean or enriched.
      * @param featureModel feature model to check coverage against.
@@ -45,7 +47,8 @@ public class GuidedWorkflowDiagnosticsService {
         addCoverageFindings(workflow, featureModel, findings);
         addReviewGroupFindings(workflow, featureModel, findings);
         addTemplateFindings(workflow, findings);
-        addStubProseFindings(workflow, findings);
+        addPublishedCompletenessFindings(workflow, findings);
+        addLifecycleFindings(workflow, featureModel, findings);
         return List.copyOf(findings);
     }
 
@@ -64,20 +67,20 @@ public class GuidedWorkflowDiagnosticsService {
     }
 
     /**
-     * Warns for every selectable functional feature that no guided decision option selects. An uncovered feature is
-     * silently invisible in the guided flow while still being validated and exported, which is exactly the silent
-     * breakage this check surfaces.
+     * Warns for every selectable functional feature that no published guided decision option selects. Draft options
+     * do not count as coverage: an uncovered or draft-only feature remains configurable in the tree, and the warning
+     * keeps surfacing until its guided explanation is published.
      *
      * @param workflow guided workflow.
      * @param featureModel feature model.
      * @param findings finding sink.
      */
     private void addCoverageFindings(GuidedWorkflow workflow, FeatureModel featureModel, List<GuidedWorkflowFinding> findings) {
-        Set<String> coveredFeatureIds = selectedFeatureIds(workflow);
+        Set<String> coveredFeatureIds = publishedSelectedFeatureIds(workflow);
         for (FeatureNode feature : featureModel.features()) {
             if (isGuidedEligible(feature) && !coveredFeatureIds.contains(feature.id())) {
                 findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_COVERAGE_GAP, feature.id(),
-                        "Selectable functional feature '" + feature.id() + "' is not selected by any guided decision option."));
+                        "Selectable functional feature '" + feature.id() + "' is not selected by any published guided decision option."));
             }
         }
     }
@@ -106,8 +109,8 @@ public class GuidedWorkflowDiagnosticsService {
     }
 
     /**
-     * Warns for every capability id a model feature requires that no known deployment profile provides. A typo in a
-     * capability id silently disables the feature under every profile, so an unknown id is always worth surfacing.
+     * Raises an error for every capability id a model feature requires that no known deployment profile provides. A
+     * typo in a capability id silently disables the feature under every profile, so an unknown id blocks delivery.
      *
      * @param featureModel feature model.
      * @param knownCapabilities union of provided capability ids.
@@ -117,7 +120,7 @@ public class GuidedWorkflowDiagnosticsService {
         for (FeatureNode feature : featureModel.features()) {
             for (String capability : feature.requiresCapabilities()) {
                 if (!knownCapabilities.contains(capability)) {
-                    findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_UNKNOWN_CAPABILITY, capability,
+                    findings.add(GuidedWorkflowFinding.error(GuidedWorkflowFinding.CODE_UNKNOWN_CAPABILITY, capability,
                             "Feature '" + feature.id() + "' requires capability '" + capability + "' which no known deployment profile provides."));
                 }
             }
@@ -125,18 +128,25 @@ public class GuidedWorkflowDiagnosticsService {
     }
 
     /**
-     * Warns for templates that both select and deselect a feature, and for a default template that carries preset
-     * selections instead of deferring to the backend-derived default selection.
+     * Raises errors for templates that both select and deselect a feature and for templates that preset a feature no
+     * published option covers, and warns for a default template that carries preset selections instead of deferring
+     * to the backend-derived default selection. A preset of a draft-only or uncovered feature would enable the
+     * feature through the guided UI without its published explanation, so it blocks delivery.
      *
      * @param workflow guided workflow.
      * @param findings finding sink.
      */
     private void addTemplateFindings(GuidedWorkflow workflow, List<GuidedWorkflowFinding> findings) {
+        Set<String> coveredFeatureIds = publishedSelectedFeatureIds(workflow);
         for (UseCaseTemplate template : workflow.useCaseTemplates()) {
             for (String featureId : template.selectedFeatureIds()) {
                 if (template.deselectedFeatureIds().contains(featureId)) {
-                    findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_TEMPLATE_CONFLICT, template.id(),
+                    findings.add(GuidedWorkflowFinding.error(GuidedWorkflowFinding.CODE_TEMPLATE_CONFLICT, template.id(),
                             "Template '" + template.id() + "' both selects and deselects feature '" + featureId + "'."));
+                }
+                if (!coveredFeatureIds.contains(featureId)) {
+                    findings.add(GuidedWorkflowFinding.error(GuidedWorkflowFinding.CODE_TEMPLATE_UNCOVERED_PRESET, template.id(),
+                            "Template '" + template.id() + "' presets feature '" + featureId + "' which no published guided decision option covers."));
                 }
             }
             boolean isDefaultTemplate = template.id().equals(workflow.workflow().defaultTemplateId());
@@ -148,19 +158,21 @@ public class GuidedWorkflowDiagnosticsService {
     }
 
     /**
-     * Warns for options whose prose still carries the scaffold TODO sentinel, so generated stubs keep surfacing until
-     * a human writes the teacher-facing text.
+     * Raises an error for every published option whose required prose is incomplete: blank or TODO label,
+     * description, enabled outcome, recommendation, or things-to-know entries, or an incomplete decision question or
+     * description. The runtime projection defensively omits such options; extraction blocks the run so the gap is
+     * fixed at the source.
      *
      * @param workflow guided workflow.
      * @param findings finding sink.
      */
-    private void addStubProseFindings(GuidedWorkflow workflow, List<GuidedWorkflowFinding> findings) {
+    private void addPublishedCompletenessFindings(GuidedWorkflow workflow, List<GuidedWorkflowFinding> findings) {
         for (GuidedWorkflowStep step : workflow.steps()) {
             for (GuidedDecision decision : step.decisions()) {
                 for (GuidedDecisionOption option : decision.options()) {
-                    if (hasStubProse(option)) {
-                        findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_STUB_PROSE, option.id(),
-                                "Option '" + option.id() + "' still carries scaffold TODO prose and needs authored text."));
+                    if (!option.isDraft() && !projectionService.hasCompletePublishedProse(option, decision)) {
+                        findings.add(GuidedWorkflowFinding.error(GuidedWorkflowFinding.CODE_STUB_PROSE, option.id(),
+                                "Published option '" + option.id() + "' or its decision still carries TODO or empty required prose."));
                     }
                 }
             }
@@ -168,21 +180,70 @@ public class GuidedWorkflowDiagnosticsService {
     }
 
     /**
-     * Collects every feature id selected by at least one guided decision option.
+     * Warns for options without an explicit lifecycle status, for existing draft options, and for draft options that
+     * reference a feature unknown to the model. A draft typo is visible from the first run but never blocks one; it
+     * hardens into a hard reference error the moment the option is published.
      *
      * @param workflow guided workflow.
-     * @return selected feature ids.
+     * @param featureModel feature model.
+     * @param findings finding sink.
      */
-    private Set<String> selectedFeatureIds(GuidedWorkflow workflow) {
+    private void addLifecycleFindings(GuidedWorkflow workflow, FeatureModel featureModel, List<GuidedWorkflowFinding> findings) {
+        Set<String> knownFeatureIds = new LinkedHashSet<>();
+        featureModel.features().forEach(feature -> knownFeatureIds.add(feature.id()));
+        for (GuidedWorkflowStep step : workflow.steps()) {
+            for (GuidedDecision decision : step.decisions()) {
+                for (GuidedDecisionOption option : decision.options()) {
+                    if (!option.hasExplicitStatus()) {
+                        findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_MISSING_STATUS, option.id(),
+                                "Option '" + option.id() + "' declares no lifecycle status and is treated as published."));
+                    }
+                    if (!option.isDraft()) {
+                        continue;
+                    }
+                    findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_DRAFT_OPTION, option.id(),
+                            "Option '" + option.id() + "' is a draft and is not served to any client."));
+                    for (String featureId : referencedFeatureIds(option)) {
+                        if (!knownFeatureIds.contains(featureId)) {
+                            findings.add(GuidedWorkflowFinding.warning(GuidedWorkflowFinding.CODE_DRAFT_UNKNOWN_REFERENCE, option.id(),
+                                    "Draft option '" + option.id() + "' references feature '" + featureId + "' which the model does not contain."));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Collects every feature id selected by at least one published guided decision option.
+     *
+     * @param workflow guided workflow.
+     * @return feature ids covered by published options.
+     */
+    private Set<String> publishedSelectedFeatureIds(GuidedWorkflow workflow) {
         Set<String> selected = new LinkedHashSet<>();
         for (GuidedWorkflowStep step : workflow.steps()) {
             for (GuidedDecision decision : step.decisions()) {
                 for (GuidedDecisionOption option : decision.options()) {
-                    selected.addAll(option.selects());
+                    if (!option.isDraft()) {
+                        selected.addAll(option.selects());
+                    }
                 }
             }
         }
         return selected;
+    }
+
+    /**
+     * Collects the feature ids an option selects or deselects, in declaration order.
+     *
+     * @param option decision option.
+     * @return referenced feature ids.
+     */
+    private List<String> referencedFeatureIds(GuidedDecisionOption option) {
+        List<String> referenced = new ArrayList<>(option.selects());
+        referenced.addAll(option.deselects());
+        return referenced;
     }
 
     /**
@@ -215,19 +276,5 @@ public class GuidedWorkflowDiagnosticsService {
             }
         }
         return false;
-    }
-
-    /**
-     * Checks whether any prose field of an option starts with the scaffold TODO sentinel.
-     *
-     * @param option decision option.
-     * @return true if the option carries stub prose.
-     */
-    private boolean hasStubProse(GuidedDecisionOption option) {
-        if (option.description() != null && option.description().startsWith(STUB_PROSE_PREFIX)) {
-            return true;
-        }
-        return List.of(option.enabledOutcome(), option.recommendedWhen(), option.thingsToKnow(), option.warnings()).stream()
-                .flatMap(List::stream).anyMatch(text -> text.startsWith(STUB_PROSE_PREFIX));
     }
 }

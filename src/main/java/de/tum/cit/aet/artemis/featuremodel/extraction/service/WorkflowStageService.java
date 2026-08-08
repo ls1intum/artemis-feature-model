@@ -2,6 +2,7 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
@@ -36,11 +37,14 @@ public class WorkflowStageService {
      * Result of one workflow preparation command.
      *
      * @param workflowDirectory directory the workflow artifacts were written to.
-     * @param validationStatus automation status of the guided workflow validation.
-     * @param findingCount number of guided workflow findings.
-     * @param workflowIntegrityValid whether the workflow passed hard reference validation against the model.
+     * @param validationStatus status of the guided workflow validation, {@code pass} or {@code findings}.
+     * @param workflowIntegrityValid whether the effective workflow passed hard reference validation against the model.
+     * @param deliveryEligible whether hard references passed and no error-severity finding exists.
+     * @param severityCounts guided workflow finding counts per severity, sorted by severity.
+     * @param codeCounts guided workflow finding counts per code, sorted by code.
      */
-    public record Summary(Path workflowDirectory, String validationStatus, int findingCount, boolean workflowIntegrityValid) {
+    public record Summary(Path workflowDirectory, String validationStatus, boolean workflowIntegrityValid, boolean deliveryEligible,
+            Map<String, Integer> severityCounts, Map<String, Integer> codeCounts) {
     }
 
     /**
@@ -64,8 +68,8 @@ public class WorkflowStageService {
                     inputLoader.deploymentProfile(inputs));
             artifactStore.writeWorkflow(context.layout(), validation, authoredWorkflowBytes, model.result().generatedModelDigest(), context.artemisCommit());
 
-            return new Summary(context.layout().workflowDirectory(), validation.guidedValidation().status(), validation.guidedValidation().findings().size(),
-                    validation.workflowIntegrityValid());
+            return new Summary(context.layout().workflowDirectory(), validation.guidedValidation().status(), validation.workflowIntegrityValid(),
+                    validation.deliveryEligible(), validation.guidedValidation().severityCounts(), validation.guidedValidation().codeCounts());
         }
         catch (IOException | RuntimeException failure) {
             new ControlledFailureReportWriter(artifactStore).write(context, failure);

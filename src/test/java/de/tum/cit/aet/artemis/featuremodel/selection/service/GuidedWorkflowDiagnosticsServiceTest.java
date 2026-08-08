@@ -77,6 +77,7 @@ class GuidedWorkflowDiagnosticsServiceTest {
 
         assertThat(typoFindings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_UNKNOWN_CAPABILITY);
         assertThat(typoFindings.getFirst().subject()).isEqualTo("athena-servcie");
+        assertThat(typoFindings.getFirst().severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_ERROR);
     }
 
     @Test
@@ -90,6 +91,27 @@ class GuidedWorkflowDiagnosticsServiceTest {
 
         assertThat(findings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_TEMPLATE_CONFLICT);
         assertThat(findings.getFirst().subject()).isEqualTo("conflicted");
+        assertThat(findings.getFirst().severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_ERROR);
+    }
+
+    @Test
+    void raisesErrorForTemplatePresettingAnUncoveredFeature() {
+        // The workflow covers athena only as a draft, so the template preset would enable an unexplained feature.
+        UseCaseTemplate presetting = new UseCaseTemplate("presetting", "Presetting", "Synthetic template.", List.of("athena"), List.of(), List.of(),
+                List.of(), List.of());
+        GuidedWorkflowStep step = new GuidedWorkflowStep("selection", "Selection", 1, "Synthetic step.",
+                List.of(new GuidedDecision("decision", "Question?", "Synthetic decision.", "multiple",
+                        List.of(option("enable-core", List.of("exercise-common", "programming", "quiz")),
+                                option("enable-athena", List.of("athena"), GuidedDecisionOption.STATUS_DRAFT)))));
+        GuidedWorkflow workflow = new GuidedWorkflow(metadata(), List.of(emptyDefaultTemplate(), presetting), List.of(step), List.of(reviewGroup()));
+
+        List<GuidedWorkflowFinding> findings = service.findings(workflow, TestFeatureModels.baseModel());
+
+        assertThat(findings).filteredOn(finding -> finding.code().equals(GuidedWorkflowFinding.CODE_TEMPLATE_UNCOVERED_PRESET))
+                .singleElement().satisfies(finding -> {
+                    assertThat(finding.subject()).isEqualTo("presetting");
+                    assertThat(finding.severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_ERROR);
+                });
     }
 
     @Test
@@ -105,7 +127,7 @@ class GuidedWorkflowDiagnosticsServiceTest {
     }
 
     @Test
-    void warnsForScaffoldStubProse() {
+    void raisesErrorForPublishedOptionWithStubOrIncompleteProse() {
         GuidedDecisionOption stub = new GuidedDecisionOption("enable-athena-stub", "Athena", "TODO: describe this option.",
                 List.of("exercise-common", "programming", "quiz", "athena"), List.of(), null, null, List.of("TODO: describe the outcome."), List.of(),
                 List.of(), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
@@ -115,6 +137,48 @@ class GuidedWorkflowDiagnosticsServiceTest {
 
         assertThat(findings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_STUB_PROSE);
         assertThat(findings.getFirst().subject()).isEqualTo("enable-athena-stub");
+        assertThat(findings.getFirst().severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_ERROR);
+    }
+
+    @Test
+    void draftOptionsWarnAndDoNotCountAsCoverage() {
+        GuidedWorkflowStep step = new GuidedWorkflowStep("selection", "Selection", 1, "Synthetic step.",
+                List.of(new GuidedDecision("decision", "Question?", "Synthetic decision.", "multiple",
+                        List.of(option("enable-core", List.of("exercise-common", "programming", "quiz")),
+                                option("enable-athena", List.of("athena"), GuidedDecisionOption.STATUS_DRAFT)))));
+        GuidedWorkflow workflow = new GuidedWorkflow(metadata(), List.of(emptyDefaultTemplate()), List.of(step), List.of(reviewGroup()));
+
+        List<GuidedWorkflowFinding> findings = service.findings(workflow, TestFeatureModels.baseModel());
+
+        assertThat(findings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_COVERAGE_GAP,
+                GuidedWorkflowFinding.CODE_DRAFT_OPTION);
+        assertThat(findings).allSatisfy(finding -> assertThat(finding.severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_WARNING));
+        assertThat(findings.getFirst().subject()).isEqualTo("athena");
+    }
+
+    @Test
+    void warnsForOptionWithoutExplicitLifecycleStatus() {
+        GuidedWorkflow workflow = workflow(List.of(option("enable-all", List.of("exercise-common", "programming", "quiz", "athena"), null)));
+
+        List<GuidedWorkflowFinding> findings = service.findings(workflow, TestFeatureModels.baseModel());
+
+        assertThat(findings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_MISSING_STATUS);
+        assertThat(findings.getFirst().severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_WARNING);
+    }
+
+    @Test
+    void warnsForDraftOptionReferencingUnknownFeature() {
+        GuidedWorkflowStep step = new GuidedWorkflowStep("selection", "Selection", 1, "Synthetic step.",
+                List.of(new GuidedDecision("decision", "Question?", "Synthetic decision.", "multiple",
+                        List.of(option("enable-all", List.of("exercise-common", "programming", "quiz", "athena")),
+                                option("enable-ghost", List.of("ghost"), GuidedDecisionOption.STATUS_DRAFT)))));
+        GuidedWorkflow workflow = new GuidedWorkflow(metadata(), List.of(emptyDefaultTemplate()), List.of(step), List.of(reviewGroup()));
+
+        List<GuidedWorkflowFinding> findings = service.findings(workflow, TestFeatureModels.baseModel());
+
+        assertThat(findings).extracting(GuidedWorkflowFinding::code).containsExactly(GuidedWorkflowFinding.CODE_DRAFT_OPTION,
+                GuidedWorkflowFinding.CODE_DRAFT_UNKNOWN_REFERENCE);
+        assertThat(findings).allSatisfy(finding -> assertThat(finding.severity()).isEqualTo(GuidedWorkflowFinding.SEVERITY_WARNING));
     }
 
     private GuidedWorkflow coveringWorkflow() {
@@ -133,8 +197,12 @@ class GuidedWorkflowDiagnosticsServiceTest {
     }
 
     private GuidedDecisionOption option(String id, List<String> selects) {
-        return new GuidedDecisionOption(id, "Option " + id, "Synthetic option.", selects, List.of(), null, null, List.of("Outcome."), List.of(), List.of(),
-                List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
+        return option(id, selects, GuidedDecisionOption.STATUS_PUBLISHED);
+    }
+
+    private GuidedDecisionOption option(String id, List<String> selects, String status) {
+        return new GuidedDecisionOption(id, "Option " + id, "Synthetic option.", selects, List.of(), null, null, List.of("Outcome."), List.of("Fits."),
+                List.of("Notes."), List.of(), status);
     }
 
     private GuidedWorkflowMetadata metadata() {

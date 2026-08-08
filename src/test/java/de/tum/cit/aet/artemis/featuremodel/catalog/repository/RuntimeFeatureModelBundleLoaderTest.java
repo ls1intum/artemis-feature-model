@@ -130,6 +130,38 @@ class RuntimeFeatureModelBundleLoaderTest {
     }
 
     @Test
+    void prePhaseSnapshotWithoutStatusFieldsLoadsAndServesItsOptions() throws Exception {
+        ObjectNode workflow = (ObjectNode) objectMapper.readTree(Files.readAllBytes(FIXTURE_ROOT.resolve("fixture-inputs").resolve("guided-workflow.json")));
+        ObjectNode step = (ObjectNode) workflow.withArrayProperty("steps").get(0);
+        ObjectNode decision = (ObjectNode) step.withArrayProperty("decisions").get(0);
+        ((ObjectNode) decision.withArrayProperty("options").get(0)).remove("status");
+        Path statusFreeWorkflow = workingDirectory.resolve("status-free-guided-workflow.json");
+        Files.writeString(statusFreeWorkflow, objectMapper.writeValueAsString(workflow));
+        Path extractionRoot = workingDirectory.resolve("status-free-extraction");
+        FeatureExtractionInputs statusFreeInputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
+                FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), statusFreeWorkflow,
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), extractionRoot);
+        new ScanStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new ModelStageService(objectMapper).run(statusFreeInputs);
+        new WorkflowStageService(objectMapper).run(statusFreeInputs);
+        new PackageStageService(objectMapper).run(statusFreeInputs);
+        Path published = ExtractionArtifactLayout.forCommit(extractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
+        Path dataRoot = workingDirectory.resolve("status-free-data");
+        Path snapshot = Files.createDirectories(dataRoot.resolve("imported-models").resolve(snapshotId));
+        try (var files = Files.list(published)) {
+            for (Path file : files.toList()) {
+                Files.copy(file, snapshot.resolve(file.getFileName()));
+            }
+        }
+
+        RuntimeFeatureModelBundle bundle = loader(new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), snapshotId, false)).load();
+
+        // The status-free option is treated as published and stays served, so pre-phase payloads keep working.
+        assertThat(bundle.workflow().steps().stream().flatMap(workflowStep -> workflowStep.decisions().stream())
+                .flatMap(workflowDecision -> workflowDecision.options().stream()).map(GuidedDecisionOption::id)).containsExactly("enable-alpha");
+    }
+
+    @Test
     void missingSnapshotStopsLoadingWithoutClasspathFallback() {
         assertThatThrownBy(() -> loader(snapshotProperties("generated-missing")).load()).isInstanceOf(FeatureModelLoadException.class)
                 .hasMessageContaining("failed complete validation");

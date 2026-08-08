@@ -15,20 +15,24 @@ import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowFinding;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 
 /**
  * Validates the authored guided workflow against a generated model through the same code paths the running app uses:
- * the hard reference validation that decides snapshot eligibility, and the shared coverage, capability, and
- * consistency diagnostics that become the guided workflow validation report.
+ * the hard reference validation of the effective workflow that decides snapshot eligibility, and the shared coverage,
+ * capability, lifecycle, and consistency diagnostics that become the guided workflow validation report. Hard
+ * reference validation applies to the effective workflow — draft options are projected away first, so a draft
+ * referencing a not-yet-delivered feature surfaces as a warning finding instead of an integrity error. Eligibility is
+ * severity-based: error findings block, warning and info findings publish.
  */
 class GuidedWorkflowValidator {
 
     /**
      * Validation result.
      *
-     * @param workflowIntegrityValid whether the workflow passed hard reference validation against the model.
-     * @param deliveryEligible whether hard references and all automation diagnostics passed.
+     * @param workflowIntegrityValid whether the effective workflow passed hard reference validation against the model.
+     * @param deliveryEligible whether hard references passed and no error-severity finding exists.
      * @param guidedValidation coverage and consistency findings of the workflow against the generated model.
      * @param items validation diagnostics for the extraction report.
      */
@@ -45,23 +49,23 @@ class GuidedWorkflowValidator {
      */
     Result validate(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile) {
         List<ReportItem> items = new ArrayList<>();
-        boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, authoredWorkflow, items);
-        GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, bundledProfile, items);
-        boolean deliveryEligible = workflowIntegrityValid && GuidedWorkflowValidationReport.STATUS_PASS.equals(guidedValidation.status());
-        return new Result(workflowIntegrityValid, deliveryEligible, guidedValidation, List.copyOf(items));
+        GuidedWorkflow effectiveWorkflow = new GuidedWorkflowProjectionService().project(authoredWorkflow).effectiveWorkflow();
+        boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, effectiveWorkflow, items);
+        GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, bundledProfile, workflowIntegrityValid, items);
+        return new Result(workflowIntegrityValid, guidedValidation.deliveryEligible(), guidedValidation, List.copyOf(items));
     }
 
     /**
      * Runs the guided workflow's hard reference validation against the generated model.
      *
      * @param generatedModel assembled generated model.
-     * @param authoredWorkflow authored lean guided workflow.
+     * @param effectiveWorkflow effective guided workflow without draft or incomplete published options.
      * @param items diagnostics sink.
      * @return true when hard workflow reference validation passes.
      */
-    private boolean validateWorkflowReferences(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, List<ReportItem> items) {
+    private boolean validateWorkflowReferences(FeatureModel generatedModel, GuidedWorkflow effectiveWorkflow, List<ReportItem> items) {
         try {
-            new GuidedWorkflowIntegrityService().validate(authoredWorkflow, generatedModel);
+            new GuidedWorkflowIntegrityService().validate(effectiveWorkflow, generatedModel);
             return true;
         }
         catch (FeatureModelIntegrityException e) {
@@ -72,26 +76,36 @@ class GuidedWorkflowValidator {
     }
 
     /**
-     * Runs the shared coverage/capability/consistency diagnostics of the authored workflow against the generated model
-     * and assembles the validation report with its automation status.
+     * Runs the shared coverage/capability/lifecycle diagnostics of the authored workflow against the generated model
+     * and assembles the validation report with its severity-based delivery eligibility.
      *
      * @param generatedModel assembled generated model.
-     * @param authoredWorkflow authored lean guided workflow.
+     * @param authoredWorkflow authored lean guided workflow, drafts included.
      * @param bundledProfile bundled deployment profile.
+     * @param workflowIntegrityValid whether the effective workflow passed hard reference validation.
      * @param items diagnostics sink for the summary item.
      * @return guided workflow validation report.
      */
     private GuidedWorkflowValidationReport guidedValidation(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile,
-            List<ReportItem> items) {
+            boolean workflowIntegrityValid, List<ReportItem> items) {
         Set<String> knownCapabilities = new LinkedHashSet<>(bundledProfile.providedCapabilities());
         List<GuidedWorkflowFinding> findings = new GuidedWorkflowDiagnosticsService().findings(authoredWorkflow, generatedModel, knownCapabilities);
+        Map<String, Integer> severityCounts = new TreeMap<>();
         Map<String, Integer> codeCounts = new TreeMap<>();
-        findings.forEach(finding -> codeCounts.merge(finding.code(), 1, Integer::sum));
+        for (GuidedWorkflowFinding finding : findings) {
+            severityCounts.merge(finding.severity(), 1, Integer::sum);
+            codeCounts.merge(finding.code(), 1, Integer::sum);
+        }
+        boolean hasErrorFinding = findings.stream().anyMatch(GuidedWorkflowFinding::isError);
+        boolean deliveryEligible = workflowIntegrityValid && !hasErrorFinding;
         String status = findings.isEmpty() ? GuidedWorkflowValidationReport.STATUS_PASS : GuidedWorkflowValidationReport.STATUS_FINDINGS;
         if (!findings.isEmpty()) {
-            items.add(ReportItem.error(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(),
-                    "Guided workflow validation against the generated model produced " + findings.size() + " finding(s); see guided-workflow-validation.json."));
+            String message = "Guided workflow validation against the generated model produced " + findings.size()
+                    + " finding(s); see guided-workflow-validation.json.";
+            items.add(hasErrorFinding ? ReportItem.error(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(), message)
+                    : ReportItem.warning(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS, generatedModel.model().id(), message));
         }
-        return new GuidedWorkflowValidationReport(status, generatedModel.model().id(), generatedModel.model().version(), codeCounts, findings);
+        return new GuidedWorkflowValidationReport(status, deliveryEligible, generatedModel.model().id(), generatedModel.model().version(), severityCounts,
+                codeCounts, findings);
     }
 }
