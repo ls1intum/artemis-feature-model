@@ -165,7 +165,7 @@ public class FeatureManifestLoader {
      *
      * @param value raw YAML value of the exclude section, or null when absent.
      * @return parsed exclude entries in manifest order.
-     * @throws FeatureManifestException if an entry is malformed or lacks its mandatory reason.
+     * @throws FeatureManifestException if an entry is malformed.
      */
     private List<ExcludeEntry> parseExcludes(Object value) {
         List<ExcludeEntry> entries = new ArrayList<>();
@@ -174,7 +174,7 @@ public class FeatureManifestLoader {
             String location = "exclude[" + index + "]";
             Map<String, Object> entry = asMap(item, location);
             rejectUnknownFields(entry, EXCLUDE_FIELDS, location);
-            entries.add(new ExcludeEntry(requiredString(entry, "anchor", location), requiredString(entry, "reason", location), optionalString(entry, "rationale", location)));
+            entries.add(new ExcludeEntry(requiredString(entry, "anchor", location), optionalString(entry, "reason", location), optionalString(entry, "rationale", location)));
             index++;
         }
         return List.copyOf(entries);

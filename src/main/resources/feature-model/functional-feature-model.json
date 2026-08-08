@@ -59,8 +59,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.lecture.enabled",
-        "frontendConstant": "MODULE_FEATURE_LECTURE",
-        "backendConditionClass": "LectureEnabled",
+        "clientConstant": "MODULE_FEATURE_LECTURE",
+        "serverConditionClass": "LectureEnabled",
         "evidence": [
           "LectureEnabled.java:13,23",
           "LectureResource.java:81",
@@ -101,8 +101,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.tutorialgroup.enabled",
-        "frontendConstant": "MODULE_FEATURE_TUTORIALGROUP",
-        "backendConditionClass": "TutorialGroupEnabled",
+        "clientConstant": "MODULE_FEATURE_TUTORIALGROUP",
+        "serverConditionClass": "TutorialGroupEnabled",
         "evidence": [
           "TutorialGroupEnabled.java:13,23",
           "TutorialGroupResource.java:75",
@@ -323,8 +323,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.text.enabled",
-        "frontendConstant": "MODULE_FEATURE_TEXT",
-        "backendConditionClass": "TextEnabled",
+        "clientConstant": "MODULE_FEATURE_TEXT",
+        "serverConditionClass": "TextEnabled",
         "evidence": [
           "TextEnabled.java:13,23",
           "TextExerciseResource.java:71",
@@ -365,8 +365,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.modeling.enabled",
-        "frontendConstant": "MODULE_FEATURE_MODELING",
-        "backendConditionClass": "ModelingEnabled",
+        "clientConstant": "MODULE_FEATURE_MODELING",
+        "serverConditionClass": "ModelingEnabled",
         "evidence": [
           "ModelingEnabled.java:13,23",
           "ModelingExerciseResource.java:80",
@@ -407,8 +407,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.fileupload.enabled",
-        "frontendConstant": "MODULE_FEATURE_FILEUPLOAD",
-        "backendConditionClass": "FileUploadEnabled",
+        "clientConstant": "MODULE_FEATURE_FILEUPLOAD",
+        "serverConditionClass": "FileUploadEnabled",
         "evidence": [
           "FileUploadEnabled.java:13,23",
           "FileUploadExerciseResource.java:85",
@@ -470,8 +470,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.exam.enabled",
-        "frontendConstant": "MODULE_FEATURE_EXAM",
-        "backendConditionClass": "ExamEnabled",
+        "clientConstant": "MODULE_FEATURE_EXAM",
+        "serverConditionClass": "ExamEnabled",
         "evidence": [
           "ExamEnabled.java:13,23",
           "ExamResource.java:145",
@@ -512,8 +512,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.plagiarism.enabled",
-        "frontendConstant": "MODULE_FEATURE_PLAGIARISM",
-        "backendConditionClass": "PlagiarismEnabled",
+        "clientConstant": "MODULE_FEATURE_PLAGIARISM",
+        "serverConditionClass": "PlagiarismEnabled",
         "evidence": [
           "PlagiarismEnabled.java:13,23",
           "PlagiarismResource.java:44",
@@ -554,8 +554,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.athena.enabled",
-        "frontendConstant": "MODULE_FEATURE_ATHENA",
-        "backendConditionClass": "AthenaEnabled",
+        "clientConstant": "MODULE_FEATURE_ATHENA",
+        "serverConditionClass": "AthenaEnabled",
         "evidence": [
           "Constants.java:463,563",
           "AthenaEnabled.java:13,23",
@@ -639,8 +639,8 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.atlas.enabled",
-        "frontendConstant": "MODULE_FEATURE_ATLAS",
-        "backendConditionClass": "AtlasEnabled",
+        "clientConstant": "MODULE_FEATURE_ATLAS",
+        "serverConditionClass": "AtlasEnabled",
         "evidence": [
           "AtlasEnabled.java:13,23",
           "CompetencyResource.java:63",
@@ -688,8 +688,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.iris.enabled",
-        "frontendConstant": "MODULE_FEATURE_IRIS",
-        "backendConditionClass": "IrisEnabled",
+        "clientConstant": "MODULE_FEATURE_IRIS",
+        "serverConditionClass": "IrisEnabled",
         "evidence": [
           "IrisEnabled.java:13,23",
           "IrisResource.java:32",
@@ -751,8 +751,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.hyperion.enabled",
-        "frontendConstant": "MODULE_FEATURE_HYPERION",
-        "backendConditionClass": "HyperionEnabled",
+        "clientConstant": "MODULE_FEATURE_HYPERION",
+        "serverConditionClass": "HyperionEnabled",
         "evidence": [
           "HyperionEnabled.java:13,23",
           "HyperionProblemStatementResource.java:55",
@@ -834,8 +834,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.lti.enabled",
-        "frontendConstant": "MODULE_FEATURE_LTI",
-        "backendConditionClass": "LtiEnabled",
+        "clientConstant": "MODULE_FEATURE_LTI",
+        "serverConditionClass": "LtiEnabled",
         "evidence": [
           "LtiEnabled.java:13,23",
           "LtiResource.java:60",
@@ -878,8 +878,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.theia.enabled",
-        "frontendConstant": "MODULE_FEATURE_THEIA",
-        "backendConditionClass": "TheiaEnabled",
+        "clientConstant": "MODULE_FEATURE_THEIA",
+        "serverConditionClass": "TheiaEnabled",
         "evidence": [
           "TheiaEnabled.java:13,23",
           "TheiaConfigurationResource.java:18",
@@ -931,8 +931,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.apollon.enabled",
-        "frontendConstant": "MODULE_FEATURE_APOLLON",
-        "backendConditionClass": "ApollonEnabled",
+        "clientConstant": "MODULE_FEATURE_APOLLON",
+        "serverConditionClass": "ApollonEnabled",
         "evidence": [
           "Constants.java:468,568",
           "ApollonEnabled.java:13,23",
@@ -984,8 +984,8 @@
       "defaultState": "disabled",
       "source": {
         "configKey": "artemis.sharing.enabled",
-        "frontendConstant": "MODULE_FEATURE_SHARING",
-        "backendConditionClass": "SharingEnabled",
+        "clientConstant": "MODULE_FEATURE_SHARING",
+        "serverConditionClass": "SharingEnabled",
         "evidence": [
           "Constants.java:453,553",
           "SharingEnabled.java:13,23",
@@ -1180,7 +1180,7 @@
       "defaultState": "enabled",
       "source": {
         "springProfile": "localci",
-        "frontendConstant": "PROFILE_LOCALCI",
+        "clientConstant": "PROFILE_LOCALCI",
         "evidence": [
           "Constants.java:324",
           "admin-feature-toggle.component.ts:106",
@@ -1223,7 +1223,7 @@
       "defaultState": "disabled",
       "source": {
         "springProfile": "jenkins",
-        "frontendConstant": "PROFILE_JENKINS",
+        "clientConstant": "PROFILE_JENKINS",
         "evidence": [
           "Constants.java:336",
           "admin-feature-toggle.component.ts:106",

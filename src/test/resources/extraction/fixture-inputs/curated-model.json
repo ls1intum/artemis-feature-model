@@ -20,7 +20,7 @@
       "defaultState": "enabled",
       "source": {
         "configKey": "artemis.alpha.enabled",
-        "backendConstant": "MODULE_FEATURE_ALPHA",
+        "serverConstant": "MODULE_FEATURE_ALPHA",
         "conditionClass": "AlphaEnabled",
         "evidence": ["AlphaEnabled.java:12", "application-core.yml:2-3", "Constants.java:999"]
       }

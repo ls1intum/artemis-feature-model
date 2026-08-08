@@ -2,13 +2,16 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -100,7 +103,7 @@ class GeneratedModelAssemblerTest {
 
         FeatureNode alpha = feature(model, "alpha");
         assertThat(alpha.source().configKey()).isEqualTo("artemis.alpha.enabled");
-        assertThat(alpha.source().backendConditionClass()).isEqualTo("AlphaEnabled");
+        assertThat(alpha.source().serverConditionClass()).isEqualTo("AlphaEnabled");
         assertThat(alpha.source().evidence()).containsExactly("AlphaEnabled.java:12,30", "Constants.java:5", "config/i18n.json");
     }
 
@@ -134,6 +137,86 @@ class GeneratedModelAssemblerTest {
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.subject()).isEqualTo("tech-a-excludes-tech-b");
             assertThat(item.message()).contains("target 'tech-b'").contains("not emitted");
+        });
+    }
+
+    @Test
+    void semanticConformanceRejectsEveryManifestControlledSurface() {
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        List<FeatureNode> features = new ArrayList<>(assembled.features());
+        FeatureNode alpha = feature(assembled, "alpha");
+        FeatureNode changedAlpha = new FeatureNode(alpha.id(), alpha.name(), alpha.kind(), alpha.selectable(), alpha.description(), "disabled", alpha.source(),
+                "technical", alpha.visibleTo(), alpha.configurableBy(), List.of("wrong-capability"), List.of(), alpha.extraction());
+        features.set(features.indexOf(alpha), changedAlpha);
+        features.removeIf(feature -> feature.id().equals("tech-b"));
+        features.add(new FeatureNode("undeclared", "Undeclared", "feature", true, null, "disabled", null));
+
+        List<FeatureRelation> relations = assembled.relations().stream().map(relation -> {
+            if (relation.childId().equals("alpha")) {
+                return new FeatureRelation("root", relation.childId(), "mandatory", null, 99);
+            }
+            if (relation.childId().equals("tech-group")) {
+                return new FeatureRelation(relation.parentId(), relation.childId(), relation.relationType(), "or", relation.order());
+            }
+            return relation;
+        }).toList();
+        var constraint = assembled.constraints().getFirst();
+        var constraints = List.of(new FeatureConstraint(constraint.id(), "requires", constraint.source(), constraint.target(), constraint.expression(),
+                constraint.description()));
+        ModelMetadata metadata = new ModelMetadata(assembled.model().id(), assembled.model().name(), assembled.model().version(), "failed",
+                assembled.model().sourceCommitSha());
+        FeatureModel changed = new FeatureModel(metadata, features, relations, constraints);
+
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), changed,
+                ARTEMIS_COMMIT);
+
+        assertThat(findings).allMatch(item -> item.code().equals(ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH));
+        assertThat(findings).extracting(ReportItem::subject).contains("model", "alpha", "tech-b", "undeclared", "tech-group",
+                "tech-a-excludes-tech-b");
+        assertThat(findings).extracting(ReportItem::message).anyMatch(message -> message.contains("category"))
+                .anyMatch(message -> message.contains("default state"))
+                .anyMatch(message -> message.contains("required capabilities"))
+                .anyMatch(message -> message.contains("artifact mappings"))
+                .anyMatch(message -> message.contains("hierarchy relation"))
+                .anyMatch(message -> message.contains("constraint semantics"));
+    }
+
+    @Test
+    void semanticConformanceRejectsAManifestControlledNameChange() {
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureNode alpha = feature(assembled, "alpha");
+        FeatureNode changedAlpha = copyWithText(alpha, "Assembler ignored manifest name", alpha.description());
+
+        assertTextMismatch(assembled, alpha, changedAlpha, "name");
+    }
+
+    @Test
+    void semanticConformanceRejectsAManifestControlledDescriptionChange() {
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureNode techA = feature(assembled, "tech-a");
+        FeatureNode changedTechA = copyWithText(techA, techA.name(), "Assembler ignored manifest description");
+
+        assertTextMismatch(assembled, techA, changedTechA, "description");
+    }
+
+    private FeatureNode copyWithText(FeatureNode feature, String name, String description) {
+        return new FeatureNode(feature.id(), name, feature.kind(), feature.selectable(), description, feature.defaultState(), feature.source(),
+                feature.category(), feature.visibleTo(), feature.configurableBy(), feature.requiresCapabilities(), feature.artifactMappings(),
+                feature.extraction());
+    }
+
+    private void assertTextMismatch(FeatureModel assembled, FeatureNode original, FeatureNode changed, String field) {
+        List<FeatureNode> features = new ArrayList<>(assembled.features());
+        features.set(features.indexOf(original), changed);
+        FeatureModel changedModel = new FeatureModel(assembled.model(), features, assembled.relations(), assembled.constraints());
+
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), changedModel,
+                ARTEMIS_COMMIT);
+
+        assertThat(findings).singleElement().satisfies(finding -> {
+            assertThat(finding.code()).isEqualTo(ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH);
+            assertThat(finding.subject()).isEqualTo(original.id());
+            assertThat(finding.message()).contains("Generated " + field + " differs from the resolved manifest");
         });
     }
 
@@ -175,7 +258,7 @@ class GeneratedModelAssemblerTest {
     private List<EvidenceItem> evidence() {
         return List.of(new EvidenceItem("module:alpha", EvidenceItem.KIND_CONDITION_CLASS, "src/main/java/AlphaEnabled.java", 12, "AlphaEnabled", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_CONDITION_CLASS, "src/main/java/AlphaEnabled.java", 30, "AlphaEnabled", null),
-                new EvidenceItem("module:alpha", EvidenceItem.KIND_BACKEND_CONSTANT, "src/main/java/Constants.java", 5, "MODULE_FEATURE_ALPHA", null),
+                new EvidenceItem("module:alpha", EvidenceItem.KIND_SERVER_CONSTANT, "src/main/java/Constants.java", 5, "MODULE_FEATURE_ALPHA", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_I18N, "config/i18n.json", null, "alpha", null),
                 new EvidenceItem("module:alpha", EvidenceItem.KIND_USAGE_FEATURE_TOGGLE, "src/main/java/AlphaResource.java", 44, "alpha", null));
     }

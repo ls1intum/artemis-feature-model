@@ -4,11 +4,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.GuidedWorkflowScaffoldService;
-import tools.jackson.core.util.DefaultIndenter;
-import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -60,9 +59,7 @@ public final class GuidedWorkflowScaffoldRunner {
      */
     private static void writeReport(ObjectMapper objectMapper, Path reportPath, GuidedWorkflowScaffoldService.ScaffoldReport report) throws Exception {
         Files.createDirectories(reportPath.getParent());
-        DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
-        DefaultPrettyPrinter printer = new DefaultPrettyPrinter().withObjectIndenter(indenter).withArrayIndenter(indenter);
-        Files.write(reportPath, (objectMapper.writer().with(printer).writeValueAsString(report) + "\n").getBytes(StandardCharsets.UTF_8));
+        new ExtractionJsonWriter(objectMapper).write(reportPath, report);
     }
 
     /**

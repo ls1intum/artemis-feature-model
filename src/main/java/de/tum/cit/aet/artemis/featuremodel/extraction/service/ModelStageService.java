@@ -2,19 +2,21 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * The {@code assembleFeatureModel} command: applies the manifest to an existing scan and assembles the generated
- * feature model, the regenerated config key catalog, and the classified comparison against the curated model. It
+ * feature model, the regenerated config key catalog, and the standalone manifest-conformance verdict. It
  * consumes the scan artifacts through the artifact store and never reopens the Artemis checkout, and it fails without
  * a model when the manifest leaves any discovered candidate or relation undecided.
  */
@@ -47,11 +49,10 @@ public class ModelStageService {
      * @param relationCount number of relations in the generated model.
      * @param constraintCount number of constraints in the generated model.
      * @param catalogKeyCount number of keys in the regenerated catalog.
-     * @param diffCounts classified difference counts against the curated model.
      * @param modelIntegrityValid whether the generated model passed structural integrity validation.
      */
     public record Summary(String artemisCommit, Path modelDirectory, Map<String, Integer> curationCounts, int featureCount, int relationCount,
-            int constraintCount, int catalogKeyCount, Map<String, Integer> diffCounts, boolean modelIntegrityValid) {
+            int constraintCount, int catalogKeyCount, boolean modelIntegrityValid) {
     }
 
     /**
@@ -64,32 +65,55 @@ public class ModelStageService {
      *             written before the failure and no model is assembled.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.artemisCommitSha();
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
-        artifactStore.invalidateFrom(layout, ExtractionStage.MODEL);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        FeatureScopeManifest manifest = context.manifest();
+        artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
+        ExtractionArtifactStore.LoadedScan scan;
+        ModelAssemblyService.Outcome outcome;
+        try {
+            scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
+                    context.artemisCommit());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
+        artifactStore.writeModel(context.layout(), outcome, scan.result().payloadDigest(), context.manifestDigest(), context.artemisCommit());
+        writeFailureReport(context, scan, outcome);
+        failIfNotConformant(outcome);
 
-        ModelAssemblyService.Outcome outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.curatedModel(inputs),
-                inputLoader.bootstrapCatalog(inputs), inputLoader.deploymentProfile(inputs), artemisCommit);
-        artifactStore.writeModel(layout, outcome, scan.result().payloadDigest(), inputLoader.manifestDigest(inputs), artemisCommit);
-        failIfNotConformant(outcome.conformance());
+        return new Summary(context.artemisCommit(), context.layout().modelDirectory(), outcome.curation().stateCounts(),
+                outcome.generatedModel().features().size(), outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(),
+                outcome.generatedCatalog().keys().size(), outcome.modelIntegrityValid());
+    }
 
-        return new Summary(artemisCommit, layout.modelDirectory(), outcome.curation().stateCounts(), outcome.generatedModel().features().size(),
-                outcome.generatedModel().relations().size(), outcome.generatedModel().constraints().size(), outcome.generatedCatalog().keys().size(),
-                outcome.modelDiff().classificationCounts(), outcome.modelIntegrityValid());
+    private void writeFailureReport(ExtractionRunContext context, ExtractionArtifactStore.LoadedScan scan, ModelAssemblyService.Outcome outcome)
+            throws IOException {
+        if (outcome.conformance().conformant() && outcome.generatedOutputConformant()) {
+            return;
+        }
+        List<ReportItem> items = new ArrayList<>(scan.outcome().items());
+        items.addAll(outcome.items());
+        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(), items, false);
+        artifactStore.writeReport(context.layout(), report);
     }
 
     /**
      * Fails the command after the diagnostics of an incomplete curation have been written.
      *
-     * @param conformance conformance verdict of the run.
+     * @param outcome model assembly outcome containing both source and generated-output conformance.
      * @throws ManifestConformanceException if the manifest does not describe the scanned source completely.
      */
-    private void failIfNotConformant(ManifestConformance conformance) {
+    private void failIfNotConformant(ModelAssemblyService.Outcome outcome) {
+        ManifestConformance conformance = outcome.conformance();
         if (!conformance.conformant()) {
             throw new ManifestConformanceException("The manifest does not describe the scanned Artemis commit completely: " + conformance.describeFindings()
                     + ". Diagnostics were written, but no feature model was assembled.");
+        }
+        if (!outcome.generatedOutputConformant()) {
+            throw new ManifestConformanceException("The generated model differs from the resolved manifest semantics. Diagnostics were written, and no "
+                    + "downstream artifact may consume this model.");
         }
     }
 }

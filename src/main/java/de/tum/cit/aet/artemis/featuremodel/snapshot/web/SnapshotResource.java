@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -25,6 +26,7 @@ import de.tum.cit.aet.artemis.featuremodel.snapshot.service.SnapshotService;
 
 @RestController
 @RequestMapping("/api/feature-model/snapshots")
+@ConditionalOnProperty(prefix = "artemis.feature-model", name = "snapshot-admin-api-enabled", havingValue = "true")
 public class SnapshotResource {
 
     private static final Logger log = LoggerFactory.getLogger(SnapshotResource.class);

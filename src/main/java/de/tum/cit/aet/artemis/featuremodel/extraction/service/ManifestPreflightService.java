@@ -3,7 +3,6 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 import java.io.IOException;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -45,8 +44,8 @@ public class ManifestPreflightService {
      * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException if the manifest is invalid.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        return new Summary(manifest.manifestVersion(), manifest.artemisCommitSha(), inputLoader.manifestDigest(inputs), manifest.include().size(),
-                manifest.exclude().size());
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        return new Summary(context.manifest().manifestVersion(), context.artemisCommit(), context.manifestDigest(), context.manifest().include().size(),
+                context.manifest().exclude().size());
     }
 }

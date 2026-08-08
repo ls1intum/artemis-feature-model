@@ -5,10 +5,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.function.Function;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
@@ -69,22 +68,26 @@ public class ScanStageService {
      *             pinned commit or is not clean; the scan does not run and no artifact of this run survives.
      */
     public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), manifest.artemisCommitSha());
-        artifactStore.invalidateFrom(layout, ExtractionStage.SCAN);
-        ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
-        new ArtemisSourcePreflight().verify(source, manifest.artemisCommitSha());
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        artifactStore.invalidateFrom(context.layout(), ExtractionStage.SCAN);
+        try {
+            ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
+            new ArtemisSourcePreflight().verify(source, context.artemisCommit());
 
-        String scanStartedAt = Instant.now().toString();
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService(objectMapper).scan(source, inputLoader.curatedModel(inputs),
-                inputLoader.bootstrapCatalog(inputs));
-        String scanFinishedAt = Instant.now().toString();
+            String scanStartedAt = Instant.now().toString();
+            ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
+            String scanFinishedAt = Instant.now().toString();
 
-        ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
-                scanStartedAt, scanFinishedAt, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
-                outcome.items().size());
-        artifactStore.writeScan(layout, metadata, outcome);
-        return new Summary(source.commit(), layout.scanDirectory(), outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
-                outcome.items().size());
+            ScanMetadata metadata = new ScanMetadata(ScanResult.EXTRACTOR_VERSION, source.root().toString(), source.commit(), source.workingTreeDirty(),
+                    scanStartedAt, scanFinishedAt, outcome.candidates().size(), outcome.evidence().size(), outcome.relationCandidates().size(),
+                    outcome.items().size());
+            artifactStore.writeScan(context.layout(), metadata, outcome);
+            return new Summary(source.commit(), context.layout().scanDirectory(), outcome.candidates().size(), outcome.evidence().size(),
+                    outcome.relationCandidates().size(), outcome.items().size());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            throw failure;
+        }
     }
 }

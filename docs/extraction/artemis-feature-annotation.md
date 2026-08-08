@@ -35,12 +35,11 @@ The feature scope manifest is the only membership arbiter:
 
 - an included anchor enters the E3 generated model;
 - an excluded anchor remains out with its reason code;
-- an unlisted anchor is pending and remains out;
+- an unlisted anchor is a blocking `UNDECLARED_CANDIDATE`;
 - an annotation never auto-includes its anchor.
 
-For an included anchor, explicitly written annotation attributes override the corresponding manifest-entry semantics.
-Unspecified annotation attributes retain their manifest values. The report emits `ANNOTATION_OVERRIDES_MANIFEST` so
-redundant interim semantics can be removed from the manifest after upstream adoption.
+For an included anchor, explicitly authored manifest attributes override annotation semantics. An annotation may only
+fill attributes the manifest leaves open. A conflict is reported, but the manifest value remains authoritative.
 
-An annotation on an excluded or pending candidate emits `ANNOTATED_BUT_UNSCOPED`. An annotation that cannot be joined
+An annotation on an excluded or undeclared candidate emits `ANNOTATED_BUT_UNSCOPED`. An annotation that cannot be joined
 to any extracted candidate emits `ANNOTATED_ANCHOR_NOT_EXTRACTED`.

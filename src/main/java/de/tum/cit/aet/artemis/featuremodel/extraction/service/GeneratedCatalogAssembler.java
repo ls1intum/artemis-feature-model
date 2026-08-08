@@ -1,17 +1,15 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
 /**
@@ -42,7 +40,7 @@ class GeneratedCatalogAssembler {
      * @param artemisCommit resolved commit of the scanned checkout.
      * @return regenerated catalog and diagnostics.
      */
-    Result assemble(FeatureModel generatedModel, YamlConfigScan.Result yamlScan, String artemisCommit) {
+    Result assemble(FeatureModel generatedModel, ExtractedConfigurationDefaults yamlScan, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         TreeSet<String> keys = new TreeSet<>();
         for (FeatureNode feature : generatedModel.features()) {
@@ -54,10 +52,10 @@ class GeneratedCatalogAssembler {
         }
         List<ArtemisConfigKeyCatalog.CatalogKey> catalogKeys = new ArrayList<>();
         for (String key : keys) {
-            YamlConfigScan.KeyOccurrence occurrence = yamlScan.preferredOccurrence(key);
+            ExtractedConfigurationDefault occurrence = yamlScan.preferredOccurrence(key);
             if (occurrence == null) {
-                items.add(ReportItem.info(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, key,
-                        "Overlay mapping key '" + key + "' was not observed in the scanned Artemis YAML defaults; its type is derived from the key name."));
+                items.add(ReportItem.error(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT, key,
+                        "Overlay mapping key '" + key + "' was not observed in the scanned Artemis YAML defaults, so the generated catalog cannot prove it compatible."));
             }
             catalogKeys.add(new ArtemisConfigKeyCatalog.CatalogKey(key, keyType(key, occurrence)));
         }
@@ -68,61 +66,13 @@ class GeneratedCatalogAssembler {
     }
 
     /**
-     * Diffs the regenerated catalog against the curated catalog.
-     *
-     * @param curated curated classpath catalog.
-     * @param generated regenerated catalog.
-     * @return catalog diff with added and removed keys and type changes.
-     */
-    ModelDiffReport.CatalogDiff diff(ArtemisConfigKeyCatalog curated, ArtemisConfigKeyCatalog generated) {
-        Map<String, String> curatedTypes = typesByKey(curated);
-        Map<String, String> generatedTypes = typesByKey(generated);
-        List<String> addedKeys = new ArrayList<>();
-        List<String> removedKeys = new ArrayList<>();
-        List<ModelDiffReport.CatalogDiff.TypeChange> typeChanges = new ArrayList<>();
-        for (Map.Entry<String, String> entry : generatedTypes.entrySet()) {
-            String curatedType = curatedTypes.get(entry.getKey());
-            if (curatedType == null) {
-                addedKeys.add(entry.getKey());
-            }
-            else if (!curatedType.equals(entry.getValue())) {
-                typeChanges.add(new ModelDiffReport.CatalogDiff.TypeChange(entry.getKey(), curatedType, entry.getValue()));
-            }
-        }
-        for (String key : curatedTypes.keySet()) {
-            if (!generatedTypes.containsKey(key)) {
-                removedKeys.add(key);
-            }
-        }
-        addedKeys.sort(String::compareTo);
-        removedKeys.sort(String::compareTo);
-        typeChanges.sort(Comparator.comparing(ModelDiffReport.CatalogDiff.TypeChange::key));
-        return new ModelDiffReport.CatalogDiff(curated.catalogVersion(), curated.verifiedAgainstArtemisCommit(), generated.verifiedAgainstArtemisCommit(),
-                List.copyOf(addedKeys), List.copyOf(removedKeys), List.copyOf(typeChanges));
-    }
-
-    /**
-     * Indexes a catalog's accepted types by key, keeping the catalog order for deterministic iteration.
-     *
-     * @param catalog catalog to index.
-     * @return accepted type per key.
-     */
-    private Map<String, String> typesByKey(ArtemisConfigKeyCatalog catalog) {
-        Map<String, String> typesByKey = new LinkedHashMap<>();
-        for (ArtemisConfigKeyCatalog.CatalogKey key : catalog.keys()) {
-            typesByKey.putIfAbsent(key.key(), key.type());
-        }
-        return typesByKey;
-    }
-
-    /**
      * Derives the accepted value type of a key from its scanned default and its name.
      *
      * @param key dotted configuration key.
      * @param occurrence preferred scanned default, or null when the key has no YAML default.
      * @return accepted value type.
      */
-    private String keyType(String key, YamlConfigScan.KeyOccurrence occurrence) {
+    private String keyType(String key, ExtractedConfigurationDefault occurrence) {
         if (occurrence != null && occurrence.value() instanceof Boolean) {
             return ArtemisConfigKeyCatalog.TYPE_BOOLEAN;
         }

@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -20,12 +21,12 @@ public record ScanResult(int schemaVersion, String extractorVersion, String arte
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
     /** Version of the extraction pipeline, recorded in the scan metadata and verified by every downstream stage. */
-    public static final String EXTRACTOR_VERSION = "0.3.0";
+    public static final String EXTRACTOR_VERSION = "0.4.0";
 
     /**
      * Normalizes the digest map to an immutable copy.
      */
     public ScanResult {
-        payloadDigests = payloadDigests == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(payloadDigests));
+        payloadDigests = payloadDigests == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(payloadDigests));
     }
 }

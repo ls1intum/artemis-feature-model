@@ -13,8 +13,12 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.NodeTuple;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 
 /**
  * Scans all {@code application*.yml} configuration defaults of the checkout into a flat index of dotted keys with
@@ -23,51 +27,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
  */
 class YamlConfigScan {
 
-    static final String CONFIG_DIRECTORY = "src/main/resources/config";
-
-    private static final String APPLICATION_FILE_PREFIX = "application";
-
     /** Files whose defaults take precedence when a key occurs in several configuration files. */
-    private static final List<String> PREFERRED_DEFAULT_FILES = List.of(CONFIG_DIRECTORY + "/application-core.yml", CONFIG_DIRECTORY + "/application.yml");
-
-    /**
-     * One occurrence of a configuration key.
-     *
-     * @param file checkout-relative path of the YAML file.
-     * @param line 1-based line of the key.
-     * @param value parsed scalar value; booleans and integers are typed, everything else stays a string.
-     */
-    record KeyOccurrence(String file, Integer line, Object value) {
-    }
-
-    /**
-     * Scan result over all configuration defaults.
-     *
-     * @param occurrencesByKey occurrences per dotted key; per key ordered by preferred file, then sorted path.
-     * @param errors report items for files that could not be parsed.
-     */
-    record Result(Map<String, List<KeyOccurrence>> occurrencesByKey, List<ReportItem> errors) {
-
-        /**
-         * Creates an empty result for a failed or skipped scan.
-         *
-         * @return result without occurrences.
-         */
-        static Result empty() {
-            return new Result(Map.of(), List.of());
-        }
-
-        /**
-         * Returns the preferred default occurrence of a key.
-         *
-         * @param key dotted configuration key.
-         * @return preferred occurrence, or null when the key was not scanned.
-         */
-        KeyOccurrence preferredOccurrence(String key) {
-            List<KeyOccurrence> occurrences = occurrencesByKey.get(key);
-            return occurrences == null || occurrences.isEmpty() ? null : occurrences.getFirst();
-        }
-    }
+    private static final List<String> PREFERRED_DEFAULT_FILES = List.of(ArtemisSourceConventions.Files.APPLICATION_CORE,
+            ArtemisSourceConventions.Files.APPLICATION);
 
     /**
      * Scans all application configuration YAML files of the given checkout.
@@ -76,8 +38,8 @@ class YamlConfigScan {
      * @return flat key index and per-file parse errors.
      * @throws IOException if the configuration directory cannot be traversed.
      */
-    Result scan(ArtemisSourceRepository source) throws IOException {
-        Map<String, List<KeyOccurrence>> occurrencesByKey = new LinkedHashMap<>();
+    SourceScanResult<ExtractedConfigurationDefaults> scan(ArtemisSourceRepository source) throws IOException {
+        Map<String, List<ExtractedConfigurationDefault>> occurrencesByKey = new LinkedHashMap<>();
         List<ReportItem> errors = new ArrayList<>();
         for (String file : listApplicationFiles(source)) {
             try {
@@ -88,7 +50,8 @@ class YamlConfigScan {
             }
         }
         occurrencesByKey.values().forEach(occurrences -> occurrences.sort(YamlConfigScan::compareOccurrences));
-        return new Result(occurrencesByKey, List.copyOf(errors));
+        ExtractedConfigurationDefaults defaults = new ExtractedConfigurationDefaults(occurrencesByKey, List.copyOf(errors));
+        return SourceScanResult.withDiagnostics(defaults, errors);
     }
 
     /**
@@ -101,9 +64,9 @@ class YamlConfigScan {
      */
     private List<String> listApplicationFiles(ArtemisSourceRepository source) throws IOException {
         List<String> files = new ArrayList<>();
-        for (String file : source.findFiles(CONFIG_DIRECTORY, ".yml")) {
+        for (String file : source.findFiles(ArtemisSourceConventions.Roots.CONFIG, ArtemisSourceConventions.Naming.YAML_SUFFIX)) {
             String fileName = file.substring(file.lastIndexOf('/') + 1);
-            if (fileName.startsWith(APPLICATION_FILE_PREFIX)) {
+            if (fileName.startsWith(ArtemisSourceConventions.Naming.APPLICATION_FILE_PREFIX)) {
                 files.add(file);
             }
         }
@@ -119,7 +82,7 @@ class YamlConfigScan {
      * @param occurrencesByKey accumulating key index.
      * @throws IOException if the file cannot be read.
      */
-    private void scanFile(ArtemisSourceRepository source, String file, Map<String, List<KeyOccurrence>> occurrencesByKey) throws IOException {
+    private void scanFile(ArtemisSourceRepository source, String file, Map<String, List<ExtractedConfigurationDefault>> occurrencesByKey) throws IOException {
         String content = source.readFile(file);
         for (Node document : new Yaml().composeAll(new StringReader(content))) {
             if (document instanceof MappingNode mapping) {
@@ -136,7 +99,7 @@ class YamlConfigScan {
      * @param file checkout-relative path of the scanned file.
      * @param occurrencesByKey accumulating key index.
      */
-    private void collectKeys(String prefix, MappingNode mapping, String file, Map<String, List<KeyOccurrence>> occurrencesByKey) {
+    private void collectKeys(String prefix, MappingNode mapping, String file, Map<String, List<ExtractedConfigurationDefault>> occurrencesByKey) {
         for (NodeTuple tuple : mapping.getValue()) {
             if (!(tuple.getKeyNode() instanceof ScalarNode keyNode)) {
                 continue;
@@ -147,7 +110,7 @@ class YamlConfigScan {
             }
             else if (tuple.getValueNode() instanceof ScalarNode scalar) {
                 int line = keyNode.getStartMark().getLine() + 1;
-                occurrencesByKey.computeIfAbsent(path, unused -> new ArrayList<>()).add(new KeyOccurrence(file, line, convertScalar(scalar.getValue())));
+                occurrencesByKey.computeIfAbsent(path, unused -> new ArrayList<>()).add(new ExtractedConfigurationDefault(file, line, convertScalar(scalar.getValue())));
             }
         }
     }
@@ -183,7 +146,7 @@ class YamlConfigScan {
      * @param second second occurrence.
      * @return comparison result.
      */
-    private static int compareOccurrences(KeyOccurrence first, KeyOccurrence second) {
+    private static int compareOccurrences(ExtractedConfigurationDefault first, ExtractedConfigurationDefault second) {
         int fileComparison = compareFilePaths(first.file(), second.file());
         if (fileComparison != 0) {
             return fileComparison;

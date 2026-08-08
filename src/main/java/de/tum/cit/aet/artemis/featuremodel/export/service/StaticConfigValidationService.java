@@ -14,13 +14,13 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundle;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigFinding;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
@@ -73,10 +73,20 @@ public class StaticConfigValidationService {
      * @param catalogLocation catalog resource location; the curated classpath catalog by default.
      * @throws FeatureModelLoadException if the catalog resource cannot be read or parsed.
      */
-    @Autowired
-    public StaticConfigValidationService(ResourceLoader resourceLoader, ObjectMapper objectMapper,
-            @Value("${featuremodel.static-validation.catalog-location:" + CATALOG_RESOURCE + "}") String catalogLocation) {
+    public StaticConfigValidationService(ResourceLoader resourceLoader, ObjectMapper objectMapper, String catalogLocation) {
         this.catalog = loadCatalog(resourceLoader, objectMapper, catalogLocation);
+        this.typesByKey = catalog.keys().stream().collect(Collectors.toMap(ArtemisConfigKeyCatalog.CatalogKey::key, ArtemisConfigKeyCatalog.CatalogKey::type,
+                (first, second) -> first, LinkedHashMap::new));
+    }
+
+    /**
+     * Creates the application service from the catalog in the validated complete runtime bundle.
+     *
+     * @param runtimeBundle validated process-stable runtime bundle.
+     */
+    @Autowired
+    public StaticConfigValidationService(RuntimeFeatureModelBundle runtimeBundle) {
+        this.catalog = runtimeBundle.catalog();
         this.typesByKey = catalog.keys().stream().collect(Collectors.toMap(ArtemisConfigKeyCatalog.CatalogKey::key, ArtemisConfigKeyCatalog.CatalogKey::type,
                 (first, second) -> first, LinkedHashMap::new));
     }

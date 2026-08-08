@@ -1,0 +1,181 @@
+name: Model delivery validation
+
+on:
+  workflow_call:
+    outputs:
+      artemis_commit:
+        description: Exact Artemis commit used for extraction
+        value: ${{ jobs.validate.outputs.artemis_commit }}
+      image_artifact_name:
+        description: Artifact containing the smoke-tested Docker image
+        value: ${{ jobs.validate.outputs.image_artifact_name }}
+      manifest_digest:
+        description: SHA-256 digest of the extraction manifest
+        value: ${{ jobs.validate.outputs.manifest_digest }}
+      snapshot_digest:
+        description: Validated snapshot digest
+        value: ${{ jobs.validate.outputs.snapshot_digest }}
+      snapshot_id:
+        description: Validated snapshot id
+        value: ${{ jobs.validate.outputs.snapshot_id }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build, extract, and smoke image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      artemis_commit: ${{ steps.preflight.outputs.artemis_commit }}
+      image_artifact_name: ${{ steps.image.outputs.artifact_name }}
+      manifest_digest: ${{ steps.preflight.outputs.manifest_digest }}
+      snapshot_digest: ${{ steps.snapshot.outputs.snapshot_digest }}
+      snapshot_id: ${{ steps.snapshot.outputs.snapshot_id }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Set up Node 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Build client
+        run: npm run build:prod
+
+      - name: Resolve manifest source identity
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          output=$(./gradlew -q featureModelManifestPreflight)
+          printf '%s\n' "$output"
+          artemis_commit=$(printf '%s\n' "$output" | awk -F= '$1 == "artemisCommitSha" { print $2 }')
+          manifest_digest=$(printf '%s\n' "$output" | awk -F= '$1 == "manifestDigest" { print $2 }')
+          [[ "$artemis_commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "artemis_commit=$artemis_commit" >> "$GITHUB_OUTPUT"
+          echo "manifest_digest=$manifest_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Check out manifest-pinned Artemis
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ls1intum/Artemis
+          ref: ${{ steps.preflight.outputs.artemis_commit }}
+          path: build/ci-artemis
+          persist-credentials: false
+
+      - name: Verify exact clean Artemis checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_commit=$(git -C build/ci-artemis rev-parse HEAD)
+          test "$actual_commit" = "${{ steps.preflight.outputs.artemis_commit }}"
+          test -z "$(git -C build/ci-artemis status --porcelain)"
+
+      - name: Build strict feature model snapshot
+        run: >-
+          ./gradlew buildFeatureModelSnapshot
+          -PartemisPath=${{ github.workspace }}/build/ci-artemis
+
+      - name: Upload extraction reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: feature-model-reports-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            build/feature-extraction/*/report/index.html
+            build/feature-extraction/*/report/*.json
+            build/feature-extraction/*/model/manifest-conformance-report.json
+            build/feature-extraction/*/workflow/guided-workflow-validation.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Validate generated snapshot offline
+        id: snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot_path="build/feature-extraction/${{ steps.preflight.outputs.artemis_commit }}/snapshot"
+          output=$(./gradlew -q validateFeatureModelSnapshot -PsnapshotPath="$snapshot_path")
+          printf '%s\n' "$output"
+          snapshot_id=$(printf '%s\n' "$output" | awk -F= '$1 == "snapshotId" { print $2 }')
+          snapshot_digest=$(printf '%s\n' "$output" | awk -F= '$1 == "snapshotDigest" { print $2 }')
+          [[ "$snapshot_id" =~ ^generated-[0-9a-f]{12}-[0-9a-f]{12}$ ]]
+          [[ "$snapshot_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "snapshot_id=$snapshot_id" >> "$GITHUB_OUTPUT"
+          echo "snapshot_digest=$snapshot_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Stage validated Docker context
+        run: >-
+          ./gradlew stageFeatureModelDockerContext
+          -PsnapshotPath=build/feature-extraction/${{ steps.preflight.outputs.artemis_commit }}/snapshot
+
+      - name: Build snapshot image
+        run: >-
+          scripts/build-snapshot-image.sh
+          build/docker/feature-model-snapshot
+          artemis-feature-model:ci-${{ github.sha }}
+
+      - name: Smoke-test snapshot image
+        run: >-
+          scripts/verify-snapshot-image.sh
+          artemis-feature-model:ci-${{ github.sha }}
+          build/docker/feature-model-snapshot
+
+      - name: Save smoke-tested image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_name="snapshot-image-${{ github.sha }}-${{ github.run_attempt }}"
+          docker save --output build/docker/snapshot-image.tar "artemis-feature-model:ci-${{ github.sha }}"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload smoke-tested image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.image.outputs.artifact_name }}
+          path: |
+            build/docker/snapshot-image.tar
+            build/docker/feature-model-snapshot/image-build.properties
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Summarize validation
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Feature model delivery validation'
+            echo
+            echo "- Source commit: \`${{ github.sha }}\`"
+            echo "- Artemis commit: \`${{ steps.preflight.outputs.artemis_commit || 'unavailable' }}\`"
+            echo "- Manifest digest: \`${{ steps.preflight.outputs.manifest_digest || 'unavailable' }}\`"
+            echo "- Snapshot id: \`${{ steps.snapshot.outputs.snapshot_id || 'unavailable' }}\`"
+            echo "- Snapshot digest: \`${{ steps.snapshot.outputs.snapshot_digest || 'unavailable' }}\`"
+            report_path="build/feature-extraction/${{ steps.preflight.outputs.artemis_commit }}/report/extraction-report.json"
+            if test -f "$report_path"; then
+              echo "- Extraction verdict: \`$(jq -r '.status' "$report_path")\`"
+              echo "- Curation counts: include=$(jq -r '.curation.stateCounts.include' "$report_path"), exclude=$(jq -r '.curation.stateCounts.exclude' "$report_path"), undeclared=$(jq -r '.curation.stateCounts.undeclared' "$report_path")"
+              echo "- Report artifact: \`feature-model-reports-${{ github.sha }}-${{ github.run_attempt }}\`"
+            else
+              echo '- Extraction report: unavailable (inspect the failed preflight or extraction step)'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

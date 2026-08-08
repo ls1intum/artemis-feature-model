@@ -8,9 +8,6 @@ include:
     id: alpha-feature
     group: fixture-root
 exclude:
-  - { anchor: configkey:artemis.alpha.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.alpha.gamma.enabled, reason: internal-mechanism }
-  - { anchor: configkey:artemis.user-management.beta.enabled, reason: internal-mechanism }
   - { anchor: infra:mysql, reason: test-fixture }
   - { anchor: infra:postgres, reason: test-fixture }
   - { anchor: module:beta, reason: test-fixture }
@@ -22,10 +19,10 @@ exclude:
   - { anchor: profile:jenkins, reason: test-fixture }
   - anchor: toggle:ClientOnlyToggle
     reason: test-fixture
-    rationale: Deliberate frontend-only fixture toggle.
+    rationale: Deliberate client-only fixture toggle.
   - anchor: toggle:ServerOnlyToggle
     reason: test-fixture
-    rationale: Deliberate backend-only fixture toggle.
+    rationale: Deliberate server-only fixture toggle.
   - anchor: toggle:ToggleOne
     reason: test-fixture
     rationale: Fixture toggle excluded for membership testing.

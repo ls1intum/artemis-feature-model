@@ -5,7 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,13 +20,14 @@ import org.junit.jupiter.api.io.TempDir;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelDiffReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
@@ -45,7 +52,40 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final String OTHER_COMMIT = "bbbbbbbbccccccccddddddddeeeeeeeeffffffff";
 
+    private static final String PINNED_REPOSITORY_COMMIT = "fedcba9876543210fedcba9876543210fedcba98";
+
+    /** Verdict badge the HTML report renders for a run that cannot be published. */
+    private static final String FAILED_VERDICT_BADGE = "<span class=\"verdict bad\">FAIL</span>";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
+            Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
+            Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
+            Map.entry("model/manifest-conformance-report.json", "2d80f6a8e07105f45aec5e67bb40ed9612769040d6e1aaf2a4c9fa9130587bdb"),
+            Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("model/model-result.json", "4f810c62a5636a38ab970df9bb14373017d8a9982c36a01392283b7477e771da"),
+            Map.entry("report/extraction-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
+            Map.entry("report/index.html", "1682de7820a9229d04b79536b31df2f8fe8e58bb302bc9b47160b54c207e7ef4"),
+            Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
+            Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
+            Map.entry("scan/evidence.json", "e2a8098c07ff01667fdf26f4379752187adf29fe079caec341781bb6bebb5f36"),
+            Map.entry("scan/feature-candidates.json", "a9dcac02f05af8308090f3de00ff52e58d285a2f42b311fda7937fb3516e7b58"),
+            Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
+            Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
+            Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
+            Map.entry("snapshot/checksums.txt", "9d93d0fc3c9170664f8bb59bf3efad0a471a2971f02ee8259ea8de3a99abd660"),
+            Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
+            Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
+            Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
+            Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("snapshot/metadata.json", "49bcf54a85bf77dca9178d103f230db507172b277adb55dc0ff67c3a8210f6ab"),
+            Map.entry("snapshot/provenance.json", "a9f779f11cf7aafd5c937d6c526a2ef4de01009f37931feb109bb30923e037e7"),
+            Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
+            Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
+            Map.entry("workflow/workflow-result.json", "ad7c4d85fedb41cb8960c92a9152571e9a9d40d8e569cfa82a365b2cd959f189"));
 
     @TempDir
     private Path outputRoot;
@@ -57,8 +97,7 @@ class ExtractionPipelineCharacterizationTest {
     @BeforeEach
     void resolveInputs() {
         inputs = new FeatureExtractionInputs(FIXTURE_PATH, Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"),
-                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
-                FIXTURE_INPUTS.resolve("curated-model.json"), FIXTURE_INPUTS.resolve("config-key-catalog.json"), outputRoot);
+                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"), outputRoot);
         layout = ExtractionArtifactLayout.forCommit(outputRoot, PINNED_COMMIT);
     }
 
@@ -66,7 +105,7 @@ class ExtractionPipelineCharacterizationTest {
     void scanWritesOnlyTheRawSourceDiscoveryArtifacts() throws Exception {
         ScanStageService.Summary summary = runScan();
 
-        assertThat(summary.candidateCount()).isEqualTo(18);
+        assertThat(summary.candidateCount()).isEqualTo(15);
         assertThat(summary.relationCandidateCount()).isEqualTo(2);
         assertThat(summary.artemisCommit()).isEqualTo(PINNED_COMMIT);
         for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
@@ -86,7 +125,7 @@ class ExtractionPipelineCharacterizationTest {
 
         ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
 
-        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 17).containsEntry("undeclared", 0);
+        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 14).containsEntry("undeclared", 0);
         assertThat(summary.featureCount()).isEqualTo(2);
         assertThat(summary.relationCount()).isEqualTo(1);
         assertThat(summary.constraintCount()).isZero();
@@ -99,10 +138,11 @@ class ExtractionPipelineCharacterizationTest {
         ArtemisConfigKeyCatalog generatedCatalog = OBJECT_MAPPER
                 .readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), ArtemisConfigKeyCatalog.class);
         assertThat(generatedCatalog.keys()).extracting(ArtemisConfigKeyCatalog.CatalogKey::key).containsExactly("artemis.alpha.enabled");
-        ModelDiffReport modelDiff = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIFF_FILE)),
-                ModelDiffReport.class);
-        assertThat(modelDiff.classificationCounts()).containsKeys(ModelDiffReport.CLASS_INTENTIONAL_CURATION, ModelDiffReport.CLASS_ARTEMIS_DRIFT,
-                ModelDiffReport.CLASS_MISSING_MANIFEST_ENTRY, ModelDiffReport.CLASS_EXTRACTOR_GAP);
+        ManifestConformanceReport conformance = OBJECT_MAPPER.readValue(
+                Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MANIFEST_CONFORMANCE_FILE)), ManifestConformanceReport.class);
+        assertThat(conformance.status()).isEqualTo(ManifestConformanceReport.STATUS_PASS);
+        assertThat(conformance.generatedFeatureIds()).containsExactly("fixture-root", "alpha-feature");
+        assertThat(conformance.generatedOutputFindings()).isEmpty();
     }
 
     @Test
@@ -118,18 +158,40 @@ class ExtractionPipelineCharacterizationTest {
 
         ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
                 ExtractionReport.class);
-        assertThat(reportCodes(report)).contains(ReportItem.CODE_CURATED_ANCHOR_MISSING, ReportItem.CODE_CURATED_EVIDENCE_STALE,
-                ReportItem.CODE_UNANCHORED_CURATED_FEATURE, ReportItem.CODE_FE_BE_MIRROR_MISMATCH, ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT,
-                ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
-        assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR, ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL);
+        assertThat(reportCodes(report)).contains(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
+        assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.artemisCommit()).isEqualTo(PINNED_COMMIT);
-        assertThat(report.curatedModelId()).isEqualTo("fixture-model");
-        assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 17);
+        assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
+        assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 14);
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).content().contains("\"status\" : \"skipped\"")
+                .contains("\"blocking\" : false");
 
-        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, SnapshotPublisher.SNAPSHOT_METADATA_FILE,
-                SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
+        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
+                SnapshotPublisher.SNAPSHOT_CATALOG_FILE, SnapshotPublisher.SNAPSHOT_REPORT_FILE, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE,
+                SnapshotPublisher.SNAPSHOT_METADATA_FILE, SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
             assertThat(layout.snapshotDirectory().resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
+        }
+    }
+
+    @Test
+    void deterministicMiniArtemisArtifactsMatchTheRecordedStageOneBaseline() throws Exception {
+        runPipeline();
+
+        assertThat(deterministicArtifactDigests()).isEqualTo(RECORDED_STAGE_ONE_DIGESTS);
+    }
+
+    @Test
+    void generatedArtifactsUseClientAndServerTerminology() throws Exception {
+        runPipeline();
+        List<String> retiredTerms = List.of("front" + "end", "back" + "end");
+
+        try (var paths = Files.walk(layout.root())) {
+            for (Path artifact : paths.filter(Files::isRegularFile).toList()) {
+                String content = Files.readString(artifact).toLowerCase(Locale.ROOT);
+                assertThat(retiredTerms).as("terminology in %s", artifact).noneMatch(content::contains);
+            }
         }
     }
 
@@ -142,7 +204,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.RELATION_CANDIDATES_FILE);
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -151,9 +213,62 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated model digest");
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void rejectsATamperedGeneratedCatalogBeforePackaging() throws Exception {
+        runPipeline();
+        Path catalogFile = layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE);
+        Files.writeString(catalogFile, Files.readString(catalogFile).replace(PINNED_COMMIT, OTHER_COMMIT));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("generated catalog digest");
+
+        assertFailureReportExists();
+        assertFailureVerdictMentions("generated catalog digest");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void catalogParseFailureOverwritesTheEarlierPassingReport() throws Exception {
+        runPipeline();
+        Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE), "invalid json\n");
+        ModelResult result = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE)),
+                ModelResult.class);
+        ModelResult matchingDigest = new ModelResult(result.schemaVersion(), result.extractorVersion(), result.artemisCommit(), result.scanDigest(),
+                result.manifestDigest(), result.generatedModelDigest(), Sha256Digest.of(
+                        layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), result.generatedOutputConformant(),
+                result.modelIntegrityValid(), result.deliveryEligible(), result.conformance(), result.curation());
+        Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(matchingDigest));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(RuntimeException.class);
+
+        assertFailureVerdictMentions("unrecognized token");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void generatedSemanticConformanceFailureBlocksPublication() throws Exception {
+        runPipeline();
+        Path resultFile = layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE);
+        ModelResult result = OBJECT_MAPPER.readValue(Files.readAllBytes(resultFile), ModelResult.class);
+        ModelResult failedConformance = new ModelResult(result.schemaVersion(), result.extractorVersion(), result.artemisCommit(), result.scanDigest(),
+                result.manifestDigest(), result.generatedModelDigest(), result.generatedCatalogDigest(), false, result.modelIntegrityValid(), false,
+                result.conformance(), result.curation());
+        Files.writeString(resultFile, OBJECT_MAPPER.writeValueAsString(failedConformance));
+
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("does not conform to the resolved manifest semantics");
+
+        assertFailureVerdictMentions("does not conform to the resolved manifest semantics");
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -195,7 +310,9 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_DIAGNOSTICS_FILE)).isRegularFile();
         assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
+        String html = Files.readString(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE));
+        assertThat(html).contains(FAILED_VERDICT_BADGE, "module:gamma", "UNDECLARED_CANDIDATE");
         assertThat(layout.snapshotDirectory()).doesNotExist();
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
@@ -221,7 +338,7 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -230,10 +347,11 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.workflowDirectory().resolve(ExtractionArtifactStore.PREPARED_WORKFLOW_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+                .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("prepared workflow digest");
 
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
@@ -250,8 +368,22 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.scanDirectory()).doesNotExist();
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
-        assertThat(layout.reportDirectory()).doesNotExist();
+        assertFailureReportExists();
         assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    private void assertFailureReportExists() {
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).isRegularFile();
+    }
+
+    private void assertFailureVerdictMentions(String detail) throws Exception {
+        ExtractionReport report = OBJECT_MAPPER.readValue(
+                Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)), ExtractionReport.class);
+        assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_FAIL);
+        assertThat(report.items()).extracting(ReportItem::message).anyMatch(message -> message.toLowerCase(Locale.ROOT).contains(detail.toLowerCase(Locale.ROOT)));
+        assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).content().contains(FAILED_VERDICT_BADGE);
     }
 
     /**
@@ -282,8 +414,7 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given manifest.
      */
     private FeatureExtractionInputs withManifest(Path manifestFile) {
-        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.curatedModelFile(),
-                inputs.bootstrapCatalogFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
     }
 
     /**
@@ -295,7 +426,7 @@ class ExtractionPipelineCharacterizationTest {
         runScan();
         new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
         new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
-        new PackageStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout());
     }
 
     /**
@@ -304,8 +435,7 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs whose checkout is unset.
      */
     private FeatureExtractionInputs inputsWithoutCheckout() {
-        return new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(),
-                inputs.curatedModelFile(), inputs.bootstrapCatalogFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
     }
 
     /**
@@ -316,5 +446,41 @@ class ExtractionPipelineCharacterizationTest {
      */
     private List<String> reportCodes(ExtractionReport report) {
         return report.items().stream().map(ReportItem::code).distinct().toList();
+    }
+
+    /**
+     * Hashes every deterministic mini-Artemis artifact. Scan metadata is excluded because it intentionally records
+     * wall-clock timestamps and the temporary checkout path. The scan envelope is included because its digest map
+     * now preserves canonical insertion order across processes.
+     *
+     * @return artifact digests keyed by run-relative path.
+     * @throws Exception if an artifact cannot be listed, read, or hashed.
+     */
+    private Map<String, String> deterministicArtifactDigests() throws Exception {
+        Map<String, String> digests = new TreeMap<>();
+        try (var paths = Files.walk(layout.root())) {
+            for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                String relativePath = layout.root().relativize(path).toString().replace('\\', '/');
+                if (!relativePath.equals("scan/" + ExtractionArtifactStore.SCAN_METADATA_FILE)) {
+                    digests.put(relativePath, sha256(Files.readAllBytes(path)));
+                }
+            }
+        }
+        return digests;
+    }
+
+    /**
+     * Computes an unprefixed lowercase SHA-256 digest for a byte-parity assertion.
+     *
+     * @param bytes artifact bytes.
+     * @return lowercase digest.
+     */
+    private String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is not available.", e);
+        }
     }
 }

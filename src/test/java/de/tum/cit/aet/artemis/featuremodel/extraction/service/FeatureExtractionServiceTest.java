@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -17,27 +18,37 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * End-to-end extraction over the synthetic mini-Artemis fixture, covering every accepted anchor shape including the
- * real-world asymmetries: property name without backend module constant, frontend-only module ids, a nested config
- * key, a condition-only feature, composite conditions, and a frontend/backend toggle enum mismatch.
+ * real-world asymmetries: property name without server module constant, client-only module ids, a nested config
+ * key, a condition-only feature, composite conditions, and a client/server toggle enum mismatch.
  */
 class FeatureExtractionServiceTest {
 
     private static final Path FIXTURE_PATH = Path.of("src/test/resources/extraction/mini-artemis");
 
-    private static FeatureExtractionService.Outcome outcome;
+    private static ExtractedSourceFacts outcome;
+
+    private static FeatureExtractionService extractionService;
 
     @BeforeAll
     static void extractFixture() {
-        FeatureExtractionService service = new FeatureExtractionService(new ObjectMapper());
-        outcome = service.scan(new LocalArtemisSourceRepository(FIXTURE_PATH), ExtractionTestModels.fixtureCuratedModel(), ExtractionTestModels.fixtureCatalog());
+        extractionService = new FeatureExtractionService(new ObjectMapper());
+        outcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
+    }
+
+    @Test
+    void scansTwiceThroughTheSameFacadeWithoutLeakingState() {
+        ExtractedSourceFacts secondOutcome = extractionService.scan(new LocalArtemisSourceRepository(FIXTURE_PATH));
+
+        assertThat(secondOutcome).isEqualTo(outcome);
     }
 
     @Test
     void extractsAllCandidateNamespacesSortedById() {
         List<String> ids = outcome.candidates().stream().map(FeatureCandidate::id).toList();
-        assertThat(ids).containsExactly("configkey:artemis.alpha.enabled", "configkey:artemis.alpha.gamma.enabled", "configkey:artemis.user-management.beta.enabled",
-                "infra:mysql", "infra:postgres", "module:alpha", "module:beta", "module:beta-extra", "module:delta", "module:gamma", "profile:agentx", "profile:cione",
-                "profile:feprofile", "profile:jenkins", "toggle:ClientOnlyToggle", "toggle:ServerOnlyToggle", "toggle:ToggleOne", "toggle:ToggleTwo");
+        assertThat(ids).containsExactly("infra:mysql", "infra:postgres", "module:alpha", "module:beta", "module:beta-extra", "module:delta", "module:gamma",
+                "profile:agentx", "profile:cione", "profile:feprofile", "profile:jenkins", "toggle:ClientOnlyToggle", "toggle:ServerOnlyToggle", "toggle:ToggleOne",
+                "toggle:ToggleTwo");
+        assertThat(ids).noneMatch(id -> id.startsWith("configkey:"));
     }
 
     @Test
@@ -48,14 +59,14 @@ class FeatureExtractionServiceTest {
         assertThat(alpha.description()).isEqualTo("Enables the Alpha module.");
         assertThat(alpha.configKey()).isEqualTo("artemis.alpha.enabled");
         assertThat(alpha.defaultValue()).isEqualTo(Boolean.TRUE);
-        assertThat(alpha.backendConstant()).isEqualTo("MODULE_FEATURE_ALPHA");
-        assertThat(alpha.frontendConstant()).isEqualTo("MODULE_FEATURE_ALPHA");
-        assertThat(alpha.backendConditionClass()).isEqualTo("AlphaEnabled");
-        assertThat(alpha.enumeratedByBackend()).isTrue();
+        assertThat(alpha.serverConstant()).isEqualTo("MODULE_FEATURE_ALPHA");
+        assertThat(alpha.clientConstant()).isEqualTo("MODULE_FEATURE_ALPHA");
+        assertThat(alpha.serverConditionClass()).isEqualTo("AlphaEnabled");
+        assertThat(alpha.enumeratedByServer()).isTrue();
         assertThat(alpha.displayedOnAdminPage()).isTrue();
         assertThat(alpha.documentationUrl()).isEqualTo("https://docs.example.org/alpha");
-        assertThat(evidenceKinds("module:alpha")).contains(EvidenceItem.KIND_BACKEND_CONSTANT, EvidenceItem.KIND_FRONTEND_CONSTANT, EvidenceItem.KIND_CONDITION_CLASS,
-                EvidenceItem.KIND_BACKEND_ENUMERATION, EvidenceItem.KIND_CONFIG_HELPER_ACCESSOR, EvidenceItem.KIND_YAML_DEFAULT, EvidenceItem.KIND_I18N,
+        assertThat(evidenceKinds("module:alpha")).contains(EvidenceItem.KIND_SERVER_CONSTANT, EvidenceItem.KIND_CLIENT_CONSTANT, EvidenceItem.KIND_CONDITION_CLASS,
+                EvidenceItem.KIND_SERVER_ENUMERATION, EvidenceItem.KIND_CONFIG_HELPER_ACCESSOR, EvidenceItem.KIND_YAML_DEFAULT, EvidenceItem.KIND_I18N,
                 EvidenceItem.KIND_ADMIN_PAGE, EvidenceItem.KIND_USAGE_CONDITIONAL);
     }
 
@@ -64,20 +75,20 @@ class FeatureExtractionServiceTest {
         FeatureCandidate beta = candidate("module:beta");
         assertThat(beta.configKey()).isEqualTo("artemis.user-management.beta.enabled");
         assertThat(beta.defaultValue()).isEqualTo(Boolean.FALSE);
-        assertThat(beta.backendConstant()).isEqualTo("BETA_ENABLED_PROPERTY_NAME");
-        assertThat(beta.frontendConstant()).isEqualTo("MODULE_FEATURE_BETA");
-        assertThat(beta.backendConditionClass()).isEqualTo("BetaEnabled");
-        assertThat(beta.enumeratedByBackend()).isTrue();
+        assertThat(beta.serverConstant()).isEqualTo("BETA_ENABLED_PROPERTY_NAME");
+        assertThat(beta.clientConstant()).isEqualTo("MODULE_FEATURE_BETA");
+        assertThat(beta.serverConditionClass()).isEqualTo("BetaEnabled");
+        assertThat(beta.enumeratedByServer()).isTrue();
         assertThat(beta.displayedOnAdminPage()).isTrue();
     }
 
     @Test
-    void extractsFrontendOnlyModuleIdWithoutConfigKey() {
+    void extractsClientOnlyModuleIdWithoutConfigKey() {
         FeatureCandidate betaExtra = candidate("module:beta-extra");
         assertThat(betaExtra.configKey()).isNull();
-        assertThat(betaExtra.backendConstant()).isNull();
-        assertThat(betaExtra.frontendConstant()).isEqualTo("MODULE_FEATURE_BETA_EXTRA");
-        assertThat(betaExtra.enumeratedByBackend()).isTrue();
+        assertThat(betaExtra.serverConstant()).isNull();
+        assertThat(betaExtra.clientConstant()).isEqualTo("MODULE_FEATURE_BETA_EXTRA");
+        assertThat(betaExtra.enumeratedByServer()).isTrue();
         assertThat(betaExtra.displayedOnAdminPage()).isTrue();
         assertThat(betaExtra.name()).isEqualTo("Beta Required for Extra Features");
     }
@@ -87,9 +98,9 @@ class FeatureExtractionServiceTest {
         FeatureCandidate gamma = candidate("module:gamma");
         assertThat(gamma.configKey()).isEqualTo("artemis.alpha.gamma.enabled");
         assertThat(gamma.defaultValue()).isEqualTo(Boolean.FALSE);
-        assertThat(gamma.backendConstant()).isEqualTo("MODULE_FEATURE_GAMMA");
-        assertThat(gamma.frontendConstant()).isNull();
-        assertThat(gamma.backendConditionClass()).isEqualTo("GammaEnabled");
+        assertThat(gamma.serverConstant()).isEqualTo("MODULE_FEATURE_GAMMA");
+        assertThat(gamma.clientConstant()).isNull();
+        assertThat(gamma.serverConditionClass()).isEqualTo("GammaEnabled");
         assertThat(gamma.displayedOnAdminPage()).isFalse();
     }
 
@@ -97,15 +108,15 @@ class FeatureExtractionServiceTest {
     void extractsConditionOnlyFeatureWithLiteralPropertyKey() {
         FeatureCandidate delta = candidate("module:delta");
         assertThat(delta.configKey()).isEqualTo("artemis.delta.api-base-url");
-        assertThat(delta.backendConstant()).isNull();
-        assertThat(delta.backendConditionClass()).isEqualTo("DeltaEnabled");
-        assertThat(delta.enumeratedByBackend()).isFalse();
+        assertThat(delta.serverConstant()).isNull();
+        assertThat(delta.serverConditionClass()).isEqualTo("DeltaEnabled");
+        assertThat(delta.enumeratedByServer()).isFalse();
         assertThat(evidenceKinds("module:delta")).contains(EvidenceItem.KIND_CONDITION_CLASS, EvidenceItem.KIND_YAML_DEFAULT);
     }
 
     @Test
     void skipsEnabledNamedClassesThatAreNoConditions() {
-        assertThat(outcome.candidates()).noneSatisfy(candidate -> assertThat(candidate.backendConditionClass()).isEqualTo("AlphaSettingEnabled"));
+        assertThat(outcome.candidates()).noneSatisfy(candidate -> assertThat(candidate.serverConditionClass()).isEqualTo("AlphaSettingEnabled"));
         assertThat(outcome.relationCandidates()).noneSatisfy(relation -> assertThat(relation.conditionClass()).isEqualTo("AlphaSettingEnabled"));
     }
 
@@ -135,14 +146,14 @@ class FeatureExtractionServiceTest {
         assertThat(toggleOne.name()).isEqualTo("Toggle One");
         assertThat(toggleOne.disableWarning()).isEqualTo("Disabling toggle one hides the export.");
         assertThat(toggleOne.documentationUrl()).isEqualTo("https://docs.example.org/toggle-one");
-        assertThat(evidenceKinds("toggle:ToggleOne")).contains(EvidenceItem.KIND_BACKEND_ENUM, EvidenceItem.KIND_FRONTEND_ENUM, EvidenceItem.KIND_I18N,
+        assertThat(evidenceKinds("toggle:ToggleOne")).contains(EvidenceItem.KIND_SERVER_ENUM, EvidenceItem.KIND_CLIENT_ENUM, EvidenceItem.KIND_I18N,
                 EvidenceItem.KIND_ADMIN_PAGE, EvidenceItem.KIND_USAGE_FEATURE_TOGGLE);
         assertThat(evidenceKinds("toggle:ToggleTwo")).contains(EvidenceItem.KIND_USAGE_TEMPLATE);
     }
 
     @Test
     void reportsToggleEnumMirrorMismatchesAsErrors() {
-        List<ReportItem> mismatches = itemsWithCode(ReportItem.CODE_FE_BE_MIRROR_MISMATCH);
+        List<ReportItem> mismatches = itemsWithCode(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH);
         assertThat(mismatches).anySatisfy(item -> {
             assertThat(item.subject()).isEqualTo("toggle:ServerOnlyToggle");
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
@@ -155,7 +166,7 @@ class FeatureExtractionServiceTest {
 
     @Test
     void reportsModuleConstantMirrorMismatchesAsWarnings() {
-        List<ReportItem> mismatches = itemsWithCode(ReportItem.CODE_FE_BE_MIRROR_MISMATCH);
+        List<ReportItem> mismatches = itemsWithCode(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH);
         assertThat(mismatches.stream().map(ReportItem::subject)).contains("module:gamma", "module:beta", "module:beta-extra");
         assertThat(mismatches).anySatisfy(item -> {
             assertThat(item.subject()).isEqualTo("module:beta");
@@ -175,7 +186,7 @@ class FeatureExtractionServiceTest {
         assertThat(cione.documentationUrl()).isEqualTo("https://docs.example.org/cione");
         assertThat(evidenceKinds("profile:cione")).contains(EvidenceItem.KIND_PROFILE_YAML);
         assertThat(evidenceKinds("profile:jenkins")).contains(EvidenceItem.KIND_COMPOSE_FILE);
-        assertThat(candidate("profile:feprofile").backendConstant()).isNull();
+        assertThat(candidate("profile:feprofile").serverConstant()).isNull();
         assertThat(outcome.candidates().stream().map(FeatureCandidate::id)).doesNotContain("profile:cione & agentx");
     }
 
@@ -190,46 +201,6 @@ class FeatureExtractionServiceTest {
             assertThat(item.file()).isEqualTo("docker/e2e-only-postgres.yml");
             assertThat(item.detail()).isEqualTo("no paired alternative found");
         });
-    }
-
-    @Test
-    void rediscoverdriftAgainstCuratedModelWithoutFalseAlarms() {
-        List<String> newCandidateSubjects = itemsWithCode(ReportItem.CODE_NEW_CANDIDATE_NOT_IN_MODEL).stream().map(ReportItem::subject).toList();
-        assertThat(newCandidateSubjects).containsExactlyInAnyOrder("module:beta", "module:beta-extra", "module:delta", "module:gamma", "toggle:ClientOnlyToggle",
-                "toggle:ServerOnlyToggle", "toggle:ToggleOne", "toggle:ToggleTwo");
-        assertThat(newCandidateSubjects).doesNotContain("module:alpha");
-        assertThat(itemsWithCode(ReportItem.CODE_CURATED_ANCHOR_MISSING)).singleElement().satisfies(item -> {
-            assertThat(item.subject()).isEqualTo("ghost");
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
-        });
-        assertThat(itemsWithCode(ReportItem.CODE_UNANCHORED_CURATED_FEATURE)).singleElement()
-                .satisfies(item -> assertThat(item.subject()).isEqualTo("fixture-root"));
-    }
-
-    @Test
-    void verifiesCuratedEvidenceAndFlagsOnlyMovedReferences() {
-        List<ReportItem> staleItems = itemsWithCode(ReportItem.CODE_CURATED_EVIDENCE_STALE);
-        assertThat(staleItems).singleElement().satisfies(item -> {
-            assertThat(item.subject()).isEqualTo("alpha-feature");
-            assertThat(item.message()).contains("Constants.java:999").contains("no longer at the referenced lines");
-        });
-    }
-
-    @Test
-    void reportsConfigKeyCatalogDrift() {
-        List<ReportItem> catalogItems = itemsWithCode(ReportItem.CODE_CONFIG_KEY_CATALOG_DRIFT);
-        assertThat(catalogItems).hasSize(5);
-        assertThat(catalogItems).anySatisfy(item -> assertThat(item.message()).contains("pinned to Artemis commit 'fixturepin'"));
-        assertThat(catalogItems).anySatisfy(item -> {
-            assertThat(item.subject()).isEqualTo("artemis.ghost.enabled");
-            assertThat(item.message()).contains("no longer declared");
-        });
-        assertThat(catalogItems).anySatisfy(item -> {
-            assertThat(item.subject()).isEqualTo("artemis.absent.url");
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO);
-        });
-        assertThat(catalogItems.stream().map(ReportItem::subject)).contains("artemis.alpha.gamma.enabled", "artemis.user-management.beta.enabled")
-                .doesNotContain("artemis.alpha.url");
     }
 
     @Test

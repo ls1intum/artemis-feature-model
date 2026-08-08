@@ -35,6 +35,7 @@ class GuidedWorkflowValidatorTest {
         assertThat(result.workflowIntegrityValid()).isTrue();
         assertThat(result.guidedValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_PASS);
         assertThat(result.guidedValidation().findings()).isEmpty();
+        assertThat(result.deliveryEligible()).isTrue();
     }
 
     @Test
@@ -62,6 +63,7 @@ class GuidedWorkflowValidatorTest {
         assertThat(result.guidedValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_FINDINGS);
         assertThat(result.guidedValidation().findings()).extracting(GuidedWorkflowFinding::code).contains(GuidedWorkflowFinding.CODE_COVERAGE_GAP);
         assertThat(result.guidedValidation().codeCounts()).containsKey(GuidedWorkflowFinding.CODE_COVERAGE_GAP);
+        assertThat(result.deliveryEligible()).isFalse();
         assertThat(result.items()).anySatisfy(item -> assertThat(item.code()).isEqualTo(ReportItem.CODE_GUIDED_WORKFLOW_FINDINGS));
         assertThat(result.workflowIntegrityValid()).isTrue();
         // Technical features never count as coverage gaps.

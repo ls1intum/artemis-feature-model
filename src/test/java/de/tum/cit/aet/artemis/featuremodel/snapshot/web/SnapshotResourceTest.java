@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.FeatureModelSourceMode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
@@ -42,7 +43,8 @@ class SnapshotResourceTest {
 
     @BeforeEach
     void setUp() {
-        LocalSnapshotRepository repository = new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), "develop-latest"), objectMapper);
+        SnapshotProperties properties = new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), "develop-latest", false);
+        LocalSnapshotRepository repository = new LocalSnapshotRepository(properties, objectMapper);
         SnapshotService snapshotService = new SnapshotService(repository, objectMapper, new FeatureModelIntegrityService(), new GuidedWorkflowIntegrityService());
         // Register the Jackson 3 and resource converters so the standalone setup mirrors the runtime Boot converters that
         // read records and write archive downloads.

@@ -27,7 +27,9 @@ class LocalSnapshotRepositoryTest {
     Path dataRoot;
 
     private LocalSnapshotRepository repository(String activeSnapshotId) {
-        return new LocalSnapshotRepository(new SnapshotProperties(dataRoot.toString(), activeSnapshotId), objectMapper);
+        SnapshotProperties properties = activeSnapshotId == null ? new SnapshotProperties(dataRoot.toString(), null)
+                : new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), activeSnapshotId, false);
+        return new LocalSnapshotRepository(properties, objectMapper);
     }
 
     private Path importedModels() {

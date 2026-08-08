@@ -15,12 +15,9 @@ import java.util.function.UnaryOperator;
  * @param manifestFile scope manifest that pins the source commit and decides membership.
  * @param authoredWorkflowFile authored lean guided workflow.
  * @param deploymentProfileFile bundled deployment profile used for the capability cross-checks.
- * @param curatedModelFile hand-maintained model, still required by the drift and diff comparison.
- * @param bootstrapCatalogFile hand-maintained config key catalog, still required by the drift and diff comparison.
  * @param outputRoot root directory of all extraction runs.
  */
-public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path curatedModelFile,
-        Path bootstrapCatalogFile, Path outputRoot) {
+public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path outputRoot) {
 
     /** Option carrying the local Artemis checkout path. */
     public static final String OPTION_ARTEMIS_PATH = "artemis-path";
@@ -33,12 +30,6 @@ public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, P
 
     /** Option carrying the deployment profile path. */
     public static final String OPTION_DEPLOYMENT_PROFILE = "deployment-profile";
-
-    /** Option carrying the curated feature model path. */
-    public static final String OPTION_CURATED_MODEL = "curated-model";
-
-    /** Option carrying the bootstrap config key catalog path. */
-    public static final String OPTION_BOOTSTRAP_CATALOG = "bootstrap-catalog";
 
     /** Option carrying the extraction output root. */
     public static final String OPTION_OUTPUT_ROOT = "output-root";
@@ -56,8 +47,7 @@ public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, P
      */
     public static FeatureExtractionInputs resolve(Map<String, String> options, UnaryOperator<String> environment) {
         return new FeatureExtractionInputs(resolveArtemisCheckout(options, environment), requiredPath(options, OPTION_MANIFEST),
-                requiredPath(options, OPTION_AUTHORED_WORKFLOW), requiredPath(options, OPTION_DEPLOYMENT_PROFILE), requiredPath(options, OPTION_CURATED_MODEL),
-                requiredPath(options, OPTION_BOOTSTRAP_CATALOG), requiredPath(options, OPTION_OUTPUT_ROOT));
+                requiredPath(options, OPTION_AUTHORED_WORKFLOW), requiredPath(options, OPTION_DEPLOYMENT_PROFILE), requiredPath(options, OPTION_OUTPUT_ROOT));
     }
 
     /**

@@ -9,24 +9,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceLocator;
 
 /**
  * Scans the admin Features page component for the curated display membership lists and per-feature documentation
  * links. Identifiers in the arrays and map keys are constant or enum symbols; the assembler resolves them against the
- * frontend constant and enum scans. Only the page structure matters here — its live enablement state reflects one
+ * client constant and enum scans. Only the page structure matters here — its live enablement state reflects one
  * deployment and is irrelevant to extraction.
  */
 class AdminPageScan {
-
-    static final String DEFAULT_ADMIN_COMPONENT_PATH = "src/main/webapp/app/admin/features/admin-feature-toggle.component.ts";
-
-    private static final String ADMIN_COMPONENT_FILE_NAME = "admin-feature-toggle.component.ts";
 
     private static final Pattern ARRAY_IDENTIFIER_PATTERN = Pattern.compile("^\\s*(\\w+),?\\s*$");
 
     private static final Pattern INLINE_IDENTIFIER_PATTERN = Pattern.compile("(\\w+)");
 
     private static final Pattern MAP_ENTRY_PATTERN = Pattern.compile("^\\s*\\[(\\w+(?:\\.\\w+)?)\\]:\\s*'([^']*)',?\\s*$");
+
+    private final ArtemisSourceLocator sourceLocator = new ArtemisSourceLocator();
 
     /**
      * One identifier reference inside a display membership array.
@@ -77,7 +77,8 @@ class AdminPageScan {
      * @throws IllegalArgumentException if the component cannot be located.
      */
     Result scan(ArtemisSourceRepository source) throws IOException {
-        String file = locateAdminComponentFile(source);
+        String file = sourceLocator.locate(source, ArtemisSourceConventions.Files.ADMIN_FEATURE_COMPONENT, "displayedModuleFeatures field",
+                content -> content.contains("displayedModuleFeatures"));
         List<String> lines = source.readLines(file);
         List<MembershipEntry> displayedModuleFeatures = scanArrayBlock(lines, "displayedModuleFeatures");
         List<MembershipEntry> displayedProfiles = scanArrayBlock(lines, "displayedProfiles");
@@ -159,22 +160,4 @@ class AdminPageScan {
         return List.copyOf(entriesByIdentifier.values());
     }
 
-    /**
-     * Locates the admin component file, preferring the known location and falling back to a name-based search.
-     *
-     * @param source Artemis source repository.
-     * @return checkout-relative path of the component.
-     * @throws IOException if the search fails.
-     * @throws IllegalArgumentException if no admin component can be found.
-     */
-    private String locateAdminComponentFile(ArtemisSourceRepository source) throws IOException {
-        if (source.fileExists(DEFAULT_ADMIN_COMPONENT_PATH)) {
-            return DEFAULT_ADMIN_COMPONENT_PATH;
-        }
-        List<String> matches = source.findFilesByName("src/main/webapp", ADMIN_COMPONENT_FILE_NAME);
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException("No " + ADMIN_COMPONENT_FILE_NAME + " found under src/main/webapp.");
-        }
-        return matches.getFirst();
-    }
 }

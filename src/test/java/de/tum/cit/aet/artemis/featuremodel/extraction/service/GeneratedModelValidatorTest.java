@@ -26,6 +26,7 @@ class GeneratedModelValidatorTest {
 
         assertThat(result.items()).isEmpty();
         assertThat(result.modelIntegrityValid()).isTrue();
+        assertThat(result.deliveryEligible()).isTrue();
     }
 
     @Test
@@ -54,6 +55,7 @@ class GeneratedModelValidatorTest {
             assertThat(item.subject()).isEqualTo("MISSING_CONSTRAINT_TARGET");
             assertThat(item.message()).contains("alpha-requires-ghost").contains("ghost");
         });
+        assertThat(result.deliveryEligible()).isFalse();
     }
 
     @Test
@@ -73,9 +75,10 @@ class GeneratedModelValidatorTest {
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_PROFILE_CAPABILITY_MISMATCH);
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.message()).contains("tech-capability");
         });
+        assertThat(result.deliveryEligible()).isFalse();
     }
 
 

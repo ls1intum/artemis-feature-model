@@ -219,13 +219,13 @@
                                     <dt>Spring profile</dt>
                                     <dd><code>{{ source.springProfile }}</code></dd>
                                 }
-                                @if (source.frontendConstant) {
-                                    <dt>Frontend constant</dt>
-                                    <dd><code>{{ source.frontendConstant }}</code></dd>
+                                @if (source.clientConstant) {
+                                    <dt>Client constant</dt>
+                                    <dd><code>{{ source.clientConstant }}</code></dd>
                                 }
-                                @if (source.backendConditionClass) {
-                                    <dt>Backend condition class</dt>
-                                    <dd><code>{{ source.backendConditionClass }}</code></dd>
+                                @if (source.serverConditionClass) {
+                                    <dt>Server condition class</dt>
+                                    <dd><code>{{ source.serverConditionClass }}</code></dd>
                                 }
                                 @if (source.evidence.length > 0) {
                                     <dt>Evidence</dt>

@@ -6,11 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,11 +20,15 @@ import tools.jackson.databind.ObjectMapper;
  */
 public class PackageStageService {
 
+    private final ObjectMapper objectMapper;
+
     private final ExtractionInputLoader inputLoader;
 
     private final ExtractionArtifactStore artifactStore;
 
     private final SnapshotPublisher snapshotPublisher;
+
+    private final String featureModelRepositoryCommit;
 
     /**
      * Creates the snapshot packaging command.
@@ -33,9 +36,21 @@ public class PackageStageService {
      * @param objectMapper Jackson mapper shared with the artifact store and the snapshot publisher.
      */
     public PackageStageService(ObjectMapper objectMapper) {
+        this(objectMapper, null);
+    }
+
+    /**
+     * Creates the command with a fixed repository commit for deterministic fixture characterization.
+     *
+     * @param objectMapper Jackson mapper shared with artifact services.
+     * @param featureModelRepositoryCommit fixed repository commit, or null to resolve the current Git commit.
+     */
+    PackageStageService(ObjectMapper objectMapper, String featureModelRepositoryCommit) {
+        this.objectMapper = objectMapper;
         this.inputLoader = new ExtractionInputLoader(objectMapper);
         this.artifactStore = new ExtractionArtifactStore(objectMapper);
         this.snapshotPublisher = new SnapshotPublisher(objectMapper);
+        this.featureModelRepositoryCommit = featureModelRepositoryCommit;
     }
 
     /**
@@ -58,29 +73,45 @@ public class PackageStageService {
      * @throws IllegalStateException if the run is ineligible; diagnostics are written before the failure.
      */
     public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        FeatureScopeManifest manifest = inputLoader.manifest(inputs);
-        String artemisCommit = manifest.artemisCommitSha();
-        ExtractionArtifactLayout layout = ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit);
-        String manifestDigest = inputLoader.manifestDigest(inputs);
-        artifactStore.invalidateFrom(layout, ExtractionStage.PACKAGE);
-        ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(layout, artemisCommit);
-        ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(layout, artemisCommit, scan.result().payloadDigest(), manifestDigest);
-        ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(layout, artemisCommit, model.result().generatedModelDigest(),
-                ExtractionArtifactStore.digestOf(inputs.authoredWorkflowFile()));
+        ExtractionRunContext context = inputLoader.runContext(inputs);
+        artifactStore.invalidateFrom(context.layout(), ExtractionStage.PACKAGE);
+        Summary summary;
+        boolean eligible;
+        try {
+            ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());
+            ExtractionArtifactStore.LoadedModel model = artifactStore.readModel(context.layout(), context.artemisCommit(), scan.result().payloadDigest(),
+                    context.manifestDigest());
+            ExtractionArtifactStore.LoadedWorkflow workflow = artifactStore.readWorkflow(context.layout(), context.artemisCommit(),
+                    model.result().generatedModelDigest(),
+                    Sha256Digest.of(inputs.authoredWorkflowFile()));
 
-        List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
-        stageItems.addAll(model.items());
-        stageItems.addAll(workflow.items());
-        ExtractionReport report = new ExtractionReportAssembler().assemble(inputLoader.curatedModel(inputs), artemisCommit, model.result().curation(),
-                stageItems);
-        artifactStore.writeReport(layout, report);
-
-        boolean eligible = model.result().modelIntegrityValid() && workflow.result().workflowIntegrityValid();
-        boolean published = snapshotPublisher.publish(layout, model.generatedModel(), workflow.preparedWorkflow(), scan.metadata().artemisPath(), artemisCommit,
-                manifest.artemisImageDigest(), eligible);
-        Summary summary = new Summary(layout.reportDirectory(), published ? layout.snapshotDirectory() : null, report.severityCounts(), report.codeCounts());
+            List<ReportItem> stageItems = new ArrayList<>(scan.outcome().items());
+            stageItems.addAll(model.items());
+            stageItems.addAll(workflow.items());
+            eligible = model.result().deliveryEligible() && workflow.result().deliveryEligible();
+            ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
+                    stageItems, eligible);
+            artifactStore.writeReport(context.layout(), report);
+            boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), model.generatedCatalog(), report,
+                    context.artemisCommit(), context.manifestDigest(), repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()),
+                    context.manifest().artemisImageDigest(), eligible);
+            if (published) {
+                new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
+            }
+            summary = new Summary(context.layout().reportDirectory(), published ? context.layout().snapshotDirectory() : null,
+                    report.severityCounts(), report.codeCounts());
+        }
+        catch (IOException | RuntimeException failure) {
+            new ControlledFailureReportWriter(artifactStore).write(context, failure);
+            snapshotPublisher.invalidate(context.layout());
+            throw failure;
+        }
         failIfIneligible(eligible);
         return summary;
+    }
+
+    private String repositoryCommit() throws IOException {
+        return featureModelRepositoryCommit == null ? new FeatureModelRepositoryCommitResolver().resolve() : featureModelRepositoryCommit;
     }
 
     /**
@@ -91,7 +122,7 @@ public class PackageStageService {
      */
     private void failIfIneligible(boolean eligible) {
         if (!eligible) {
-            throw new IllegalStateException("Generated model or workflow failed hard integrity validation. Diagnostics were written, but no importable "
+            throw new IllegalStateException("A generated model, catalog, profile, or workflow delivery gate failed. Diagnostics were written, but no "
                     + "snapshot was published.");
         }
     }

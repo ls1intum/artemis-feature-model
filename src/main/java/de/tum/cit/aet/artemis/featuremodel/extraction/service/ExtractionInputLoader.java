@@ -1,24 +1,41 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Loads the repository-relative inputs every extraction stage shares. The stages read their inputs from files rather
- * than from the classpath so that one configuration boundary decides which manifest, workflow, profile, model, and
- * catalog a run consumes.
+ * Loads the repository-relative inputs every extraction stage shares. One manifest byte read produces the parsed
+ * manifest, digest, pinned commit, and artifact layout in an {@link ExtractionRunContext}; other inputs remain
+ * independently loaded files because their stages consume them at different boundaries.
  */
 class ExtractionInputLoader {
 
     private final ObjectMapper objectMapper;
+
+    private final ManifestBytesReader manifestBytesReader;
+
+    /** Reads a manifest payload, injectable so the one-read boundary can be verified without filesystem races. */
+    @FunctionalInterface
+    interface ManifestBytesReader {
+
+        /**
+         * Reads the exact bytes at a manifest path.
+         *
+         * @param path configured manifest path.
+         * @return manifest bytes.
+         * @throws IOException if the manifest cannot be read.
+         */
+        byte[] read(Path path) throws IOException;
+    }
 
     /**
      * Creates the input loader.
@@ -26,51 +43,33 @@ class ExtractionInputLoader {
      * @param objectMapper Jackson mapper used to parse the JSON inputs.
      */
     ExtractionInputLoader(ObjectMapper objectMapper) {
+        this(objectMapper, Files::readAllBytes);
+    }
+
+    /**
+     * Creates the input loader with an explicit manifest byte source.
+     *
+     * @param objectMapper Jackson mapper used to parse JSON inputs.
+     * @param manifestBytesReader exact manifest-byte reader.
+     */
+    ExtractionInputLoader(ObjectMapper objectMapper, ManifestBytesReader manifestBytesReader) {
         this.objectMapper = objectMapper;
+        this.manifestBytesReader = manifestBytesReader;
     }
 
     /**
-     * Loads and validates the scope manifest.
+     * Loads the scope manifest once and binds every derived command value to those exact bytes.
      *
      * @param inputs resolved command inputs.
-     * @return parsed manifest.
+     * @return per-command extraction context.
      * @throws IOException if the manifest cannot be read.
      */
-    FeatureScopeManifest manifest(FeatureExtractionInputs inputs) throws IOException {
-        return new FeatureManifestLoader().load(inputs.manifestFile());
-    }
-
-    /**
-     * Computes the digest that identifies the manifest a stage consumed.
-     *
-     * @param inputs resolved command inputs.
-     * @return manifest digest.
-     * @throws IOException if the manifest cannot be read.
-     */
-    String manifestDigest(FeatureExtractionInputs inputs) throws IOException {
-        return ExtractionArtifactStore.digestOf(inputs.manifestFile());
-    }
-
-    /**
-     * Loads the curated feature model used by the drift and diff comparison.
-     *
-     * @param inputs resolved command inputs.
-     * @return curated model.
-     * @throws IOException if the model cannot be read.
-     */
-    FeatureModel curatedModel(FeatureExtractionInputs inputs) throws IOException {
-        return readJson(inputs.curatedModelFile(), FeatureModel.class);
-    }
-
-    /**
-     * Loads the bootstrap config key catalog used by the drift and diff comparison.
-     *
-     * @param inputs resolved command inputs.
-     * @return curated catalog.
-     * @throws IOException if the catalog cannot be read.
-     */
-    ArtemisConfigKeyCatalog bootstrapCatalog(FeatureExtractionInputs inputs) throws IOException {
-        return readJson(inputs.bootstrapCatalogFile(), ArtemisConfigKeyCatalog.class);
+    ExtractionRunContext runContext(FeatureExtractionInputs inputs) throws IOException {
+        byte[] manifestBytes = manifestBytesReader.read(inputs.manifestFile());
+        FeatureScopeManifest manifest = new FeatureManifestLoader().load(new ByteArrayInputStream(manifestBytes), inputs.manifestFile().toString());
+        String artemisCommit = manifest.artemisCommitSha();
+        return new ExtractionRunContext(manifestBytes, manifest, Sha256Digest.of(manifestBytes), artemisCommit,
+                ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit));
     }
 
     /**

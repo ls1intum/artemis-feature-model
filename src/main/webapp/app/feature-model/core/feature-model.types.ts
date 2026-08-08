@@ -1,6 +1,6 @@
 /**
  * Wire-format types for the `/api/feature-model` response. Field nullability matches
- * the Spring Boot Jackson serialization of the backend DTOs: optional source metadata,
+ * the Spring Boot Jackson serialization of the server DTOs: optional source metadata,
  * group types, and the incoming relation on the root node arrive as JSON null rather
  * than missing properties, so they are typed as `T | null` instead of `T | undefined`.
  */
@@ -67,8 +67,8 @@ export interface ExtractionMetadata {
 export interface FeatureSource {
     configKey: string | null;
     springProfile: string | null;
-    frontendConstant: string | null;
-    backendConditionClass: string | null;
+    clientConstant: string | null;
+    serverConditionClass: string | null;
     evidence: string[];
 }
 

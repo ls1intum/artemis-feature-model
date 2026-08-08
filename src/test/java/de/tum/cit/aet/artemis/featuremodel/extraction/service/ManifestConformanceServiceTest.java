@@ -88,14 +88,14 @@ class ManifestConformanceServiceTest {
     void failsOnOrphanAnchorsConflictsAndExtractorFailures() {
         List<ReportItem> curationItems = List.of(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "module:gone", "Anchor no longer resolves."),
                 ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "module:alpha", "Two entries claim this candidate."));
-        List<ReportItem> scanItems = List.of(ReportItem.error(ReportItem.CODE_EXTRACTOR_ERROR, "backend constants", "Scan failed."));
+        List<ReportItem> scanItems = List.of(ReportItem.error(ReportItem.CODE_EXTRACTOR_ERROR, "server constants", "Scan failed."));
 
         ManifestConformanceService.Result result = evaluate(manifest(List.of(), List.of()), List.of(), curation(List.of()), curationItems, scanItems);
 
         assertThat(result.conformance().conformant()).isFalse();
         assertThat(result.conformance().unresolvedAnchors()).containsExactly("module:gone");
         assertThat(result.conformance().conflictingDecisions()).containsExactly("module:alpha");
-        assertThat(result.conformance().extractorFailures()).containsExactly("backend constants");
+        assertThat(result.conformance().extractorFailures()).containsExactly("server constants");
         assertThat(result.conformance().describeFindings()).contains("unresolved anchors").contains("conflicting decisions").contains("extractor failures");
     }
 

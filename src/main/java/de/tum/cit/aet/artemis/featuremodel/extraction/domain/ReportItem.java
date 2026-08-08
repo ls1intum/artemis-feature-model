@@ -29,8 +29,8 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A curated feature has no config-key or condition-class anchor; expected for conceptual aggregates. */
     public static final String CODE_UNANCHORED_CURATED_FEATURE = "UNANCHORED_CURATED_FEATURE";
 
-    /** Frontend and backend disagree about a module feature constant or runtime toggle enum member. */
-    public static final String CODE_FE_BE_MIRROR_MISMATCH = "FE_BE_MIRROR_MISMATCH";
+    /** Client and server disagree about a module feature constant or runtime toggle enum member. */
+    public static final String CODE_CLIENT_SERVER_MIRROR_MISMATCH = "CLIENT_SERVER_MIRROR_MISMATCH";
 
     /** The curated config key catalog disagrees with the scanned Artemis configuration keys or commit pin. */
     public static final String CODE_CONFIG_KEY_CATALOG_DRIFT = "CONFIG_KEY_CATALOG_DRIFT";
@@ -38,7 +38,7 @@ public record ReportItem(String severity, String code, String subject, String me
     /** One extractor failed to parse its source; the scan continued without its contribution. */
     public static final String CODE_EXTRACTOR_ERROR = "EXTRACTOR_ERROR";
 
-    /** A backend property name constant has no matching backend module feature constant, or vice versa. */
+    /** A server property name constant has no matching server module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
     /** An extracted candidate is absent from both manifest membership lists, so its scope is undecided. */
@@ -59,8 +59,17 @@ public record ReportItem(String severity, String code, String subject, String me
     /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
+    /** An excluded candidate omitted its optional reason and uses the stable unspecified fallback. */
+    public static final String CODE_EXCLUSION_REASON_UNSPECIFIED = "EXCLUSION_REASON_UNSPECIFIED";
+
+    /** An excluded runtime toggle omitted its optional human-readable rationale. */
+    public static final String CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING = "EXCLUDED_TOGGLE_RATIONALE_MISSING";
+
     /** The assembled generated model failed the shared structural integrity validation. */
     public static final String CODE_GENERATED_MODEL_INVALID = "GENERATED_MODEL_INVALID";
+
+    /** The assembled model differs semantically from the resolved manifest contract. */
+    public static final String CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH = "GENERATED_MODEL_CONFORMANCE_MISMATCH";
 
     /** The bundled guided workflow failed its hard reference validation against the generated model. */
     public static final String CODE_GENERATED_WORKFLOW_INVALID = "GENERATED_WORKFLOW_INVALID";
@@ -79,6 +88,9 @@ public record ReportItem(String severity, String code, String subject, String me
 
     /** The guided workflow validation against the generated model produced findings; see guided-workflow-validation.json. */
     public static final String CODE_GUIDED_WORKFLOW_FINDINGS = "GUIDED_WORKFLOW_FINDINGS";
+
+    /** A staged command could not verify or consume the artifact contract required for the run. */
+    public static final String CODE_PIPELINE_ARTIFACT_INVALID = "PIPELINE_ARTIFACT_INVALID";
 
     /**
      * Creates an error item.

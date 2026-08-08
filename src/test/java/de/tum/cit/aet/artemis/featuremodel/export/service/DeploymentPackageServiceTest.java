@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
-import de.tum.cit.aet.artemis.featuremodel.catalog.repository.LocalSnapshotRepository;
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundleLoader;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -46,9 +46,11 @@ class DeploymentPackageServiceTest {
 
     private ObjectMapper objectMapper;
 
+    private DefaultResourceLoader resourceLoader;
+
     @BeforeEach
     void setUp() {
-        DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
+        resourceLoader = new DefaultResourceLoader();
         objectMapper = new ObjectMapper();
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
@@ -331,7 +333,7 @@ class DeploymentPackageServiceTest {
     }
 
     private ArtemisRuntimeSourceResolver runtimeSourceResolver(SnapshotProperties properties) {
-        return new ArtemisRuntimeSourceResolver(new LocalSnapshotRepository(properties, objectMapper),
+        return new ArtemisRuntimeSourceResolver(new RuntimeFeatureModelBundleLoader(properties, resourceLoader, objectMapper).load(),
                 new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest"));
     }
 }

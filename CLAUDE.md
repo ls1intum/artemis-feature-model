@@ -21,7 +21,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
 
 - The backend exposes `GET /api/feature-model`,
   `POST /api/feature-model/validate`, `GET /api/feature-model/guided-workflow`,
-  local snapshot endpoints under `/api/feature-model/snapshots`, deployment
+  safe read-only runtime provenance at `GET /api/feature-model/provenance`, deployment
   profile endpoints (`GET /api/deployment-profiles`,
   `GET /api/deployment-profiles/{id}`), profile-aware availability
   (`GET /api/feature-model/profile-availability`), Level 1 configuration
@@ -118,8 +118,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   alias of the aggregate. Each command owns one directory of
   `build/feature-extraction/<artemis-sha>/{scan,model,workflow,report,snapshot}`
   and consumes upstream artifacts only through digest-verified envelopes, so a
-  stale or foreign intermediate artifact is rejected instead of composed.
-  Configuration enters through `FeatureExtractionInputs`; the local checkout
+  stale or foreign intermediate artifact is rejected instead of composed. The
+  model envelope covers both the generated feature model and generated config-key
+  catalog; packaging never reads either as an unverified side file.
+  Configuration enters through `FeatureExtractionInputs`. Each command reads
+  the manifest once and binds its parsed content, byte digest, pinned commit,
+  and commit-scoped layout in `ExtractionRunContext`; the local checkout
   resolves from `-PartemisPath` (or user-level `gradle.properties`), then
   `ARTEMIS_PATH`, and no developer path is committed. Override the relocatable
   manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
@@ -134,7 +138,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   extractor blocks the run, which writes diagnostics and exits non-zero without
   assembling a model. Manifest-authored semantics win over `@ArtemisFeature`
   annotations, which only fill attributes the manifest leaves open and never
-  grant membership.
+  grant membership. Exclusion reasons are optional: an omitted reason is
+  normalized to `unspecified` and reported as a non-blocking warning. Missing
+  rationale on an excluded runtime toggle also warns, while an included runtime
+  toggle without rationale remains a blocking curation conflict.
 - The extraction run additionally assembles a complete generated feature model
   from the manifest's include entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
@@ -142,15 +149,21 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   mandatory `localvc` baseline, enforced through `alternative` group relations
   and `excludes` constraints) — regenerates the Artemis config-key catalog
   from the scanned YAML defaults, validates model and bundled workflow through
-  the shared loader/integrity/diagnostics code paths, and classifies every
-  generated-versus-curated difference as `intentional-curation`,
-  `missing-manifest-entry`, `artemis-drift`, or `extractor-gap`. It also
-  emits a `snapshot/` folder importable via the snapshot API; the curated
-  bundled model stays canonical and the generated model remains a parallel
-  artifact with matching technical features. `StaticConfigValidationService`
-  accepts an explicitly selected generated catalog via
-  `featuremodel.static-validation.catalog-location`;
-  the curated catalog remains the default.
+  the shared loader/integrity/diagnostics code paths, and independently compares
+  the emitted model with the resolved manifest contract, including membership,
+  names/descriptions, kind/category/defaults, hierarchy and group semantics,
+  required capabilities, artifact mappings, constraints, and relation ordering.
+  Any mismatch is a blocking conformance finding in JSON and HTML. It also
+  emits a complete deterministic `snapshot/` folder. The manifest-driven generated
+  model is canonical for delivery and is independent of the curated classpath
+  development fixture. Runtime selects the complete classpath or snapshot bundle
+  explicitly, and `StaticConfigValidationService` always consumes the catalog from
+  that same validated bundle.
+- Enabled configuration keys are not standalone feature candidates and therefore
+  need no manifest membership entries. Their constants, YAML defaults, and usage
+  remain evidence on the owning module candidate and inputs to artifact mappings
+  and the generated config-key catalog; new enabled-property anchors still surface
+  through their module candidates and remain fail-closed.
 - The authored `guided-workflow.json` is lean: decision structure and teacher
   prose only. Model-owned wiring — option `requiresCapabilities` and
   `artifactImpacts`, the workflow's feature model pin, and review group
@@ -164,6 +177,35 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `./gradlew syncGuidedWorkflowScaffold` is a deliberate maintainer task that
   stubs newly included features with TODO prose, flags orphans without
   deleting, and leaves an already-covered workflow byte-identical.
+- Successful and controlled failed extraction runs write a dependency-free
+  `report/index.html` plus raw conformance, extraction, workflow, and release-delta
+  JSON. Successful runs publish seven checksummed snapshot files: model, workflow,
+  generated config-key catalog, generation report, deterministic provenance,
+  metadata, and `checksums.txt`. `./gradlew validateFeatureModelSnapshot
+  -PsnapshotPath=<snapshot>` validates the complete snapshot read-only; generation
+  invokes the same validator before exposing a snapshot. Metadata validation is
+  fail-closed for generated lifecycle status, extractor identity, and immutable
+  image identity as well as payload names and cross-artifact provenance.
+- GitHub delivery reuses one read-only validation workflow for pull requests,
+  development-branch pushes, and publication. It resolves the Artemis SHA through
+  `featureModelManifestPreflight`, uploads HTML/raw reports even on failure, validates
+  the snapshot offline, and smoke-tests the snapshot image before it can be passed
+  to the publication job. Only pushes to `deployment/image-publish-test` enter the
+  branch-restricted `image-publish-test` Environment and receive `packages: write`;
+  they publish one `linux/amd64` GHCR discovery tag and record the registry digest.
+  No workflow publishes `latest`, deploys the image, or updates
+  `LAST_VERIFIED_IMAGE_DIGEST`; deployment and rollback remain deferred.
+- Runtime source mode is explicit under `artemis.feature-model.source-mode`.
+  Local development defaults to `classpath`, which loads and validates the
+  hand-maintained model, workflow, and config-key catalog as one bundle and
+  rejects an active snapshot id. Production-like execution uses `snapshot`,
+  requires `data-root` plus `active-snapshot-id`, validates the complete v2
+  snapshot during startup, and never falls back to classpath artifacts. The
+  legacy `/api/feature-model/snapshots/**` administration resource is absent by
+  default and can only be enabled explicitly in classpath mode. A controlled
+  Docker named-context task stages one revalidated snapshot; the production
+  image embeds it read-only, selects snapshot mode explicitly, runs as uid
+  10001 without a model volume, and records snapshot/source OCI labels.
 
 ## Build and Development Commands
 
@@ -208,14 +250,18 @@ Server package areas:
 - `validation` owns model and selection validation.
 - `visualization` owns derived tree/read-model structures.
 - `selection` owns user selection concepts and future selection sessions.
-- `snapshot` owns local feature model snapshot listing, import, and export.
+- `snapshot` owns the legacy, explicit-development-only local snapshot listing,
+  import, and export surface.
 - `deployment` owns deployment profiles, profile loading, and capability resolution.
 - `export` owns Level 1 configuration artifact generation, the Level 2 local
   runtime deployment package, and static overlay validation against the Artemis
   config key catalog.
-- `extraction` owns the read-only Artemis checkout scan: anchor extractors,
-  candidate assembly with evidence, relation candidates, the drift comparison
-  against the active curated model, and the deterministic output writers.
+- `extraction` owns the manifest-driven staged pipeline. `extraction.source`
+  owns upstream source conventions, verified location, and shared parse/scan
+  results; `extraction.domain` owns persisted scan and envelope contracts;
+  `extraction.service` owns scanners, stateless feature-family assembly, and
+  command orchestration; `extraction.artifact` owns deterministic JSON bytes,
+  SHA-256 calculation, and artifact-directory lifecycle operations.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:

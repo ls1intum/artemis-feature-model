@@ -4,39 +4,40 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ArtifactDirectoryOperations;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReleaseDeltaReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
-import tools.jackson.core.util.DefaultIndenter;
-import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Reads and writes the intermediate artifacts of the extraction stages as deterministic pretty-printed JSON: fixed
- * field order from the domain records, two-space indentation, and line feed separators independent of the operating
- * system. Apart from the timestamps in {@code scan-metadata.json}, two runs on the same commit produce byte-identical
- * files.
+ * Reads and writes the intermediate artifacts and digest-verified envelopes of the extraction stages. Deterministic
+ * JSON formatting, SHA-256 calculation, and recursive directory lifecycle mechanics are delegated to the narrowly
+ * scoped {@code extraction.artifact} components. Apart from the timestamps in {@code scan-metadata.json}, two runs on
+ * the same commit produce byte-identical payload files.
  *
  * <p>
  * Every stage writes an envelope next to its payload that records the extractor version, the Artemis commit, and the
@@ -66,7 +67,7 @@ class ExtractionArtifactStore {
 
     static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
 
-    static final String MODEL_DIFF_FILE = "model-diff-report.json";
+    static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
 
     static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
 
@@ -82,13 +83,17 @@ class ExtractionArtifactStore {
 
     static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
 
-    private static final String DIGEST_PREFIX = "sha256:";
+    static final String HTML_REPORT_FILE = "index.html";
+
+    static final String RELEASE_DELTA_REPORT_FILE = "release-delta-report.json";
 
     private static final String LINE_FEED = "\n";
 
     private final ObjectMapper objectMapper;
 
-    private final DefaultPrettyPrinter prettyPrinter;
+    private final ExtractionJsonWriter jsonWriter;
+
+    private final ArtifactDirectoryOperations directoryOperations;
 
     /**
      * Creates the store with the shared Jackson mapper.
@@ -97,8 +102,8 @@ class ExtractionArtifactStore {
      */
     ExtractionArtifactStore(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        DefaultIndenter indenter = new DefaultIndenter("  ", LINE_FEED);
-        this.prettyPrinter = new DefaultPrettyPrinter().withObjectIndenter(indenter).withArrayIndenter(indenter);
+        jsonWriter = new ExtractionJsonWriter(objectMapper);
+        directoryOperations = new ArtifactDirectoryOperations();
     }
 
     /**
@@ -108,7 +113,7 @@ class ExtractionArtifactStore {
      * @param metadata scan metadata.
      * @param outcome source facts of the scan.
      */
-    record LoadedScan(ScanResult result, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) {
+    record LoadedScan(ScanResult result, ScanMetadata metadata, ExtractedSourceFacts outcome) {
     }
 
     /**
@@ -116,9 +121,10 @@ class ExtractionArtifactStore {
      *
      * @param result model envelope.
      * @param generatedModel generated feature model.
+     * @param generatedCatalog generated config-key catalog.
      * @param items model assembly diagnostics.
      */
-    record LoadedModel(ModelResult result, FeatureModel generatedModel, List<ReportItem> items) {
+    record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
     }
 
     /**
@@ -140,9 +146,7 @@ class ExtractionArtifactStore {
      * @throws IOException if a directory cannot be removed.
      */
     void invalidateFrom(ExtractionArtifactLayout layout, ExtractionStage stage) throws IOException {
-        for (Path directory : layout.directoriesInvalidatedBy(stage)) {
-            deleteRecursively(directory);
-        }
+        directoryOperations.invalidateFrom(layout, stage);
     }
 
     /**
@@ -154,21 +158,21 @@ class ExtractionArtifactStore {
      * @return the written scan envelope.
      * @throws IOException if a file cannot be written.
      */
-    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, FeatureExtractionService.Outcome outcome) throws IOException {
+    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, ExtractedSourceFacts outcome) throws IOException {
         Path directory = Files.createDirectories(layout.scanDirectory());
-        writeJson(directory.resolve(SCAN_METADATA_FILE), metadata);
-        writeJson(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
-        writeJson(directory.resolve(EVIDENCE_FILE), outcome.evidence());
-        writeJson(directory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
-        writeJson(directory.resolve(ANNOTATIONS_FILE), outcome.annotations());
-        writeJson(directory.resolve(CONFIG_DEFAULTS_FILE), outcome.configDefaults());
-        writeJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), outcome.items());
+        jsonWriter.write(directory.resolve(SCAN_METADATA_FILE), metadata);
+        jsonWriter.write(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
+        jsonWriter.write(directory.resolve(EVIDENCE_FILE), outcome.evidence());
+        jsonWriter.write(directory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
+        jsonWriter.write(directory.resolve(ANNOTATIONS_FILE), outcome.annotations());
+        jsonWriter.write(directory.resolve(CONFIG_DEFAULTS_FILE), outcome.configDefaults());
+        jsonWriter.write(directory.resolve(SCAN_DIAGNOSTICS_FILE), outcome.items());
 
         Map<String, String> payloadDigests = digestsOf(directory,
                 List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE, ANNOTATIONS_FILE, CONFIG_DEFAULTS_FILE, SCAN_DIAGNOSTICS_FILE));
         ScanResult result = new ScanResult(ScanResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, metadata.artemisCommit(), payloadDigests,
                 combinedDigest(payloadDigests));
-        writeJson(directory.resolve(SCAN_RESULT_FILE), result);
+        jsonWriter.write(directory.resolve(SCAN_RESULT_FILE), result);
         return result;
     }
 
@@ -189,12 +193,12 @@ class ExtractionArtifactStore {
         requireEqual("scan", "Artemis commit", result.artemisCommit(), expectedArtemisCommit);
         verifyPayloadDigests(directory, result.payloadDigests());
 
-        FeatureExtractionService.Outcome outcome = new FeatureExtractionService.Outcome(
+        ExtractedSourceFacts outcome = new ExtractedSourceFacts(
                 List.of(readJson(directory.resolve(FEATURE_CANDIDATES_FILE), FeatureCandidate[].class, "scan")),
                 List.of(readJson(directory.resolve(EVIDENCE_FILE), EvidenceItem[].class, "scan")),
                 List.of(readJson(directory.resolve(RELATION_CANDIDATES_FILE), RelationCandidate[].class, "scan")),
-                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), AnnotatedAnchor[].class, "scan")),
-                readJson(directory.resolve(CONFIG_DEFAULTS_FILE), YamlConfigScan.Result.class, "scan"),
+                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), ExtractedAnnotation[].class, "scan")),
+                readJson(directory.resolve(CONFIG_DEFAULTS_FILE), ExtractedConfigurationDefaults.class, "scan"),
                 List.of(readJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), ReportItem[].class, "scan")));
         return new LoadedScan(result, readJson(directory.resolve(SCAN_METADATA_FILE), ScanMetadata.class, "scan"), outcome);
     }
@@ -213,18 +217,34 @@ class ExtractionArtifactStore {
     ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyService.Outcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
             throws IOException {
         Path directory = Files.createDirectories(layout.modelDirectory());
-        writeJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
+        jsonWriter.write(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
         String generatedModelDigest = null;
+        String generatedCatalogDigest = null;
         if (outcome.conformance().conformant()) {
-            writeJson(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
-            writeJson(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
-            writeJson(directory.resolve(MODEL_DIFF_FILE), outcome.modelDiff());
-            generatedModelDigest = digestOf(directory.resolve(GENERATED_MODEL_FILE));
+            jsonWriter.write(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
+            jsonWriter.write(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+            generatedModelDigest = Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE));
+            generatedCatalogDigest = Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE));
         }
 
+        List<String> featureIds = outcome.generatedModel() == null ? List.of() : outcome.generatedModel().features().stream().map(feature -> feature.id()).toList();
+        List<String> relationIds = outcome.generatedModel() == null ? List.of()
+                : outcome.generatedModel().relations().stream().map(relation -> relation.parentId() + "->" + relation.childId()).toList();
+        List<String> constraintIds = outcome.generatedModel() == null ? List.of()
+                : outcome.generatedModel().constraints().stream().map(constraint -> constraint.id()).toList();
+        List<ReportItem> generatedOutputFindings = outcome.items().stream()
+                .filter(item -> ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH.equals(item.code())).toList();
+        String status = outcome.conformance().conformant() && outcome.generatedOutputConformant() ? ManifestConformanceReport.STATUS_PASS
+                : ManifestConformanceReport.STATUS_FAIL;
+        ManifestConformanceReport conformanceReport = new ManifestConformanceReport(ManifestConformanceReport.CURRENT_SCHEMA_VERSION, status, artemisCommit,
+                manifestDigest, outcome.conformance(), outcome.curation(), featureIds, relationIds, constraintIds, generatedModelDigest,
+                generatedOutputFindings);
+        jsonWriter.write(directory.resolve(MANIFEST_CONFORMANCE_FILE), conformanceReport);
+
         ModelResult result = new ModelResult(ModelResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, scanDigest, manifestDigest,
-                generatedModelDigest, outcome.modelIntegrityValid(), outcome.conformance(), outcome.curation());
-        writeJson(directory.resolve(MODEL_RESULT_FILE), result);
+                generatedModelDigest, generatedCatalogDigest, outcome.generatedOutputConformant(), outcome.modelIntegrityValid(), outcome.deliveryEligible(),
+                outcome.conformance(), outcome.curation());
+        jsonWriter.write(directory.resolve(MODEL_RESULT_FILE), result);
         return result;
     }
 
@@ -252,10 +272,16 @@ class ExtractionArtifactStore {
             throw new ExtractionArtifactException("The model stage found the manifest incomplete for this scan and produced no model: "
                     + result.conformance().describeFindings() + ".");
         }
-        requireEqual("model", "generated model digest", digestOf(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
+        if (!result.generatedOutputConformant()) {
+            throw new ExtractionArtifactException("The generated model does not conform to the resolved manifest semantics; rerun the model command.");
+        }
+        requireEqual("model", "generated model digest", Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE)), result.generatedModelDigest());
+        requireEqual("model", "generated catalog digest", Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE)), result.generatedCatalogDigest());
 
         FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");
-        return new LoadedModel(result, generatedModel, List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
+        ArtemisConfigKeyCatalog generatedCatalog = readJson(directory.resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
+        return new LoadedModel(result, generatedModel, generatedCatalog,
+                List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
     }
 
     /**
@@ -273,12 +299,13 @@ class ExtractionArtifactStore {
             String generatedModelDigest, String artemisCommit) throws IOException {
         Path directory = Files.createDirectories(layout.workflowDirectory());
         Files.write(directory.resolve(PREPARED_WORKFLOW_FILE), authoredWorkflowBytes);
-        writeJson(directory.resolve(GUIDED_VALIDATION_FILE), validation.guidedValidation());
-        writeJson(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), validation.items());
+        jsonWriter.write(directory.resolve(GUIDED_VALIDATION_FILE), validation.guidedValidation());
+        jsonWriter.write(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), validation.items());
 
         WorkflowResult result = new WorkflowResult(WorkflowResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, artemisCommit, generatedModelDigest,
-                digestOf(authoredWorkflowBytes), digestOf(directory.resolve(PREPARED_WORKFLOW_FILE)), validation.workflowIntegrityValid());
-        writeJson(directory.resolve(WORKFLOW_RESULT_FILE), result);
+                Sha256Digest.of(authoredWorkflowBytes), Sha256Digest.of(directory.resolve(PREPARED_WORKFLOW_FILE)), validation.workflowIntegrityValid(),
+                validation.deliveryEligible());
+        jsonWriter.write(directory.resolve(WORKFLOW_RESULT_FILE), result);
         return result;
     }
 
@@ -303,7 +330,7 @@ class ExtractionArtifactStore {
         requireEqual("workflow", "generated model digest", result.generatedModelDigest(), expectedModelDigest);
         requireEqual("workflow", "authored workflow digest", result.authoredWorkflowDigest(), expectedAuthoredWorkflowDigest);
         Path preparedWorkflow = directory.resolve(PREPARED_WORKFLOW_FILE);
-        requireEqual("workflow", "prepared workflow digest", digestOf(preparedWorkflow), result.preparedWorkflowDigest());
+        requireEqual("workflow", "prepared workflow digest", Sha256Digest.of(preparedWorkflow), result.preparedWorkflowDigest());
 
         return new LoadedWorkflow(result, Files.readAllBytes(preparedWorkflow),
                 List.of(readJson(directory.resolve(WORKFLOW_DIAGNOSTICS_FILE), ReportItem[].class, "workflow")));
@@ -317,19 +344,10 @@ class ExtractionArtifactStore {
      * @throws IOException if the report cannot be written.
      */
     void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
-        writeJson(Files.createDirectories(layout.reportDirectory()).resolve(EXTRACTION_REPORT_FILE), report);
-    }
-
-    /**
-     * Reads the generated config key catalog of this run.
-     *
-     * @param layout output layout of this run.
-     * @return regenerated catalog.
-     * @throws IOException if the catalog cannot be read.
-     * @throws ExtractionArtifactException if the catalog is missing.
-     */
-    ArtemisConfigKeyCatalog readGeneratedCatalog(ExtractionArtifactLayout layout) throws IOException {
-        return readJson(layout.modelDirectory().resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
+        Path directory = Files.createDirectories(layout.reportDirectory());
+        jsonWriter.write(directory.resolve(EXTRACTION_REPORT_FILE), report);
+        jsonWriter.write(directory.resolve(RELEASE_DELTA_REPORT_FILE), ReleaseDeltaReport.noBaseline());
+        Files.write(directory.resolve(HTML_REPORT_FILE), new ExtractionHtmlReportRenderer().render(report));
     }
 
     /**
@@ -342,18 +360,6 @@ class ExtractionArtifactStore {
      */
     GuidedWorkflowValidationReport readGuidedValidation(ExtractionArtifactLayout layout) throws IOException {
         return readJson(layout.workflowDirectory().resolve(GUIDED_VALIDATION_FILE), GuidedWorkflowValidationReport.class, "workflow");
-    }
-
-    /**
-     * Serializes one payload deterministically and writes it with a trailing line feed.
-     *
-     * @param file target file.
-     * @param payload payload to serialize.
-     * @throws IOException if the file cannot be written.
-     */
-    private void writeJson(Path file, Object payload) throws IOException {
-        String json = objectMapper.writer().with(prettyPrinter).writeValueAsString(payload);
-        Files.write(file, (json + LINE_FEED).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -389,7 +395,7 @@ class ExtractionArtifactStore {
             if (!Files.isRegularFile(file)) {
                 throw new ExtractionArtifactException("The scan payload file " + payload.getKey() + " is missing; rerun the scan command.");
             }
-            requireEqual("scan", "digest of " + payload.getKey(), digestOf(file), payload.getValue());
+            requireEqual("scan", "digest of " + payload.getKey(), Sha256Digest.of(file), payload.getValue());
         }
     }
 
@@ -404,7 +410,7 @@ class ExtractionArtifactStore {
     private Map<String, String> digestsOf(Path directory, List<String> fileNames) throws IOException {
         Map<String, String> digests = new TreeMap<>();
         for (String fileName : fileNames) {
-            digests.put(fileName, digestOf(directory.resolve(fileName)));
+            digests.put(fileName, Sha256Digest.of(directory.resolve(fileName)));
         }
         return digests;
     }
@@ -418,51 +424,7 @@ class ExtractionArtifactStore {
     private String combinedDigest(Map<String, String> payloadDigests) {
         StringBuilder combined = new StringBuilder();
         payloadDigests.forEach((fileName, digest) -> combined.append(fileName).append('=').append(digest).append(LINE_FEED));
-        return digestOf(combined.toString().getBytes(StandardCharsets.UTF_8));
-    }
-
-    /**
-     * Computes the digest of a file.
-     *
-     * @param file file to hash.
-     * @return prefixed lowercase hex digest.
-     * @throws IOException if the file cannot be read.
-     */
-    static String digestOf(Path file) throws IOException {
-        return digestOf(Files.readAllBytes(file));
-    }
-
-    /**
-     * Computes the digest of a byte payload.
-     *
-     * @param bytes payload to hash.
-     * @return prefixed lowercase hex digest.
-     */
-    static String digestOf(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return DIGEST_PREFIX + HexFormat.of().formatHex(digest.digest(bytes));
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 algorithm is not available.", e);
-        }
-    }
-
-    /**
-     * Deletes one file tree from children to root. Missing paths are ignored.
-     *
-     * @param path file tree to delete.
-     * @throws IOException if a path cannot be deleted.
-     */
-    static void deleteRecursively(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return;
-        }
-        try (var paths = Files.walk(path)) {
-            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(entry);
-            }
-        }
+        return Sha256Digest.of(combined.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     /**

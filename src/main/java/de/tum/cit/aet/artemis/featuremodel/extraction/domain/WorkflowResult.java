@@ -11,10 +11,11 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  * @param authoredWorkflowDigest digest of the authored guided workflow the preparation consumed.
  * @param preparedWorkflowDigest digest of the prepared guided workflow file.
  * @param workflowIntegrityValid whether the workflow passed its hard reference validation against the model.
+ * @param deliveryEligible whether hard references and automation diagnostics all passed.
  */
 public record WorkflowResult(int schemaVersion, String extractorVersion, String artemisCommit, String generatedModelDigest, String authoredWorkflowDigest,
-        String preparedWorkflowDigest, boolean workflowIntegrityValid) {
+        String preparedWorkflowDigest, boolean workflowIntegrityValid, boolean deliveryEligible) {
 
     /** Current schema version of the workflow envelope. */
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    public static final int CURRENT_SCHEMA_VERSION = 2;
 }

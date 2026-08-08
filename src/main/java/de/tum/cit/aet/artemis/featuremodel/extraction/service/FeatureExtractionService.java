@@ -4,25 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ArtemisFeatureAnnotationScan.AnnotatedAnchor;
+import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Runs the source discovery half of one extraction run: executes every anchor scan fail-soft, assembles candidates
- * with evidence and relation candidates, and compares the result against the active curated model. It records source
- * facts only — manifest membership and generated artifacts belong to the later stages. The service itself produces no
+ * with evidence and relation candidates. It records source facts only — manifest membership and generated artifacts belong to the later stages. The service itself produces no
  * timestamps; scan metadata is the caller's concern so this outcome stays reproducible.
  */
 class FeatureExtractionService {
 
     private final ObjectMapper objectMapper;
+
+    private final CandidateAssembler candidateAssembler;
 
     /**
      * Creates the extraction service.
@@ -31,60 +30,55 @@ class FeatureExtractionService {
      */
     FeatureExtractionService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        candidateAssembler = new CandidateAssembler();
     }
 
     /**
-     * Source facts discovered in one scan.
-     *
-     * @param candidates feature candidates sorted by id.
-     * @param evidence evidence items sorted by candidate id, file, line, kind, and symbol.
-     * @param relationCandidates relation candidates sorted by id.
-     * @param annotations parsed {@code @ArtemisFeature} anchors.
-     * @param configDefaults scanned configuration defaults of the checkout.
-     * @param items scan diagnostics, including drift against the curated model.
-     */
-    record Outcome(List<FeatureCandidate> candidates, List<EvidenceItem> evidence, List<RelationCandidate> relationCandidates, List<AnnotatedAnchor> annotations,
-            YamlConfigScan.Result configDefaults, List<ReportItem> items) {
-    }
-
-    /**
-     * Scans a checkout for feature candidates, evidence, relation candidates, and drift against the curated model.
+     * Scans a checkout for feature candidates, evidence, and relation candidates.
      *
      * @param source Artemis source repository.
-     * @param curatedModel active curated feature model for the drift comparison.
-     * @param catalog curated config key catalog for the drift comparison.
      * @return deterministic source discovery outcome.
      */
-    Outcome scan(ArtemisSourceRepository source, FeatureModel curatedModel, ArtemisConfigKeyCatalog catalog) {
+    ExtractedSourceFacts scan(ArtemisSourceRepository source) {
         List<ReportItem> items = new ArrayList<>();
 
-        BackendConstantScan.Result constantScan = runScan("backend constants", items, () -> new BackendConstantScan().scan(source), BackendConstantScan.Result.empty());
-        ConfigHelperScan.Result configHelperScan = runScan("config helper", items, () -> new ConfigHelperScan().scan(source), ConfigHelperScan.Result.empty());
-        ConditionClassScan.Result conditionScan = runScan("condition classes", items, () -> new ConditionClassScan().scan(source), ConditionClassScan.Result.empty());
-        BackendFeatureEnumScan.Result backendToggleScan = runScan("backend feature enum", items, () -> new BackendFeatureEnumScan().scan(source),
-                BackendFeatureEnumScan.Result.empty());
-        FrontendConstantScan.Result frontendConstantScan = runScan("frontend constants", items, () -> new FrontendConstantScan().scan(source),
-                FrontendConstantScan.Result.empty());
-        FrontendToggleEnumScan.Result frontendToggleScan = runScan("frontend toggle enum", items, () -> new FrontendToggleEnumScan().scan(source),
-                FrontendToggleEnumScan.Result.empty());
-        AdminPageScan.Result adminPageScan = runScan("admin features page", items, () -> new AdminPageScan().scan(source), AdminPageScan.Result.empty());
-        FeatureI18nScan.Result i18nScan = runScan("feature i18n", items, () -> new FeatureI18nScan(objectMapper).scan(source), FeatureI18nScan.Result.empty());
-        YamlConfigScan.Result yamlScan = runScan("configuration defaults", items, () -> new YamlConfigScan().scan(source), YamlConfigScan.Result.empty());
-        ComposeFileScan.Result composeScan = runScan("compose files", items, () -> new ComposeFileScan().scan(source), ComposeFileScan.Result.empty());
-        UsageEvidenceScan.Result usageScan = runScan("usage evidence", items, () -> new UsageEvidenceScan().scan(source), UsageEvidenceScan.Result.empty());
-        ArtemisFeatureAnnotationScan.Result annotationScan = runScan("ArtemisFeature annotations", items, () -> new ArtemisFeatureAnnotationScan().scan(source),
-                ArtemisFeatureAnnotationScan.Result.empty());
+        SourceScanResult<ServerConstantScan.Result> constantScan = runScan("server constants",
+                () -> SourceScanResult.success(new ServerConstantScan().scan(source)), ServerConstantScan.Result.empty());
+        SourceScanResult<ConfigHelperScan.Result> configHelperScan = runScan("config helper",
+                () -> SourceScanResult.success(new ConfigHelperScan().scan(source)), ConfigHelperScan.Result.empty());
+        SourceScanResult<ConditionClassScan.Result> conditionScan = runScan("condition classes", () -> new ConditionClassScan().scan(source),
+                ConditionClassScan.Result.empty());
+        SourceScanResult<ServerFeatureEnumScan.Result> serverToggleScan = runScan("server feature enum",
+                () -> SourceScanResult.success(new ServerFeatureEnumScan().scan(source)), ServerFeatureEnumScan.Result.empty());
+        SourceScanResult<ClientConstantScan.Result> clientConstantScan = runScan("client constants",
+                () -> SourceScanResult.success(new ClientConstantScan().scan(source)), ClientConstantScan.Result.empty());
+        SourceScanResult<ClientToggleEnumScan.Result> clientToggleScan = runScan("client toggle enum",
+                () -> SourceScanResult.success(new ClientToggleEnumScan().scan(source)), ClientToggleEnumScan.Result.empty());
+        SourceScanResult<AdminPageScan.Result> adminPageScan = runScan("admin features page",
+                () -> SourceScanResult.success(new AdminPageScan().scan(source)), AdminPageScan.Result.empty());
+        SourceScanResult<FeatureI18nScan.Result> i18nScan = runScan("feature i18n",
+                () -> SourceScanResult.success(new FeatureI18nScan(objectMapper).scan(source)), FeatureI18nScan.Result.empty());
+        SourceScanResult<ExtractedConfigurationDefaults> yamlScan = runScan("configuration defaults", () -> new YamlConfigScan().scan(source),
+                ExtractedConfigurationDefaults.empty());
+        SourceScanResult<ComposeFileScan.Result> composeScan = runScan("compose files", () -> SourceScanResult.success(new ComposeFileScan().scan(source)),
+                ComposeFileScan.Result.empty());
+        SourceScanResult<UsageEvidenceScan.Result> usageScan = runScan("usage evidence",
+                () -> SourceScanResult.success(new UsageEvidenceScan().scan(source)), UsageEvidenceScan.Result.empty());
+        SourceScanResult<List<ExtractedAnnotation>> annotationScan = runScan("ArtemisFeature annotations", () -> new ArtemisFeatureAnnotationScan().scan(source),
+                List.of());
 
-        items.addAll(conditionScan.errors());
-        items.addAll(yamlScan.errors());
-        items.addAll(annotationScan.errors());
+        List<SourceScanResult<?>> scanResults = List.of(constantScan, configHelperScan, conditionScan, serverToggleScan, clientConstantScan,
+                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan);
+        appendWholeScannerDiagnostics(scanResults, items);
+        appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan), items);
 
-        CandidateAssembler.Result assembly = new CandidateAssembler().assemble(source, constantScan, configHelperScan, conditionScan, backendToggleScan,
-                frontendConstantScan, frontendToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan);
+        CandidateAssemblyInput assemblyInput = new CandidateAssemblyInput(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
+                serverToggleScan.facts(), clientConstantScan.facts(), clientToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
+                composeScan.facts(), usageScan.facts());
+        CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());
-        items.addAll(new DriftComparator().compare(source, curatedModel, catalog, assembly.candidates(), yamlScan, source.commit()));
-
-        return new Outcome(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), annotationScan.annotations(), yamlScan, List.copyOf(items));
+        return new ExtractedSourceFacts(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), annotationScan.facts(), yamlScan.facts(),
+                List.copyOf(items));
     }
 
     /**
@@ -93,18 +87,38 @@ class FeatureExtractionService {
      *
      * @param <T> scan result type.
      * @param scanName human-readable scan name for the error item.
-     * @param items report item sink.
      * @param scan scan invocation.
      * @param fallback empty fallback result.
-     * @return scan result or fallback.
+     * @return explicit source-scan result with discovered facts or the fallback and a controlled diagnostic.
      */
-    private <T> T runScan(String scanName, List<ReportItem> items, Callable<T> scan, T fallback) {
+    private <T> SourceScanResult<T> runScan(String scanName, Callable<SourceScanResult<T>> scan, T fallback) {
         try {
             return scan.call();
         }
         catch (Exception e) {
-            items.add(ReportItem.error(ReportItem.CODE_EXTRACTOR_ERROR, scanName, "Scan '" + scanName + "' failed: " + e.getMessage()));
-            return fallback;
+            ReportItem diagnostic = ReportItem.error(ReportItem.CODE_EXTRACTOR_ERROR, scanName, "Scan '" + scanName + "' failed: " + e.getMessage());
+            return SourceScanResult.failure(fallback, diagnostic);
         }
+    }
+
+    /**
+     * Appends whole-scanner failures in scanner invocation order, preserving the Stage 1 diagnostic contract.
+     *
+     * @param scanResults source-scan results in invocation order.
+     * @param items diagnostic sink.
+     */
+    private void appendWholeScannerDiagnostics(List<SourceScanResult<?>> scanResults, List<ReportItem> items) {
+        scanResults.stream().filter(SourceScanResult::wholeScannerFailed).forEach(result -> items.addAll(result.diagnostics()));
+    }
+
+    /**
+     * Appends isolated per-file failures after all whole-scanner failures, in the established condition, YAML, then
+     * annotation order.
+     *
+     * @param scanResults scanners that can retain sibling facts after one file fails.
+     * @param items diagnostic sink.
+     */
+    private void appendIsolatedDiagnostics(List<SourceScanResult<?>> scanResults, List<ReportItem> items) {
+        scanResults.stream().filter(result -> !result.wholeScannerFailed()).forEach(result -> items.addAll(result.diagnostics()));
     }
 }
