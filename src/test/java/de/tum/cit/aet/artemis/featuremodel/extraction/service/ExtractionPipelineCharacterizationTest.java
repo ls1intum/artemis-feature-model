@@ -75,17 +75,17 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "9d93d0fc3c9170664f8bb59bf3efad0a471a2971f02ee8259ea8de3a99abd660"),
+            Map.entry("snapshot/checksums.txt", "4833f9bb55147e28737e713b1536a2f898d73917ffd3bfdb212b66f387d6ba32"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
-            Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("snapshot/metadata.json", "49bcf54a85bf77dca9178d103f230db507172b277adb55dc0ff67c3a8210f6ab"),
-            Map.entry("snapshot/provenance.json", "a9f779f11cf7aafd5c937d6c526a2ef4de01009f37931feb109bb30923e037e7"),
+            Map.entry("snapshot/provenance.json", "0d726b8cdb796458b979510fb4206a0432f6b1d91307f903dcc774fa7a844656"),
             Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
-            Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "ad7c4d85fedb41cb8960c92a9152571e9a9d40d8e569cfa82a365b2cd959f189"));
+            Map.entry("workflow/workflow-result.json", "e086e5b22b16db366464321abe6a159e16889c28d2f6cdb7a703ebbb7b626004"));
 
     @TempDir
     private Path outputRoot;

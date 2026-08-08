@@ -27,10 +27,13 @@
           "options": [
             {
               "id": "enable-alpha",
+              "status": "published",
               "label": "Alpha",
               "description": "Fixture option.",
               "selects": ["alpha-feature"],
-              "enabledOutcome": ["Outcome."]
+              "enabledOutcome": ["Outcome."],
+              "recommendedWhen": ["Fits."],
+              "thingsToKnow": ["Notes."]
             }
           ]
         }

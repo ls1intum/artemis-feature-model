@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
@@ -21,11 +23,18 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationR
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapshotValidator;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
 import tools.jackson.databind.ObjectMapper;
 
-/** Loads the complete runtime bundle from exactly one configured source and validates it before publication. */
+/**
+ * Loads the complete runtime bundle from exactly one configured source and validates it before publication. The
+ * guided workflow is projected onto its effective, servable form during loading, so draft and incomplete published
+ * options never enter the bundle any downstream service or API response reads from.
+ */
 public class RuntimeFeatureModelBundleLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(RuntimeFeatureModelBundleLoader.class);
 
     static final String MODEL_RESOURCE = "classpath:feature-model/functional-feature-model.json";
 
@@ -85,10 +94,11 @@ public class RuntimeFeatureModelBundleLoader {
         FeatureModel model = readResource(MODEL_RESOURCE, FeatureModel.class);
         GuidedWorkflow workflow = readResource(WORKFLOW_RESOURCE, GuidedWorkflow.class);
         ArtemisConfigKeyCatalog catalog = readResource(CATALOG_RESOURCE, ArtemisConfigKeyCatalog.class);
-        validateBundle(model, workflow, catalog);
+        GuidedWorkflow effectiveWorkflow = effectiveWorkflow(workflow);
+        validateBundle(model, effectiveWorkflow, catalog);
         RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(FeatureModelSourceMode.CLASSPATH, model.model().id(),
                 model.model().version(), null, null, null, null, null, null);
-        return new RuntimeFeatureModelBundle(model, workflow, catalog, provenance, null);
+        return new RuntimeFeatureModelBundle(model, effectiveWorkflow, catalog, provenance, null);
     }
 
     private RuntimeFeatureModelBundle loadSnapshotBundle() {
@@ -115,11 +125,12 @@ public class RuntimeFeatureModelBundleLoader {
             if (!validation.equals(finalValidation)) {
                 throw loadFailure("Active feature model snapshot changed while it was loading.");
             }
+            GuidedWorkflow effectiveWorkflow = effectiveWorkflow(workflow);
             RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(FeatureModelSourceMode.SNAPSHOT, model.model().id(),
                     model.model().version(), finalValidation.snapshotId(), finalValidation.snapshotDigest(), finalValidation.artemisCommit(),
                     finalValidation.manifestDigest(),
                     snapshotProvenance.featureModelRepositoryCommit(), snapshotProvenance.extractorVersion());
-            return new RuntimeFeatureModelBundle(model, workflow, catalog, provenance, metadata);
+            return new RuntimeFeatureModelBundle(model, effectiveWorkflow, catalog, provenance, metadata);
         }
         catch (IOException | ExtractionArtifactException e) {
             throw new FeatureModelLoadException("Active feature model snapshot '" + snapshotId + "' failed complete validation: " + e.getMessage(), e);
@@ -143,6 +154,28 @@ public class RuntimeFeatureModelBundleLoader {
         catch (RuntimeException e) {
             throw new ExtractionArtifactException("Snapshot payload " + fileName + " is unreadable: " + e.getMessage());
         }
+    }
+
+    /**
+     * Projects a parsed guided workflow onto the effective workflow the bundle serves and logs what the projection
+     * removed or tolerated. Missing statuses and omitted incomplete published options are runtime warnings; the
+     * extraction pipeline grades the same conditions as findings.
+     *
+     * @param workflow structurally parsed guided workflow.
+     * @return effective workflow without draft or incomplete published options.
+     */
+    private GuidedWorkflow effectiveWorkflow(GuidedWorkflow workflow) {
+        GuidedWorkflowProjectionService.Projection projection = new GuidedWorkflowProjectionService().project(workflow);
+        if (!projection.optionIdsMissingStatus().isEmpty()) {
+            log.warn("Guided workflow options {} declare no lifecycle status and are treated as published.", projection.optionIdsMissingStatus());
+        }
+        if (!projection.removedDraftOptionIds().isEmpty()) {
+            log.info("Effective guided workflow omits draft options {}.", projection.removedDraftOptionIds());
+        }
+        if (!projection.removedIncompleteOptionIds().isEmpty()) {
+            log.warn("Effective guided workflow omits published options with incomplete prose {}.", projection.removedIncompleteOptionIds());
+        }
+        return projection.effectiveWorkflow();
     }
 
     private void validateBundle(FeatureModel model, GuidedWorkflow workflow, ArtemisConfigKeyCatalog catalog) {
