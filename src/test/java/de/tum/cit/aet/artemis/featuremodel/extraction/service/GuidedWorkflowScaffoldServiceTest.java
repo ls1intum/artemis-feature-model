@@ -64,6 +64,8 @@ class GuidedWorkflowScaffoldServiceTest {
         assertThat(result.report().addedOptionIds()).containsExactly("enable-newcomer");
         ObjectNode stub = lastOption(result.workflow());
         assertThat(stub.path("id").asString()).isEqualTo("enable-newcomer");
+        // Scaffolded options are always drafts; publication stays a deliberate maintainer edit.
+        assertThat(stub.path("status").asString()).isEqualTo("draft");
         assertThat(stub.path("label").asString()).isEqualTo("Newcomer Feature");
         assertThat(stub.withArrayProperty("selects")).hasSize(1);
         assertThat(stub.withArrayProperty("selects").get(0).asString()).isEqualTo("newcomer");

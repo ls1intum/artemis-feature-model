@@ -22,7 +22,8 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * Keeps the authored guided workflow structurally in sync with the manifest include set without ever touching prose.
  * The sync is an incremental diff, not a regeneration: covered features cause zero writes, a newly included functional
- * feature gains a stub option with filled wiring and TODO prose, an orphan reference is flagged but never deleted, and
+ * feature gains a {@code draft} stub option with filled wiring and TODO prose that the effective-workflow projection
+ * keeps off every client surface until a maintainer publishes it, an orphan reference is flagged but never deleted, and
  * only an explicitly declared id rename is rewritten mechanically across all id reference locations. A run without
  * changes leaves the file byte-identical, which is the idempotence contract of the
  * {@code syncGuidedWorkflowScaffold} task.
@@ -246,6 +247,7 @@ public class GuidedWorkflowScaffoldService {
         }
         ObjectNode stub = objectMapper.createObjectNode();
         stub.put("id", "enable-" + feature.id());
+        stub.put("status", "draft");
         stub.put("label", feature.label());
         stub.put("description", TODO_PROSE + "Describe this option for teachers.");
         stub.withArrayProperty("selects").add(feature.id());
