@@ -76,4 +76,18 @@ public class DeploymentProfileException extends RuntimeException {
     public HttpStatus getStatus() {
         return status;
     }
+
+    /**
+     * Creates the exception for a legacy profile that still carries the removed {@code parameters} block.
+     *
+     * @param source human-readable profile source label.
+     * @return exception describing the required migration.
+     */
+    public static DeploymentProfileException legacyParameters(String source) {
+        return new DeploymentProfileException("DEPLOYMENT_PROFILE_LEGACY_PARAMETERS",
+                "Deployment profile in " + source + " contains the removed 'parameters' block. Since profile version 2.0.0 a profile is a pure "
+                        + "capability manifest: delete the parameters block and supply runtime values through the deployment environment "
+                        + "(env/.env or the IDE run environment).",
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

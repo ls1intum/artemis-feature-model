@@ -24,6 +24,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -160,7 +161,10 @@ public class DeploymentProfileRepository {
      */
     private DeploymentProfile readLocalProfile(Path file) {
         try (InputStream inputStream = Files.newInputStream(file)) {
-            return parseProfile(inputStream);
+            return parseProfile(inputStream, "local file " + file);
+        }
+        catch (DeploymentProfileException e) {
+            throw e;
         }
         catch (IOException | RuntimeException e) {
             throw DeploymentProfileException.unreadable("local file " + file);
@@ -177,7 +181,10 @@ public class DeploymentProfileRepository {
      */
     private DeploymentProfile readProfile(Resource resource, String sourceLabel) {
         try (InputStream inputStream = resource.getInputStream()) {
-            return parseProfile(inputStream);
+            return parseProfile(inputStream, sourceLabel);
+        }
+        catch (DeploymentProfileException e) {
+            throw e;
         }
         catch (IOException | RuntimeException e) {
             throw DeploymentProfileException.unreadable(sourceLabel);
@@ -185,14 +192,22 @@ public class DeploymentProfileRepository {
     }
 
     /**
-     * Parses a deployment profile from a JSON input stream and rejects profiles without an id.
+     * Parses a deployment profile from a JSON input stream, rejecting profiles without an id and legacy profiles that
+     * still carry the removed {@code parameters} block. The legacy check reads the JSON tree first, because the
+     * lenient record deserialization would otherwise silently drop the retired field.
      *
      * @param inputStream JSON input stream.
+     * @param sourceLabel human-readable source label for error messages.
      * @return parsed deployment profile.
+     * @throws DeploymentProfileException if the profile still contains a parameters block.
      * @throws IllegalArgumentException if the parsed profile has no id.
      */
-    private DeploymentProfile parseProfile(InputStream inputStream) {
-        DeploymentProfile profile = objectMapper.readValue(inputStream, DeploymentProfile.class);
+    private DeploymentProfile parseProfile(InputStream inputStream, String sourceLabel) {
+        JsonNode json = objectMapper.readTree(inputStream);
+        if (json.has("parameters")) {
+            throw DeploymentProfileException.legacyParameters(sourceLabel);
+        }
+        DeploymentProfile profile = objectMapper.treeToValue(json, DeploymentProfile.class);
         if (profile.id() == null || profile.id().isBlank()) {
             throw new IllegalArgumentException("Deployment profile is missing a non-blank id.");
         }
