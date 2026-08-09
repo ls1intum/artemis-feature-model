@@ -1,14 +1,22 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
+import de.tum.cit.aet.artemis.featuremodel.validation.domain.ValidationCode;
 import tools.jackson.databind.ObjectMapper;
 
 class JsonFeatureModelStoreTest {
@@ -67,6 +75,26 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.artifactMappings()).extracting(mapping -> mapping.path()).contains("SPRING_PROFILES_ACTIVE",
                     "artemis.continuous-integration.url");
         });
+    }
+
+    @Test
+    void retiredProfileValueMappingShapeParsesLenientlyAndIsRejectedByIntegrity() {
+        // Jackson 3 does not fail on unknown JSON fields, so the retired shape must be caught by shared integrity.
+        String retiredShape = """
+                {"target": "application-feature-model.yml", "path": "artemis.iris.url",
+                 "valueWhenSelected": null, "valueWhenDeselected": null,
+                 "valueFromProfile": "artemis.iris.url", "requiredWhenSelected": true}
+                """;
+
+        ArtifactMapping mapping = new ObjectMapper().readValue(retiredShape, ArtifactMapping.class);
+
+        assertThat(mapping.source()).isNull();
+        FeatureNode holder = new FeatureNode("mapping-holder", "Mapping Holder", "feature", true, null, "disabled", null, null, List.of(), List.of(),
+                List.of(), List.of(mapping), null);
+        FeatureModel model = TestFeatureModels.withFeatures(
+                java.util.stream.Stream.concat(TestFeatureModels.baseModel().features().stream(), java.util.stream.Stream.of(holder)).toList());
+        assertThatThrownBy(() -> new FeatureModelIntegrityService().validate(model)).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name());
     }
 
     @Test

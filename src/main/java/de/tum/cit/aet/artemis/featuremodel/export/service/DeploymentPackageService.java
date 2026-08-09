@@ -731,16 +731,24 @@ public class DeploymentPackageService {
                                 + staticValidation.verifiedAgainstArtemisCommit() + ")."
                         : staticValidation.findings().size() + " finding(s); see " + STATIC_VALIDATION_FILE + "."));
 
-        List<String> undeclaredSecrets = new ArrayList<>();
+        // Checked against the generated overlay bytes: a secret overlay entry that is not rendered as its derived
+        // placeholder would mean a literal value was written. Package-only secrets never enter the overlay by design.
+        List<String> secretsWithoutPlaceholder = new ArrayList<>();
+        long overlaySecretCount = 0;
         for (EnvironmentRequirement requirement : report.environmentRequirements()) {
-            if (requirement.secret() && !requiredEnvVars.contains(requirement.name())) {
-                undeclaredSecrets.add(requirement.name());
+            if (!requirement.secret() || !EnvironmentRequirement.SOURCE_ARTIFACT_MAPPING.equals(requirement.source())) {
+                continue;
+            }
+            overlaySecretCount++;
+            if (!overlayContent.contains("${" + requirement.name() + "}")) {
+                secretsWithoutPlaceholder.add(requirement.name());
             }
         }
-        checks.add(new RuntimeCheck("no-plaintext-secrets", "No secret value is written as plaintext.",
-                undeclaredSecrets.isEmpty() ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
-                undeclaredSecrets.isEmpty() ? "Secret values are declared environment references only."
-                        : "Undeclared secret requirement(s): " + String.join(", ", undeclaredSecrets) + "."));
+        checks.add(new RuntimeCheck("no-plaintext-secrets", "Every secret overlay value is rendered as its ${VARIABLE} placeholder, never as plaintext.",
+                secretsWithoutPlaceholder.isEmpty() ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
+                secretsWithoutPlaceholder.isEmpty()
+                        ? overlaySecretCount + " secret overlay value(s) appear only as ${VARIABLE} placeholders; package-only secrets never enter the overlay."
+                        : "Secret requirement(s) without an overlay placeholder: " + String.join(", ", secretsWithoutPlaceholder) + "."));
 
         int warningCount = report.warnings().size();
         checks.add(new RuntimeCheck("placeholder-values-reported", "Placeholder and integration notes are reported for review.", RuntimeCheck.STATUS_INFO,
