@@ -83,6 +83,18 @@ public record GenerationReport(String status, String mode, String modelId, Strin
     }
 
     /**
+     * Copies this report with the complete environment requirements of the composed package, so package-only
+     * requirements can never disappear from the report metadata.
+     *
+     * @param completeRequirements environment requirements including package-only requirements.
+     * @return copied report.
+     */
+    public GenerationReport withEnvironmentRequirements(List<EnvironmentRequirement> completeRequirements) {
+        return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, completeRequirements,
+                warnings, errors, technicalSelection);
+    }
+
+    /**
      * Copies this report with technical-selection recording metadata.
      *
      * @param metadata technical-selection metadata.

@@ -292,7 +292,9 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Applies mode-specific technical dispositions and rewrites the report only for a technical model.
+     * Applies mode-specific technical dispositions and requirements: the local-docker mode gains its package-only
+     * requirements, and a technical model gains its technical-selection metadata. The rewritten report replaces the
+     * Phase 5 report file, so the report metadata and the returned package report always agree.
      *
      * @param shared shared artifacts with the Phase 5 report.
      * @param deploymentMode resolved deployment mode.
@@ -300,12 +302,20 @@ public class DeploymentPackageService {
      */
     private SharedArtifacts applyModeMetadata(SharedArtifacts shared, String deploymentMode) {
         TechnicalSelection selection = shared.technicalSelection();
-        if (selection.isEmpty()) {
+        GenerationReport report = shared.report();
+        if (DeploymentModes.LOCAL_DOCKER.equals(deploymentMode)) {
+            List<EnvironmentRequirement> localDockerRequirements = localDockerEnvironmentRequirements(report.environmentRequirements(), selection);
+            if (localDockerRequirements.size() != report.environmentRequirements().size()) {
+                report = report.withEnvironmentRequirements(localDockerRequirements);
+            }
+        }
+        if (!selection.isEmpty()) {
+            TechnicalSelectionMetadata metadata = technicalMetadata(selection, deploymentMode);
+            report = reportWithTechnicalSelection(report, metadata, deploymentMode, selection);
+        }
+        if (report == shared.report()) {
             return shared;
         }
-
-        TechnicalSelectionMetadata metadata = technicalMetadata(selection, deploymentMode);
-        GenerationReport report = reportWithTechnicalSelection(shared.report(), metadata, deploymentMode, selection);
         replaceGenerationReport(shared.baseByPath(), report);
         return new SharedArtifacts(report, shared.baseByPath(), shared.overlay(), shared.envExample(), shared.requiredEnvVars(),
                 shared.staticValidation(), selection);
@@ -387,7 +397,7 @@ public class DeploymentPackageService {
     private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {
         GenerationReport report = shared.report();
         TechnicalSelection selection = shared.technicalSelection();
-        List<EnvironmentRequirement> localDockerRequirements = localDockerEnvironmentRequirements(report.environmentRequirements(), selection);
+        List<EnvironmentRequirement> localDockerRequirements = report.environmentRequirements();
         List<String> requiredEnvVars = requirementNames(localDockerRequirements);
         boolean technicalStack = !selection.isEmpty();
         TechnicalSelection runtimeSelection = localDockerRuntimeSelection(selection);

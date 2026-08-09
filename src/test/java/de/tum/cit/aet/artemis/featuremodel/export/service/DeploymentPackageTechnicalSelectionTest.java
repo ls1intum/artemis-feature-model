@@ -211,6 +211,14 @@ class DeploymentPackageTechnicalSelectionTest {
             String checks = content(file(result, DeploymentPackageService.RUNTIME_CHECKS_FILE));
             assertThat(checks).contains("\"id\" : \"jenkins-stack-available\"", "\"overallStatus\" : \"FAIL\"");
             assertThat(result.report().warnings()).anyMatch(warning -> warning.message().contains("cannot DEMO-boot a Jenkins stack"));
+            assertThat(result.report().environmentRequirements())
+                    .anyMatch(requirement -> RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV.equals(requirement.name())
+                            && "runtime-package".equals(requirement.source()))
+                    .anyMatch(requirement -> RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV.equals(requirement.name())
+                            && requirement.secret());
+            String reportJson = content(file(result, ArtifactGenerationService.REPORT_FILE));
+            assertThat(reportJson).contains(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV,
+                    RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV);
         }
     }
 

@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * One environment value a generated package requires the deployment environment to supply. Every selected
  * environment-sourced artifact mapping produces exactly one requirement, and package-only runtime values (for example
@@ -30,6 +32,7 @@ public record EnvironmentRequirement(String name, String featureId, String featu
      *
      * @return true if the requirement carries a configuration key.
      */
+    @JsonIgnore
     public boolean isCatalogKeyed() {
         return configKey != null;
     }
