@@ -24,6 +24,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapsh
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -57,6 +58,9 @@ public class RuntimeFeatureModelBundleLoader {
     private static final String OVERLAY_TARGET = "application-feature-model.yml";
 
     private static final Pattern SNAPSHOT_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]*$");
+
+    /** Integrity code of a served workflow reference the active model cannot resolve; see GuidedWorkflowIntegrityService. */
+    private static final String UNKNOWN_WORKFLOW_FEATURE_CODE = "UNKNOWN_GUIDED_WORKFLOW_FEATURE";
 
     private final SnapshotProperties properties;
 
@@ -95,7 +99,16 @@ public class RuntimeFeatureModelBundleLoader {
         GuidedWorkflow workflow = readResource(WORKFLOW_RESOURCE, GuidedWorkflow.class);
         ArtemisConfigKeyCatalog catalog = readResource(CATALOG_RESOURCE, ArtemisConfigKeyCatalog.class);
         GuidedWorkflow effectiveWorkflow = effectiveWorkflow(workflow);
-        validateBundle(model, effectiveWorkflow, catalog);
+        try {
+            validateBundle(model, effectiveWorkflow, catalog);
+        }
+        catch (FeatureModelIntegrityException e) {
+            if (UNKNOWN_WORKFLOW_FEATURE_CODE.equals(e.getCode())) {
+                throw new FeatureModelLoadException(e.getMessage() + " The classpath fixture does not contain that feature: merge the pending fixture "
+                        + "refresh, run './gradlew refreshFeatureModelFixture -PsnapshotPath=<validated snapshot>', or set the option back to draft.", e);
+            }
+            throw e;
+        }
         RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(FeatureModelSourceMode.CLASSPATH, model.model().id(),
                 model.model().version(), null, null, null, null, null, null);
         return new RuntimeFeatureModelBundle(model, effectiveWorkflow, catalog, provenance, null);

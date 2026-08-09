@@ -31,9 +31,9 @@ class FeatureModelCatalogServiceTest {
         var model = service.loadActiveModel();
         var response = service.getActiveFeatureModelResponse();
 
-        assertThat(response.model().name()).isEqualTo("Artemis Functional Feature Tree");
-        assertThat(response.model().status()).isEqualTo("published");
-        assertThat(response.model().sourceCommitSha()).isNull();
+        assertThat(response.model().name()).isEqualTo("Artemis Generated Feature Model");
+        assertThat(response.model().status()).isEqualTo("generated");
+        assertThat(response.model().sourceCommitSha()).matches("[0-9a-f]{40}");
         assertThat(response.features()).hasSameSizeAs(model.features());
         assertThat(response.relations()).hasSameSizeAs(model.relations());
         assertThat(response.constraints()).hasSize(3).anySatisfy(constraint -> {
@@ -51,7 +51,7 @@ class FeatureModelCatalogServiceTest {
             assertThat(feature.configurableBy()).containsExactly("teacher", "maintainer");
             assertThat(feature.requiresCapabilities()).isEmpty();
             assertThat(feature.artifactMappings()).singleElement().satisfies(mapping -> assertThat(mapping.path()).isEqualTo("artemis.text.enabled"));
-            assertThat(feature.extraction().status()).isEqualTo("manually_confirmed");
+            assertThat(feature.extraction().status()).isEqualTo("generated");
         });
         assertThat(response.defaultSelectedFeatureIds()).containsAll(List.of("programming", "quiz", "atlas"));
         assertThat(response.defaultSelectedFeatureIds()).contains("mysql", "integrated-code-lifecycle", "localvc");

@@ -27,7 +27,7 @@ class FeatureModelAppTest {
         MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(applicationContext).build();
 
         mockMvc.perform(get("/api/feature-model/provenance")).andExpect(status().isOk()).andExpect(jsonPath("$.sourceMode").value("classpath"))
-                .andExpect(jsonPath("$.modelId").value("artemis-functional-feature-tree")).andExpect(jsonPath("$.snapshotId").doesNotExist());
+                .andExpect(jsonPath("$.modelId").value("artemis-generated-feature-model")).andExpect(jsonPath("$.snapshotId").doesNotExist());
         mockMvc.perform(get("/api/feature-model/snapshots")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/feature-model/snapshots/anything")).andExpect(status().isNotFound());
         mockMvc.perform(post("/api/feature-model/snapshots/import")).andExpect(status().isNotFound());

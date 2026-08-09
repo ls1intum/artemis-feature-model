@@ -135,8 +135,8 @@ class DeploymentPackageServiceTest {
         assertThat(report.overallStatus()).isEqualTo("PASS");
         assertThat(report.findings()).isEmpty();
         assertThat(report.checkedEntryCount()).isGreaterThan(15);
-        assertThat(report.catalogVersion()).isEqualTo("1.0.0");
-        assertThat(report.verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
+        assertThat(report.catalogVersion()).startsWith("0.1.0+");
+        assertThat(report.verifiedAgainstArtemisCommit()).matches("[0-9a-f]{40}");
     }
 
     @Test

@@ -28,8 +28,8 @@ class GuidedWorkflowAssemblerTest {
     void stampsWorkflowMetadataFromTheActiveModel() {
         GuidedWorkflow enriched = enrichedBundledWorkflow();
 
-        assertThat(enriched.workflow().featureModelId()).isEqualTo("artemis-functional-feature-tree");
-        assertThat(enriched.workflow().featureModelVersion()).isEqualTo("0.1.0");
+        assertThat(enriched.workflow().featureModelId()).isEqualTo("artemis-generated-feature-model");
+        assertThat(enriched.workflow().featureModelVersion()).startsWith("0.1.0+");
         assertThat(enriched.workflow().id()).isEqualTo("artemis-guided-configuration");
     }
 

@@ -16,6 +16,6 @@ class JsonFeatureModelStoreSnapshotTest {
     void loadsModelFromValidatedClasspathBundle() {
         FeatureModel model = new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper).loadActiveModel();
 
-        assertThat(model.model().id()).isEqualTo("artemis-functional-feature-tree");
+        assertThat(model.model().id()).isEqualTo("artemis-generated-feature-model");
     }
 }

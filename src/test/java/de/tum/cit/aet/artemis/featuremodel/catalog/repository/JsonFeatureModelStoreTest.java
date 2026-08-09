@@ -27,11 +27,11 @@ class JsonFeatureModelStoreTest {
     void loadsRuntimeFeatureModelFromClasspath() {
         var model = store.loadActiveModel();
 
-        assertThat(model.model().id()).isEqualTo("artemis-functional-feature-tree");
-        assertThat(model.model().name()).isEqualTo("Artemis Functional Feature Tree");
-        assertThat(model.model().version()).isEqualTo("0.1.0");
-        assertThat(model.model().status()).isEqualTo("published");
-        assertThat(model.model().sourceCommitSha()).isNull();
+        assertThat(model.model().id()).isEqualTo("artemis-generated-feature-model");
+        assertThat(model.model().name()).isEqualTo("Artemis Generated Feature Model");
+        assertThat(model.model().version()).startsWith("0.1.0+");
+        assertThat(model.model().status()).isEqualTo("generated");
+        assertThat(model.model().sourceCommitSha()).matches("[0-9a-f]{40}");
         assertThat(model.features()).isNotEmpty();
         assertThat(model.relations()).isNotEmpty();
         assertThat(model.constraints()).hasSize(3).anySatisfy(constraint -> {
@@ -63,9 +63,9 @@ class JsonFeatureModelStoreTest {
                 assertThat(mapping.valueWhenSelected().booleanValue()).isTrue();
                 assertThat(mapping.valueWhenDeselected().booleanValue()).isFalse();
             });
-            assertThat(feature.extraction().method()).isEqualTo("manual-curation");
+            assertThat(feature.extraction().method()).isEqualTo("automatic");
             assertThat(feature.extraction().confidence()).isEqualTo("high");
-            assertThat(feature.extraction().status()).isEqualTo("manually_confirmed");
+            assertThat(feature.extraction().status()).isEqualTo("generated");
         });
         assertThat(model.features()).anySatisfy(feature -> {
             assertThat(feature.id()).isEqualTo("jenkins");
