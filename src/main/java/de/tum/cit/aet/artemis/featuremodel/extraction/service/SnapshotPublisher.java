@@ -119,7 +119,7 @@ class SnapshotPublisher {
 
         SnapshotProvenance provenance = new SnapshotProvenance(SnapshotProvenance.CURRENT_FORMAT_VERSION, artemisCommit, manifestDigest, repositoryCommit,
                 ScanResult.EXTRACTOR_VERSION, Sha256Digest.of(modelFile), Sha256Digest.of(workflowFile), Sha256Digest.of(catalogFile),
-                Sha256Digest.of(reportFile), profileDigest);
+                Sha256Digest.of(reportFile), profileDigest, SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY);
         jsonWriter.write(directory.resolve(SNAPSHOT_PROVENANCE_FILE), provenance);
 
         String snapshotId = snapshotId(artemisCommit, manifestDigest);

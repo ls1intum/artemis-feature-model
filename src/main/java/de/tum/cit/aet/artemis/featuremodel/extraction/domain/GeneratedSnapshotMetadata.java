@@ -25,7 +25,7 @@ public record GeneratedSnapshotMetadata(int schemaVersion, int snapshotFormatVer
         String provenanceFile, String checksumFile) {
 
     /** Current metadata schema. */
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
 
     /** Lifecycle status of a snapshot produced successfully by the extraction pipeline. */
     public static final String STATUS_GENERATED = "generated";
