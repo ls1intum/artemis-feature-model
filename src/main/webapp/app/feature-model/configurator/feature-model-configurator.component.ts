@@ -104,6 +104,19 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     });
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
     readonly guidedOptions = computed<GuidedDecisionOption[]>(() => this.decisionSteps().flatMap((step) => step.decisions.flatMap((decision) => decision.options)));
+    /** Feature ids governed by a served guided option; the served workflow is already draft-filtered by the server. */
+    readonly guidedOwnedFeatureIds = computed<ReadonlySet<string>>(() => {
+        const ids = new Set<string>();
+        for (const step of this.workflow()?.steps ?? []) {
+            for (const decision of step.decisions) {
+                for (const option of decision.options) {
+                    option.selects.forEach((id) => ids.add(id));
+                    option.deselects.forEach((id) => ids.add(id));
+                }
+            }
+        }
+        return ids;
+    });
     readonly progressPercent = computed(() => {
         const stepCount = this.decisionSteps().length + 2;
         const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
@@ -573,12 +586,16 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return this.withoutCapabilityUnavailableFeatures(selected).selection;
     }
 
-    /** Starts a template from model defaults while retaining the current state of technical features. */
+    /**
+     * Starts a template from model defaults while retaining the current state of technical features and of
+     * functional features no served guided option governs, so tree-only selections survive template switches.
+     */
     private templateSelectionBaseline(): Set<string> {
         const baseline = new Set(this.response()?.defaultSelectedFeatureIds ?? []);
         const current = this.selectedFeatureIds();
+        const guidedOwned = this.guidedOwnedFeatureIds();
         for (const feature of this.response()?.features ?? []) {
-            if (!feature.selectable || feature.category !== 'technical') {
+            if (!feature.selectable || (feature.category !== 'technical' && guidedOwned.has(feature.id))) {
                 continue;
             }
             if (current.has(feature.id)) {
@@ -590,10 +607,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return baseline;
     }
 
-    /** Replaces the guided functional portion of a template while leaving technical selections unchanged. */
+    /** Replaces the guided-owned functional portion of a template while leaving other selections unchanged. */
     private replaceFunctionalTemplateSelection(selection: Set<string>, selectedFeatureIds: string[]): void {
+        const guidedOwned = this.guidedOwnedFeatureIds();
         for (const feature of this.response()?.features ?? []) {
-            if (feature.selectable && feature.category !== 'technical') {
+            if (feature.selectable && feature.category !== 'technical' && guidedOwned.has(feature.id)) {
                 selection.delete(feature.id);
             }
         }

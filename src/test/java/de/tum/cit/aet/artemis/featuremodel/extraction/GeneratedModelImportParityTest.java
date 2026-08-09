@@ -74,7 +74,6 @@ import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowStep;
 import de.tum.cit.aet.artemis.featuremodel.selection.repository.JsonGuidedWorkflowStore;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowAssembler;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
-import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowService;
 import de.tum.cit.aet.artemis.featuremodel.validation.dto.ValidationRequest;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
@@ -242,7 +241,7 @@ class GeneratedModelImportParityTest {
 
     private GuidedWorkflowService guidedWorkflowService(SnapshotProperties properties) {
         JsonGuidedWorkflowStore workflowStore = new JsonGuidedWorkflowStore(runtimeBundle(properties));
-        return new GuidedWorkflowService(workflowStore, catalogService(properties), new GuidedWorkflowIntegrityService(), new GuidedWorkflowAssembler(),
+        return new GuidedWorkflowService(workflowStore, catalogService(properties), new GuidedWorkflowAssembler(),
                 new GuidedWorkflowDiagnosticsService());
     }
 

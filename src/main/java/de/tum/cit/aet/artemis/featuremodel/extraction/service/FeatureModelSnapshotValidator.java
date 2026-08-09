@@ -25,6 +25,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -184,7 +185,10 @@ public class FeatureModelSnapshotValidator {
 
     private void validateModelWorkflowAndCatalog(FeatureModel model, GuidedWorkflow workflow, ArtemisConfigKeyCatalog catalog) {
         new FeatureModelIntegrityService().validate(model);
-        new GuidedWorkflowIntegrityService().validate(workflow, model);
+        // Reference validation applies to the effective workflow the runtime serves: a draft option may reference a
+        // feature the model does not contain yet without invalidating the snapshot.
+        GuidedWorkflow effectiveWorkflow = new GuidedWorkflowProjectionService().project(workflow).effectiveWorkflow();
+        new GuidedWorkflowIntegrityService().validate(effectiveWorkflow, model);
         Map<String, String> types = new TreeMap<>();
         for (ArtemisConfigKeyCatalog.CatalogKey key : catalog.keys()) {
             if (!Set.of(ArtemisConfigKeyCatalog.TYPE_BOOLEAN, ArtemisConfigKeyCatalog.TYPE_STRING, ArtemisConfigKeyCatalog.TYPE_URL).contains(key.type())

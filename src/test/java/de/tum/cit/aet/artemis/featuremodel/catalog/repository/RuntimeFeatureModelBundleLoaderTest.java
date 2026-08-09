@@ -21,8 +21,11 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.WorkflowStageService;
+import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 class RuntimeFeatureModelBundleLoaderTest {
 
@@ -98,6 +101,67 @@ class RuntimeFeatureModelBundleLoaderTest {
     }
 
     @Test
+    void draftOptionsNeverEnterTheRuntimeBundleOfASnapshot() throws Exception {
+        Path draftWorkflow = writeDraftAugmentedFixtureWorkflow();
+        Path draftExtractionRoot = workingDirectory.resolve("draft-extraction");
+        FeatureExtractionInputs draftInputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
+                FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), draftWorkflow,
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), draftExtractionRoot);
+        new ScanStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new ModelStageService(objectMapper).run(draftInputs);
+        new WorkflowStageService(objectMapper).run(draftInputs);
+        new PackageStageService(objectMapper).run(draftInputs);
+        Path published = ExtractionArtifactLayout.forCommit(draftExtractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
+        Path draftDataRoot = workingDirectory.resolve("draft-data");
+        Path draftSnapshot = Files.createDirectories(draftDataRoot.resolve("imported-models").resolve(snapshotId));
+        try (var files = Files.list(published)) {
+            for (Path file : files.toList()) {
+                Files.copy(file, draftSnapshot.resolve(file.getFileName()));
+            }
+        }
+        // The published snapshot still carries the draft option; only the served runtime bundle omits it.
+        assertThat(Files.readString(draftSnapshot.resolve("guided-workflow.json"))).contains("enable-fixture-draft");
+
+        RuntimeFeatureModelBundle bundle = loader(
+                new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, draftDataRoot.toString(), snapshotId, false)).load();
+
+        assertThat(bundle.workflow().steps().stream().flatMap(step -> step.decisions().stream()).flatMap(decision -> decision.options().stream())
+                .map(GuidedDecisionOption::id)).containsExactly("enable-alpha");
+    }
+
+    @Test
+    void prePhaseSnapshotWithoutStatusFieldsLoadsAndServesItsOptions() throws Exception {
+        ObjectNode workflow = (ObjectNode) objectMapper.readTree(Files.readAllBytes(FIXTURE_ROOT.resolve("fixture-inputs").resolve("guided-workflow.json")));
+        ObjectNode step = (ObjectNode) workflow.withArrayProperty("steps").get(0);
+        ObjectNode decision = (ObjectNode) step.withArrayProperty("decisions").get(0);
+        ((ObjectNode) decision.withArrayProperty("options").get(0)).remove("status");
+        Path statusFreeWorkflow = workingDirectory.resolve("status-free-guided-workflow.json");
+        Files.writeString(statusFreeWorkflow, objectMapper.writeValueAsString(workflow));
+        Path extractionRoot = workingDirectory.resolve("status-free-extraction");
+        FeatureExtractionInputs statusFreeInputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
+                FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), statusFreeWorkflow,
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), extractionRoot);
+        new ScanStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new ModelStageService(objectMapper).run(statusFreeInputs);
+        new WorkflowStageService(objectMapper).run(statusFreeInputs);
+        new PackageStageService(objectMapper).run(statusFreeInputs);
+        Path published = ExtractionArtifactLayout.forCommit(extractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
+        Path dataRoot = workingDirectory.resolve("status-free-data");
+        Path snapshot = Files.createDirectories(dataRoot.resolve("imported-models").resolve(snapshotId));
+        try (var files = Files.list(published)) {
+            for (Path file : files.toList()) {
+                Files.copy(file, snapshot.resolve(file.getFileName()));
+            }
+        }
+
+        RuntimeFeatureModelBundle bundle = loader(new SnapshotProperties(FeatureModelSourceMode.SNAPSHOT, dataRoot.toString(), snapshotId, false)).load();
+
+        // The status-free option is treated as published and stays served, so pre-phase payloads keep working.
+        assertThat(bundle.workflow().steps().stream().flatMap(workflowStep -> workflowStep.decisions().stream())
+                .flatMap(workflowDecision -> workflowDecision.options().stream()).map(GuidedDecisionOption::id)).containsExactly("enable-alpha");
+    }
+
+    @Test
     void missingSnapshotStopsLoadingWithoutClasspathFallback() {
         assertThatThrownBy(() -> loader(snapshotProperties("generated-missing")).load()).isInstanceOf(FeatureModelLoadException.class)
                 .hasMessageContaining("failed complete validation");
@@ -115,6 +179,32 @@ class RuntimeFeatureModelBundleLoaderTest {
 
         assertThatThrownBy(() -> loader(snapshotProperties(alias)).load()).isInstanceOf(FeatureModelLoadException.class)
                 .hasMessageContaining("does not match");
+    }
+
+    /**
+     * Writes a copy of the fixture workflow with one additional complete draft option, so the extraction pipeline
+     * publishes a snapshot containing a draft.
+     *
+     * @return path of the augmented authored workflow.
+     */
+    private Path writeDraftAugmentedFixtureWorkflow() throws Exception {
+        ObjectNode workflow = (ObjectNode) objectMapper.readTree(Files.readAllBytes(FIXTURE_ROOT.resolve("fixture-inputs").resolve("guided-workflow.json")));
+        ObjectNode step = (ObjectNode) workflow.withArrayProperty("steps").get(0);
+        ObjectNode decision = (ObjectNode) step.withArrayProperty("decisions").get(0);
+        ArrayNode options = decision.withArrayProperty("options");
+        ObjectNode draft = objectMapper.createObjectNode();
+        draft.put("id", "enable-fixture-draft");
+        draft.put("status", "draft");
+        draft.put("label", "Fixture Draft");
+        draft.put("description", "Complete draft description.");
+        draft.withArrayProperty("selects").add("alpha-feature");
+        draft.withArrayProperty("enabledOutcome").add("Outcome.");
+        draft.withArrayProperty("recommendedWhen").add("Fits.");
+        draft.withArrayProperty("thingsToKnow").add("Notes.");
+        options.add(draft);
+        Path augmented = workingDirectory.resolve("draft-guided-workflow.json");
+        Files.writeString(augmented, objectMapper.writeValueAsString(workflow));
+        return augmented;
     }
 
     private SnapshotProperties snapshotProperties(String id) {

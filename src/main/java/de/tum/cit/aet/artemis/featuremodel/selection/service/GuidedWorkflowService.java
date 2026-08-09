@@ -19,8 +19,6 @@ public class GuidedWorkflowService {
 
     private final FeatureModelCatalogService featureModelCatalogService;
 
-    private final GuidedWorkflowIntegrityService guidedWorkflowIntegrityService;
-
     private final GuidedWorkflowAssembler guidedWorkflowAssembler;
 
     private final GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService;
@@ -30,34 +28,30 @@ public class GuidedWorkflowService {
      *
      * @param guidedWorkflowStore store used to load the active guided workflow.
      * @param featureModelCatalogService catalog service used to load the active feature model.
-     * @param guidedWorkflowIntegrityService integrity service that validates workflow references.
      * @param guidedWorkflowAssembler assembler that enriches the lean authored workflow with model-owned wiring.
      * @param guidedWorkflowDiagnosticsService diagnostics service that surfaces coverage and consistency warnings.
      */
     public GuidedWorkflowService(GuidedWorkflowStore guidedWorkflowStore, FeatureModelCatalogService featureModelCatalogService,
-            GuidedWorkflowIntegrityService guidedWorkflowIntegrityService, GuidedWorkflowAssembler guidedWorkflowAssembler,
-            GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService) {
+            GuidedWorkflowAssembler guidedWorkflowAssembler, GuidedWorkflowDiagnosticsService guidedWorkflowDiagnosticsService) {
         this.guidedWorkflowStore = guidedWorkflowStore;
         this.featureModelCatalogService = featureModelCatalogService;
-        this.guidedWorkflowIntegrityService = guidedWorkflowIntegrityService;
         this.guidedWorkflowAssembler = guidedWorkflowAssembler;
         this.guidedWorkflowDiagnosticsService = guidedWorkflowDiagnosticsService;
     }
 
     /**
-     * Loads the active guided workflow, validates its feature references against the active feature model, and
-     * enriches it with the wiring the model owns before returning it to clients. The lean authored resource never
-     * reaches clients directly; the served record always carries the derived capability, impact, and review group
-     * data of the active model. Coverage and consistency findings are logged as warnings and never fail the request.
+     * Loads the active effective guided workflow and enriches it with the wiring the model owns before returning it
+     * to clients. The bundle loader already projected and validated the workflow against the active model, so no raw
+     * workflow ever reaches this service; the served record always carries the derived capability, impact, and review
+     * group data of the active model. Coverage and consistency findings are logged as warnings and never fail the
+     * request.
      *
      * @return active guided workflow enriched against the active model.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException if the model or workflow cannot be loaded.
-     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException if the workflow references unknown model data.
      */
     public GuidedWorkflow getActiveGuidedWorkflow() {
         FeatureModel featureModel = featureModelCatalogService.loadActiveModel();
         GuidedWorkflow workflow = guidedWorkflowStore.loadActiveWorkflow();
-        guidedWorkflowIntegrityService.validate(workflow, featureModel);
         logDiagnostics(workflow, featureModel);
         GuidedWorkflow enrichedWorkflow = guidedWorkflowAssembler.enrich(workflow, featureModel);
         log.debug("Validated and enriched guided workflow '{}' against feature model '{}'.", workflow.workflow().id(), featureModel.model().id());

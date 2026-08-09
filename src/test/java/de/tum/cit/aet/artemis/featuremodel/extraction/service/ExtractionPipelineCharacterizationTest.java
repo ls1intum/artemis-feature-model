@@ -35,6 +35,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightExce
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Characterizes the complete staged extraction pipeline over the mini-Artemis fixture: scan, model assembly, workflow
@@ -75,17 +76,17 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "9d93d0fc3c9170664f8bb59bf3efad0a471a2971f02ee8259ea8de3a99abd660"),
+            Map.entry("snapshot/checksums.txt", "4833f9bb55147e28737e713b1536a2f898d73917ffd3bfdb212b66f387d6ba32"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
             Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
-            Map.entry("snapshot/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("snapshot/metadata.json", "49bcf54a85bf77dca9178d103f230db507172b277adb55dc0ff67c3a8210f6ab"),
-            Map.entry("snapshot/provenance.json", "a9f779f11cf7aafd5c937d6c526a2ef4de01009f37931feb109bb30923e037e7"),
-            Map.entry("workflow/guided-workflow-validation.json", "e0e8cd15f417efe76782691783bb7ae26f1216e13dcb71cc1a82275bff862f61"),
-            Map.entry("workflow/guided-workflow.json", "acdd8024949b4b28b910358c721b2ec2067f596ce39944f740163226028577c8"),
+            Map.entry("snapshot/provenance.json", "0d726b8cdb796458b979510fb4206a0432f6b1d91307f903dcc774fa7a844656"),
+            Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
+            Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "ad7c4d85fedb41cb8960c92a9152571e9a9d40d8e569cfa82a365b2cd959f189"));
+            Map.entry("workflow/workflow-result.json", "e086e5b22b16db366464321abe6a159e16889c28d2f6cdb7a703ebbb7b626004"));
 
     @TempDir
     private Path outputRoot;
@@ -193,6 +194,41 @@ class ExtractionPipelineCharacterizationTest {
                 assertThat(retiredTerms).as("terminology in %s", artifact).noneMatch(content::contains);
             }
         }
+    }
+
+    @Test
+    void warningOnlyGuidedFindingsPublishAFreshSnapshot() throws Exception {
+        FeatureExtractionInputs draftInputs = withWorkflow(workflowWithDraftOption());
+        runScan(draftInputs);
+        new ModelStageService(OBJECT_MAPPER).run(draftInputs);
+
+        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(draftInputs);
+        PackageStageService.Summary packageSummary = new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(draftInputs);
+
+        assertThat(workflowSummary.validationStatus()).isEqualTo(GuidedWorkflowValidationReport.STATUS_FINDINGS);
+        assertThat(workflowSummary.deliveryEligible()).isTrue();
+        assertThat(workflowSummary.severityCounts()).containsKey(ReportItem.SEVERITY_WARNING).doesNotContainKey(ReportItem.SEVERITY_ERROR);
+        assertThat(workflowSummary.codeCounts()).containsKey("GUIDED_WORKFLOW_DRAFT_OPTION");
+        assertThat(packageSummary.snapshotDirectory()).isNotNull();
+        assertThat(layout.snapshotDirectory()).isDirectory();
+        ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
+                ExtractionReport.class);
+        assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
+    }
+
+    @Test
+    void publishedOptionWithIncompleteProseBlocksPublication() throws Exception {
+        FeatureExtractionInputs todoInputs = withWorkflow(workflowWithTodoPublishedOption());
+        runScan(todoInputs);
+        new ModelStageService(OBJECT_MAPPER).run(todoInputs);
+
+        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(todoInputs);
+
+        assertThat(workflowSummary.deliveryEligible()).isFalse();
+        assertThat(workflowSummary.severityCounts()).containsKey(ReportItem.SEVERITY_ERROR);
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(todoInputs)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no snapshot was published");
+        assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
     @Test
@@ -415,6 +451,61 @@ class ExtractionPipelineCharacterizationTest {
      */
     private FeatureExtractionInputs withManifest(Path manifestFile) {
         return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
+    }
+
+    /**
+     * Creates inputs that read another authored workflow.
+     *
+     * @param workflowFile authored workflow to prepare.
+     * @return inputs pointing at the given workflow.
+     */
+    private FeatureExtractionInputs withWorkflow(Path workflowFile) {
+        return new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), workflowFile, inputs.deploymentProfileFile(), inputs.outputRoot());
+    }
+
+    /**
+     * Writes a fixture workflow copy with one additional complete draft option.
+     *
+     * @return path of the augmented workflow.
+     * @throws Exception if the fixture workflow cannot be read or written.
+     */
+    private Path workflowWithDraftOption() throws Exception {
+        ObjectNode workflow = (ObjectNode) OBJECT_MAPPER.readTree(Files.readAllBytes(FIXTURE_INPUTS.resolve("guided-workflow.json")));
+        ObjectNode draft = OBJECT_MAPPER.createObjectNode();
+        draft.put("id", "enable-fixture-draft");
+        draft.put("status", "draft");
+        draft.put("label", "Fixture Draft");
+        draft.put("description", "Complete draft description.");
+        draft.withArrayProperty("selects").add("alpha-feature");
+        draft.withArrayProperty("enabledOutcome").add("Outcome.");
+        draft.withArrayProperty("recommendedWhen").add("Fits.");
+        draft.withArrayProperty("thingsToKnow").add("Notes.");
+        fixtureDecision(workflow).withArrayProperty("options").add(draft);
+        return writeSyntheticWorkflow(workflow, "draft-guided-workflow.json");
+    }
+
+    /**
+     * Writes a fixture workflow copy whose published option still carries TODO prose.
+     *
+     * @return path of the modified workflow.
+     * @throws Exception if the fixture workflow cannot be read or written.
+     */
+    private Path workflowWithTodoPublishedOption() throws Exception {
+        ObjectNode workflow = (ObjectNode) OBJECT_MAPPER.readTree(Files.readAllBytes(FIXTURE_INPUTS.resolve("guided-workflow.json")));
+        ObjectNode option = (ObjectNode) fixtureDecision(workflow).withArrayProperty("options").get(0);
+        option.put("description", "TODO: describe this option.");
+        return writeSyntheticWorkflow(workflow, "todo-guided-workflow.json");
+    }
+
+    private ObjectNode fixtureDecision(ObjectNode workflow) {
+        ObjectNode step = (ObjectNode) workflow.withArrayProperty("steps").get(0);
+        return (ObjectNode) step.withArrayProperty("decisions").get(0);
+    }
+
+    private Path writeSyntheticWorkflow(ObjectNode workflow, String fileName) throws Exception {
+        Path file = outputRoot.resolve(fileName);
+        Files.writeString(file, OBJECT_MAPPER.writeValueAsString(workflow));
+        return file;
     }
 
     /**

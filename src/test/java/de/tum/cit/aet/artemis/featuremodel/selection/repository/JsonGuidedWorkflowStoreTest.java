@@ -1,6 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.selection.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.InputStream;
 import java.util.Map;
@@ -57,6 +58,37 @@ class JsonGuidedWorkflowStoreTest {
         assertThat(irisOption.requiresCapabilities()).isEmpty();
         assertThat(irisOption.artifactImpacts()).isEmpty();
         assertThat(workflow.finalReviewGroups()).allSatisfy(group -> assertThat(group.featureIds()).isEmpty());
+    }
+
+    @Test
+    void authoredWorkflowDeclaresEveryOptionStatusExplicitly() {
+        GuidedWorkflow workflow = store.loadActiveWorkflow();
+
+        // The absent-status fallback exists only for payloads generated before the lifecycle; the authored file
+        // must never rely on it.
+        assertThat(workflow.workflow().version()).isEqualTo("0.2.0");
+        for (GuidedWorkflowStep step : workflow.steps()) {
+            for (GuidedDecision decision : step.decisions()) {
+                for (GuidedDecisionOption option : decision.options()) {
+                    assertThat(option.hasExplicitStatus()).as("explicit status of option %s", option.id()).isTrue();
+                }
+            }
+        }
+    }
+
+    @Test
+    void absentOptionStatusDeserializesAsPublished() {
+        GuidedDecisionOption option = objectMapper.readValue("{\"id\": \"enable-alpha\", \"label\": \"Alpha\"}", GuidedDecisionOption.class);
+
+        assertThat(option.status()).isNull();
+        assertThat(option.hasExplicitStatus()).isFalse();
+        assertThat(option.isDraft()).isFalse();
+    }
+
+    @Test
+    void unknownOptionStatusIsAHardSchemaError() {
+        assertThatThrownBy(() -> objectMapper.readValue("{\"id\": \"enable-alpha\", \"status\": \"review\"}", GuidedDecisionOption.class))
+                .hasMessageContaining("unknown lifecycle status 'review'");
     }
 
     @Test
