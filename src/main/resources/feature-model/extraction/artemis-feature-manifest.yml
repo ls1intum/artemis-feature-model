@@ -57,15 +57,15 @@ include:
     order: 3
     requiresCapabilities: [athena-service, athena-secret]
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.athena.url, valueFromProfile: artemis.athena.url, requiredWhenSelected: true }
-      - { target: application-feature-model.yml, path: artemis.athena.secret, valueFromProfile: artemis.athena.secret, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.athena.url, source: environment }
+      - { target: application-feature-model.yml, path: artemis.athena.secret, source: environment, secret: true }
 
   - anchor: module:atlas
     id: atlas
     group: adaptive-learning-and-ai
     order: 1
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.atlas.chat-model, valueFromProfile: artemis.atlas.chat-model }
+      - { target: application-feature-model.yml, path: artemis.atlas.chat-model, source: environment }
 
   - anchor: module:iris
     id: iris
@@ -73,8 +73,8 @@ include:
     order: 2
     requiresCapabilities: [pyris-service, pyris-secret]
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.iris.url, valueFromProfile: artemis.iris.url, requiredWhenSelected: true }
-      - { target: application-feature-model.yml, path: artemis.iris.secret-token, valueFromProfile: artemis.iris.secret-token, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.iris.url, source: environment }
+      - { target: application-feature-model.yml, path: artemis.iris.secret-token, source: environment, secret: true }
 
   - anchor: module:hyperion
     id: hyperion
@@ -82,8 +82,8 @@ include:
     order: 3
     requiresCapabilities: [hyperion-service]
     artifactMappings:
-      - { target: application-feature-model.yml, path: spring.ai.openai.api-key, valueFromProfile: spring.ai.openai.api-key, requiredWhenSelected: true, secret: true }
-      - { target: application-feature-model.yml, path: spring.ai.openai.base-url, valueFromProfile: spring.ai.openai.base-url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: spring.ai.openai.api-key, source: environment, secret: true }
+      - { target: application-feature-model.yml, path: spring.ai.openai.base-url, source: environment }
 
   - anchor: module:lti
     id: lti
@@ -97,7 +97,7 @@ include:
     order: 2
     requiresCapabilities: [theia-service]
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.theia.portal-url, valueFromProfile: artemis.theia.portal-url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.theia.portal-url, source: environment }
 
   - anchor: module:apollon
     id: apollon
@@ -105,7 +105,7 @@ include:
     order: 3
     requiresCapabilities: [apollon-conversion-service]
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.apollon.conversion-service-url, valueFromProfile: artemis.apollon.conversion-service-url, requiredWhenSelected: true }
+      - { target: application-feature-model.yml, path: artemis.apollon.conversion-service-url, source: environment }
 
   - anchor: module:sharing
     id: sharing
@@ -113,8 +113,8 @@ include:
     order: 4
     requiresCapabilities: [sharing-platform-registration, sharing-secret]
     artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.sharing.serverurl, valueFromProfile: artemis.sharing.serverurl, requiredWhenSelected: true }
-      - { target: application-feature-model.yml, path: artemis.sharing.apikey, valueFromProfile: artemis.sharing.apikey, requiredWhenSelected: true, secret: true }
+      - { target: application-feature-model.yml, path: artemis.sharing.serverurl, source: environment }
+      - { target: application-feature-model.yml, path: artemis.sharing.apikey, source: environment, secret: true }
 
   # Technical variability introduced deliberately in E3: database and CI provider xor groups plus the fixed localvc
   # baseline. Technical features are maintainer-only, never teacher-facing, and their structural mappings describe the
@@ -131,7 +131,7 @@ include:
     name: MySQL
     description: MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.
     artifactMappings:
-      - { target: docker-compose.override.yml, path: database.composeFile, valueWhenSelected: docker/mysql.yml }
+      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: docker/mysql.yml }
 
   - anchor: infra:postgres
     id: postgresql
@@ -144,7 +144,7 @@ include:
     name: PostgreSQL
     description: PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.
     artifactMappings:
-      - { target: docker-compose.override.yml, path: database.composeFile, valueWhenSelected: docker/postgres.yml }
+      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: docker/postgres.yml }
 
   - anchor: profile:localci
     id: integrated-code-lifecycle
@@ -157,7 +157,7 @@ include:
     name: Integrated Code Lifecycle
     description: Built-in CI provider activated by the localci and buildagent Spring profiles.
     artifactMappings:
-      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: "localci,buildagent" }
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: "localci,buildagent" }
 
   - anchor: profile:jenkins
     id: jenkins
@@ -169,14 +169,14 @@ include:
     name: Jenkins
     description: External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.
     artifactMappings:
-      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: jenkins }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.url, valueFromProfile: artemis.continuous-integration.url, requiredWhenSelected: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.user, valueFromProfile: artemis.continuous-integration.user, requiredWhenSelected: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.password, valueFromProfile: artemis.continuous-integration.password, requiredWhenSelected: true, secret: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.token, valueFromProfile: artemis.continuous-integration.token, requiredWhenSelected: true, secret: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.vcs-credentials, valueFromProfile: artemis.continuous-integration.vcs-credentials, requiredWhenSelected: true, secret: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-key, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-key, requiredWhenSelected: true, secret: true }
-      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-value, valueFromProfile: artemis.continuous-integration.artemis-authentication-token-value, requiredWhenSelected: true, secret: true }
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: jenkins }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.url, source: environment }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.user, source: environment }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.password, source: environment, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.token, source: environment, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.vcs-credentials, source: environment, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-key, source: environment, secret: true }
+      - { target: application-feature-model.yml, path: artemis.continuous-integration.artemis-authentication-token-value, source: environment, secret: true }
 
   - anchor: profile:localvc
     id: localvc
@@ -189,7 +189,7 @@ include:
     name: Local Version Control
     description: Version control baseline activated by the localvc Spring profile; fixed for every deployment.
     artifactMappings:
-      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: localvc }
+      - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: localvc }
 
 exclude:
   # Module-level discoveries that are policy details or backing infrastructure.

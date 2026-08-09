@@ -17,6 +17,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
@@ -64,7 +65,7 @@ class DeploymentPackageTechnicalSelectionTest {
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
         ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
-                new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
+                new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
@@ -231,10 +232,10 @@ class DeploymentPackageTechnicalSelectionTest {
     private void assertJenkinsOverlayAndDemoDefaults(GeneratedArtifactPackage result) {
         String overlay = content(file(result, ArtifactGenerationService.OVERLAY_FILE));
         assertThat(overlay).contains("continuous-integration:", "${ARTEMIS_CONTINUOUS_INTEGRATION_PASSWORD}",
-                "${ARTEMIS_CONTINUOUS_INTEGRATION_AUTH_TOKEN_VALUE}");
+                "${ARTEMIS_CONTINUOUS_INTEGRATION_ARTEMIS_AUTHENTICATION_TOKEN_VALUE}");
         String demoDefaults = content(file(result, DeploymentPackageService.DEV_IDE_DEMO_ENV_FILE));
         assertThat(demoDefaults).contains("ARTEMIS_CONTINUOUS_INTEGRATION_PASSWORD: demo-change-me",
-                "ARTEMIS_CONTINUOUS_INTEGRATION_AUTH_TOKEN_VALUE: demo-change-me");
+                "ARTEMIS_CONTINUOUS_INTEGRATION_ARTEMIS_AUTHENTICATION_TOKEN_VALUE: demo-change-me");
     }
 
     private void assertRuntimeCheckStatus(GeneratedArtifactPackage result, String expectedStatus) {
@@ -302,14 +303,14 @@ class DeploymentPackageTechnicalSelectionTest {
     }
 
     private FeatureNode technicalFeature(String id, String target, String path, String value) {
-        ArtifactMapping mapping = new ArtifactMapping(target, path, objectMapper.valueToTree(value), null, null, false, false);
+        ArtifactMapping mapping = new ArtifactMapping(target, path, ArtifactMappingSource.SELECTION, objectMapper.valueToTree(value), null, false);
         return technicalFeature(id, List.of(mapping));
     }
 
     private FeatureNode jenkinsFeature() {
         List<ArtifactMapping> mappings = new ArrayList<>();
         mappings.add(new ArtifactMapping(TechnicalSelectionResolver.ENV_TARGET, TechnicalSelectionResolver.SPRING_PROFILES_PATH,
-                objectMapper.valueToTree("jenkins"), null, null, false, false));
+                ArtifactMappingSource.SELECTION, objectMapper.valueToTree("jenkins"), null, false));
         mappings.add(profileMapping("artemis.continuous-integration.url", false));
         mappings.add(profileMapping("artemis.continuous-integration.user", false));
         mappings.add(profileMapping("artemis.continuous-integration.password", true));
@@ -321,7 +322,7 @@ class DeploymentPackageTechnicalSelectionTest {
     }
 
     private ArtifactMapping profileMapping(String path, boolean secret) {
-        return new ArtifactMapping(ArtifactMappingResolver.OVERLAY_TARGET, path, null, null, path, true, secret);
+        return new ArtifactMapping(ArtifactMappingResolver.OVERLAY_TARGET, path, ArtifactMappingSource.ENVIRONMENT, null, null, secret);
     }
 
     private FeatureNode technicalFeature(String id, List<ArtifactMapping> mappings) {

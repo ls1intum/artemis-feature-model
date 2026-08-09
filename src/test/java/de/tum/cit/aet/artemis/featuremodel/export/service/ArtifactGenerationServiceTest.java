@@ -48,7 +48,7 @@ class ArtifactGenerationServiceTest {
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
-        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
+        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         service = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver, new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
     }
 
@@ -69,15 +69,17 @@ class ArtifactGenerationServiceTest {
         GeneratedArtifactPackage result = service.generate(request(selection, null));
 
         String overlay = content(result, "config/application-feature-model.yml");
-        assertThat(overlay).contains("iris:").contains("enabled: true").contains("url: https://pyris.example.com").contains("secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}");
-        assertThat(overlay).doesNotContain("env:");
+        assertThat(overlay).contains("iris:").contains("enabled: true").contains("url: ${ARTEMIS_IRIS_URL}").contains("secret-token: ${ARTEMIS_IRIS_SECRET_TOKEN}");
+        assertThat(overlay).doesNotContain("env:").doesNotContain("example.com");
         String env = content(result, "env/.env.example");
-        assertThat(env).contains("ARTEMIS_ATHENA_SECRET=").contains("ARTEMIS_IRIS_SECRET_TOKEN=");
+        assertThat(env).contains("ARTEMIS_ATHENA_SECRET=").contains("ARTEMIS_IRIS_SECRET_TOKEN=").contains("# Config key: artemis.iris.secret-token")
+                .contains("# SECRET — obtain from the deployment secret store");
         assertThat(result.report().status()).isEqualTo(GenerationReport.STATUS_GENERATED_WITH_WARNINGS);
-        assertThat(result.report().consumedParameters()).anySatisfy(parameter -> {
-            assertThat(parameter.targetPath()).isEqualTo("artemis.iris.secret-token");
-            assertThat(parameter.secret()).isTrue();
-            assertThat(parameter.source()).isEqualTo("env");
+        assertThat(result.report().environmentRequirements()).anySatisfy(requirement -> {
+            assertThat(requirement.configKey()).isEqualTo("artemis.iris.secret-token");
+            assertThat(requirement.name()).isEqualTo("ARTEMIS_IRIS_SECRET_TOKEN");
+            assertThat(requirement.secret()).isTrue();
+            assertThat(requirement.source()).isEqualTo("artifact-mapping");
         });
     }
 

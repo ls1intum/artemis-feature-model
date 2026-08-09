@@ -188,8 +188,8 @@ class FeatureManifestLoaderTest {
                     order: 1
                     providesCapabilities: [tech-capability]
                     artifactMappings:
-                      - { target: .env, path: SPRING_PROFILES_ACTIVE, valueWhenSelected: tech-a-profile }
-                      - { target: application-feature-model.yml, path: artemis.tech.url, valueFromProfile: artemis.tech.url, requiredWhenSelected: true, secret: true }
+                      - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: tech-a-profile }
+                      - { target: application-feature-model.yml, path: artemis.tech.url, source: environment, secret: true }
                 conceptualNodes:
                   - id: tech-group
                     kind: group
@@ -208,7 +208,7 @@ class FeatureManifestLoaderTest {
             assertThat(entry.defaultState()).isEqualTo("enabled");
             assertThat(entry.order()).isEqualTo(1);
             assertThat(entry.artifactMappings()).hasSize(2);
-            assertThat(entry.artifactMappings().get(1).valueFromProfile()).isEqualTo("artemis.tech.url");
+            assertThat(entry.artifactMappings().get(1).source()).isEqualTo("environment");
             assertThat(entry.artifactMappings().get(1).secret()).isTrue();
         });
         assertThat(manifest.conceptualNodes()).singleElement().satisfies(node -> {
@@ -350,6 +350,71 @@ class FeatureManifestLoaderTest {
                     id: alpha
                     order: 0
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("include[0].order must be a positive integer");
+    }
+
+    @Test
+    void rejectsTheRetiredProfileValueMappingShape() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.url, valueFromProfile: artemis.alpha.url, requiredWhenSelected: true }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field").hasMessageContaining("valueFromProfile");
+    }
+
+    @Test
+    void rejectsAMappingWithoutASource() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.url }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source");
+    }
+
+    @Test
+    void rejectsAnUnknownMappingSource() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: profile }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source must be one of");
+    }
+
+    @Test
+    void rejectsASelectionMappingWithoutAnyValue() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.enabled, source: selection }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("selection");
+    }
+
+    @Test
+    void rejectsAnEnvironmentMappingCarryingASelectionValue() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 2
+                artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                include:
+                  - anchor: module:alpha
+                    id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: environment, valueWhenSelected: on }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("environment");
     }
 
     private FeatureScopeManifest load(String yaml) {

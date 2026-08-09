@@ -21,8 +21,8 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.ConsumedParameter;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManifest;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationMessage;
@@ -387,15 +387,16 @@ public class DeploymentPackageService {
     private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {
         GenerationReport report = shared.report();
         TechnicalSelection selection = shared.technicalSelection();
-        List<String> requiredEnvVars = localDockerEnvironmentVariables(shared.requiredEnvVars(), selection);
+        List<EnvironmentRequirement> localDockerRequirements = localDockerEnvironmentRequirements(report.environmentRequirements(), selection);
+        List<String> requiredEnvVars = requirementNames(localDockerRequirements);
         boolean technicalStack = !selection.isEmpty();
         TechnicalSelection runtimeSelection = localDockerRuntimeSelection(selection);
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForLocalDocker();
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
                 runtimeSource);
-        String envExample = envExampleWriter.write(requiredEnvVars);
-        String envDemo = templateWriter.envDemo(requiredEnvVars);
+        String envExample = envExampleWriter.write(localDockerRequirements);
+        String envDemo = templateWriter.envDemo(localDockerRequirements);
         String stackContent = technicalStack ? stackWriter.write(selection) : null;
         String remoteStackContent = remoteImageStackWriter.write(runtimeSelection, runtimeSource);
 
@@ -461,19 +462,39 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Adds the LocalVC build credentials required by the Jenkins Docker profile family.
+     * Adds the LocalVC build credentials required by the Jenkins Docker profile family as package-only requirements,
+     * so they can never disappear from {@code env/.env.example} or the report metadata.
      *
-     * @param overlayEnvironmentVariables environment variables referenced by the generated overlay.
+     * @param requirements environment requirements produced by the generated overlay.
      * @param selection resolved technical selection.
-     * @return sorted local-docker environment variables.
+     * @return local-docker environment requirements including the Jenkins package-only requirements when applicable.
      */
-    private List<String> localDockerEnvironmentVariables(List<String> overlayEnvironmentVariables, TechnicalSelection selection) {
-        TreeSet<String> environmentVariables = new TreeSet<>(overlayEnvironmentVariables);
-        if ("jenkins".equals(selection.ciProviderId().orElse(null))) {
-            environmentVariables.add(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV);
-            environmentVariables.add(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV);
+    private List<EnvironmentRequirement> localDockerEnvironmentRequirements(List<EnvironmentRequirement> requirements, TechnicalSelection selection) {
+        if (!"jenkins".equals(selection.ciProviderId().orElse(null))) {
+            return requirements;
         }
-        return List.copyOf(environmentVariables);
+        List<EnvironmentRequirement> extended = new ArrayList<>(requirements);
+        extended.add(new EnvironmentRequirement(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_USERNAME_ENV, "jenkins", "Jenkins", null, null, false,
+                EnvironmentRequirement.SOURCE_RUNTIME_PACKAGE,
+                "LocalVC build-agent Git username required by the Jenkins profile family; the production image ships no application-localvc.yml."));
+        extended.add(new EnvironmentRequirement(RuntimePackageConstants.VERSION_CONTROL_BUILD_AGENT_PASSWORD_ENV, "jenkins", "Jenkins", null, null, true,
+                EnvironmentRequirement.SOURCE_RUNTIME_PACKAGE,
+                "LocalVC build-agent Git password required by the Jenkins profile family; the production image ships no application-localvc.yml."));
+        return List.copyOf(extended);
+    }
+
+    /**
+     * Derives the sorted environment variable names of the given requirements.
+     *
+     * @param requirements environment requirements.
+     * @return sorted, de-duplicated variable names.
+     */
+    private List<String> requirementNames(List<EnvironmentRequirement> requirements) {
+        TreeSet<String> names = new TreeSet<>();
+        for (EnvironmentRequirement requirement : requirements) {
+            names.add(requirement.name());
+        }
+        return List.copyOf(names);
     }
 
     /**
@@ -495,7 +516,7 @@ public class DeploymentPackageService {
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, readme));
         files.add(shared.overlay());
-        files.add(new GeneratedArtifactFile(DEV_IDE_DEMO_ENV_FILE, CONTENT_TYPE_YAML, devIdeTemplateWriter.demoEnvDefaultsYaml(shared.requiredEnvVars())));
+        files.add(new GeneratedArtifactFile(DEV_IDE_DEMO_ENV_FILE, CONTENT_TYPE_YAML, devIdeTemplateWriter.demoEnvDefaultsYaml(report.environmentRequirements())));
         files.add(shared.envExample());
         files.add(new GeneratedArtifactFile(DEV_IDE_RUN_CONFIG_FILE, CONTENT_TYPE_XML, runConfigurationXml));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
@@ -700,11 +721,16 @@ public class DeploymentPackageService {
                                 + staticValidation.verifiedAgainstArtemisCommit() + ")."
                         : staticValidation.findings().size() + " finding(s); see " + STATIC_VALIDATION_FILE + "."));
 
-        long plaintextSecrets = report.consumedParameters().stream()
-                .filter(parameter -> parameter.secret() && !ConsumedParameter.SOURCE_ENV.equals(parameter.source())).count();
+        List<String> undeclaredSecrets = new ArrayList<>();
+        for (EnvironmentRequirement requirement : report.environmentRequirements()) {
+            if (requirement.secret() && !requiredEnvVars.contains(requirement.name())) {
+                undeclaredSecrets.add(requirement.name());
+            }
+        }
         checks.add(new RuntimeCheck("no-plaintext-secrets", "No secret value is written as plaintext.",
-                plaintextSecrets == 0 ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
-                plaintextSecrets == 0 ? "Secret parameters are environment references only." : plaintextSecrets + " secret parameter(s) were not environment references."));
+                undeclaredSecrets.isEmpty() ? RuntimeCheck.STATUS_PASS : RuntimeCheck.STATUS_FAIL,
+                undeclaredSecrets.isEmpty() ? "Secret values are declared environment references only."
+                        : "Undeclared secret requirement(s): " + String.join(", ", undeclaredSecrets) + "."));
 
         int warningCount = report.warnings().size();
         checks.add(new RuntimeCheck("placeholder-values-reported", "Placeholder and integration notes are reported for review.", RuntimeCheck.STATUS_INFO,

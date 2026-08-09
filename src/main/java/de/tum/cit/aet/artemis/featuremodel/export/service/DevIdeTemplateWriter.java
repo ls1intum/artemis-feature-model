@@ -1,9 +1,13 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 
 /**
@@ -74,16 +78,19 @@ public class DevIdeTemplateWriter {
      * placeholders without manual environment setup. Real environment variables rank above config files in Spring
      * Boot's property precedence and override these dummies; the values are never real secrets.
      *
-     * @param requiredEnvVars environment variable names the overlay references.
+     * @param environmentRequirements environment requirements of the generation run.
      * @return deterministic demo defaults YAML text.
      */
-    public String demoEnvDefaultsYaml(List<String> requiredEnvVars) {
+    public String demoEnvDefaultsYaml(List<EnvironmentRequirement> environmentRequirements) {
         StringBuilder builder = new StringBuilder();
         builder.append("# DEMO ONLY — dummy defaults for the ${VARIABLE} placeholders in application-feature-model.yml.\n");
         builder.append("# Loaded via the feature-model-demo profile so a demo run starts without manual environment setup.\n");
         builder.append("# Real environment variables override these values. UNSAFE for production; never put real secrets here.\n");
-        for (String name : requiredEnvVars) {
-            builder.append(name).append(": demo-change-me\n");
+        Set<String> writtenNames = new HashSet<>();
+        for (EnvironmentRequirement requirement : environmentRequirements.stream().sorted(Comparator.comparing(EnvironmentRequirement::name)).toList()) {
+            if (writtenNames.add(requirement.name())) {
+                builder.append(requirement.name()).append(": demo-change-me\n");
+            }
         }
         return builder.toString();
     }

@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 
 import org.yaml.snakeyaml.Yaml;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
@@ -50,8 +51,9 @@ public class FeatureManifestLoader {
 
     private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
 
-    private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "valueWhenSelected", "valueWhenDeselected", "valueFromProfile",
-            "requiredWhenSelected", "secret");
+    private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "source", "valueWhenSelected", "valueWhenDeselected", "secret");
+
+    private static final Set<String> MAPPING_SOURCE_VALUES = Set.of(ArtifactMappingSource.SELECTION, ArtifactMappingSource.ENVIRONMENT);
 
     private static final Set<String> OPTIONALITY_VALUES = Set.of(FeatureScopeManifest.OPTIONALITY_MANDATORY, FeatureScopeManifest.OPTIONALITY_OPTIONAL);
 
@@ -277,12 +279,15 @@ public class FeatureManifestLoader {
     }
 
     /**
-     * Parses the artifact mapping hints of an include entry.
+     * Parses the artifact mapping hints of an include entry. Every hint must declare exactly one valid form: a known
+     * explicit source, at least one toggle value for a selection mapping, and no toggle value for an environment
+     * mapping. The retired implicit shape ({@code valueFromProfile}, {@code requiredWhenSelected}) is rejected as an
+     * unknown field.
      *
      * @param value raw YAML value of the artifactMappings field, or null when absent.
      * @param entryLocation location label of the owning entry.
      * @return parsed mapping hints in declaration order.
-     * @throws FeatureManifestException if a mapping hint is malformed.
+     * @throws FeatureManifestException if a mapping hint is malformed, mixes forms, or declares an unknown source.
      */
     private List<FeatureScopeManifest.MappingHint> parseMappingHints(Object value, String entryLocation) {
         List<FeatureScopeManifest.MappingHint> hints = new ArrayList<>();
@@ -291,9 +296,19 @@ public class FeatureManifestLoader {
             String location = entryLocation + ".artifactMappings[" + index + "]";
             Map<String, Object> hint = asMap(item, location);
             rejectUnknownFields(hint, MAPPING_FIELDS, location);
-            hints.add(new FeatureScopeManifest.MappingHint(requiredString(hint, "target", location), requiredString(hint, "path", location),
-                    hint.get("valueWhenSelected"), hint.get("valueWhenDeselected"), optionalString(hint, "valueFromProfile", location),
-                    optionalBoolean(hint, "requiredWhenSelected", location), optionalBoolean(hint, "secret", location)));
+            String source = requiredString(hint, "source", location);
+            if (!MAPPING_SOURCE_VALUES.contains(source)) {
+                throw new FeatureManifestException(location + ".source must be one of " + MAPPING_SOURCE_VALUES + ".");
+            }
+            boolean hasToggleValue = hint.get("valueWhenSelected") != null || hint.get("valueWhenDeselected") != null;
+            if (ArtifactMappingSource.SELECTION.equals(source) && !hasToggleValue) {
+                throw new FeatureManifestException(location + " declares source 'selection' but no valueWhenSelected or valueWhenDeselected.");
+            }
+            if (ArtifactMappingSource.ENVIRONMENT.equals(source) && hasToggleValue) {
+                throw new FeatureManifestException(location + " declares source 'environment' but carries a selection value.");
+            }
+            hints.add(new FeatureScopeManifest.MappingHint(requiredString(hint, "target", location), requiredString(hint, "path", location), source,
+                    hint.get("valueWhenSelected"), hint.get("valueWhenDeselected"), optionalBoolean(hint, "secret", location)));
             index++;
         }
         return List.copyOf(hints);

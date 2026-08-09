@@ -46,10 +46,10 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationServ
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeProperties;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeSourceResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolverTest;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
-import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RemoteImageStackWriter;
@@ -258,7 +258,7 @@ class GeneratedModelImportParityTest {
         DeploymentProfileRepository profileRepository = new DeploymentProfileRepository(new SnapshotProperties(workingDirectory.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(profileRepository);
         ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
-                new ArtifactMappingResolver(new ProfileParameterResolver()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
+                new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         return new DeploymentPackageService(artifactService, catalogService, profileService, technicalSelectionResolver,
                 new StaticConfigValidationService(runtimeBundle(properties)), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),

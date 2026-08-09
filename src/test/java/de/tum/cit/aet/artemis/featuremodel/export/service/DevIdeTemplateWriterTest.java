@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
+
 class DevIdeTemplateWriterTest {
 
     private static final String CI_ACTIVE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
@@ -41,10 +43,14 @@ class DevIdeTemplateWriterTest {
 
     @Test
     void writesDeterministicDemoDefaultsForEveryRequiredPlaceholder() {
-        List<String> requiredEnvVars = List.of("ARTEMIS_ATHENA_SECRET", "ARTEMIS_IRIS_SECRET_TOKEN");
+        List<EnvironmentRequirement> requirements = List.of(
+                new EnvironmentRequirement("ARTEMIS_ATHENA_SECRET", "athena", "Athena", "artemis.athena.secret", "string", true,
+                        EnvironmentRequirement.SOURCE_ARTIFACT_MAPPING, "Secret value for configuration key 'artemis.athena.secret' required by Athena."),
+                new EnvironmentRequirement("ARTEMIS_IRIS_SECRET_TOKEN", "iris", "Iris (Pyris)", "artemis.iris.secret-token", "string", true,
+                        EnvironmentRequirement.SOURCE_ARTIFACT_MAPPING, "Secret value for configuration key 'artemis.iris.secret-token' required by Iris (Pyris)."));
 
-        String first = writer.demoEnvDefaultsYaml(requiredEnvVars);
-        String second = writer.demoEnvDefaultsYaml(requiredEnvVars);
+        String first = writer.demoEnvDefaultsYaml(requirements);
+        String second = writer.demoEnvDefaultsYaml(requirements);
 
         assertThat(first).isEqualTo(second);
         assertThat(first).contains("ARTEMIS_ATHENA_SECRET: demo-change-me").contains("ARTEMIS_IRIS_SECRET_TOKEN: demo-change-me").contains("DEMO ONLY")

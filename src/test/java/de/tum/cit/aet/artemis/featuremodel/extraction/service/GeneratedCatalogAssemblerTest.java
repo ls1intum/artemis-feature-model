@@ -42,11 +42,11 @@ class GeneratedCatalogAssemblerTest {
 
     private FeatureModel generatedModel() {
         List<ArtifactMapping> mappings = List.of(
-                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.enabled", objectMapper.valueToTree(Boolean.TRUE),
-                        objectMapper.valueToTree(Boolean.FALSE), null, null, null),
-                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.url", null, null, "artemis.alpha.url", true, null),
-                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.secret", null, null, "artemis.alpha.secret", true, true),
-                new ArtifactMapping(".env", "SPRING_PROFILES_ACTIVE", objectMapper.valueToTree("alpha"), null, null, null, null));
+                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.enabled", "selection", objectMapper.valueToTree(Boolean.TRUE),
+                        objectMapper.valueToTree(Boolean.FALSE), null),
+                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.url", "environment", null, null, null),
+                new ArtifactMapping("application-feature-model.yml", "artemis.alpha.secret", "environment", null, null, true),
+                new ArtifactMapping(".env", "SPRING_PROFILES_ACTIVE", "selection", objectMapper.valueToTree("alpha"), null, null));
         FeatureNode alpha = new FeatureNode("alpha", "Alpha", "module", true, null, "enabled", null, null, null, null, null, mappings, null);
         return new FeatureModel(new ModelMetadata("generated", "Generated", "0.0.1"), List.of(alpha), List.of(), List.of());
     }

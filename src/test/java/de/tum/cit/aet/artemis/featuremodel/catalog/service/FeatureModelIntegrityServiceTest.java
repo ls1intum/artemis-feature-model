@@ -9,11 +9,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 import de.tum.cit.aet.artemis.featuremodel.validation.domain.ValidationCode;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 class FeatureModelIntegrityServiceTest {
 
@@ -94,6 +97,94 @@ class FeatureModelIntegrityServiceTest {
 
         assertThatThrownBy(() -> service.validate(TestFeatureModels.withFeatures(features))).isInstanceOf(FeatureModelIntegrityException.class)
                 .hasFieldOrPropertyWithValue("code", ValidationCode.MULTIPLE_ROOT_FEATURES.name());
+    }
+
+    @Test
+    void acceptsBothExplicitMappingForms() {
+        List<ArtifactMapping> mappings = List.of(selectionMapping("artemis.demo.enabled"), environmentMapping("artemis.demo.url"));
+
+        assertThatCode(() -> service.validate(modelWithMappings(mappings))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsUnknownMappingSource() {
+        ArtifactMapping mapping = new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", "profile",
+                JsonNodeFactory.instance.booleanNode(true), null, null);
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(List.of(mapping)))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name()).hasMessageContaining("profile");
+    }
+
+    @Test
+    void rejectsMappingWithoutSource() {
+        ArtifactMapping mapping = new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", null,
+                JsonNodeFactory.instance.booleanNode(true), null, null);
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(List.of(mapping)))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name());
+    }
+
+    @Test
+    void rejectsSelectionMappingWithoutAnyValue() {
+        ArtifactMapping mapping = new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", ArtifactMappingSource.SELECTION, null, null,
+                null);
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(List.of(mapping)))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name()).hasMessageContaining("selection");
+    }
+
+    @Test
+    void rejectsEnvironmentMappingCarryingASelectionValue() {
+        ArtifactMapping mapping = new ArtifactMapping("application-feature-model.yml", "artemis.demo.url", ArtifactMappingSource.ENVIRONMENT,
+                JsonNodeFactory.instance.stringNode("https://demo.invalid"), null, null);
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(List.of(mapping)))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name()).hasMessageContaining("environment");
+    }
+
+    @Test
+    void rejectsMappingWithBlankTargetOrPath() {
+        ArtifactMapping mapping = new ArtifactMapping(" ", "artemis.demo.enabled", ArtifactMappingSource.SELECTION,
+                JsonNodeFactory.instance.booleanNode(true), null, null);
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(List.of(mapping)))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name());
+    }
+
+    @Test
+    void rejectsEnvironmentNameCollisionsAcrossTheModel() {
+        List<ArtifactMapping> mappings = List.of(environmentMapping("artemis.foo-bar.x"), environmentMapping("artemis.foo.bar.x"));
+
+        assertThatThrownBy(() -> service.validate(modelWithMappings(mappings))).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.ENVIRONMENT_NAME_COLLISION.name()).hasMessageContaining("ARTEMIS_FOO_BAR_X");
+    }
+
+    @Test
+    void acceptsTheSameEnvironmentPathOnTwoFeatures() {
+        List<FeatureNode> features = new ArrayList<>(TestFeatureModels.baseModel().features());
+        features.add(featureWithMappings("mapping-holder", List.of(environmentMapping("artemis.demo.url"))));
+        features.add(featureWithMappings("second-holder", List.of(environmentMapping("artemis.demo.url"))));
+
+        assertThatCode(() -> service.validate(TestFeatureModels.withFeatures(features))).doesNotThrowAnyException();
+    }
+
+    private ArtifactMapping selectionMapping(String path) {
+        return new ArtifactMapping("application-feature-model.yml", path, ArtifactMappingSource.SELECTION, JsonNodeFactory.instance.booleanNode(true),
+                JsonNodeFactory.instance.booleanNode(false), null);
+    }
+
+    private ArtifactMapping environmentMapping(String path) {
+        return new ArtifactMapping("application-feature-model.yml", path, ArtifactMappingSource.ENVIRONMENT, null, null, null);
+    }
+
+    private de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel modelWithMappings(List<ArtifactMapping> mappings) {
+        List<FeatureNode> features = new ArrayList<>(TestFeatureModels.baseModel().features());
+        features.add(featureWithMappings("mapping-holder", mappings));
+        return TestFeatureModels.withFeatures(features);
+    }
+
+    private FeatureNode featureWithMappings(String id, List<ArtifactMapping> mappings) {
+        return new FeatureNode(id, id, "feature", true, null, "disabled", null, null, List.of(), List.of(), List.of(), mappings, null);
     }
 
     private void validateModelWithRelation(FeatureRelation relation) {

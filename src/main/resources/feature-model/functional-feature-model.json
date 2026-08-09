@@ -81,9 +81,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.lecture.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -123,9 +123,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.tutorialgroup.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -345,9 +345,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.text.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -387,9 +387,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.modeling.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -429,9 +429,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.fileupload.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -492,9 +492,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.exam.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -534,9 +534,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.plagiarism.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -581,25 +581,19 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.athena.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.athena.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.athena.url",
-          "requiredWhenSelected": true
+          "source": "environment"
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.athena.secret",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.athena.secret",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         }
       ],
@@ -661,16 +655,14 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.atlas.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.atlas.chat-model",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.atlas.chat-model"
+          "source": "environment"
         }
       ],
       "extraction": {
@@ -714,25 +706,19 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.iris.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.iris.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.iris.url",
-          "requiredWhenSelected": true
+          "source": "environment"
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.iris.secret-token",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.iris.secret-token",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         }
       ],
@@ -776,26 +762,20 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.hyperion.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "spring.ai.openai.api-key",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "spring.ai.openai.api-key",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         },
         {
           "target": "application-feature-model.yml",
           "path": "spring.ai.openai.base-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "spring.ai.openai.base-url",
-          "requiredWhenSelected": true
+          "source": "environment"
         }
       ],
       "extraction": {
@@ -858,9 +838,9 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.lti.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         }
       ],
       "extraction": {
@@ -903,17 +883,14 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.theia.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.theia.portal-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.theia.portal-url",
-          "requiredWhenSelected": true
+          "source": "environment"
         }
       ],
       "extraction": {
@@ -956,17 +933,14 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.apollon.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.apollon.conversion-service-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.apollon.conversion-service-url",
-          "requiredWhenSelected": true
+          "source": "environment"
         }
       ],
       "extraction": {
@@ -1011,25 +985,19 @@
         {
           "target": "application-feature-model.yml",
           "path": "artemis.sharing.enabled",
+          "source": "selection",
           "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "valueWhenDeselected": false
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.sharing.serverurl",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.sharing.serverurl",
-          "requiredWhenSelected": true
+          "source": "environment"
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.sharing.apikey",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.sharing.apikey",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         }
       ],
@@ -1092,11 +1060,9 @@
         {
           "target": "docker-compose.override.yml",
           "path": "database.composeFile",
+          "source": "selection",
           "valueWhenSelected": "docker/mysql.yml",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "valueWhenDeselected": null
         }
       ],
       "extraction": {
@@ -1138,11 +1104,9 @@
         {
           "target": "docker-compose.override.yml",
           "path": "database.composeFile",
+          "source": "selection",
           "valueWhenSelected": "docker/postgres.yml",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "valueWhenDeselected": null
         }
       ],
       "extraction": {
@@ -1201,11 +1165,9 @@
         {
           "target": ".env",
           "path": "SPRING_PROFILES_ACTIVE",
+          "source": "selection",
           "valueWhenSelected": "localci,buildagent",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "valueWhenDeselected": null
         }
       ],
       "extraction": {
@@ -1245,73 +1207,48 @@
         {
           "target": ".env",
           "path": "SPRING_PROFILES_ACTIVE",
+          "source": "selection",
           "valueWhenSelected": "jenkins",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "valueWhenDeselected": null
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.url",
-          "requiredWhenSelected": true,
-          "secret": false
+          "source": "environment"
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.user",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.user",
-          "requiredWhenSelected": true,
-          "secret": false
+          "source": "environment"
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.password",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.password",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.token",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.token",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.vcs-credentials",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.vcs-credentials",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.artemis-authentication-token-key",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-key",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         },
         {
           "target": "application-feature-model.yml",
           "path": "artemis.continuous-integration.artemis-authentication-token-value",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-value",
-          "requiredWhenSelected": true,
+          "source": "environment",
           "secret": true
         }
       ],
@@ -1347,11 +1284,9 @@
         {
           "target": ".env",
           "path": "SPRING_PROFILES_ACTIVE",
+          "source": "selection",
           "valueWhenSelected": "localvc",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "valueWhenDeselected": null
         }
       ],
       "extraction": {

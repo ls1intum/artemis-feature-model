@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.service;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -8,6 +9,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
@@ -30,6 +33,93 @@ public class FeatureModelIntegrityService {
         validateRootCount(model);
         validateRelationEndpoints(model, featuresById);
         validateConstraintEndpoints(model, featuresById);
+        validateArtifactMappings(model);
+        validateEnvironmentNameCollisions(model);
+    }
+
+    /**
+     * Checks that every artifact mapping declares exactly one valid form: a known explicit source, a non-blank target
+     * and path, at least one toggle value for a selection mapping, and no toggle value for an environment mapping.
+     *
+     * @param model model to validate.
+     * @throws FeatureModelIntegrityException if a mapping is malformed, mixes forms, or declares an unknown source.
+     */
+    private void validateArtifactMappings(FeatureModel model) {
+        for (FeatureNode feature : model.features()) {
+            for (ArtifactMapping mapping : feature.artifactMappings()) {
+                validateArtifactMapping(feature, mapping);
+            }
+        }
+    }
+
+    /**
+     * Validates one artifact mapping of a feature.
+     *
+     * @param feature feature owning the mapping.
+     * @param mapping mapping to validate.
+     * @throws FeatureModelIntegrityException if the mapping violates the explicit-source contract.
+     */
+    private void validateArtifactMapping(FeatureNode feature, ArtifactMapping mapping) {
+        if (mapping.target() == null || mapping.target().isBlank() || mapping.path() == null || mapping.path().isBlank()) {
+            throw invalidMapping(feature, mapping, "must declare a non-blank target and path");
+        }
+        if (!ArtifactMappingSource.isKnown(mapping.source())) {
+            throw invalidMapping(feature, mapping, "must declare source '" + ArtifactMappingSource.SELECTION + "' or '"
+                    + ArtifactMappingSource.ENVIRONMENT + "', but declares '" + mapping.source() + "'");
+        }
+        boolean hasToggleValue = mapping.valueWhenSelected() != null || mapping.valueWhenDeselected() != null;
+        if (mapping.isSelection() && !hasToggleValue) {
+            throw invalidMapping(feature, mapping, "declares source 'selection' but no selected or deselected value");
+        }
+        if (mapping.isEnvironment() && hasToggleValue) {
+            throw invalidMapping(feature, mapping, "declares source 'environment' but carries a selection value");
+        }
+    }
+
+    /**
+     * Builds the invalid artifact mapping exception.
+     *
+     * @param feature feature owning the mapping.
+     * @param mapping invalid mapping.
+     * @param problem description of the violated rule.
+     * @return integrity exception describing the mapping.
+     */
+    private FeatureModelIntegrityException invalidMapping(FeatureNode feature, ArtifactMapping mapping, String problem) {
+        return new FeatureModelIntegrityException(ValidationCode.INVALID_ARTIFACT_MAPPING.name(),
+                "Artifact mapping '" + mapping.path() + "' of feature '" + feature.id() + "' " + problem + ".");
+    }
+
+    /**
+     * Checks that no two environment-sourced configuration paths derive the same environment variable name anywhere
+     * in the model. The derivation collapses runs of non-alphanumeric characters, so distinct paths such as
+     * {@code artemis.foo-bar.x} and {@code artemis.foo.bar.x} would otherwise silently share one variable.
+     *
+     * @param model model to validate.
+     * @throws FeatureModelIntegrityException if two different paths derive the same environment variable name.
+     */
+    private void validateEnvironmentNameCollisions(FeatureModel model) {
+        Map<String, String> pathsByDerivedName = new HashMap<>();
+        for (FeatureNode feature : model.features()) {
+            for (ArtifactMapping mapping : feature.artifactMappings()) {
+                if (!mapping.isEnvironment()) {
+                    continue;
+                }
+                String derivedName;
+                try {
+                    derivedName = EnvironmentVariableNames.derive(mapping.path());
+                }
+                catch (IllegalArgumentException e) {
+                    throw new FeatureModelIntegrityException(ValidationCode.INVALID_ARTIFACT_MAPPING.name(),
+                            "Artifact mapping '" + mapping.path() + "' of feature '" + feature.id() + "' derives an empty environment variable name.");
+                }
+                String existingPath = pathsByDerivedName.putIfAbsent(derivedName, mapping.path());
+                if (existingPath != null && !existingPath.equals(mapping.path())) {
+                    throw new FeatureModelIntegrityException(ValidationCode.ENVIRONMENT_NAME_COLLISION.name(),
+                            "Configuration paths '" + existingPath + "' and '" + mapping.path() + "' derive the same environment variable name '"
+                                    + derivedName + "'.");
+                }
+            }
+        }
     }
 
     /**

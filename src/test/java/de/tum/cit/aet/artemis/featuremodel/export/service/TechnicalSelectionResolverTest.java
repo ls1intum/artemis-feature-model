@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
@@ -151,13 +152,13 @@ class TechnicalSelectionResolverTest {
     }
 
     private ArtifactMapping mapping(String target, String path, String value) {
-        return new ArtifactMapping(target, path, objectMapper.valueToTree(value), null, null, false, false);
+        return new ArtifactMapping(target, path, ArtifactMappingSource.SELECTION, objectMapper.valueToTree(value), null, false);
     }
 
     private void assertInvalidMappingValue(JsonNode value) {
         FeatureNode root = feature("artemis", "root", false, List.of());
         ArtifactMapping invalidMapping = new ArtifactMapping(TechnicalSelectionResolver.ENV_TARGET,
-                TechnicalSelectionResolver.SPRING_PROFILES_PATH, value, null, null, false, false);
+                TechnicalSelectionResolver.SPRING_PROFILES_PATH, ArtifactMappingSource.SELECTION, value, null, false);
         FeatureNode invalid = feature("invalid", "feature", true, List.of(invalidMapping));
         FeatureModel model = model(List.of(root, invalid), List.of());
 

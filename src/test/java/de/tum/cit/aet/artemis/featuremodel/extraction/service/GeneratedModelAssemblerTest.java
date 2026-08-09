@@ -86,8 +86,7 @@ class GeneratedModelAssemblerTest {
         assertThat(alpha.artifactMappings().getFirst().valueWhenSelected().asBoolean()).isTrue();
         assertThat(alpha.artifactMappings().getFirst().valueWhenDeselected().asBoolean()).isFalse();
         assertThat(alpha.artifactMappings().get(1).path()).isEqualTo("artemis.alpha.url");
-        assertThat(alpha.artifactMappings().get(1).valueFromProfile()).isEqualTo("artemis.alpha.url");
-        assertThat(alpha.artifactMappings().get(1).requiredWhenSelected()).isTrue();
+        assertThat(alpha.artifactMappings().get(1).source()).isEqualTo("environment");
 
         FeatureNode techA = feature(model, "tech-a");
         assertThat(techA.artifactMappings()).singleElement().satisfies(mapping -> {
@@ -237,8 +236,8 @@ class GeneratedModelAssemblerTest {
     }
 
     private List<ResolvedFeatureScope> includes() {
-        MappingHint alphaHint = new MappingHint("application-feature-model.yml", "artemis.alpha.url", null, null, "artemis.alpha.url", true, null);
-        MappingHint techHint = new MappingHint(".env", "SPRING_PROFILES_ACTIVE", "tech-a-profile", null, null, null, null);
+        MappingHint alphaHint = new MappingHint("application-feature-model.yml", "artemis.alpha.url", "environment", null, null, null);
+        MappingHint techHint = new MappingHint(".env", "SPRING_PROFILES_ACTIVE", "selection", "tech-a-profile", null, null);
         return List.of(
                 new ResolvedFeatureScope("module:alpha", "alpha", "alpha-group", null, "module", "optional", null, null, 1, List.of("alpha-service"), List.of(),
                         List.of(alphaHint), null, null, null, "manifest"),

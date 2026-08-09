@@ -51,9 +51,9 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.artifactMappings()).singleElement().satisfies(mapping -> {
                 assertThat(mapping.target()).isEqualTo("application-feature-model.yml");
                 assertThat(mapping.path()).isEqualTo("artemis.text.enabled");
+                assertThat(mapping.source()).isEqualTo("selection");
                 assertThat(mapping.valueWhenSelected().booleanValue()).isTrue();
                 assertThat(mapping.valueWhenDeselected().booleanValue()).isFalse();
-                assertThat(mapping.valueFromProfile()).isNull();
             });
             assertThat(feature.extraction().method()).isEqualTo("manual-curation");
             assertThat(feature.extraction().confidence()).isEqualTo("high");

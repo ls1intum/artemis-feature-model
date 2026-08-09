@@ -2,8 +2,9 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -12,136 +13,127 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationMessage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.OverlayEntry;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ResolutionResult;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.JsonNodeFactory;
 
-class ArtifactMappingResolverTest {
+public class ArtifactMappingResolverTest {
 
-    private final ArtifactMappingResolver resolver = new ArtifactMappingResolver(new ProfileParameterResolver());
+    private ArtifactMappingResolver resolver;
 
     private FeatureModel model;
 
     @BeforeEach
     void setUp() {
         model = new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()).loadActiveModel();
+        resolver = new ArtifactMappingResolver(classpathCatalog());
     }
 
     @Test
-    void writesUnselectedToggleFeaturesAsFalse() {
-        ResolutionResult result = resolver.resolve(model, Set.of(), profile(Map.of()));
+    void writesUnselectedSelectionFeaturesAsFalse() {
+        ResolutionResult result = resolver.resolve(model, Set.of());
 
         assertThat(value(result, "artemis.iris.enabled")).isEqualTo(Boolean.FALSE);
         assertThat(value(result, "artemis.lecture.enabled")).isEqualTo(Boolean.FALSE);
         assertThat(entry(result, "artemis.iris.url")).isEmpty();
+        assertThat(result.environmentRequirements()).isEmpty();
     }
 
     @Test
-    void writesSelectedToggleAndConvertsEnvironmentSecret() {
-        DeploymentProfile profile = profile(Map.of("artemis.iris.url", "https://pyris.example.com", "artemis.iris.secret-token", "env:ARTEMIS_IRIS_SECRET_TOKEN"));
-
-        ResolutionResult result = resolver.resolve(model, Set.of("iris"), profile);
+    void writesEnvironmentMappingsAsDerivedPlaceholdersWithRequirements() {
+        ResolutionResult result = resolver.resolve(model, Set.of("iris"));
 
         assertThat(value(result, "artemis.iris.enabled")).isEqualTo(Boolean.TRUE);
-        assertThat(value(result, "artemis.iris.url")).isEqualTo("https://pyris.example.com");
+        assertThat(value(result, "artemis.iris.url")).isEqualTo("${ARTEMIS_IRIS_URL}");
         assertThat(value(result, "artemis.iris.secret-token")).isEqualTo("${ARTEMIS_IRIS_SECRET_TOKEN}");
-        assertThat(result.environmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN");
-        assertThat(result.consumedParameters()).anySatisfy(consumed -> {
-            assertThat(consumed.targetPath()).isEqualTo("artemis.iris.secret-token");
-            assertThat(consumed.secret()).isTrue();
-            assertThat(consumed.source()).isEqualTo("env");
+        assertThat(result.environmentRequirements()).anySatisfy(requirement -> {
+            assertThat(requirement.name()).isEqualTo("ARTEMIS_IRIS_URL");
+            assertThat(requirement.featureId()).isEqualTo("iris");
+            assertThat(requirement.configKey()).isEqualTo("artemis.iris.url");
+            assertThat(requirement.catalogType()).isEqualTo(ArtemisConfigKeyCatalog.TYPE_URL);
+            assertThat(requirement.secret()).isFalse();
+            assertThat(requirement.source()).isEqualTo(EnvironmentRequirement.SOURCE_ARTIFACT_MAPPING);
         });
-        assertThat(messages(result)).anyMatch(message -> message.contains("artemis.iris.url") && message.contains("Placeholder"));
+        assertThat(result.environmentRequirements()).anySatisfy(requirement -> {
+            assertThat(requirement.name()).isEqualTo("ARTEMIS_IRIS_SECRET_TOKEN");
+            assertThat(requirement.secret()).isTrue();
+        });
+        assertThat(messages(result)).anyMatch(message -> message.contains("artemis.iris.url") && message.contains("ARTEMIS_IRIS_URL"));
     }
 
     @Test
-    void reportsMissingRequiredProfileValue() {
-        ResolutionResult result = resolver.resolve(model, Set.of("iris"), profile(Map.of()));
+    void derivesLongEnvironmentNamesFromTheFullConfigurationPath() {
+        ResolutionResult result = resolver.resolve(model, Set.of("jenkins"));
+
+        assertThat(value(result, "artemis.continuous-integration.artemis-authentication-token-key"))
+                .isEqualTo("${ARTEMIS_CONTINUOUS_INTEGRATION_ARTEMIS_AUTHENTICATION_TOKEN_KEY}");
+        assertThat(result.environmentRequirements()).extracting(EnvironmentRequirement::name)
+                .contains("ARTEMIS_CONTINUOUS_INTEGRATION_ARTEMIS_AUTHENTICATION_TOKEN_KEY");
+    }
+
+    @Test
+    void emitsEnvironmentMappingsOnlyWhenTheFeatureIsSelected() {
+        ResolutionResult result = resolver.resolve(model, Set.of());
 
         assertThat(entry(result, "artemis.iris.url")).isEmpty();
-        assertThat(result.omittedMappings()).anyMatch(omitted -> omitted.targetPath().equals("artemis.iris.url"));
-        assertThat(messages(result)).anyMatch(message -> message.contains("artemis.iris.url") && message.contains("missing"));
+        assertThat(entry(result, "artemis.athena.url")).isEmpty();
+        assertThat(result.environmentRequirements()).isEmpty();
     }
 
     @Test
-    void refusesPlaintextSecretLiteral() {
-        DeploymentProfile profile = profile(Map.of("artemis.iris.url", "http://localhost", "artemis.iris.secret-token", "plaintext-secret"));
+    void producesOneRequirementForEverySelectedEnvironmentMapping() {
+        ResolutionResult result = resolver.resolve(model, Set.of("athena"));
 
-        ResolutionResult result = resolver.resolve(model, Set.of("iris"), profile);
-
-        assertThat(entry(result, "artemis.iris.secret-token")).isEmpty();
-        assertThat(result.entries()).noneMatch(overlay -> "plaintext-secret".equals(overlay.value()));
-        assertThat(result.omittedMappings()).anyMatch(omitted -> omitted.targetPath().equals("artemis.iris.secret-token"));
-        assertThat(messages(result)).anyMatch(message -> message.contains("artemis.iris.secret-token") && message.contains("reference"));
-    }
-
-    @Test
-    void omitsUnresolvedVaultReference() {
-        DeploymentProfile profile = profile(Map.of("artemis.athena.url", "http://localhost:5100", "artemis.athena.secret", "vault:secret/artemis/athena#secret"));
-
-        ResolutionResult result = resolver.resolve(model, Set.of("athena"), profile);
-
-        assertThat(entry(result, "artemis.athena.secret")).isEmpty();
-        assertThat(result.omittedMappings()).anyMatch(omitted -> omitted.targetPath().equals("artemis.athena.secret"));
+        assertThat(result.environmentRequirements()).extracting(EnvironmentRequirement::configKey)
+                .containsExactly("artemis.athena.url", "artemis.athena.secret");
     }
 
     @Test
     void warnsThatLtiNeedsManualRegistration() {
-        ResolutionResult result = resolver.resolve(model, Set.of("lti"), profile(Map.of()));
+        ResolutionResult result = resolver.resolve(model, Set.of("lti"));
 
         assertThat(result.messages()).anyMatch(message -> "lti".equals(message.featureId()) && message.message().toLowerCase().contains("registration"));
     }
 
     @Test
     void notesSelectedFeaturesWithoutMapping() {
-        ResolutionResult result = resolver.resolve(model, Set.of("course-workflow"), profile(Map.of()));
+        ResolutionResult result = resolver.resolve(model, Set.of("course-workflow"));
 
         assertThat(result.messages()).anyMatch(message -> GenerationMessage.INFO.equals(message.severity()) && message.message().contains("Course Workflow"));
     }
 
     @Test
-    void skipsOptionalMissingProfileValueSilently() {
-        ResolutionResult result = resolver.resolve(model, Set.of("atlas"), profile(Map.of()));
-
-        assertThat(value(result, "artemis.atlas.enabled")).isEqualTo(Boolean.TRUE);
-        assertThat(result.omittedMappings()).noneMatch(omitted -> omitted.targetPath().equals("artemis.atlas.chat-model"));
-        assertThat(messages(result)).noneMatch(message -> message.contains("artemis.atlas.chat-model"));
-    }
-
-    @Test
     void ignoresMappingsThatDoNotTargetTheOverlayFile() {
         List<ArtifactMapping> mappings = List.of(
-                new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", JsonNodeFactory.instance.booleanNode(true),
-                        JsonNodeFactory.instance.booleanNode(false), null, null, null),
-                new ArtifactMapping(".env", "DEMO_FLAG", JsonNodeFactory.instance.booleanNode(true), null, null, null, null),
-                new ArtifactMapping(".env", "DEMO_SECRET", null, null, "demo.secret", true, true));
+                new ArtifactMapping("application-feature-model.yml", "artemis.demo.enabled", ArtifactMappingSource.SELECTION,
+                        JsonNodeFactory.instance.booleanNode(true), JsonNodeFactory.instance.booleanNode(false), null),
+                new ArtifactMapping(".env", "DEMO_FLAG", ArtifactMappingSource.SELECTION, JsonNodeFactory.instance.booleanNode(true), null, null),
+                new ArtifactMapping(".env", "demo.secret", ArtifactMappingSource.ENVIRONMENT, null, null, true));
         FeatureNode feature = new FeatureNode("demo", "Demo", "feature", true, null, "disabled", null, null, List.of(), List.of(), List.of(), mappings, null);
         FeatureModel syntheticModel = new FeatureModel(new ModelMetadata("test-model", "Test Model", "1.0.0", "draft", null), List.of(feature), List.of(), List.of());
 
-        ResolutionResult result = resolver.resolve(syntheticModel, Set.of("demo"), profile(Map.of("demo.secret", "env:DEMO_SECRET")));
+        ResolutionResult result = resolver.resolve(syntheticModel, Set.of("demo"));
 
         assertThat(result.entries()).extracting(OverlayEntry::path).containsExactly("artemis.demo.enabled");
-        assertThat(result.environmentVariables()).isEmpty();
-        assertThat(result.consumedParameters()).isEmpty();
-        assertThat(result.omittedMappings()).isEmpty();
+        assertThat(result.environmentRequirements()).isEmpty();
     }
 
-    @Test
-    void warnsAboutDeprecatedProfileKeys() {
-        ResolutionResult result = resolver.resolve(model, Set.of(), profile(Map.of("pyris.url", "https://pyris.example.com")));
-
-        assertThat(messages(result)).anyMatch(message -> message.contains("pyris.url") && message.contains("deprecated"));
-    }
-
-    private DeploymentProfile profile(Map<String, String> parameters) {
-        return new DeploymentProfile("test-profile", "Test Profile", "1.0.0", "published", List.of(), List.of(), parameters, List.of());
+    public static ArtemisConfigKeyCatalog classpathCatalog() {
+        try (InputStream inputStream = ArtifactMappingResolverTest.class.getResourceAsStream("/feature-model/artemis-config-key-catalog.json")) {
+            return new ObjectMapper().readValue(inputStream, ArtemisConfigKeyCatalog.class);
+        }
+        catch (IOException e) {
+            throw new IllegalStateException("Could not read the classpath config key catalog.", e);
+        }
     }
 
     private Optional<OverlayEntry> entry(ResolutionResult result, String path) {
