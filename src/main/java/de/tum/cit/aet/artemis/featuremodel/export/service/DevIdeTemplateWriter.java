@@ -89,7 +89,7 @@ public class DevIdeTemplateWriter {
         Set<String> writtenNames = new HashSet<>();
         for (EnvironmentRequirement requirement : environmentRequirements.stream().sorted(Comparator.comparing(EnvironmentRequirement::name)).toList()) {
             if (writtenNames.add(requirement.name())) {
-                builder.append(requirement.name()).append(": demo-change-me\n");
+                builder.append(requirement.name()).append(": ").append(DemoDefaultValues.valueFor(requirement)).append("\n");
             }
         }
         return builder.toString();

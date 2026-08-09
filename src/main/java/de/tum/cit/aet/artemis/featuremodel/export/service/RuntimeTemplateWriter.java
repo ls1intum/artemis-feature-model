@@ -469,11 +469,13 @@ public class RuntimeTemplateWriter {
     }
 
     /**
-     * Builds the demo env file with visibly fake values for every environment requirement. Clearly labeled as
-     * demo-only so it is never mistaken for a real secret store.
+     * Builds the demo env file with catalog-typed, visibly fake values for every environment requirement. Clearly
+     * labeled as demo-only so it is never mistaken for a real secret store.
      *
      * @param environmentRequirements environment requirements of the package.
      * @return {@code .env.demo} text.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if a catalog-keyed requirement has no catalog entry or its
+     *             demo value does not match the catalog type.
      */
     public String envDemo(List<EnvironmentRequirement> environmentRequirements) {
         StringBuilder builder = new StringBuilder();
@@ -482,7 +484,7 @@ public class RuntimeTemplateWriter {
         Set<String> writtenNames = new HashSet<>();
         for (EnvironmentRequirement requirement : environmentRequirements.stream().sorted(Comparator.comparing(EnvironmentRequirement::name)).toList()) {
             if (writtenNames.add(requirement.name())) {
-                builder.append(requirement.name()).append("=demo-change-me\n");
+                builder.append(requirement.name()).append("=").append(DemoDefaultValues.valueFor(requirement)).append("\n");
             }
         }
         return builder.toString();

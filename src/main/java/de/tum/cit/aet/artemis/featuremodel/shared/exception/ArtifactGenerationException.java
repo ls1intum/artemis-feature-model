@@ -153,4 +153,31 @@ public class ArtifactGenerationException extends RuntimeException {
     public HttpStatus getStatus() {
         return status;
     }
+
+    /**
+     * Creates the exception for a catalog-keyed environment requirement whose configuration key is absent from the
+     * active config-key catalog, so no typed demo default can be derived for it.
+     *
+     * @param configKey configuration key missing from the catalog.
+     * @return exception describing the missing catalog entry.
+     */
+    public static ArtifactGenerationException missingCatalogEntryForDemoDefault(String configKey) {
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_MISSING_CATALOG_ENTRY",
+                "Configuration key '" + configKey + "' has no entry in the Artemis config key catalog; a typed demo default cannot be derived.",
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    /**
+     * Creates the exception for a demo default whose value does not match the catalog type of its configuration key.
+     *
+     * @param configKey configuration key of the requirement.
+     * @param catalogType catalog type the value must satisfy.
+     * @param value rejected demo value.
+     * @return exception describing the type mismatch.
+     */
+    public static ArtifactGenerationException invalidDemoDefault(String configKey, String catalogType, String value) {
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_INVALID_DEMO_DEFAULT",
+                "Demo default '" + value + "' for configuration key '" + configKey + "' does not match catalog type '" + catalogType + "'.",
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
