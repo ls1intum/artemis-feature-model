@@ -158,17 +158,15 @@ public record FeatureScopeManifest(int manifestVersion, String artemisCommitSha,
     }
 
     /**
-     * Declared artifact mapping hint mirroring the curated model's mapping shape.
+     * Declared artifact mapping hint mirroring the generated model's explicit-source mapping shape.
      *
      * @param target generated file the entry belongs to.
      * @param path dotted configuration path or variable name written into the target.
+     * @param source explicit value source, {@code selection} or {@code environment}.
      * @param valueWhenSelected value written when the owning feature is selected, or null.
      * @param valueWhenDeselected value written when the owning feature is not selected, or null.
-     * @param valueFromProfile deployment profile parameter key whose value is written, or null.
-     * @param requiredWhenSelected whether a missing profile value should be reported when the feature is selected.
-     * @param secret whether the value is a secret reference that must never be emitted as plaintext.
+     * @param secret whether the value is a secret that must never be emitted as plaintext.
      */
-    public record MappingHint(String target, String path, Object valueWhenSelected, Object valueWhenDeselected, String valueFromProfile,
-            Boolean requiredWhenSelected, Boolean secret) {
+    public record MappingHint(String target, String path, String source, Object valueWhenSelected, Object valueWhenDeselected, Boolean secret) {
     }
 }

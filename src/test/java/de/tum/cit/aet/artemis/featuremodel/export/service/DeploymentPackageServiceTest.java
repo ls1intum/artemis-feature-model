@@ -58,7 +58,7 @@ class DeploymentPackageServiceTest {
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
-        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
+        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
@@ -135,8 +135,8 @@ class DeploymentPackageServiceTest {
         assertThat(report.overallStatus()).isEqualTo("PASS");
         assertThat(report.findings()).isEmpty();
         assertThat(report.checkedEntryCount()).isGreaterThan(15);
-        assertThat(report.catalogVersion()).isEqualTo("1.0.0");
-        assertThat(report.verifiedAgainstArtemisCommit()).isEqualTo(RuntimePackageConstants.VERIFIED_ARTEMIS_COMMIT);
+        assertThat(report.catalogVersion()).startsWith("0.1.0+");
+        assertThat(report.verifiedAgainstArtemisCommit()).matches("[0-9a-f]{40}");
     }
 
     @Test

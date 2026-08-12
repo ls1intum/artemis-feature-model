@@ -1,9 +1,13 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 
@@ -465,18 +469,23 @@ public class RuntimeTemplateWriter {
     }
 
     /**
-     * Builds the demo env file with dummy values for every referenced environment variable. Clearly labeled as
-     * demo-only so it is never mistaken for a real secret store.
+     * Builds the demo env file with catalog-typed, visibly fake values for every environment requirement. Clearly
+     * labeled as demo-only so it is never mistaken for a real secret store.
      *
-     * @param environmentVariableNames referenced environment variable names, in stable order.
+     * @param environmentRequirements environment requirements of the package.
      * @return {@code .env.demo} text.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if a catalog-keyed requirement has no catalog entry or its
+     *             demo value does not match the catalog type.
      */
-    public String envDemo(List<String> environmentVariableNames) {
+    public String envDemo(List<EnvironmentRequirement> environmentRequirements) {
         StringBuilder builder = new StringBuilder();
         builder.append("# DEMO ONLY — dummy local values. UNSAFE for production; do not commit real secrets.\n");
         builder.append("# scripts/prepare-env.sh --demo copies this file to env/.env for local validation.\n");
-        for (String name : environmentVariableNames) {
-            builder.append(name).append("=demo-change-me\n");
+        Set<String> writtenNames = new HashSet<>();
+        for (EnvironmentRequirement requirement : environmentRequirements.stream().sorted(Comparator.comparing(EnvironmentRequirement::name)).toList()) {
+            if (writtenNames.add(requirement.name())) {
+                builder.append(requirement.name()).append("=").append(DemoDefaultValues.valueFor(requirement)).append("\n");
+            }
         }
         return builder.toString();
     }

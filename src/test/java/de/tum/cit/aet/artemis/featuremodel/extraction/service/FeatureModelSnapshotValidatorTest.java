@@ -141,6 +141,28 @@ class FeatureModelSnapshotValidatorTest {
                 .hasMessageContaining("image identity");
     }
 
+    @Test
+    void rejectsASchemaV2SnapshotNamingTheUnsupportedSchemaBeforePayloadParsing() throws Exception {
+        replaceMetadata("\"schemaVersion\" : 3", "\"schemaVersion\" : 2");
+        // A v2 model payload would not even parse against the current mapping contract; the schema gate must fire
+        // first, so the model payload is made unparseable to prove no payload parsing happens after the gate.
+        Files.writeString(snapshot.resolve(SnapshotPublisher.SNAPSHOT_MODEL_FILE), "not json\n");
+        rewriteChecksums();
+
+        assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("Unsupported snapshot schema version 2").hasMessageContaining("supports schema version 3");
+    }
+
+    @Test
+    void rejectsAProvenanceWithoutAValidManifestSource() throws Exception {
+        Path provenance = snapshot.resolve(SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE);
+        Files.writeString(provenance, Files.readString(provenance).replace("\"manifestSource\" : \"repository\"", "\"manifestSource\" : \"unknown\""));
+        rewriteChecksums();
+
+        assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining("manifest source");
+    }
+
     private void replaceMetadata(String original, String replacement) throws Exception {
         Path metadata = snapshot.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE);
         String content = Files.readString(metadata);

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
@@ -234,12 +235,12 @@ class GeneratedModelConformanceService {
     private List<ArtifactMapping> expectedMappings(ResolvedFeatureScope included, FeatureCandidate candidate) {
         List<ArtifactMapping> mappings = new ArrayList<>();
         if (candidate != null && candidate.configKey() != null && FeatureCandidate.KIND_MODULE_FEATURE.equals(candidate.kind())) {
-            mappings.add(new ArtifactMapping(GeneratedModelAssembler.OVERLAY_TARGET, candidate.configKey(), objectMapper.valueToTree(Boolean.TRUE),
-                    objectMapper.valueToTree(Boolean.FALSE), null, null, null));
+            mappings.add(new ArtifactMapping(GeneratedModelAssembler.OVERLAY_TARGET, candidate.configKey(), ArtifactMappingSource.SELECTION,
+                    objectMapper.valueToTree(Boolean.TRUE), objectMapper.valueToTree(Boolean.FALSE), null));
         }
         for (MappingHint hint : included.artifactMappings()) {
-            mappings.add(new ArtifactMapping(hint.target(), hint.path(), jsonValue(hint.valueWhenSelected()), jsonValue(hint.valueWhenDeselected()),
-                    hint.valueFromProfile(), hint.requiredWhenSelected(), hint.secret()));
+            mappings.add(new ArtifactMapping(hint.target(), hint.path(), hint.source(), jsonValue(hint.valueWhenSelected()),
+                    jsonValue(hint.valueWhenDeselected()), hint.secret()));
         }
         return List.copyOf(mappings);
     }

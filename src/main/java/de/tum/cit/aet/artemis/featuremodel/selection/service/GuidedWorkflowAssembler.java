@@ -113,7 +113,7 @@ public class GuidedWorkflowAssembler {
     }
 
     /**
-     * Derives the artifact impact sentences of an option from the toggle mappings of its selected features.
+     * Derives the artifact impact sentences of an option from the selection mappings of its selected features.
      *
      * @param option decision option.
      * @param featuresById model features keyed by id.
@@ -127,7 +127,7 @@ public class GuidedWorkflowAssembler {
                 continue;
             }
             for (ArtifactMapping mapping : feature.artifactMappings()) {
-                if (mapping.isToggle() && mapping.valueWhenSelected() != null && OVERLAY_TARGET.equals(mapping.target())) {
+                if (mapping.isSelection() && mapping.valueWhenSelected() != null && OVERLAY_TARGET.equals(mapping.target())) {
                     impacts.add("Sets " + mapping.path() + " = " + mapping.valueWhenSelected().asString() + " in the generated external configuration overlay.");
                 }
             }

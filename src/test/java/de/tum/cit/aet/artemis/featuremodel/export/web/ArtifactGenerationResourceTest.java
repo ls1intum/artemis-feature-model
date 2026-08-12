@@ -28,9 +28,9 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfi
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolverTest;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
-import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.YamlOverlayWriter;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelExceptionHandler;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
@@ -57,7 +57,7 @@ class ArtifactGenerationResourceTest {
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
-        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
+        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService service = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver, new YamlOverlayWriter(),
                 new EnvExampleWriter(), objectMapper);
         ArtifactGenerationResource resource = new ArtifactGenerationResource(service, new ArtifactPackageService());

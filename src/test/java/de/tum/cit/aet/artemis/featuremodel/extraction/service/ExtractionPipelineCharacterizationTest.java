@@ -62,10 +62,10 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
-            Map.entry("model/generated-feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
-            Map.entry("model/manifest-conformance-report.json", "2d80f6a8e07105f45aec5e67bb40ed9612769040d6e1aaf2a4c9fa9130587bdb"),
+            Map.entry("model/generated-feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
+            Map.entry("model/manifest-conformance-report.json", "30068f9b663069ba0fce9490fc6a9ea2937f515f6d7dacee04ed3eb1b5cc046d"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "4f810c62a5636a38ab970df9bb14373017d8a9982c36a01392283b7477e771da"),
+            Map.entry("model/model-result.json", "3d9ca6a624b30ca80d9e10593e348fc33bba9464e789029d9a4caaccd4222280"),
             Map.entry("report/extraction-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
             Map.entry("report/index.html", "1682de7820a9229d04b79536b31df2f8fe8e58bb302bc9b47160b54c207e7ef4"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
@@ -76,17 +76,17 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "4833f9bb55147e28737e713b1536a2f898d73917ffd3bfdb212b66f387d6ba32"),
+            Map.entry("snapshot/checksums.txt", "d267c771de0327d94a519e0a32849b024f4f354d05ba8bcdb078ff2df0e8a08c"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
-            Map.entry("snapshot/feature-model.json", "df423ddc542889d09d863855b0bc0fd2c9bc810c945125915f37d3fd02fd305b"),
+            Map.entry("snapshot/feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
             Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
             Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
-            Map.entry("snapshot/metadata.json", "49bcf54a85bf77dca9178d103f230db507172b277adb55dc0ff67c3a8210f6ab"),
-            Map.entry("snapshot/provenance.json", "0d726b8cdb796458b979510fb4206a0432f6b1d91307f903dcc774fa7a844656"),
+            Map.entry("snapshot/metadata.json", "b7d772fd12e89b34c1885648e6d8e7be4c8bf47627b7a1e71e7b20419134a13e"),
+            Map.entry("snapshot/provenance.json", "11df14b0604a69839a193e615288a6cd84dd8ffb201a8197069128257027520d"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "e086e5b22b16db366464321abe6a159e16889c28d2f6cdb7a703ebbb7b626004"));
+            Map.entry("workflow/workflow-result.json", "8d88af5d3d4f8be0f156c6926eeca78ea7e15b40b4eaf3dc45600a10f8059adc"));
 
     @TempDir
     private Path outputRoot;

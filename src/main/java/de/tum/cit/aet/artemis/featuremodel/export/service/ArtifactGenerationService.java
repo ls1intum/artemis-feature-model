@@ -123,10 +123,10 @@ public class ArtifactGenerationService {
         DeploymentProfile profile = deploymentProfileService.resolveProfileOrDefault(profiles, request.profileId());
 
         Set<String> selectedFeatureIds = new LinkedHashSet<>(normalizedSelection);
-        ResolutionResult resolution = mappingResolver.resolve(model, selectedFeatureIds, profile);
+        ResolutionResult resolution = mappingResolver.resolve(model, selectedFeatureIds);
 
         String overlayYaml = yamlOverlayWriter.write(resolution.entries());
-        String envExample = envExampleWriter.write(resolution.environmentVariables());
+        String envExample = envExampleWriter.write(resolution.environmentRequirements());
         String selectedFeaturesJson = writeJson(selectedFeaturesMetadata(model, normalizedSelection));
         String profileSummaryJson = writeJson(DeploymentProfileSummaryMetadata.from(profile));
 
@@ -171,7 +171,7 @@ public class ArtifactGenerationService {
      * @param profile active deployment profile.
      * @param selectedFeatureIds normalized selected feature ids.
      * @param generatedFiles generated file paths.
-     * @param resolution resolution result with messages and consumed parameters.
+     * @param resolution resolution result with messages and environment requirements.
      * @return generation report.
      */
     private GenerationReport buildReport(FeatureModel model, DeploymentProfile profile, List<String> selectedFeatureIds, List<String> generatedFiles,
@@ -180,7 +180,7 @@ public class ArtifactGenerationService {
         String status = hasWarning ? GenerationReport.STATUS_GENERATED_WITH_WARNINGS : GenerationReport.STATUS_GENERATED;
         ModelMetadata metadata = model.model();
         return new GenerationReport(status, GenerationReport.MODE_DEMO, metadata.id(), metadata.version(), profile.id(), profile.version(), selectedFeatureIds,
-                generatedFiles, resolution.consumedParameters(), resolution.omittedMappings(), resolution.messages(), List.of());
+                generatedFiles, resolution.environmentRequirements(), resolution.messages(), List.of());
     }
 
     /**
@@ -238,8 +238,8 @@ public class ArtifactGenerationService {
 
                 ## Before real deployment
 
-                - This is a DEMO artifact. Placeholder values (for example `*.example.com` URLs) must be replaced with real \
-                service values before any production use. See `metadata/generation-report.json` for the exact list.
+                - This is a DEMO artifact. Every external-service value is referenced as a `${VARIABLE}` placeholder and must \
+                be supplied by the deployment environment before any production use. See `metadata/generation-report.json` for the exact list.
                 - Secret values are never written here as plaintext. They appear only as `${VARIABLE}` placeholders, and the \
                 values must be supplied securely by the deployment environment.
                 - Real production parameters may later be managed outside this tool, for example through Ansible and \
@@ -247,7 +247,7 @@ public class ArtifactGenerationService {
                 - Some integrations require post-deployment administrator steps. In particular, LTI platform registration is \
                 managed in the Artemis database and cannot be configured by this overlay alone.
 
-                Review `metadata/generation-report.json` for warnings, consumed parameters, and omitted mappings.
+                Review `metadata/generation-report.json` for warnings and the structured environment requirements.
                 """
                 .formatted(metadata.id(), metadata.version(), profile.name(), profile.id());
     }

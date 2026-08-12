@@ -142,11 +142,20 @@ tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
             layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
 }
 
-tasks.register('syncFeatureModelResource', Copy) {
-    description = 'Copies the WP1 feature-model artifact into the runtime classpath resource location.'
-    group = 'build setup'
-    from "$projectDir/devdocs/mvp/common/functional-feature-model.json"
-    into "$projectDir/src/main/resources/feature-model"
+tasks.register('refreshFeatureModelFixture', JavaExec) {
+    description = 'Validates a generated snapshot and copies its model and catalog over the classpath fixture with a provenance sidecar.'
+    group = 'feature model'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureModelFixtureRefreshCli'
+    outputs.upToDateWhen { false }
+    def snapshotPath = providers.gradleProperty('snapshotPath')
+    def resourceDir = layout.projectDirectory.dir('src/main/resources/feature-model')
+    doFirst {
+        if (!snapshotPath.isPresent() || snapshotPath.get().isBlank()) {
+            throw new GradleException('Missing -PsnapshotPath=<snapshot-directory> for refreshFeatureModelFixture.')
+        }
+        args = ["--snapshot-path=${snapshotPath.get()}", "--resource-dir=${resourceDir.asFile.path}"]
+    }
 }
 
 tasks.register('npmCi', Exec) {

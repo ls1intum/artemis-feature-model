@@ -1,1073 +1,1097 @@
 {
-  "$schema": "functional-feature-model.schema.json",
-  "model": {
-    "id": "artemis-functional-feature-tree",
-    "name": "Artemis Functional Feature Tree",
-    "version": "0.1.0",
-    "status": "published",
-    "sourceCommitSha": null
+  "model" : {
+    "id" : "artemis-generated-feature-model",
+    "name" : "Artemis Generated Feature Model",
+    "version" : "0.1.0+5eee99d5d62e",
+    "status" : "generated",
+    "sourceCommitSha" : "5eee99d5d62ee667026ae371be0045c0dd208ed1"
   },
-  "features": [
+  "features" : [
     {
-      "id": "artemis",
-      "name": "Artemis",
-      "kind": "root",
-      "selectable": false,
-      "description": "Root of the normalized Artemis functional module tree.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
+      "id" : "artemis",
+      "name" : "Artemis",
+      "kind" : "root",
+      "selectable" : false,
+      "description" : "Root of the Artemis feature model.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "teaching-and-content",
-      "name": "Teaching and Content",
-      "kind": "group",
-      "selectable": false,
-      "description": "Visual domain group for teaching content and course-facing communication capabilities.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
+      "id" : "teaching-and-content",
+      "name" : "Teaching and Content",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Course-facing teaching, content, and communication capabilities.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "lecture",
-      "name": "Lecture",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional module controlled by artemis.lecture.enabled; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.lecture.enabled",
-        "clientConstant": "MODULE_FEATURE_LECTURE",
-        "serverConditionClass": "LectureEnabled",
-        "evidence": [
-          "LectureEnabled.java:13,23",
-          "LectureResource.java:81",
-          "application-core.yml:20-21"
+      "id" : "lecture",
+      "name" : "Lectures",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables lecture management with units, slides, videos, and attachments.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.lecture.enabled",
+        "clientConstant" : "MODULE_FEATURE_LECTURE",
+        "serverConditionClass" : "LectureEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:158,291",
+          "Constants.java:445,535",
+          "LectureEnabled.java:13",
+          "admin-feature-toggle.component.ts:127,171",
+          "app.constants.ts:56",
+          "application-core.yml:21",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.lecture.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.lecture.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "tutorialgroup",
-      "name": "TutorialGroup",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional module with a dedicated enablement condition for tutorial group resources, services, and repositories.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.tutorialgroup.enabled",
-        "clientConstant": "MODULE_FEATURE_TUTORIALGROUP",
-        "serverConditionClass": "TutorialGroupEnabled",
-        "evidence": [
-          "TutorialGroupEnabled.java:13,23",
-          "TutorialGroupResource.java:75",
-          "application-core.yml:32-33"
+      "id" : "tutorialgroup",
+      "name" : "Tutorial Groups",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables tutorial group management for organizing students and tutors.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.tutorialgroup.enabled",
+        "clientConstant" : "MODULE_FEATURE_TUTORIALGROUP",
+        "serverConditionClass" : "TutorialGroupEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:168,294",
+          "Constants.java:450,540",
+          "TutorialGroupEnabled.java:13",
+          "admin-feature-toggle.component.ts:128,172",
+          "app.constants.ts:58",
+          "application-core.yml:33",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.tutorialgroup.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.tutorialgroup.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "course-workflow",
-      "name": "Course Workflow",
-      "kind": "module",
-      "selectable": true,
-      "description": "Mandatory core workflow for course creation, update, access, overview, archiving, and course requests.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
-          "CourseManagementResource.java:53",
-          "CourseService.java:53",
-          "Constants.java:368-478"
+      "id" : "course-workflow",
+      "name" : "Course Workflow",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Core course creation, access, overview, and lifecycle workflows.",
+      "defaultState" : "enabled",
+      "category" : "functional",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "communication",
+      "name" : "Communication",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Course communication, messaging, and notification workflows.",
+      "defaultState" : "enabled",
+      "category" : "functional",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "exercise-system",
+      "name" : "Exercise System",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Shared exercise infrastructure and supported exercise types.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "exercise-common",
+      "name" : "Common Exercise Infrastructure",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Shared creation, participation, submission, and assessment infrastructure for exercises.",
+      "defaultState" : "enabled",
+      "category" : "functional",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "programming",
+      "name" : "Programming Exercises",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Programming exercise authoring, participation, and automated assessment workflows.",
+      "defaultState" : "enabled",
+      "category" : "functional",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "quiz",
+      "name" : "Quiz Exercises",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Quiz authoring, participation, and assessment workflows.",
+      "defaultState" : "enabled",
+      "category" : "functional",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [
+        "teacher",
+        "maintainer"
+      ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
+      }
+    },
+    {
+      "id" : "text",
+      "name" : "Text Exercises",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables text exercises with manual and automated assessment capabilities.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.text.enabled",
+        "clientConstant" : "MODULE_FEATURE_TEXT",
+        "serverConditionClass" : "TextEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:128,282",
+          "Constants.java:430,520",
+          "TextEnabled.java:13",
+          "admin-feature-toggle.component.ts:124,168",
+          "app.constants.ts:50",
+          "application-core.yml:15",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "communication",
-      "name": "Communication",
-      "kind": "module",
-      "selectable": true,
-      "description": "Mandatory core platform capability for conversations, channels, messages, FAQ, notifications, mail, and push notifications.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
-          "ConversationResource.java:56",
-          "ConversationMessagingService.java:65",
-          "CourseNotificationService.java:39",
-          "Constants.java:368-478"
-        ]
-      },
-      "category": "functional",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [
-        "teacher",
-        "maintainer"
-      ],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "exercise-system",
-      "name": "Exercise System",
-      "kind": "group",
-      "selectable": false,
-      "description": "Visual domain group for common exercise infrastructure and concrete exercise types.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "exercise-common",
-      "name": "Exercise (Common / Umbrella Layer)",
-      "kind": "module",
-      "selectable": true,
-      "description": "Mandatory shared foundation for Exercise, Participation, and Submission concepts used by all exercise types.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
-          "ExerciseResource.java:71",
-          "ParticipationResource.java:73",
-          "SubmissionResource.java:52",
-          "ExerciseService.java:90"
-        ]
-      },
-      "category": "functional",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [
-        "teacher",
-        "maintainer"
-      ],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "programming",
-      "name": "Programming",
-      "kind": "module",
-      "selectable": true,
-      "description": "Mandatory core exercise type; CI/VCS providers and EduIDE are optional layers, but Programming itself has no module switch.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
-          "ProgrammingExerciseCreationResource.java:52",
-          "ProgrammingExerciseService.java:47",
-          "ProgrammingExerciseRepository.java:46",
-          "Constants.java:368-478"
-        ]
-      },
-      "category": "functional",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [
-        "teacher",
-        "maintainer"
-      ],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "quiz",
-      "name": "Quiz",
-      "kind": "module",
-      "selectable": true,
-      "description": "Mandatory core exercise type loaded with PROFILE_CORE and no artemis.quiz.enabled module switch.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
-          "QuizExerciseResource.java:51",
-          "QuizExerciseCreationUpdateResource.java:55",
-          "QuizService.java:32",
-          "QuizExerciseRepository.java:30"
-        ]
-      },
-      "category": "functional",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [
-        "teacher",
-        "maintainer"
-      ],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
-      }
-    },
-    {
-      "id": "text",
-      "name": "Text",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional exercise module with a module switch and MODULE_FEATURE_TEXT; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.text.enabled",
-        "clientConstant": "MODULE_FEATURE_TEXT",
-        "serverConditionClass": "TextEnabled",
-        "evidence": [
-          "TextEnabled.java:13,23",
-          "TextExerciseResource.java:71",
-          "application-core.yml:14-15"
-        ]
-      },
-      "category": "functional",
-      "visibleTo": [
-        "teacher",
-        "maintainer"
-      ],
-      "configurableBy": [
-        "teacher",
-        "maintainer"
-      ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.text.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.text.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "modeling",
-      "name": "Modeling",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional exercise module with a module switch and MODULE_FEATURE_MODELING; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.modeling.enabled",
-        "clientConstant": "MODULE_FEATURE_MODELING",
-        "serverConditionClass": "ModelingEnabled",
-        "evidence": [
-          "ModelingEnabled.java:13,23",
-          "ModelingExerciseResource.java:80",
-          "application-core.yml:16-17"
+      "id" : "modeling",
+      "name" : "Modeling Exercises",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables UML diagram exercises using the Apollon editor with automatic similarity comparison.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.modeling.enabled",
+        "clientConstant" : "MODULE_FEATURE_MODELING",
+        "serverConditionClass" : "ModelingEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:138,285",
+          "Constants.java:435,525",
+          "ModelingEnabled.java:13",
+          "admin-feature-toggle.component.ts:125,169",
+          "app.constants.ts:52",
+          "application-core.yml:17",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.modeling.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.modeling.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "file-upload",
-      "name": "File Upload",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional exercise module with a module switch and MODULE_FEATURE_FILEUPLOAD; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.fileupload.enabled",
-        "clientConstant": "MODULE_FEATURE_FILEUPLOAD",
-        "serverConditionClass": "FileUploadEnabled",
-        "evidence": [
-          "FileUploadEnabled.java:13,23",
-          "FileUploadExerciseResource.java:85",
-          "application-core.yml:18-19"
+      "id" : "file-upload",
+      "name" : "File Upload Exercises",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables file upload exercises for submitting documents, images, and other files.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.fileupload.enabled",
+        "clientConstant" : "MODULE_FEATURE_FILEUPLOAD",
+        "serverConditionClass" : "FileUploadEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:148,288",
+          "Constants.java:440,530",
+          "FileUploadEnabled.java:13",
+          "admin-feature-toggle.component.ts:126,170",
+          "app.constants.ts:54",
+          "application-core.yml:19",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.fileupload.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.fileupload.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "assessment-and-integrity",
-      "name": "Assessment and Integrity",
-      "kind": "group",
-      "selectable": false,
-      "description": "Visual domain group for exam workflows, plagiarism detection, and assessment assistance.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
+      "id" : "assessment-and-integrity",
+      "name" : "Assessment and Integrity",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Exam, assessment-support, and academic-integrity capabilities.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "exam",
-      "name": "Exam",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional exam subsystem controlled by artemis.exam.enabled; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.exam.enabled",
-        "clientConstant": "MODULE_FEATURE_EXAM",
-        "serverConditionClass": "ExamEnabled",
-        "evidence": [
-          "ExamEnabled.java:13,23",
-          "ExamResource.java:145",
-          "application-core.yml:10-11"
+      "id" : "exam",
+      "name" : "Exam Mode",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables exam mode for conducting secure online assessments with proctoring features.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.exam.enabled",
+        "clientConstant" : "MODULE_FEATURE_EXAM",
+        "serverConditionClass" : "ExamEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:108,276",
+          "Constants.java:420,510",
+          "ExamEnabled.java:13",
+          "admin-feature-toggle.component.ts:122,166",
+          "app.constants.ts:46",
+          "application-core.yml:11",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.exam.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.exam.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "plagiarism",
-      "name": "Plagiarism",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional plagiarism detection module controlled by PlagiarismEnabled; ordinary core deployments enable it by default.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.plagiarism.enabled",
-        "clientConstant": "MODULE_FEATURE_PLAGIARISM",
-        "serverConditionClass": "PlagiarismEnabled",
-        "evidence": [
-          "PlagiarismEnabled.java:13,23",
-          "PlagiarismResource.java:44",
-          "application-core.yml:12-13"
+      "id" : "plagiarism",
+      "name" : "Plagiarism Detection",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables plagiarism detection using JPlag for text, modeling, and programming exercises.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.plagiarism.enabled",
+        "clientConstant" : "MODULE_FEATURE_PLAGIARISM",
+        "serverConditionClass" : "PlagiarismEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:118,279",
+          "Constants.java:425,515",
+          "PlagiarismEnabled.java:13",
+          "admin-feature-toggle.component.ts:123,167",
+          "app.constants.ts:48",
+          "application-core.yml:13",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.plagiarism.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.plagiarism.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "athena",
-      "name": "Athena",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional assessment support integration controlled by artemis.athena.enabled and external Athena URL/secret, not a required core module.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.athena.enabled",
-        "clientConstant": "MODULE_FEATURE_ATHENA",
-        "serverConditionClass": "AthenaEnabled",
-        "evidence": [
-          "Constants.java:463,563",
-          "AthenaEnabled.java:13,23",
-          "AthenaResource.java:50",
-          "AthenaModuleService.java:35,38",
-          "application-core.yml:36-37"
+      "id" : "athena",
+      "name" : "Athena (AI Assessment)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables Athena ML-based automated feedback suggestions for text and programming exercises.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.athena.enabled",
+        "clientConstant" : "MODULE_FEATURE_ATHENA",
+        "serverConditionClass" : "AthenaEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:188,309",
+          "AthenaEnabled.java:13",
+          "Constants.java:465,565",
+          "admin-feature-toggle.component.ts:131,175",
+          "app.constants.ts:64",
+          "application-core.yml:37",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "athena-service",
         "athena-secret"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.athena.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.athena.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.athena.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.athena.url",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.athena.url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.athena.secret",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.athena.secret",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.athena.secret",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "adaptive-learning-and-ai",
-      "name": "Adaptive Learning and AI",
-      "kind": "group",
-      "selectable": false,
-      "description": "Visual domain group for competency, tutoring, and AI-assisted capabilities.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
+      "id" : "adaptive-learning-and-ai",
+      "name" : "Adaptive Learning and AI",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Adaptive learning, tutoring, feedback, and AI-assisted capabilities.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "atlas",
-      "name": "Atlas",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional module controlled by artemis.atlas.enabled; ordinary core deployments enable Atlas while AtlasML remains an extra sub-switch.",
-      "defaultState": "enabled",
-      "source": {
-        "configKey": "artemis.atlas.enabled",
-        "clientConstant": "MODULE_FEATURE_ATLAS",
-        "serverConditionClass": "AtlasEnabled",
-        "evidence": [
-          "AtlasEnabled.java:13,23",
-          "CompetencyResource.java:63",
-          "application-core.yml:2-5"
+      "id" : "atlas",
+      "name" : "Atlas (Adaptive Learning)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables competency-based learning features including learning paths, competency tracking, and analytics.",
+      "defaultState" : "enabled",
+      "source" : {
+        "configKey" : "artemis.atlas.enabled",
+        "clientConstant" : "MODULE_FEATURE_ATLAS",
+        "serverConditionClass" : "AtlasEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:68,264",
+          "AtlasEnabled.java:13",
+          "Constants.java:400,490",
+          "admin-feature-toggle.component.ts:120,164",
+          "app.constants.ts:40",
+          "application-core.yml:3",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.atlas.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.atlas.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.atlas.chat-model",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.atlas.chat-model"
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.atlas.chat-model",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "iris",
-      "name": "Iris",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional Iris/Pyris AI tutoring module controlled by artemis.iris.enabled and external Pyris configuration; disabled in ordinary core defaults.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.iris.enabled",
-        "clientConstant": "MODULE_FEATURE_IRIS",
-        "serverConditionClass": "IrisEnabled",
-        "evidence": [
-          "IrisEnabled.java:13,23",
-          "IrisResource.java:32",
-          "application-core.yml:8-9",
-          "application-artemis.yml:143-146"
+      "id" : "iris",
+      "name" : "Iris (AI Assistant)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables the Iris AI virtual tutor powered by LLMs for personalized student support and code assistance.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.iris.enabled",
+        "clientConstant" : "MODULE_FEATURE_IRIS",
+        "serverConditionClass" : "IrisEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:98,273",
+          "Constants.java:415,505",
+          "IrisEnabled.java:13",
+          "admin-feature-toggle.component.ts:119,163",
+          "app.constants.ts:44",
+          "application-core.yml:9",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "pyris-service",
         "pyris-secret"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.iris.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.iris.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.iris.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.iris.url",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.iris.url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.iris.secret-token",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.iris.secret-token",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.iris.secret-token",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "hyperion",
-      "name": "Hyperion",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional AI module controlled by artemis.hyperion.enabled and dependent on Spring AI/LLM configuration; disabled in ordinary core defaults.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.hyperion.enabled",
-        "clientConstant": "MODULE_FEATURE_HYPERION",
-        "serverConditionClass": "HyperionEnabled",
-        "evidence": [
-          "HyperionEnabled.java:13,23",
-          "HyperionProblemStatementResource.java:55",
-          "application-core.yml:6-7",
-          "application-artemis.yml:91,169-212"
+      "id" : "hyperion",
+      "name" : "Hyperion (Exercise Creation)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables AI-assisted exercise creation using Hyperion for generating programming exercises.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.hyperion.enabled",
+        "clientConstant" : "MODULE_FEATURE_HYPERION",
+        "serverConditionClass" : "HyperionEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:88,270",
+          "Constants.java:410,500",
+          "HyperionEnabled.java:13",
+          "admin-feature-toggle.component.ts:121,165",
+          "app.constants.ts:42",
+          "application-core.yml:7",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "hyperion-service"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.hyperion.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.hyperion.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "spring.ai.openai.api-key",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "spring.ai.openai.api-key",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "spring.ai.openai.api-key",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "spring.ai.openai.base-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "spring.ai.openai.base-url",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "spring.ai.openai.base-url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "platform-integrations",
-      "name": "Platform Integrations",
-      "kind": "group",
-      "selectable": false,
-      "description": "Visual domain group for optional LMS, IDE, modeling conversion, and exercise sharing integrations.",
-      "defaultState": "not_applicable",
-      "category": "derived",
-      "visibleTo": [
+      "id" : "platform-integrations",
+      "name" : "Platform Integrations",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Authentication, external platform, editor, and sharing integrations.",
+      "defaultState" : "not_applicable",
+      "category" : "derived",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "lti",
-      "name": "LTI",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional external LMS integration controlled by artemis.lti.enabled; disabled in ordinary core defaults.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.lti.enabled",
-        "clientConstant": "MODULE_FEATURE_LTI",
-        "serverConditionClass": "LtiEnabled",
-        "evidence": [
-          "LtiEnabled.java:13,23",
-          "LtiResource.java:60",
-          "application-core.yml:34-35"
+      "id" : "lti",
+      "name" : "LTI Integration",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables Learning Tools Interoperability (LTI) for integration with external learning management systems.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.lti.enabled",
+        "clientConstant" : "MODULE_FEATURE_LTI",
+        "serverConditionClass" : "LtiEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:178,306",
+          "Constants.java:460,560",
+          "LtiEnabled.java:13",
+          "admin-feature-toggle.component.ts:130,174",
+          "app.constants.ts:62",
+          "application-core.yml:35",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "lti-platform-registration"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.lti.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.lti.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "theia",
-      "name": "EduIDE",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional external online IDE integration for Programming, controlled by artemis.theia.enabled and EduIDE portal/images configuration.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.theia.enabled",
-        "clientConstant": "MODULE_FEATURE_THEIA",
-        "serverConditionClass": "TheiaEnabled",
-        "evidence": [
-          "TheiaEnabled.java:13,23",
-          "TheiaConfigurationResource.java:18",
-          "TheiaConfiguration.java:13,16",
-          "application.yml:138-140"
+      "id" : "theia",
+      "name" : "Theia (Online IDE)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables the Theia cloud-based IDE for programming exercises, allowing students to code in the browser.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.theia.enabled",
+        "clientConstant" : "MODULE_FEATURE_THEIA",
+        "serverConditionClass" : "TheiaEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:238,321",
+          "Constants.java:370,590",
+          "TheiaEnabled.java:13",
+          "admin-feature-toggle.component.ts:137,181",
+          "app.constants.ts:72",
+          "application.yml:139",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "theia-service"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.theia.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.theia.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.theia.portal-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.theia.portal-url",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.theia.portal-url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "apollon",
-      "name": "Apollon",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional external modeling conversion integration for UML diagram PDF export, controlled by artemis.apollon.enabled.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.apollon.enabled",
-        "clientConstant": "MODULE_FEATURE_APOLLON",
-        "serverConditionClass": "ApollonEnabled",
-        "evidence": [
-          "Constants.java:468,568",
-          "ApollonEnabled.java:13,23",
-          "ModelingWithApollonEnabled.java:13,23",
-          "ApollonConversionResource.java:26,47",
-          "modeling-exercise-detail.component.ts:20,64,68,109",
-          "application-core.yml:38-39"
+      "id" : "apollon",
+      "name" : "Apollon (Modeling)",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables the Apollon UML modeling editor for creating and editing diagrams in modeling exercises.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.apollon.enabled",
+        "clientConstant" : "MODULE_FEATURE_APOLLON",
+        "serverConditionClass" : "ApollonEnabled",
+        "evidence" : [
+          "ApollonEnabled.java:13",
+          "ArtemisConfigHelper.java:198,312",
+          "Constants.java:470,570",
+          "admin-feature-toggle.component.ts:132,176",
+          "app.constants.ts:66",
+          "application-core.yml:39",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": ["apollon-conversion-service"],
-      "artifactMappings": [
+      "requiresCapabilities" : [
+        "apollon-conversion-service"
+      ],
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.apollon.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.apollon.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.apollon.conversion-service-url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.apollon.conversion-service-url",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.apollon.conversion-service-url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "sharing",
-      "name": "Sharing Platform",
-      "kind": "module",
-      "selectable": true,
-      "description": "Optional integration for importing and exporting programming exercises through the external Sharing Platform.",
-      "defaultState": "disabled",
-      "source": {
-        "configKey": "artemis.sharing.enabled",
-        "clientConstant": "MODULE_FEATURE_SHARING",
-        "serverConditionClass": "SharingEnabled",
-        "evidence": [
-          "Constants.java:453,553",
-          "SharingEnabled.java:13,23",
-          "ExerciseSharingResource.java:45-55",
-          "programming-exercise-management.route.ts:62-72",
-          "application-core.yml:22-30"
+      "id" : "sharing",
+      "name" : "Exercise Sharing",
+      "kind" : "module",
+      "selectable" : true,
+      "description" : "Enables sharing and importing of programming exercises between courses and institutions.",
+      "defaultState" : "disabled",
+      "source" : {
+        "configKey" : "artemis.sharing.enabled",
+        "clientConstant" : "MODULE_FEATURE_SHARING",
+        "serverConditionClass" : "SharingEnabled",
+        "evidence" : [
+          "ArtemisConfigHelper.java:58,303",
+          "Constants.java:455,555",
+          "SharingEnabled.java:13",
+          "admin-feature-toggle.component.ts:129,173",
+          "app.constants.ts:60",
+          "application-core.yml:23",
+          "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "functional",
-      "visibleTo": [
+      "category" : "functional",
+      "visibleTo" : [
         "teacher",
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities": [
+      "requiresCapabilities" : [
         "sharing-platform-registration",
         "sharing-secret"
       ],
-      "artifactMappings": [
+      "artifactMappings" : [
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.sharing.enabled",
-          "valueWhenSelected": true,
-          "valueWhenDeselected": false,
-          "valueFromProfile": null
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.sharing.enabled",
+          "source" : "selection",
+          "valueWhenSelected" : true,
+          "valueWhenDeselected" : false,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.sharing.serverurl",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.sharing.serverurl",
-          "requiredWhenSelected": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.sharing.serverurl",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.sharing.apikey",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.sharing.apikey",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.sharing.apikey",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         }
       ],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
       }
     },
     {
-      "id": "database",
-      "name": "Database",
-      "kind": "group",
-      "selectable": false,
-      "description": "Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks.",
-      "defaultState": "not_applicable",
-      "category": "technical",
-      "visibleTo": [
+      "id" : "database",
+      "name" : "Database",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks.",
+      "defaultState" : "not_applicable",
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "mysql",
-      "name": "MySQL",
-      "kind": "feature",
-      "selectable": true,
-      "description": "MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.",
-      "defaultState": "enabled",
-      "source": {
-        "evidence": [
+      "id" : "mysql",
+      "name" : "MySQL",
+      "kind" : "feature",
+      "selectable" : true,
+      "description" : "MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.",
+      "defaultState" : "enabled",
+      "source" : {
+        "evidence" : [
           "docker/artemis-dev-local-vc-local-ci-mysql.yml",
           "docker/artemis-dev-mysql.yml",
           "docker/artemis-migration-check-mysql.yml",
@@ -1080,40 +1104,39 @@
           "docker/test-server-mysql.yml"
         ]
       },
-      "category": "technical",
-      "visibleTo": [
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "docker-compose.override.yml",
-          "path": "database.composeFile",
-          "valueWhenSelected": "docker/mysql.yml",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "target" : "docker-compose.override.yml",
+          "path" : "database.composeFile",
+          "source" : "selection",
+          "valueWhenSelected" : "docker/mysql.yml",
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "automatic",
-        "confidence": "medium",
-        "status": "generated"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "medium",
+        "status" : "generated"
       }
     },
     {
-      "id": "postgresql",
-      "name": "PostgreSQL",
-      "kind": "feature",
-      "selectable": true,
-      "description": "PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.",
-      "defaultState": "disabled",
-      "source": {
-        "evidence": [
+      "id" : "postgresql",
+      "name" : "PostgreSQL",
+      "kind" : "feature",
+      "selectable" : true,
+      "description" : "PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.",
+      "defaultState" : "disabled",
+      "source" : {
+        "evidence" : [
           "docker/artemis-dev-postgres.yml",
           "docker/artemis-migration-check-postgres.yml",
           "docker/artemis-prod-postgres.yml",
@@ -1126,466 +1149,455 @@
           "docker/test-server-postgresql.yml"
         ]
       },
-      "category": "technical",
-      "visibleTo": [
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": "docker-compose.override.yml",
-          "path": "database.composeFile",
-          "valueWhenSelected": "docker/postgres.yml",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "target" : "docker-compose.override.yml",
+          "path" : "database.composeFile",
+          "source" : "selection",
+          "valueWhenSelected" : "docker/postgres.yml",
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "automatic",
-        "confidence": "medium",
-        "status": "generated"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "medium",
+        "status" : "generated"
       }
     },
     {
-      "id": "ci-provider",
-      "name": "CI Provider",
-      "kind": "group",
-      "selectable": false,
-      "description": "Exactly one continuous-integration provider builds programming exercises in a deployment.",
-      "defaultState": "not_applicable",
-      "category": "technical",
-      "visibleTo": [
+      "id" : "ci-provider",
+      "name" : "CI Provider",
+      "kind" : "group",
+      "selectable" : false,
+      "description" : "Exactly one continuous-integration provider builds programming exercises in a deployment.",
+      "defaultState" : "not_applicable",
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [],
-      "requiresCapabilities": [],
-      "artifactMappings": [],
-      "extraction": {
-        "method": "manual-curation",
-        "confidence": "high",
-        "status": "manually_confirmed"
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "manual-curation",
+        "confidence" : "high",
+        "status" : "manually_confirmed"
       }
     },
     {
-      "id": "integrated-code-lifecycle",
-      "name": "Integrated Code Lifecycle",
-      "kind": "feature",
-      "selectable": true,
-      "description": "Built-in CI provider activated by the localci and buildagent Spring profiles.",
-      "defaultState": "enabled",
-      "source": {
-        "springProfile": "localci",
-        "clientConstant": "PROFILE_LOCALCI",
-        "evidence": [
-          "Constants.java:324",
-          "admin-feature-toggle.component.ts:106",
+      "id" : "integrated-code-lifecycle",
+      "name" : "Integrated Code Lifecycle",
+      "kind" : "feature",
+      "selectable" : true,
+      "description" : "Built-in CI provider activated by the localci and buildagent Spring profiles.",
+      "defaultState" : "enabled",
+      "source" : {
+        "springProfile" : "localci",
+        "clientConstant" : "PROFILE_LOCALCI",
+        "evidence" : [
+          "Constants.java:326",
+          "admin-feature-toggle.component.ts:115",
           "app.constants.ts:95",
           "src/main/resources/config/application-localci.yml",
           "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "technical",
-      "visibleTo": [
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": ".env",
-          "path": "SPRING_PROFILES_ACTIVE",
-          "valueWhenSelected": "localci,buildagent",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "target" : ".env",
+          "path" : "SPRING_PROFILES_ACTIVE",
+          "source" : "selection",
+          "valueWhenSelected" : "localci,buildagent",
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "automatic",
-        "confidence": "medium",
-        "status": "generated"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "medium",
+        "status" : "generated"
       }
     },
     {
-      "id": "jenkins",
-      "name": "Jenkins",
-      "kind": "feature",
-      "selectable": true,
-      "description": "External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.",
-      "defaultState": "disabled",
-      "source": {
-        "springProfile": "jenkins",
-        "clientConstant": "PROFILE_JENKINS",
-        "evidence": [
-          "Constants.java:336",
-          "admin-feature-toggle.component.ts:106",
+      "id" : "jenkins",
+      "name" : "Jenkins",
+      "kind" : "feature",
+      "selectable" : true,
+      "description" : "External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.",
+      "defaultState" : "disabled",
+      "source" : {
+        "springProfile" : "jenkins",
+        "clientConstant" : "PROFILE_JENKINS",
+        "evidence" : [
+          "Constants.java:338",
+          "admin-feature-toggle.component.ts:115",
           "app.constants.ts:107",
           "docker/jenkins.yml",
           "src/main/resources/config/application-jenkins.yml",
           "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
-      "category": "technical",
-      "visibleTo": [
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": ".env",
-          "path": "SPRING_PROFILES_ACTIVE",
-          "valueWhenSelected": "jenkins",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "target" : ".env",
+          "path" : "SPRING_PROFILES_ACTIVE",
+          "source" : "selection",
+          "valueWhenSelected" : "jenkins",
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.url",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.url",
-          "requiredWhenSelected": true,
-          "secret": false
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.user",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.user",
-          "requiredWhenSelected": true,
-          "secret": false
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.user",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.password",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.password",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.password",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.token",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.token",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.token",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.vcs-credentials",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.vcs-credentials",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.vcs-credentials",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.artemis-authentication-token-key",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-key",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.artemis-authentication-token-key",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         },
         {
-          "target": "application-feature-model.yml",
-          "path": "artemis.continuous-integration.artemis-authentication-token-value",
-          "valueWhenSelected": null,
-          "valueWhenDeselected": null,
-          "valueFromProfile": "artemis.continuous-integration.artemis-authentication-token-value",
-          "requiredWhenSelected": true,
-          "secret": true
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.artemis-authentication-token-value",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
         }
       ],
-      "extraction": {
-        "method": "automatic",
-        "confidence": "medium",
-        "status": "generated"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "medium",
+        "status" : "generated"
       }
     },
     {
-      "id": "localvc",
-      "name": "Local Version Control",
-      "kind": "feature",
-      "selectable": true,
-      "description": "Version control baseline activated by the localvc Spring profile; fixed for every deployment.",
-      "defaultState": "enabled",
-      "source": {
-        "springProfile": "localvc",
-        "evidence": [
-          "Constants.java:319",
+      "id" : "localvc",
+      "name" : "Local Version Control",
+      "kind" : "feature",
+      "selectable" : true,
+      "description" : "Version control baseline activated by the localvc Spring profile; fixed for every deployment.",
+      "defaultState" : "enabled",
+      "source" : {
+        "springProfile" : "localvc",
+        "evidence" : [
+          "Constants.java:321",
           "src/main/resources/config/application-localvc.yml"
         ]
       },
-      "category": "technical",
-      "visibleTo": [
+      "category" : "technical",
+      "visibleTo" : [
         "maintainer"
       ],
-      "configurableBy": [
+      "configurableBy" : [
         "maintainer"
       ],
-      "requiresCapabilities": [],
-      "artifactMappings": [
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [
         {
-          "target": ".env",
-          "path": "SPRING_PROFILES_ACTIVE",
-          "valueWhenSelected": "localvc",
-          "valueWhenDeselected": null,
-          "valueFromProfile": null,
-          "requiredWhenSelected": false,
-          "secret": false
+          "target" : ".env",
+          "path" : "SPRING_PROFILES_ACTIVE",
+          "source" : "selection",
+          "valueWhenSelected" : "localvc",
+          "valueWhenDeselected" : null,
+          "secret" : false
         }
       ],
-      "extraction": {
-        "method": "automatic",
-        "confidence": "medium",
-        "status": "generated"
+      "extraction" : {
+        "method" : "automatic",
+        "confidence" : "medium",
+        "status" : "generated"
       }
     }
   ],
-  "relations": [
+  "relations" : [
     {
-      "parentId": "artemis",
-      "childId": "teaching-and-content",
-      "relationType": "group",
-      "groupType": "and",
-      "order": 1
+      "parentId" : "artemis",
+      "childId" : "teaching-and-content",
+      "relationType" : "group",
+      "groupType" : "and",
+      "order" : 1
     },
     {
-      "parentId": "teaching-and-content",
-      "childId": "lecture",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "teaching-and-content",
+      "childId" : "lecture",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "teaching-and-content",
-      "childId": "tutorialgroup",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "teaching-and-content",
+      "childId" : "tutorialgroup",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "teaching-and-content",
-      "childId": "course-workflow",
-      "relationType": "mandatory",
-      "order": 3
+      "parentId" : "teaching-and-content",
+      "childId" : "course-workflow",
+      "relationType" : "mandatory",
+      "order" : 3
     },
     {
-      "parentId": "teaching-and-content",
-      "childId": "communication",
-      "relationType": "mandatory",
-      "order": 4
+      "parentId" : "teaching-and-content",
+      "childId" : "communication",
+      "relationType" : "mandatory",
+      "order" : 4
     },
     {
-      "parentId": "artemis",
-      "childId": "exercise-system",
-      "relationType": "group",
-      "groupType": "and",
-      "order": 2
+      "parentId" : "artemis",
+      "childId" : "exercise-system",
+      "relationType" : "group",
+      "groupType" : "and",
+      "order" : 2
     },
     {
-      "parentId": "exercise-system",
-      "childId": "exercise-common",
-      "relationType": "mandatory",
-      "order": 1
+      "parentId" : "exercise-system",
+      "childId" : "exercise-common",
+      "relationType" : "mandatory",
+      "order" : 1
     },
     {
-      "parentId": "exercise-system",
-      "childId": "programming",
-      "relationType": "mandatory",
-      "order": 2
+      "parentId" : "exercise-system",
+      "childId" : "programming",
+      "relationType" : "mandatory",
+      "order" : 2
     },
     {
-      "parentId": "exercise-system",
-      "childId": "quiz",
-      "relationType": "mandatory",
-      "order": 3
+      "parentId" : "exercise-system",
+      "childId" : "quiz",
+      "relationType" : "mandatory",
+      "order" : 3
     },
     {
-      "parentId": "exercise-system",
-      "childId": "text",
-      "relationType": "optional",
-      "order": 4
+      "parentId" : "exercise-system",
+      "childId" : "text",
+      "relationType" : "optional",
+      "order" : 4
     },
     {
-      "parentId": "exercise-system",
-      "childId": "modeling",
-      "relationType": "optional",
-      "order": 5
+      "parentId" : "exercise-system",
+      "childId" : "modeling",
+      "relationType" : "optional",
+      "order" : 5
     },
     {
-      "parentId": "exercise-system",
-      "childId": "file-upload",
-      "relationType": "optional",
-      "order": 6
+      "parentId" : "exercise-system",
+      "childId" : "file-upload",
+      "relationType" : "optional",
+      "order" : 6
     },
     {
-      "parentId": "artemis",
-      "childId": "assessment-and-integrity",
-      "relationType": "group",
-      "groupType": "and",
-      "order": 3
+      "parentId" : "artemis",
+      "childId" : "assessment-and-integrity",
+      "relationType" : "group",
+      "groupType" : "and",
+      "order" : 3
     },
     {
-      "parentId": "assessment-and-integrity",
-      "childId": "exam",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "assessment-and-integrity",
+      "childId" : "exam",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "assessment-and-integrity",
-      "childId": "plagiarism",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "assessment-and-integrity",
+      "childId" : "plagiarism",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "assessment-and-integrity",
-      "childId": "athena",
-      "relationType": "optional",
-      "order": 3
+      "parentId" : "assessment-and-integrity",
+      "childId" : "athena",
+      "relationType" : "optional",
+      "order" : 3
     },
     {
-      "parentId": "artemis",
-      "childId": "adaptive-learning-and-ai",
-      "relationType": "group",
-      "groupType": "and",
-      "order": 4
+      "parentId" : "artemis",
+      "childId" : "adaptive-learning-and-ai",
+      "relationType" : "group",
+      "groupType" : "and",
+      "order" : 4
     },
     {
-      "parentId": "adaptive-learning-and-ai",
-      "childId": "atlas",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "adaptive-learning-and-ai",
+      "childId" : "atlas",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "adaptive-learning-and-ai",
-      "childId": "iris",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "adaptive-learning-and-ai",
+      "childId" : "iris",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "adaptive-learning-and-ai",
-      "childId": "hyperion",
-      "relationType": "optional",
-      "order": 3
+      "parentId" : "adaptive-learning-and-ai",
+      "childId" : "hyperion",
+      "relationType" : "optional",
+      "order" : 3
     },
     {
-      "parentId": "artemis",
-      "childId": "platform-integrations",
-      "relationType": "group",
-      "groupType": "and",
-      "order": 5
+      "parentId" : "artemis",
+      "childId" : "platform-integrations",
+      "relationType" : "group",
+      "groupType" : "and",
+      "order" : 5
     },
     {
-      "parentId": "platform-integrations",
-      "childId": "lti",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "platform-integrations",
+      "childId" : "lti",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "platform-integrations",
-      "childId": "theia",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "platform-integrations",
+      "childId" : "theia",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "platform-integrations",
-      "childId": "apollon",
-      "relationType": "optional",
-      "order": 3
+      "parentId" : "platform-integrations",
+      "childId" : "apollon",
+      "relationType" : "optional",
+      "order" : 3
     },
     {
-      "parentId": "platform-integrations",
-      "childId": "sharing",
-      "relationType": "optional",
-      "order": 4
+      "parentId" : "platform-integrations",
+      "childId" : "sharing",
+      "relationType" : "optional",
+      "order" : 4
     },
     {
-      "parentId": "artemis",
-      "childId": "database",
-      "relationType": "group",
-      "groupType": "alternative",
-      "order": 6
+      "parentId" : "artemis",
+      "childId" : "database",
+      "relationType" : "group",
+      "groupType" : "alternative",
+      "order" : 6
     },
     {
-      "parentId": "database",
-      "childId": "mysql",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "database",
+      "childId" : "mysql",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "database",
-      "childId": "postgresql",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "database",
+      "childId" : "postgresql",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "artemis",
-      "childId": "ci-provider",
-      "relationType": "group",
-      "groupType": "alternative",
-      "order": 7
+      "parentId" : "artemis",
+      "childId" : "ci-provider",
+      "relationType" : "group",
+      "groupType" : "alternative",
+      "order" : 7
     },
     {
-      "parentId": "ci-provider",
-      "childId": "integrated-code-lifecycle",
-      "relationType": "optional",
-      "order": 1
+      "parentId" : "ci-provider",
+      "childId" : "integrated-code-lifecycle",
+      "relationType" : "optional",
+      "order" : 1
     },
     {
-      "parentId": "ci-provider",
-      "childId": "jenkins",
-      "relationType": "optional",
-      "order": 2
+      "parentId" : "ci-provider",
+      "childId" : "jenkins",
+      "relationType" : "optional",
+      "order" : 2
     },
     {
-      "parentId": "artemis",
-      "childId": "localvc",
-      "relationType": "mandatory",
-      "order": 8
+      "parentId" : "artemis",
+      "childId" : "localvc",
+      "relationType" : "mandatory",
+      "order" : 8
     }
   ],
-  "constraints": [
+  "constraints" : [
     {
-      "id": "apollon-requires-modeling",
-      "type": "requires",
-      "source": "apollon",
-      "target": "modeling",
-      "expression": null,
-      "description": "Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model."
+      "id" : "apollon-requires-modeling",
+      "type" : "requires",
+      "source" : "apollon",
+      "target" : "modeling",
+      "expression" : null,
+      "description" : "Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model."
     },
     {
-      "id": "mysql-excludes-postgresql",
-      "type": "excludes",
-      "source": "mysql",
-      "target": "postgresql",
-      "expression": null,
-      "description": "A deployment runs exactly one database system; the paired Docker compose stacks are mutually exclusive."
+      "id" : "mysql-excludes-postgresql",
+      "type" : "excludes",
+      "source" : "mysql",
+      "target" : "postgresql",
+      "expression" : null,
+      "description" : "A deployment runs exactly one database system; the paired Docker compose stacks are mutually exclusive."
     },
     {
-      "id": "integrated-code-lifecycle-excludes-jenkins",
-      "type": "excludes",
-      "source": "integrated-code-lifecycle",
-      "target": "jenkins",
-      "expression": null,
-      "description": "A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive."
+      "id" : "integrated-code-lifecycle-excludes-jenkins",
+      "type" : "excludes",
+      "source" : "integrated-code-lifecycle",
+      "target" : "jenkins",
+      "expression" : null,
+      "description" : "A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive."
     }
   ]
 }

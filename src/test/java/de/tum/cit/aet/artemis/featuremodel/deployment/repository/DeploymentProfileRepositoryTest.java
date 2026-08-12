@@ -32,7 +32,18 @@ class DeploymentProfileRepositoryTest {
         // The single bundled profile provides every capability the guided workflow references.
         assertThat(defaultProfile.providedCapabilities()).contains("pyris-service", "pyris-secret", "athena-service", "hyperion-service",
                 "lti-platform-registration", "theia-service", "sharing-platform-registration", "sharing-secret");
-        assertThat(defaultProfile.parameters()).containsKeys("artemis.iris.url", "artemis.athena.url", "spring.ai.openai.api-key", "artemis.theia.portal-url");
+        assertThat(defaultProfile.version()).isEqualTo("2.0.0");
+        assertThat(defaultProfile.providedCapabilities()).doesNotContain("default-authentication");
+    }
+
+    @Test
+    void rejectsALegacyProfileContainingParametersWithAMigrationMessage() throws IOException {
+        writeLocalProfile("legacy.json",
+                "{ \"id\": \"legacy-profile\", \"name\": \"Legacy Profile\", \"parameters\": { \"artemis.iris.url\": \"https://pyris.example.com\" } }");
+
+        assertThatThrownBy(() -> repository().loadProfiles()).isInstanceOf(DeploymentProfileException.class)
+                .satisfies(thrown -> assertThat(((DeploymentProfileException) thrown).getCode()).isEqualTo("DEPLOYMENT_PROFILE_LEGACY_PARAMETERS"))
+                .hasMessageContaining("capability manifest").hasMessageContaining("2.0.0");
     }
 
     @Test

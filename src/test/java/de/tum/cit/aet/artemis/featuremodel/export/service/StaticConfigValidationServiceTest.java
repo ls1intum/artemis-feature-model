@@ -19,6 +19,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
@@ -235,7 +236,7 @@ class StaticConfigValidationServiceTest {
         if (!"programming".equals(feature.id())) {
             return feature;
         }
-        ArtifactMapping mapping = new ArtifactMapping(target, path, objectMapper.valueToTree(true), null, null, false, false);
+        ArtifactMapping mapping = new ArtifactMapping(target, path, ArtifactMappingSource.SELECTION, objectMapper.valueToTree(true), null, false);
         return new FeatureNode(feature.id(), feature.name(), feature.kind(), feature.selectable(), feature.description(), feature.defaultState(), feature.source(),
                 feature.category(), feature.visibleTo(), feature.configurableBy(), feature.requiresCapabilities(), List.of(mapping), feature.extraction());
     }

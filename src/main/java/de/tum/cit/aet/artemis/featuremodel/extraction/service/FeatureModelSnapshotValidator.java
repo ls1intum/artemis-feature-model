@@ -65,12 +65,16 @@ public class FeatureModelSnapshotValidator {
         Map<String, String> checksums = readChecksums(directory.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE));
         verifyChecksums(directory, checksums);
 
+        // The schema gate runs on the metadata alone, so an unsupported snapshot fails with its schema version named
+        // before any other payload is parsed against the current contracts.
+        GeneratedSnapshotMetadata metadata = read(directory, SnapshotPublisher.SNAPSHOT_METADATA_FILE, GeneratedSnapshotMetadata.class);
+        requireSupportedSchema(metadata);
+
         FeatureModel model = read(directory, SnapshotPublisher.SNAPSHOT_MODEL_FILE, FeatureModel.class);
         GuidedWorkflow workflow = read(directory, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, GuidedWorkflow.class);
         ArtemisConfigKeyCatalog catalog = read(directory, SnapshotPublisher.SNAPSHOT_CATALOG_FILE, ArtemisConfigKeyCatalog.class);
         ExtractionReport report = read(directory, SnapshotPublisher.SNAPSHOT_REPORT_FILE, ExtractionReport.class);
         SnapshotProvenance provenance = read(directory, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE, SnapshotProvenance.class);
-        GeneratedSnapshotMetadata metadata = read(directory, SnapshotPublisher.SNAPSHOT_METADATA_FILE, GeneratedSnapshotMetadata.class);
 
         validateMetadata(metadata, model, provenance);
         validateProvenance(directory, provenance, metadata, report, catalog);
@@ -132,11 +136,16 @@ public class FeatureModelSnapshotValidator {
         }
     }
 
-    private void validateMetadata(GeneratedSnapshotMetadata metadata, FeatureModel model, SnapshotProvenance provenance) {
+    private void requireSupportedSchema(GeneratedSnapshotMetadata metadata) {
         if (metadata.schemaVersion() != GeneratedSnapshotMetadata.CURRENT_SCHEMA_VERSION
                 || metadata.snapshotFormatVersion() != SnapshotProvenance.CURRENT_FORMAT_VERSION) {
-            fail("Unsupported snapshot metadata or format version.");
+            fail("Unsupported snapshot schema version " + metadata.schemaVersion() + " (format " + metadata.snapshotFormatVersion()
+                    + "); this runtime supports schema version " + GeneratedSnapshotMetadata.CURRENT_SCHEMA_VERSION + " (format "
+                    + SnapshotProvenance.CURRENT_FORMAT_VERSION + "). Regenerate the snapshot from source.");
         }
+    }
+
+    private void validateMetadata(GeneratedSnapshotMetadata metadata, FeatureModel model, SnapshotProvenance provenance) {
         List<String> declaredFiles = List.of(metadata.modelFile(), metadata.workflowFile(), metadata.catalogFile(), metadata.reportFile(),
                 metadata.provenanceFile(), metadata.checksumFile());
         List<String> expectedFiles = List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
@@ -168,6 +177,11 @@ public class FeatureModelSnapshotValidator {
                 || !COMMIT_SHA.matcher(provenance.featureModelRepositoryCommit()).matches() || !SHA_256.matcher(provenance.manifestDigest()).matches()
                 || !SHA_256.matcher(provenance.deploymentProfileDigest()).matches()) {
             fail("Snapshot provenance contains an invalid version, commit, or digest.");
+        }
+        if (!SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY.equals(provenance.manifestSource())
+                && !SnapshotProvenance.MANIFEST_SOURCE_CHECKOUT.equals(provenance.manifestSource())) {
+            fail("Snapshot provenance manifest source must be '" + SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY + "' or '"
+                    + SnapshotProvenance.MANIFEST_SOURCE_CHECKOUT + "'.");
         }
         requireEqual("Artemis commit", provenance.artemisCommit(), metadata.sourceCommit());
         requireEqual("extractor version", provenance.extractorVersion(), ScanResult.EXTRACTOR_VERSION);

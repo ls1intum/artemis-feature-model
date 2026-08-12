@@ -71,10 +71,30 @@ class RuntimeFeatureModelBundleLoaderTest {
         RuntimeFeatureModelBundle bundle = loader(SnapshotProperties.classpathFallback()).load();
 
         assertThat(bundle.provenance().sourceMode()).isEqualTo(FeatureModelSourceMode.CLASSPATH);
-        assertThat(bundle.model().model().id()).isEqualTo("artemis-functional-feature-tree");
+        assertThat(bundle.model().model().id()).isEqualTo("artemis-generated-feature-model");
         assertThat(bundle.workflow().workflow().id()).isEqualTo("artemis-guided-configuration");
-        assertThat(bundle.catalog().catalogVersion()).isEqualTo("1.0.0");
+        assertThat(bundle.catalog().catalogVersion()).isEqualTo(bundle.model().model().version());
         assertThat(bundle.snapshotMetadata()).isNull();
+    }
+
+    @Test
+    void classpathStartupFailsActionablyWhenAPublishedOptionReferencesAFeatureTheFixtureLacks() throws Exception {
+        String workflow = Files.readString(Path.of("src/main/resources/feature-model/guided-workflow.json"))
+                .replace("\"lecture\"", "\"feature-the-fixture-lacks\"");
+        DefaultResourceLoader alteredLoader = new DefaultResourceLoader() {
+
+            @Override
+            public org.springframework.core.io.Resource getResource(String location) {
+                if (location.endsWith("guided-workflow.json")) {
+                    return new org.springframework.core.io.ByteArrayResource(workflow.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                return super.getResource(location);
+            }
+        };
+
+        assertThatThrownBy(() -> new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), alteredLoader, objectMapper).load())
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("feature-the-fixture-lacks")
+                .hasMessageContaining("refreshFeatureModelFixture").hasMessageContaining("draft");
     }
 
     @Test
@@ -87,7 +107,7 @@ class RuntimeFeatureModelBundleLoaderTest {
         assertThat(bundle.model().model().id()).isEqualTo("artemis-generated-feature-model");
         assertThat(bundle.workflow().workflow().id()).isEqualTo("fixture-workflow");
         assertThat(bundle.catalog().verifiedAgainstArtemisCommit()).isEqualTo(ARTEMIS_COMMIT);
-        assertThat(bundle.catalog().catalogVersion()).isNotEqualTo("1.0.0");
+        assertThat(bundle.catalog().catalogVersion()).isEqualTo("0.1.0+" + ARTEMIS_COMMIT.substring(0, 12));
     }
 
     @ParameterizedTest

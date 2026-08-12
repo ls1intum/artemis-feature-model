@@ -1,14 +1,22 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
+import de.tum.cit.aet.artemis.featuremodel.validation.domain.ValidationCode;
 import tools.jackson.databind.ObjectMapper;
 
 class JsonFeatureModelStoreTest {
@@ -19,11 +27,11 @@ class JsonFeatureModelStoreTest {
     void loadsRuntimeFeatureModelFromClasspath() {
         var model = store.loadActiveModel();
 
-        assertThat(model.model().id()).isEqualTo("artemis-functional-feature-tree");
-        assertThat(model.model().name()).isEqualTo("Artemis Functional Feature Tree");
-        assertThat(model.model().version()).isEqualTo("0.1.0");
-        assertThat(model.model().status()).isEqualTo("published");
-        assertThat(model.model().sourceCommitSha()).isNull();
+        assertThat(model.model().id()).isEqualTo("artemis-generated-feature-model");
+        assertThat(model.model().name()).isEqualTo("Artemis Generated Feature Model");
+        assertThat(model.model().version()).startsWith("0.1.0+");
+        assertThat(model.model().status()).isEqualTo("generated");
+        assertThat(model.model().sourceCommitSha()).matches("[0-9a-f]{40}");
         assertThat(model.features()).isNotEmpty();
         assertThat(model.relations()).isNotEmpty();
         assertThat(model.constraints()).hasSize(3).anySatisfy(constraint -> {
@@ -51,13 +59,13 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.artifactMappings()).singleElement().satisfies(mapping -> {
                 assertThat(mapping.target()).isEqualTo("application-feature-model.yml");
                 assertThat(mapping.path()).isEqualTo("artemis.text.enabled");
+                assertThat(mapping.source()).isEqualTo("selection");
                 assertThat(mapping.valueWhenSelected().booleanValue()).isTrue();
                 assertThat(mapping.valueWhenDeselected().booleanValue()).isFalse();
-                assertThat(mapping.valueFromProfile()).isNull();
             });
-            assertThat(feature.extraction().method()).isEqualTo("manual-curation");
+            assertThat(feature.extraction().method()).isEqualTo("automatic");
             assertThat(feature.extraction().confidence()).isEqualTo("high");
-            assertThat(feature.extraction().status()).isEqualTo("manually_confirmed");
+            assertThat(feature.extraction().status()).isEqualTo("generated");
         });
         assertThat(model.features()).anySatisfy(feature -> {
             assertThat(feature.id()).isEqualTo("jenkins");
@@ -67,6 +75,26 @@ class JsonFeatureModelStoreTest {
             assertThat(feature.artifactMappings()).extracting(mapping -> mapping.path()).contains("SPRING_PROFILES_ACTIVE",
                     "artemis.continuous-integration.url");
         });
+    }
+
+    @Test
+    void retiredProfileValueMappingShapeParsesLenientlyAndIsRejectedByIntegrity() {
+        // Jackson 3 does not fail on unknown JSON fields, so the retired shape must be caught by shared integrity.
+        String retiredShape = """
+                {"target": "application-feature-model.yml", "path": "artemis.iris.url",
+                 "valueWhenSelected": null, "valueWhenDeselected": null,
+                 "valueFromProfile": "artemis.iris.url", "requiredWhenSelected": true}
+                """;
+
+        ArtifactMapping mapping = new ObjectMapper().readValue(retiredShape, ArtifactMapping.class);
+
+        assertThat(mapping.source()).isNull();
+        FeatureNode holder = new FeatureNode("mapping-holder", "Mapping Holder", "feature", true, null, "disabled", null, null, List.of(), List.of(),
+                List.of(), List.of(mapping), null);
+        FeatureModel model = TestFeatureModels.withFeatures(
+                java.util.stream.Stream.concat(TestFeatureModels.baseModel().features().stream(), java.util.stream.Stream.of(holder)).toList());
+        assertThatThrownBy(() -> new FeatureModelIntegrityService().validate(model)).isInstanceOf(FeatureModelIntegrityException.class)
+                .hasFieldOrPropertyWithValue("code", ValidationCode.INVALID_ARTIFACT_MAPPING.name());
     }
 
     @Test

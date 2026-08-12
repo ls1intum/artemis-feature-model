@@ -31,12 +31,11 @@ class DeploymentProfileServiceTest {
     }
 
     @Test
-    void getProfileDetailReturnsCapabilitiesAndParameters() {
+    void getProfileDetailReturnsCapabilitiesWithoutAnyParameters() {
         DeploymentProfileDetailDTO detail = service().getProfileDetail("default-artemis-profile");
 
         assertThat(detail.providedCapabilities()).contains("pyris-service", "pyris-secret", "hyperion-service", "athena-service",
                 "lti-platform-registration", "theia-service", "sharing-platform-registration");
-        assertThat(detail.parameters()).containsKey("artemis.iris.url");
         assertThat(detail.defaultProfile()).isTrue();
     }
 

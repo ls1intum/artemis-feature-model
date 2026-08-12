@@ -38,13 +38,13 @@ import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileS
 import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolverTest;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeProperties;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeSourceResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
-import de.tum.cit.aet.artemis.featuremodel.export.service.ProfileParameterResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RemoteImageStackWriter;
@@ -77,7 +77,7 @@ class DeploymentPackageResourceTest {
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
-        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(new ProfileParameterResolver());
+        ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,

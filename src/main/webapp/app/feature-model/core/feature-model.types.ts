@@ -15,6 +15,7 @@ export type FeatureRole = 'teacher' | 'deployment-admin' | 'maintainer' | (strin
 export type ExtractionConfidence = 'high' | 'medium' | 'low' | (string & {});
 export type ExtractionStatus = 'extracted' | 'manually_confirmed' | 'needs_review' | 'rejected' | (string & {});
 export type ArtifactMappingValue = boolean | string | number | Record<string, unknown> | unknown[] | null;
+export type ArtifactMappingSource = 'selection' | 'environment' | (string & {});
 
 export interface FeatureModelResponse {
     model: ModelMetadata;
@@ -53,9 +54,9 @@ export interface Feature {
 export interface ArtifactMapping {
     target: string;
     path: string;
+    source: ArtifactMappingSource;
     valueWhenSelected: ArtifactMappingValue;
     valueWhenDeselected: ArtifactMappingValue;
-    valueFromProfile: string | null;
 }
 
 export interface ExtractionMetadata {

@@ -17,8 +17,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param profileVersion active deployment profile version.
  * @param selectedFeatureIds selected feature ids used for generation, in normalized order.
  * @param generatedFiles relative paths of the generated files.
- * @param consumedParameters profile parameters consumed by the overlay.
- * @param omittedMappings mappings that were skipped, with their reasons.
+ * @param environmentRequirements structured environment values the deployment environment must supply.
  * @param warnings warnings and informational notes.
  * @param errors blocking errors; empty in this phase because blocking cases throw before a report is built.
  * @param technicalSelection selected technical axes recorded by deployment-package generation, or {@code null} for
@@ -26,16 +25,16 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GenerationReport(String status, String mode, String modelId, String modelVersion, String profileId, String profileVersion,
-        List<String> selectedFeatureIds, List<String> generatedFiles, List<ConsumedParameter> consumedParameters, List<OmittedMapping> omittedMappings,
+        List<String> selectedFeatureIds, List<String> generatedFiles, List<EnvironmentRequirement> environmentRequirements,
         List<GenerationMessage> warnings, List<GenerationMessage> errors, TechnicalSelectionMetadata technicalSelection) {
 
     /** Generation succeeded with no warnings. */
     public static final String STATUS_GENERATED = "GENERATED";
 
-    /** Generation succeeded but the report contains warnings (for example placeholder or unresolved values). */
+    /** Generation succeeded but the report contains warnings (for example environment values still to supply). */
     public static final String STATUS_GENERATED_WITH_WARNINGS = "GENERATED_WITH_WARNINGS";
 
-    /** Demo mode: placeholder and unresolved values are allowed but reported as warnings. */
+    /** Demo mode: placeholder and unresolved values are allowed but reported. */
     public static final String MODE_DEMO = "DEMO";
 
     /**
@@ -49,8 +48,7 @@ public record GenerationReport(String status, String mode, String modelId, Strin
      * @param profileVersion active deployment profile version.
      * @param selectedFeatureIds selected feature ids.
      * @param generatedFiles generated file paths.
-     * @param consumedParameters consumed profile parameters.
-     * @param omittedMappings skipped mappings.
+     * @param environmentRequirements structured environment requirements.
      * @param warnings warnings and informational notes.
      * @param errors blocking errors.
      * @param technicalSelection selected technical axes, or {@code null}.
@@ -58,8 +56,7 @@ public record GenerationReport(String status, String mode, String modelId, Strin
     public GenerationReport {
         selectedFeatureIds = selectedFeatureIds == null ? List.of() : List.copyOf(selectedFeatureIds);
         generatedFiles = generatedFiles == null ? List.of() : List.copyOf(generatedFiles);
-        consumedParameters = consumedParameters == null ? List.of() : List.copyOf(consumedParameters);
-        omittedMappings = omittedMappings == null ? List.of() : List.copyOf(omittedMappings);
+        environmentRequirements = environmentRequirements == null ? List.of() : List.copyOf(environmentRequirements);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         errors = errors == null ? List.of() : List.copyOf(errors);
     }
@@ -75,16 +72,26 @@ public record GenerationReport(String status, String mode, String modelId, Strin
      * @param profileVersion active deployment profile version.
      * @param selectedFeatureIds selected feature ids.
      * @param generatedFiles generated file paths.
-     * @param consumedParameters consumed profile parameters.
-     * @param omittedMappings skipped mappings.
+     * @param environmentRequirements structured environment requirements.
      * @param warnings warnings and informational notes.
      * @param errors blocking errors.
      */
     public GenerationReport(String status, String mode, String modelId, String modelVersion, String profileId, String profileVersion,
-            List<String> selectedFeatureIds, List<String> generatedFiles, List<ConsumedParameter> consumedParameters, List<OmittedMapping> omittedMappings,
+            List<String> selectedFeatureIds, List<String> generatedFiles, List<EnvironmentRequirement> environmentRequirements,
             List<GenerationMessage> warnings, List<GenerationMessage> errors) {
-        this(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, consumedParameters, omittedMappings, warnings, errors,
-                null);
+        this(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, environmentRequirements, warnings, errors, null);
+    }
+
+    /**
+     * Copies this report with the complete environment requirements of the composed package, so package-only
+     * requirements can never disappear from the report metadata.
+     *
+     * @param completeRequirements environment requirements including package-only requirements.
+     * @return copied report.
+     */
+    public GenerationReport withEnvironmentRequirements(List<EnvironmentRequirement> completeRequirements) {
+        return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, completeRequirements,
+                warnings, errors, technicalSelection);
     }
 
     /**
@@ -94,8 +101,8 @@ public record GenerationReport(String status, String mode, String modelId, Strin
      * @return copied report.
      */
     public GenerationReport withTechnicalSelection(TechnicalSelectionMetadata metadata) {
-        return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, consumedParameters,
-                omittedMappings, warnings, errors, metadata);
+        return new GenerationReport(status, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds, generatedFiles, environmentRequirements,
+                warnings, errors, metadata);
     }
 
     /**
@@ -109,6 +116,6 @@ public record GenerationReport(String status, String mode, String modelId, Strin
         List<GenerationMessage> updatedWarnings = new ArrayList<>(warnings);
         updatedWarnings.add(warning);
         return new GenerationReport(STATUS_GENERATED_WITH_WARNINGS, mode, modelId, modelVersion, profileId, profileVersion, selectedFeatureIds,
-                generatedFiles, consumedParameters, omittedMappings, updatedWarnings, errors, metadata);
+                generatedFiles, environmentRequirements, updatedWarnings, errors, metadata);
     }
 }

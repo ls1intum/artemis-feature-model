@@ -14,11 +14,19 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
  * @param catalogDigest config-key catalog payload digest.
  * @param generationReportDigest generation report payload digest.
  * @param deploymentProfileDigest digest of the validated deployment profile.
+ * @param manifestSource resolution mode the manifest bytes came from, one of {@link #MANIFEST_SOURCE_REPOSITORY} or
+ *            {@link #MANIFEST_SOURCE_CHECKOUT}.
  */
 public record SnapshotProvenance(int snapshotFormatVersion, String artemisCommit, String manifestDigest, String featureModelRepositoryCommit,
         String extractorVersion, String featureModelDigest, String workflowDigest, String catalogDigest, String generationReportDigest,
-        String deploymentProfileDigest) {
+        String deploymentProfileDigest, String manifestSource) {
 
     /** Current complete snapshot format. */
-    public static final int CURRENT_FORMAT_VERSION = 2;
+    public static final int CURRENT_FORMAT_VERSION = 3;
+
+    /** The manifest bytes were read from the committed file in this repository. */
+    public static final String MANIFEST_SOURCE_REPOSITORY = "repository";
+
+    /** The manifest bytes were read from the canonical path inside the Artemis checkout. */
+    public static final String MANIFEST_SOURCE_CHECKOUT = "checkout";
 }
