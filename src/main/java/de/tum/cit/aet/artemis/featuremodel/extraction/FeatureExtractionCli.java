@@ -31,7 +31,8 @@ public final class FeatureExtractionCli {
     private static final String PREFLIGHT_COMMAND = "preflight";
 
     private static final Set<String> SUPPORTED_OPTIONS = Set.of(FeatureExtractionInputs.OPTION_ARTEMIS_PATH, FeatureExtractionInputs.OPTION_MANIFEST,
-            FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, FeatureExtractionInputs.OPTION_OUTPUT_ROOT);
+            FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, FeatureExtractionInputs.OPTION_OUTPUT_ROOT,
+            FeatureExtractionInputs.OPTION_EXPECTED_ARTEMIS_SHA);
 
     private FeatureExtractionCli() {
     }
@@ -68,16 +69,17 @@ public final class FeatureExtractionCli {
         FeatureExtractionInputs inputs = FeatureExtractionInputs.resolve(options, System::getenv);
         switch (command) {
             case SCAN_COMMAND -> printScanSummary(new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
-            case MODEL_COMMAND -> printModelSummary(new ModelStageService(objectMapper).run(inputs));
-            case WORKFLOW_COMMAND -> printWorkflowSummary(new WorkflowStageService(objectMapper).run(inputs));
-            case SNAPSHOT_COMMAND -> printPackageSummary(new PackageStageService(objectMapper).run(inputs));
-            case PREFLIGHT_COMMAND -> printPreflightSummary(new ManifestPreflightService(objectMapper).run(inputs));
+            case MODEL_COMMAND -> printModelSummary(new ModelStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
+            case WORKFLOW_COMMAND -> printWorkflowSummary(new WorkflowStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
+            case SNAPSHOT_COMMAND -> printPackageSummary(new PackageStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
+            case PREFLIGHT_COMMAND -> printPreflightSummary(new ManifestPreflightService(objectMapper).run(inputs, LocalArtemisSourceRepository::new));
             default -> throw new IllegalArgumentException("Unknown command '" + command + "'; expected preflight, scan, model, workflow, or snapshot.");
         }
     }
 
     /**
-     * Prints the manifest preflight result as machine-readable key-value lines a build or workflow can consume.
+     * Prints the manifest preflight result as machine-readable key-value lines a build or workflow can consume. The
+     * {@code artemisCommitSha} key carries the source revision derived from the verified checkout.
      *
      * @param summary preflight result.
      */

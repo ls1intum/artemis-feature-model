@@ -3,9 +3,11 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import tools.jackson.databind.ObjectMapper;
 
@@ -51,11 +53,13 @@ public class WorkflowStageService {
      * Runs one workflow preparation.
      *
      * @param inputs resolved command inputs.
+     * @param sourceFactory creates the source repository over the configured checkout for revision derivation.
      * @return summary of the written workflow artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
      */
-    public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        ExtractionRunContext context = inputLoader.runContext(inputs);
+    public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
+        ArtemisSourceRepository source = inputLoader.verifiedSource(inputs, sourceFactory);
+        ExtractionRunContext context = inputLoader.runContext(inputs, source);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.WORKFLOW);
         try {
             ExtractionArtifactStore.LoadedScan scan = artifactStore.readScan(context.layout(), context.artemisCommit());

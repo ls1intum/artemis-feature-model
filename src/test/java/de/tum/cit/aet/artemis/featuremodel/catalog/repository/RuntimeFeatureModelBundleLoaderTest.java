@@ -52,9 +52,9 @@ class RuntimeFeatureModelBundleLoaderTest {
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), inputsRoot.resolve("guided-workflow.json"),
                 inputsRoot.resolve("deployment-profile.json"), extractionRoot);
         new ScanStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
-        new ModelStageService(objectMapper).run(inputs);
-        new WorkflowStageService(objectMapper).run(inputs);
-        new PackageStageService(objectMapper).run(inputs);
+        new ModelStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new WorkflowStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new PackageStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
 
         Path published = ExtractionArtifactLayout.forCommit(extractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
         snapshotId = objectMapper.readValue(Files.readAllBytes(published.resolve("metadata.json")), GeneratedSnapshotMetadata.class).snapshotId();
@@ -128,9 +128,9 @@ class RuntimeFeatureModelBundleLoaderTest {
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), draftWorkflow,
                 FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), draftExtractionRoot);
         new ScanStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
-        new ModelStageService(objectMapper).run(draftInputs);
-        new WorkflowStageService(objectMapper).run(draftInputs);
-        new PackageStageService(objectMapper).run(draftInputs);
+        new ModelStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new WorkflowStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new PackageStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         Path published = ExtractionArtifactLayout.forCommit(draftExtractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
         Path draftDataRoot = workingDirectory.resolve("draft-data");
         Path draftSnapshot = Files.createDirectories(draftDataRoot.resolve("imported-models").resolve(snapshotId));
@@ -162,9 +162,9 @@ class RuntimeFeatureModelBundleLoaderTest {
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), statusFreeWorkflow,
                 FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), extractionRoot);
         new ScanStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
-        new ModelStageService(objectMapper).run(statusFreeInputs);
-        new WorkflowStageService(objectMapper).run(statusFreeInputs);
-        new PackageStageService(objectMapper).run(statusFreeInputs);
+        new ModelStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new WorkflowStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new PackageStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         Path published = ExtractionArtifactLayout.forCommit(extractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
         Path dataRoot = workingDirectory.resolve("status-free-data");
         Path snapshot = Files.createDirectories(dataRoot.resolve("imported-models").resolve(snapshotId));

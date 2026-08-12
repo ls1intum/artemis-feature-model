@@ -44,9 +44,9 @@ class DockerSnapshotContextStagerTest {
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), inputsRoot.resolve("guided-workflow.json"),
                 inputsRoot.resolve("deployment-profile.json"), extractionRoot);
         new ScanStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
-        new ModelStageService(objectMapper).run(inputs);
-        new WorkflowStageService(objectMapper).run(inputs);
-        new PackageStageService(objectMapper, REPOSITORY_COMMIT).run(inputs);
+        new ModelStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new WorkflowStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
+        new PackageStageService(objectMapper, REPOSITORY_COMMIT).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         snapshot = ExtractionArtifactLayout.forCommit(extractionRoot, ARTEMIS_COMMIT).snapshotDirectory();
         contextRoot = workingDirectory.resolve("docker-context");
     }

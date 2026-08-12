@@ -4,18 +4,21 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Loads the repository-relative inputs every extraction stage shares. One manifest byte read produces the parsed
- * manifest, digest, pinned commit, and artifact layout in an {@link ExtractionRunContext}; other inputs remain
- * independently loaded files because their stages consume them at different boundaries.
+ * Loads the repository-relative inputs every extraction stage shares. One verified checkout supplies the derived
+ * source revision, and one manifest byte read produces the parsed manifest, digest, and revision-scoped artifact
+ * layout in an {@link ExtractionRunContext}; other inputs remain independently loaded files because their stages
+ * consume them at different boundaries.
  */
 class ExtractionInputLoader {
 
@@ -58,16 +61,35 @@ class ExtractionInputLoader {
     }
 
     /**
-     * Loads the scope manifest once and binds every derived command value to those exact bytes.
+     * Resolves the configured checkout and verifies that a clean, attributable source revision can be derived from
+     * it, comparing against the externally expected revision when the inputs carry one.
      *
      * @param inputs resolved command inputs.
+     * @param sourceFactory creates the source repository over the configured checkout.
+     * @return verified source repository whose derived revision identifies this run.
+     * @throws IllegalStateException if no Artemis checkout is configured.
+     * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if no revision can be
+     *             derived, the checkout is dirty, or the derived revision differs from the expected one.
+     */
+    ArtemisSourceRepository verifiedSource(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) {
+        ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
+        new ArtemisSourcePreflight().verify(source, inputs.expectedArtemisSha());
+        return source;
+    }
+
+    /**
+     * Loads the scope manifest once and binds every derived command value to those exact bytes and the verified
+     * checkout's derived revision.
+     *
+     * @param inputs resolved command inputs.
+     * @param source verified source repository supplying the derived revision.
      * @return per-command extraction context.
      * @throws IOException if the manifest cannot be read.
      */
-    ExtractionRunContext runContext(FeatureExtractionInputs inputs) throws IOException {
+    ExtractionRunContext runContext(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
         byte[] manifestBytes = manifestBytesReader.read(inputs.manifestFile());
         FeatureScopeManifest manifest = new FeatureManifestLoader().load(new ByteArrayInputStream(manifestBytes), inputs.manifestFile().toString());
-        String artemisCommit = manifest.artemisCommitSha();
+        String artemisCommit = source.commit();
         return new ExtractionRunContext(manifestBytes, manifest, Sha256Digest.of(manifestBytes), artemisCommit,
                 ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit));
     }
