@@ -1,8 +1,6 @@
-manifestVersion: 2
-# Exact Artemis source commit this manifest curates. The scan verifies that the local checkout is at this commit
-# and clean before it reads a single file, so advancing the pin is a deliberate, reviewable change.
-artemisCommitSha: 5eee99d5d62ee667026ae371be0045c0dd208ed1
-artemisImageDigest: latest
+manifestVersion: 3
+# Since manifest version 3 this file carries curation content only. The Artemis source revision is derived from the
+# verified checkout HEAD at run time, and the runtime image reference lives in delivery/artemis-runtime-image.json.
 
 # Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
 # include list carries the anchored curated modules and the first technical features, and every other candidate is

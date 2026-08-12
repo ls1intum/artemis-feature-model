@@ -63,11 +63,11 @@ class ExtractionPipelineCharacterizationTest {
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("model/generated-feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("model/manifest-conformance-report.json", "30068f9b663069ba0fce9490fc6a9ea2937f515f6d7dacee04ed3eb1b5cc046d"),
+            Map.entry("model/manifest-conformance-report.json", "c72f79baee5b0552bb16c7ef4bab16bbfdd9bae4c377f9d357ee2d13e241d7b8"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "3d9ca6a624b30ca80d9e10593e348fc33bba9464e789029d9a4caaccd4222280"),
-            Map.entry("report/extraction-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
-            Map.entry("report/index.html", "1682de7820a9229d04b79536b31df2f8fe8e58bb302bc9b47160b54c207e7ef4"),
+            Map.entry("model/model-result.json", "3c198c42378a43e02ea5af028b12df4025be33826b07744b069d8fa69b9a01ec"),
+            Map.entry("report/extraction-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
+            Map.entry("report/index.html", "aeda17a128abde99bc6f146b706e56eee9437cc040dc7dcbd3e5c7318c35a2d5"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
@@ -76,13 +76,13 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "d267c771de0327d94a519e0a32849b024f4f354d05ba8bcdb078ff2df0e8a08c"),
+            Map.entry("snapshot/checksums.txt", "52ed44ace90f3de4ba6066e87233bfc7c3489e57394ea13d315788d38039900e"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
+            Map.entry("snapshot/generation-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
             Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
-            Map.entry("snapshot/metadata.json", "b7d772fd12e89b34c1885648e6d8e7be4c8bf47627b7a1e71e7b20419134a13e"),
-            Map.entry("snapshot/provenance.json", "11df14b0604a69839a193e615288a6cd84dd8ffb201a8197069128257027520d"),
+            Map.entry("snapshot/metadata.json", "fcb059a6e620241630c5d0d2afc416357ccf15d98c320ecf12534833a5caaaf7"),
+            Map.entry("snapshot/provenance.json", "9fbf242e4daf3e5ef2d0956da9adb0c887dda437a6a92fde02764fca41cd9546"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
@@ -98,7 +98,8 @@ class ExtractionPipelineCharacterizationTest {
     @BeforeEach
     void resolveInputs() {
         inputs = new FeatureExtractionInputs(FIXTURE_PATH, Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"),
-                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"), outputRoot);
+                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
+                FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot);
         layout = ExtractionArtifactLayout.forCommit(outputRoot, DERIVED_COMMIT);
     }
 
@@ -326,7 +327,7 @@ class ExtractionPipelineCharacterizationTest {
     void anExpectedRevisionMismatchNeverStartsAScanAndTouchesNoArtifact() throws Exception {
         runPipeline();
         FeatureExtractionInputs expectingInputs = new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), inputs.authoredWorkflowFile(),
-                inputs.deploymentProfileFile(), outputRoot, DERIVED_COMMIT);
+                inputs.deploymentProfileFile(), inputs.runtimeImageFile(), outputRoot, DERIVED_COMMIT);
 
         assertThatThrownBy(
                 () -> new ScanStageService(OBJECT_MAPPER).run(expectingInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
@@ -381,7 +382,7 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         assertThat(layout.snapshotDirectory()).isDirectory();
         FeatureExtractionInputs checkoutlessInputs = new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(),
-                inputs.deploymentProfileFile(), outputRoot);
+                inputs.deploymentProfileFile(), inputs.runtimeImageFile(), outputRoot);
 
         assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(checkoutlessInputs, LocalArtemisSourceRepository::new))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining(FeatureExtractionInputs.ARTEMIS_PATH_ENVIRONMENT_VARIABLE);
@@ -466,7 +467,8 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given manifest.
      */
     private FeatureExtractionInputs withManifest(Path manifestFile) {
-        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(),
+                inputs.runtimeImageFile(), inputs.outputRoot());
     }
 
     /**
@@ -476,7 +478,8 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given workflow.
      */
     private FeatureExtractionInputs withWorkflow(Path workflowFile) {
-        return new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), workflowFile, inputs.deploymentProfileFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), workflowFile, inputs.deploymentProfileFile(),
+                inputs.runtimeImageFile(), inputs.outputRoot());
     }
 
     /**

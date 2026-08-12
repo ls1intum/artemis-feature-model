@@ -70,7 +70,7 @@ class SnapshotPublisher {
      * @param manifestDigest manifest digest.
      * @param featureModelRepositoryCommit generator repository commit.
      * @param deploymentProfileDigest validated profile digest.
-     * @param imageDigest manifest runtime image identity.
+     * @param imageDigest delivery-configuration runtime image identity.
      * @param eligible all delivery gates passed.
      * @return true when publication succeeded.
      * @throws IOException if publication fails.

@@ -16,12 +16,13 @@ import java.util.regex.Pattern;
  * @param manifestFile scope manifest that decides membership.
  * @param authoredWorkflowFile authored lean guided workflow.
  * @param deploymentProfileFile bundled deployment profile used for the capability cross-checks.
+ * @param runtimeImageFile delivery-configuration file carrying the remote Artemis runtime image reference.
  * @param outputRoot root directory of all extraction runs.
  * @param expectedArtemisSha externally supplied immutable revision the checkout must be at — a CI validation pin or a
  *            dispatch input — or null when the derived revision stands on its own.
  */
-public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path outputRoot,
-        String expectedArtemisSha) {
+public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path runtimeImageFile,
+        Path outputRoot, String expectedArtemisSha) {
 
     /** Option carrying the local Artemis checkout path. */
     public static final String OPTION_ARTEMIS_PATH = "artemis-path";
@@ -34,6 +35,9 @@ public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, P
 
     /** Option carrying the deployment profile path. */
     public static final String OPTION_DEPLOYMENT_PROFILE = "deployment-profile";
+
+    /** Option carrying the Artemis runtime image delivery configuration. */
+    public static final String OPTION_RUNTIME_IMAGE = "runtime-image";
 
     /** Option carrying the extraction output root. */
     public static final String OPTION_OUTPUT_ROOT = "output-root";
@@ -64,10 +68,12 @@ public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, P
      * @param manifestFile scope manifest.
      * @param authoredWorkflowFile authored lean guided workflow.
      * @param deploymentProfileFile bundled deployment profile.
+     * @param runtimeImageFile Artemis runtime image delivery configuration.
      * @param outputRoot root directory of all extraction runs.
      */
-    public FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path outputRoot) {
-        this(artemisCheckout, manifestFile, authoredWorkflowFile, deploymentProfileFile, outputRoot, null);
+    public FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, Path authoredWorkflowFile, Path deploymentProfileFile, Path runtimeImageFile,
+            Path outputRoot) {
+        this(artemisCheckout, manifestFile, authoredWorkflowFile, deploymentProfileFile, runtimeImageFile, outputRoot, null);
     }
 
     /**
@@ -81,8 +87,8 @@ public record FeatureExtractionInputs(Path artemisCheckout, Path manifestFile, P
      */
     public static FeatureExtractionInputs resolve(Map<String, String> options, UnaryOperator<String> environment) {
         return new FeatureExtractionInputs(resolveArtemisCheckout(options, environment), requiredPath(options, OPTION_MANIFEST),
-                requiredPath(options, OPTION_AUTHORED_WORKFLOW), requiredPath(options, OPTION_DEPLOYMENT_PROFILE), requiredPath(options, OPTION_OUTPUT_ROOT),
-                optionalValue(options, OPTION_EXPECTED_ARTEMIS_SHA));
+                requiredPath(options, OPTION_AUTHORED_WORKFLOW), requiredPath(options, OPTION_DEPLOYMENT_PROFILE), requiredPath(options, OPTION_RUNTIME_IMAGE),
+                requiredPath(options, OPTION_OUTPUT_ROOT), optionalValue(options, OPTION_EXPECTED_ARTEMIS_SHA));
     }
 
     /**

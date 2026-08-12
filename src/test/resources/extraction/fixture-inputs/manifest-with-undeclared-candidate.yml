@@ -1,8 +1,6 @@
 # Copy of the mini-Artemis manifest with the module:gamma exclusion removed, so one discovered candidate has no
 # decision and the conformance gate must stop the run.
-manifestVersion: 2
-artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
-artemisImageDigest: latest
+manifestVersion: 3
 include:
   - anchor: module:alpha
     id: alpha-feature

@@ -43,7 +43,7 @@ class ExtractionInputLoaderTest {
             readCount.incrementAndGet();
             return expectedBytes;
         });
-        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, outputRoot);
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, MANIFEST, outputRoot);
 
         ExtractionRunContext context = loader.runContext(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, DERIVED_COMMIT));
 
@@ -60,7 +60,7 @@ class ExtractionInputLoaderTest {
     @Test
     void sameManifestBytesAtTwoRevisionsProduceDistinctLayouts() throws Exception {
         ExtractionInputLoader loader = new ExtractionInputLoader(new ObjectMapper());
-        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, outputRoot);
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, MANIFEST, outputRoot);
 
         ExtractionRunContext firstRevision = loader.runContext(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, DERIVED_COMMIT));
         ExtractionRunContext secondRevision = loader.runContext(inputs, FixtureArtemisSourceRepository.cleanAt(FIXTURE_PATH, OTHER_COMMIT));
@@ -74,7 +74,7 @@ class ExtractionInputLoaderTest {
     @Test
     void verifiedSourceRejectsAnExpectedRevisionMismatch() {
         ExtractionInputLoader loader = new ExtractionInputLoader(new ObjectMapper());
-        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, outputRoot, DERIVED_COMMIT);
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, MANIFEST, outputRoot, DERIVED_COMMIT);
 
         assertThatThrownBy(() -> loader.verifiedSource(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
                 .isInstanceOf(SourcePreflightException.class).hasMessageContaining(DERIVED_COMMIT).hasMessageContaining(OTHER_COMMIT);

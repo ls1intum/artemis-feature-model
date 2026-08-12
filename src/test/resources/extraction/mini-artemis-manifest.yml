@@ -1,6 +1,4 @@
-manifestVersion: 2
-artemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
-artemisImageDigest: latest
+manifestVersion: 3
 include:
   - anchor: module:alpha
     id: alpha-feature

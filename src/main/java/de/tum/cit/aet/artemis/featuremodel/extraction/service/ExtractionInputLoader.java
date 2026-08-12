@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtemisRuntimeImage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -103,6 +104,17 @@ class ExtractionInputLoader {
      */
     DeploymentProfile deploymentProfile(FeatureExtractionInputs inputs) throws IOException {
         return readJson(inputs.deploymentProfileFile(), DeploymentProfile.class);
+    }
+
+    /**
+     * Loads and validates the Artemis runtime image reference from delivery configuration.
+     *
+     * @param inputs resolved command inputs.
+     * @return validated runtime image reference.
+     * @throws IOException if the delivery configuration cannot be read.
+     */
+    ArtemisRuntimeImage runtimeImage(FeatureExtractionInputs inputs) throws IOException {
+        return readJson(inputs.runtimeImageFile(), ArtemisRuntimeImage.class);
     }
 
     /**

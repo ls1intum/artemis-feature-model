@@ -50,7 +50,7 @@ class RuntimeFeatureModelBundleLoaderTest {
         Path inputsRoot = FIXTURE_ROOT.resolve("fixture-inputs");
         FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), inputsRoot.resolve("guided-workflow.json"),
-                inputsRoot.resolve("deployment-profile.json"), extractionRoot);
+                inputsRoot.resolve("deployment-profile.json"), inputsRoot.resolve("artemis-runtime-image.json"), extractionRoot);
         new ScanStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new ModelStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new WorkflowStageService(objectMapper).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
@@ -126,7 +126,8 @@ class RuntimeFeatureModelBundleLoaderTest {
         Path draftExtractionRoot = workingDirectory.resolve("draft-extraction");
         FeatureExtractionInputs draftInputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), draftWorkflow,
-                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), draftExtractionRoot);
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"),
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("artemis-runtime-image.json"), draftExtractionRoot);
         new ScanStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new ModelStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new WorkflowStageService(objectMapper).run(draftInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
@@ -160,7 +161,8 @@ class RuntimeFeatureModelBundleLoaderTest {
         Path extractionRoot = workingDirectory.resolve("status-free-extraction");
         FeatureExtractionInputs statusFreeInputs = new FeatureExtractionInputs(FIXTURE_ROOT.resolve("mini-artemis"),
                 FIXTURE_ROOT.resolve("mini-artemis-manifest.yml"), statusFreeWorkflow,
-                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"), extractionRoot);
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("deployment-profile.json"),
+                FIXTURE_ROOT.resolve("fixture-inputs").resolve("artemis-runtime-image.json"), extractionRoot);
         new ScanStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new ModelStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
         new WorkflowStageService(objectMapper).run(statusFreeInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, ARTEMIS_COMMIT));
