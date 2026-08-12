@@ -1,0 +1,73 @@
+# Registration copy on the default branch: workflow_dispatch and repository_dispatch only resolve
+# workflows present on the default branch. The executable definition lives on the development branch;
+# the schedule trigger is deliberately absent here so this dormant branch never runs it.
+name: Discovery tag retention
+
+# Deletes stale snapshot-id discovery tags beyond the most recent N. A version is never deleted when its digest is
+# referenced by the committed verified-image ledger or carries the `verified` tag: ledger-referenced digests are the
+# durable delivery history. Deleting organization package versions requires the repository's GITHUB_TOKEN to hold
+# admin permission on the package; if the owner has not granted it, this workflow fails without deleting anything.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: discovery-tag-retention
+  cancel-in-progress: false
+
+env:
+  RETAINED_DISCOVERY_TAGS: '10'
+
+jobs:
+  retention:
+    name: Delete stale discovery tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Delete discovery tags beyond the retention window
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ledger_digests=$(jq -r '.entries[].digest' delivery/verified-images.json | sort -u)
+          versions=$(gh api --paginate "/orgs/ls1intum/packages/container/artemis-feature-model/versions?per_page=100" \
+            --jq '.[] | {id: .id, digest: .name, tags: (.metadata.container.tags // []), created: .created_at}' | jq -s 'sort_by(.created) | reverse')
+          discovery_seen=0
+          deleted=0
+          while IFS= read -r version; do
+            digest=$(printf '%s' "$version" | jq -r '.digest')
+            id=$(printf '%s' "$version" | jq -r '.id')
+            tags=$(printf '%s' "$version" | jq -r '.tags[]?')
+            if printf '%s\n' "$ledger_digests" | grep -qxF "$digest"; then
+              echo "Keeping ledger-referenced $digest"
+              continue
+            fi
+            if printf '%s\n' "$tags" | grep -qx 'verified'; then
+              echo "Keeping verified-tagged $digest"
+              continue
+            fi
+            if printf '%s\n' "$tags" | grep -qE '^generated-[0-9a-f]{12}-[0-9a-f]{12}$'; then
+              discovery_seen=$((discovery_seen + 1))
+              if [[ "$discovery_seen" -le "$RETAINED_DISCOVERY_TAGS" ]]; then
+                echo "Keeping recent discovery version $digest"
+                continue
+              fi
+            elif [[ -n "$tags" ]]; then
+              echo "Keeping unrecognized tagged version $digest ($tags)"
+              continue
+            fi
+            echo "Deleting stale version $digest (id $id)"
+            gh api --method DELETE "/orgs/ls1intum/packages/container/artemis-feature-model/versions/$id"
+            deleted=$((deleted + 1))
+          done < <(printf '%s' "$versions" | jq -c '.[]')
+          echo "Deleted $deleted stale version(s)." | tee -a "$GITHUB_STEP_SUMMARY"

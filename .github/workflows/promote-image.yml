@@ -1,0 +1,171 @@
+name: Promote snapshot image
+
+# Retags an already-published image digest as `verified` without rebuilding and records the promotion in the committed
+# verified-image ledger through an automated pull request. Rollback is this same workflow pointed at a prior ledger
+# entry's digest. Digests are the only promotion currency; the promoted bytes are the smoke-tested bytes by
+# construction.
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: Registry digest (sha256:<hex>) of the already-published image to promote
+        required: true
+        type: string
+      expected_snapshot_id:
+        description: Optional snapshot id cross-check against the image OCI labels
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-image-verified
+  cancel-in-progress: false
+
+env:
+  REGISTRY_IMAGE: ghcr.io/ls1intum/artemis-feature-model
+
+jobs:
+  promote:
+    name: Verify labels and retag verified
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: image-promote
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate digest input
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+      - name: Inspect the published digest and verify its OCI identity labels
+        id: inspect
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          EXPECTED_SNAPSHOT_ID: ${{ inputs.expected_snapshot_id }}
+        run: |
+          set -euo pipefail
+          if ! image_config=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}@${IMAGE_DIGEST}" --format '{{ json .Image }}'); then
+            echo "No published image exists at ${REGISTRY_IMAGE}@${IMAGE_DIGEST}." >&2
+            exit 1
+          fi
+          labels=$(printf '%s' "$image_config" | jq '.config.Labels')
+          snapshot_id=$(printf '%s' "$labels" | jq -r '."de.tum.cit.aet.artemis-feature-model.snapshot-id" // empty')
+          snapshot_digest=$(printf '%s' "$labels" | jq -r '."de.tum.cit.aet.artemis-feature-model.snapshot-digest" // empty')
+          artemis_commit=$(printf '%s' "$labels" | jq -r '."de.tum.cit.aet.artemis-feature-model.artemis-commit" // empty')
+          manifest_digest=$(printf '%s' "$labels" | jq -r '."de.tum.cit.aet.artemis-feature-model.manifest-digest" // empty')
+          source_commit=$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.revision" // empty')
+          [[ "$snapshot_id" =~ ^generated-[0-9a-f]{12}-[0-9a-f]{12}$ ]] || { echo "Malformed snapshot-id label '$snapshot_id'." >&2; exit 1; }
+          [[ "$snapshot_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Malformed snapshot-digest label '$snapshot_digest'." >&2; exit 1; }
+          [[ "$artemis_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Malformed artemis-commit label '$artemis_commit'." >&2; exit 1; }
+          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Malformed manifest-digest label '$manifest_digest'." >&2; exit 1; }
+          [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Malformed revision label '$source_commit'." >&2; exit 1; }
+          if [[ -n "$EXPECTED_SNAPSHOT_ID" && "$EXPECTED_SNAPSHOT_ID" != "$snapshot_id" ]]; then
+            echo "Label snapshot id '$snapshot_id' does not match expected '$EXPECTED_SNAPSHOT_ID'." >&2
+            exit 1
+          fi
+          {
+            echo "snapshot_id=$snapshot_id"
+            echo "snapshot_digest=$snapshot_digest"
+            echo "artemis_commit=$artemis_commit"
+            echo "manifest_digest=$manifest_digest"
+            echo "source_commit=$source_commit"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag the digest as verified without rebuilding
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create --tag "${REGISTRY_IMAGE}:verified" "${REGISTRY_IMAGE}@${IMAGE_DIGEST}"
+          resolved=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:verified" --format '{{ json .Manifest }}' | jq -r '.digest')
+          test "$resolved" = "$IMAGE_DIGEST"
+
+      - name: Append the promotion to the verified-image ledger
+        id: ledger
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SNAPSHOT_ID: ${{ steps.inspect.outputs.snapshot_id }}
+          ARTEMIS_COMMIT: ${{ steps.inspect.outputs.artemis_commit }}
+          MANIFEST_DIGEST: ${{ steps.inspect.outputs.manifest_digest }}
+          SOURCE_COMMIT: ${{ steps.inspect.outputs.source_commit }}
+          PROMOTED_BY: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          jq \
+            --arg digest "$IMAGE_DIGEST" \
+            --arg snapshotId "$SNAPSHOT_ID" \
+            --arg artemisCommit "$ARTEMIS_COMMIT" \
+            --arg manifestDigest "$MANIFEST_DIGEST" \
+            --arg sourceCommit "$SOURCE_COMMIT" \
+            --arg promotedBy "$PROMOTED_BY" \
+            --arg runId "$GITHUB_RUN_ID" \
+            '.entries += [{
+              digest: $digest,
+              snapshotId: $snapshotId,
+              artemisCommit: $artemisCommit,
+              manifestDigest: $manifestDigest,
+              sourceCommit: $sourceCommit,
+              promotedBy: $promotedBy,
+              runId: ($runId | tonumber)
+            }]' delivery/verified-images.json > delivery/verified-images.json.next
+          mv delivery/verified-images.json.next delivery/verified-images.json
+          echo "ledger_branch=delivery/ledger-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Open the ledger pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SNAPSHOT_ID: ${{ steps.inspect.outputs.snapshot_id }}
+          LEDGER_BRANCH: ${{ steps.ledger.outputs.ledger_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$LEDGER_BRANCH"
+          git add delivery/verified-images.json
+          git commit -m "chore: record verified promotion of ${SNAPSHOT_ID}"
+          git push origin "$LEDGER_BRANCH"
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "$LEDGER_BRANCH" \
+            --title "chore: record verified promotion of ${SNAPSHOT_ID}" \
+            --body "Automated ledger append for the promotion of \`${REGISTRY_IMAGE}@${IMAGE_DIGEST}\` (snapshot \`${SNAPSHOT_ID}\`) to \`verified\` by run ${GITHUB_RUN_ID}."
+
+      - name: Summarize promotion
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          {
+            echo '## Image promotion'
+            echo
+            echo "- Promoted digest: \`${REGISTRY_IMAGE}@${IMAGE_DIGEST}\`"
+            echo "- Snapshot: \`${{ steps.inspect.outputs.snapshot_id }}\`"
+            echo "- Artemis commit: \`${{ steps.inspect.outputs.artemis_commit }}\`"
+            echo '- Tag `verified` now resolves to the promoted digest; no image was rebuilt.'
+            echo "- Ledger PR branch: \`${{ steps.ledger.outputs.ledger_branch }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
