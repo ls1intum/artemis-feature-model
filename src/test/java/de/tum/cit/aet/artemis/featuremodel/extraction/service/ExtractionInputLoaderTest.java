@@ -74,7 +74,8 @@ class ExtractionInputLoaderTest {
     @Test
     void verifiedSourceRejectsAnExpectedRevisionMismatch() {
         ExtractionInputLoader loader = new ExtractionInputLoader(new ObjectMapper());
-        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, MANIFEST, MANIFEST, MANIFEST, outputRoot, DERIVED_COMMIT);
+        FeatureExtractionInputs inputs = new FeatureExtractionInputs(FIXTURE_PATH, MANIFEST, FeatureExtractionInputs.MANIFEST_SOURCE_REPOSITORY, MANIFEST, MANIFEST, MANIFEST, outputRoot,
+                DERIVED_COMMIT);
 
         assertThatThrownBy(() -> loader.verifiedSource(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
                 .isInstanceOf(SourcePreflightException.class).hasMessageContaining(DERIVED_COMMIT).hasMessageContaining(OTHER_COMMIT);

@@ -2,8 +2,10 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
@@ -11,6 +13,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtemisRuntimeImage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -79,20 +82,51 @@ class ExtractionInputLoader {
     }
 
     /**
-     * Loads the scope manifest once and binds every derived command value to those exact bytes and the verified
-     * checkout's derived revision.
+     * Loads the scope manifest once through the active manifest-source mode and binds every derived command value to
+     * those exact bytes and the verified checkout's derived revision. In {@code repository} mode a manifest co-located
+     * in the checkout must be absent or byte-identical, so the two copies cannot silently diverge during the overlap
+     * window between the upstream file landing and the mode flip.
      *
      * @param inputs resolved command inputs.
      * @param source verified source repository supplying the derived revision.
      * @return per-command extraction context.
      * @throws IOException if the manifest cannot be read.
+     * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException if a co-located checkout
+     *             manifest diverges from the in-repo manifest in {@code repository} mode.
      */
     ExtractionRunContext runContext(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
-        byte[] manifestBytes = manifestBytesReader.read(inputs.manifestFile());
-        FeatureScopeManifest manifest = new FeatureManifestLoader().load(new ByteArrayInputStream(manifestBytes), inputs.manifestFile().toString());
+        Path manifestFile = inputs.resolveManifestFile();
+        byte[] manifestBytes = manifestBytesReader.read(manifestFile);
+        FeatureScopeManifest manifest = new FeatureManifestLoader().load(new ByteArrayInputStream(manifestBytes), manifestFile.toString());
+        if (FeatureExtractionInputs.MANIFEST_SOURCE_REPOSITORY.equals(inputs.manifestSource())) {
+            requireAbsentOrIdenticalCheckoutManifest(source, manifestBytes, manifestFile);
+        }
         String artemisCommit = source.commit();
         return new ExtractionRunContext(manifestBytes, manifest, Sha256Digest.of(manifestBytes), artemisCommit,
                 ExtractionArtifactLayout.forCommit(inputs.outputRoot(), artemisCommit));
+    }
+
+    /**
+     * Enforces the overlap-window guard of {@code repository} mode: a manifest at the canonical checkout path must be
+     * byte-identical to the in-repo manifest or absent.
+     *
+     * @param source verified source repository possibly carrying a co-located manifest.
+     * @param repositoryManifestBytes exact bytes of the in-repo manifest.
+     * @param repositoryManifestFile in-repo manifest path used in the failure message.
+     * @throws IOException if the co-located manifest cannot be read.
+     * @throws FeatureManifestException if the co-located manifest diverges.
+     */
+    private void requireAbsentOrIdenticalCheckoutManifest(ArtemisSourceRepository source, byte[] repositoryManifestBytes, Path repositoryManifestFile)
+            throws IOException {
+        if (!source.fileExists(FeatureExtractionInputs.CHECKOUT_MANIFEST_RELATIVE_PATH)) {
+            return;
+        }
+        byte[] checkoutManifestBytes = source.readFile(FeatureExtractionInputs.CHECKOUT_MANIFEST_RELATIVE_PATH).getBytes(StandardCharsets.UTF_8);
+        if (!Arrays.equals(checkoutManifestBytes, repositoryManifestBytes)) {
+            throw new FeatureManifestException("The checkout at " + source.root() + " contains a manifest at "
+                    + FeatureExtractionInputs.CHECKOUT_MANIFEST_RELATIVE_PATH + " that differs from the in-repo manifest " + repositoryManifestFile
+                    + ". In 'repository' mode a co-located manifest must be byte-identical or absent; select 'checkout' mode to run against the checkout copy.");
+        }
     }
 
     /**

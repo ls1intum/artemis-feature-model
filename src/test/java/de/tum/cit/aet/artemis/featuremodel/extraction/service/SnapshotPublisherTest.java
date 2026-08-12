@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import tools.jackson.databind.ObjectMapper;
 
 /** Covers fail-closed and atomic publication of generated snapshots. */
@@ -104,7 +105,7 @@ class SnapshotPublisherTest {
         CurationReport curation = new CurationReport(2, ARTEMIS_COMMIT, Map.of(), Map.of(), List.of(), List.of());
         ExtractionReport report = new ExtractionReport(1, "pass", ARTEMIS_COMMIT, MANIFEST_DIGEST, curation, Map.of(), Map.of(), Map.of(), List.of());
         return publisher.publish(layout(), TestFeatureModels.baseModel(), workflowBytes, catalog, report, ARTEMIS_COMMIT, MANIFEST_DIGEST,
-                "fedcba9876543210fedcba9876543210fedcba98", "sha256:profile", "latest", eligible);
+                "fedcba9876543210fedcba9876543210fedcba98", "sha256:profile", "latest", SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY, eligible);
     }
 
     private Map<String, byte[]> snapshotBytes() throws Exception {

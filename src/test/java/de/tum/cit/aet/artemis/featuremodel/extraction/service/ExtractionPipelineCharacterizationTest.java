@@ -326,8 +326,9 @@ class ExtractionPipelineCharacterizationTest {
     @Test
     void anExpectedRevisionMismatchNeverStartsAScanAndTouchesNoArtifact() throws Exception {
         runPipeline();
-        FeatureExtractionInputs expectingInputs = new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), inputs.authoredWorkflowFile(),
-                inputs.deploymentProfileFile(), inputs.runtimeImageFile(), outputRoot, DERIVED_COMMIT);
+        FeatureExtractionInputs expectingInputs = new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(),
+                FeatureExtractionInputs.MANIFEST_SOURCE_REPOSITORY, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.runtimeImageFile(),
+                outputRoot, DERIVED_COMMIT);
 
         assertThatThrownBy(
                 () -> new ScanStageService(OBJECT_MAPPER).run(expectingInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
