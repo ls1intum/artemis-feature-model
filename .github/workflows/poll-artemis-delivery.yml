@@ -1,0 +1,261 @@
+name: Artemis delivery poller
+
+# Stage 1 delivery trigger: resolves the tracking Artemis ref once at job start (or takes an explicitly supplied
+# immutable SHA), short-circuits when the identity is already published, publishes through the reusable publication
+# workflow, and opens the delivery auto-PR containing the classpath fixture refresh, the validation-pin bump, and the
+# guided-workflow coverage summary.
+#
+# Stage 2 input contract (documented, Artemis-side implementation out of scope): an Artemis-side event invokes
+# `repository_dispatch` with event type `artemis-commit` and client payload `{"artemis_sha": "<full-40-hex-sha>"}`.
+# The payload SHA enters the same explicit-SHA path as a manual dispatch; the schedule remains as a fallback.
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      artemis_sha:
+        description: Immutable full Artemis commit SHA; empty resolves the tracking ref once at job start
+        required: false
+        type: string
+        default: ''
+  repository_dispatch:
+    types:
+      - artemis-commit
+
+permissions:
+  contents: read
+
+concurrency:
+  group: artemis-delivery-poller
+  cancel-in-progress: false
+
+env:
+  REGISTRY_IMAGE: ghcr.io/ls1intum/artemis-feature-model
+  ARTEMIS_REPOSITORY: https://github.com/ls1intum/Artemis.git
+  ARTEMIS_TRACKING_REF: refs/heads/develop
+
+jobs:
+  resolve:
+    name: Resolve target commit and short-circuit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      artemis_sha: ${{ steps.resolve.outputs.artemis_sha }}
+      snapshot_id: ${{ steps.identity.outputs.snapshot_id }}
+      proceed: ${{ steps.short-circuit.outputs.proceed }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Resolve one immutable Artemis commit
+        id: resolve
+        shell: bash
+        env:
+          INPUT_ARTEMIS_SHA: ${{ inputs.artemis_sha }}
+          EVENT_ARTEMIS_SHA: ${{ github.event.client_payload.artemis_sha }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${EVENT_ARTEMIS_SHA:-}" ]]; then
+            artemis_sha="$EVENT_ARTEMIS_SHA"
+            echo "Target from repository_dispatch payload."
+          elif [[ -n "${INPUT_ARTEMIS_SHA:-}" ]]; then
+            artemis_sha="$INPUT_ARTEMIS_SHA"
+            echo "Target from explicit dispatch input."
+          else
+            artemis_sha=$(git ls-remote "$ARTEMIS_REPOSITORY" "$ARTEMIS_TRACKING_REF" | awk '{ print $1 }')
+            echo "Target resolved once from ${ARTEMIS_TRACKING_REF}."
+          fi
+          [[ "$artemis_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "artemis_sha=$artemis_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Compute content-addressed snapshot id
+        id: identity
+        shell: bash
+        env:
+          ARTEMIS_SHA: ${{ steps.resolve.outputs.artemis_sha }}
+        run: |
+          set -euo pipefail
+          manifest_digest=$(sha256sum src/main/resources/feature-model/extraction/artemis-feature-manifest.yml | awk '{ print $1 }')
+          echo "snapshot_id=generated-${ARTEMIS_SHA:0:12}-${manifest_digest:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Short-circuit when this identity is already published from this source commit
+        id: short-circuit
+        shell: bash
+        env:
+          SNAPSHOT_ID: ${{ steps.identity.outputs.snapshot_id }}
+        run: |
+          set -euo pipefail
+          proceed=true
+          if image_config=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:${SNAPSHOT_ID}" --format '{{ json .Image }}' 2>/dev/null); then
+            published_revision=$(printf '%s' "$image_config" | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty')
+            if [[ "$published_revision" == "$GITHUB_SHA" ]]; then
+              proceed=false
+              echo "Snapshot ${SNAPSHOT_ID} from source commit ${GITHUB_SHA} is already published; nothing to deliver."
+            fi
+          fi
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Validate and publish
+    needs: resolve
+    if: needs.resolve.outputs.proceed == 'true'
+    uses: ./.github/workflows/publish-snapshot-image.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      artemis_sha: ${{ needs.resolve.outputs.artemis_sha }}
+
+  delivery-pr:
+    name: Open the delivery auto-PR
+    needs: [resolve, publish]
+    if: needs.resolve.outputs.proceed == 'true' && needs.publish.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Download validated snapshot
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.publish.outputs.snapshot_artifact_name }}
+          path: build/delivery-snapshot
+
+      - name: Download validation reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.publish.outputs.reports_artifact_name }}
+          path: build/delivery-reports
+
+      - name: Refresh the classpath fixture from the delivered snapshot
+        id: refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          output=$(./gradlew -q refreshFeatureModelFixture -PsnapshotPath=build/delivery-snapshot)
+          printf '%s\n' "$output"
+          changed=$(printf '%s\n' "$output" | awk -F= '$1 == "changed" { print $2 }')
+          echo "fixture_changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the validation pin
+        id: pin
+        shell: bash
+        env:
+          ARTEMIS_SHA: ${{ needs.resolve.outputs.artemis_sha }}
+        run: |
+          set -euo pipefail
+          previous=$(tr -d '[:space:]' < delivery/artemis-validation-pin)
+          printf '%s\n' "$ARTEMIS_SHA" > delivery/artemis-validation-pin
+          echo "pin_changed=$([[ "$previous" == "$ARTEMIS_SHA" ]] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize guided-workflow coverage
+        id: coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          validation_json=$(find build/delivery-reports -name guided-workflow-validation.json | head -n 1)
+          {
+            echo 'coverage<<COVERAGE_EOF'
+            if [[ -n "$validation_json" ]]; then
+              gaps=$(jq -r '[.findings[]? | select(.code == "GUIDED_WORKFLOW_COVERAGE_GAP") | .subject] | sort | .[]' "$validation_json")
+              if [[ -n "$gaps" ]]; then
+                echo 'Selectable features without a published guided option:'
+                echo
+                while IFS= read -r feature; do echo "- \`$feature\`"; done <<< "$gaps"
+              else
+                echo 'Every selectable feature has a published guided option.'
+              fi
+            else
+              echo 'No guided-workflow validation report was found in the run artifacts.'
+            fi
+            echo 'COVERAGE_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the delivery pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTEMIS_SHA: ${{ needs.resolve.outputs.artemis_sha }}
+          SNAPSHOT_ID: ${{ needs.publish.outputs.snapshot_id }}
+          IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+          MANIFEST_DIGEST: ${{ needs.publish.outputs.manifest_digest }}
+          SNAPSHOT_DIGEST: ${{ needs.publish.outputs.snapshot_digest }}
+          FIXTURE_CHANGED: ${{ steps.refresh.outputs.fixture_changed }}
+          PIN_CHANGED: ${{ steps.pin.outputs.pin_changed }}
+          COVERAGE_SUMMARY: ${{ steps.coverage.outputs.coverage }}
+        run: |
+          set -euo pipefail
+          if [[ "$FIXTURE_CHANGED" != "true" && "$PIN_CHANGED" != "true" ]]; then
+            echo "Fixture and validation pin are already current; no delivery PR is needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          delivery_branch="delivery/auto-${ARTEMIS_SHA:0:12}"
+          git switch -c "$delivery_branch"
+          git add src/main/resources/feature-model delivery/artemis-validation-pin
+          git commit -m "chore: deliver snapshot ${SNAPSHOT_ID} with fixture refresh and pin bump"
+          git push --force origin "$delivery_branch"
+          body_file=$(mktemp)
+          {
+            echo "Automated delivery of snapshot \`${SNAPSHOT_ID}\`."
+            echo
+            echo "- Artemis commit: \`${ARTEMIS_SHA}\`"
+            echo "- Manifest digest: \`${MANIFEST_DIGEST}\`"
+            echo "- Snapshot digest: \`${SNAPSHOT_DIGEST}\`"
+            echo "- Published image digest: \`${IMAGE_DIGEST}\`"
+            echo "- Classpath fixture refresh: ${FIXTURE_CHANGED}"
+            echo "- Validation pin bump: ${PIN_CHANGED}"
+            echo
+            echo '## Guided workflow coverage'
+            echo
+            echo "$COVERAGE_SUMMARY"
+          } > "$body_file"
+          existing_pr=$(gh pr list --head "$delivery_branch" --base "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$existing_pr" ]]; then
+            gh pr edit "$existing_pr" --body-file "$body_file"
+            echo "Updated existing delivery PR #$existing_pr."
+          else
+            gh pr create \
+              --base "$GITHUB_REF_NAME" \
+              --head "$delivery_branch" \
+              --title "chore: deliver snapshot ${SNAPSHOT_ID}" \
+              --body-file "$body_file"
+          fi
+
+  summarize-short-circuit:
+    name: Summarize short-circuit
+    needs: resolve
+    if: needs.resolve.outputs.proceed == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize
+        shell: bash
+        env:
+          SNAPSHOT_ID: ${{ needs.resolve.outputs.snapshot_id }}
+          ARTEMIS_SHA: ${{ needs.resolve.outputs.artemis_sha }}
+        run: |
+          {
+            echo '## Delivery short-circuited'
+            echo
+            echo "- Artemis commit \`${ARTEMIS_SHA}\` resolves to snapshot \`${SNAPSHOT_ID}\`, which this source commit already published."
+            echo '- No validation, publication, or delivery PR was produced.'
+          } >> "$GITHUB_STEP_SUMMARY"

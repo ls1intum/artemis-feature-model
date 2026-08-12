@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - '**'
-      - '!deployment/image-publish-test'
   pull_request:
     branches:
       - '**'

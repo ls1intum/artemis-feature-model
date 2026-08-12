@@ -27,6 +27,21 @@ on:
       image_digest:
         description: Registry digest of the published image; empty when short-circuited
         value: ${{ jobs.publish.outputs.image_digest }}
+      artemis_commit:
+        description: Validated Artemis commit; empty when short-circuited
+        value: ${{ jobs.validate.outputs.artemis_commit }}
+      manifest_digest:
+        description: Validated manifest digest; empty when short-circuited
+        value: ${{ jobs.validate.outputs.manifest_digest }}
+      snapshot_digest:
+        description: Validated snapshot digest; empty when short-circuited
+        value: ${{ jobs.validate.outputs.snapshot_digest }}
+      snapshot_artifact_name:
+        description: Artifact containing the validated snapshot directory; empty when short-circuited
+        value: ${{ jobs.validate.outputs.snapshot_artifact_name }}
+      reports_artifact_name:
+        description: Artifact containing the extraction and workflow validation reports; empty when short-circuited
+        value: ${{ jobs.validate.outputs.reports_artifact_name }}
 
 permissions:
   contents: read
