@@ -1,34 +1,113 @@
 name: Publish snapshot image
 
+# Publishes the smoke-tested snapshot image under its content-addressed snapshot-id discovery tag. Invoked by the
+# delivery poller through workflow_call, or manually with an explicitly resolved immutable Artemis SHA. Tags are
+# mutable discovery pointers; the registry digest is the only promotion and rollback currency, and no workflow ever
+# publishes or moves `latest`.
 on:
-  push:
-    branches:
-      - deployment/image-publish-test
+  workflow_dispatch:
+    inputs:
+      artemis_sha:
+        description: Immutable full Artemis commit SHA to build and publish
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      artemis_sha:
+        description: Immutable full Artemis commit SHA to build and publish
+        required: true
+        type: string
+    outputs:
+      snapshot_id:
+        description: Content-addressed snapshot id of the publication target
+        value: ${{ jobs.identity.outputs.snapshot_id }}
+      published:
+        description: Whether a new image was published; false when the short-circuit found the identity already published
+        value: ${{ jobs.identity.outputs.proceed }}
+      image_digest:
+        description: Registry digest of the published image; empty when short-circuited
+        value: ${{ jobs.publish.outputs.image_digest }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: image-publish-test
+  group: publish-snapshot-image-${{ inputs.artemis_sha }}
   cancel-in-progress: false
 
+env:
+  REGISTRY_IMAGE: ghcr.io/ls1intum/artemis-feature-model
+
 jobs:
+  identity:
+    name: Resolve snapshot identity and short-circuit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      snapshot_id: ${{ steps.identity.outputs.snapshot_id }}
+      proceed: ${{ steps.short-circuit.outputs.proceed }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Compute content-addressed snapshot id
+        id: identity
+        shell: bash
+        env:
+          ARTEMIS_SHA: ${{ inputs.artemis_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTEMIS_SHA" =~ ^[0-9a-f]{40}$ ]]
+          manifest_digest=$(sha256sum src/main/resources/feature-model/extraction/artemis-feature-manifest.yml | awk '{ print $1 }')
+          snapshot_id="generated-${ARTEMIS_SHA:0:12}-${manifest_digest:0:12}"
+          echo "snapshot_id=$snapshot_id" >> "$GITHUB_OUTPUT"
+
+      - name: Short-circuit when this identity is already published from this source commit
+        id: short-circuit
+        shell: bash
+        env:
+          SNAPSHOT_ID: ${{ steps.identity.outputs.snapshot_id }}
+        run: |
+          set -euo pipefail
+          proceed=true
+          if image_config=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:${SNAPSHOT_ID}" --format '{{ json .Image }}' 2>/dev/null); then
+            published_revision=$(printf '%s' "$image_config" | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty')
+            published_snapshot_id=$(printf '%s' "$image_config" | jq -r '.config.Labels["de.tum.cit.aet.artemis-feature-model.snapshot-id"] // empty')
+            if [[ "$published_revision" == "$GITHUB_SHA" && "$published_snapshot_id" == "$SNAPSHOT_ID" ]]; then
+              proceed=false
+              echo "Snapshot ${SNAPSHOT_ID} from source commit ${GITHUB_SHA} is already published; skipping."
+            fi
+          fi
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
   validate:
-    name: Revalidate publication commit
+    name: Revalidate publication input
+    needs: identity
+    if: needs.identity.outputs.proceed == 'true'
     uses: ./.github/workflows/model-delivery-validation.yml
     permissions:
       contents: read
+    with:
+      artemis_sha: ${{ inputs.artemis_sha }}
 
   publish:
     name: Publish public GHCR image
-    needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/deployment/image-publish-test'
+    needs: [identity, validate]
+    if: needs.identity.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: image-publish-test
+    environment: image-publish
+    concurrency:
+      group: publish-image-${{ needs.identity.outputs.snapshot_id }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     outputs:
       image_digest: ${{ steps.publish.outputs.image_digest }}
 
@@ -37,6 +116,18 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+
+      - name: Verify validated identity matches the publication target
+        shell: bash
+        env:
+          EXPECTED_SNAPSHOT_ID: ${{ needs.identity.outputs.snapshot_id }}
+          VALIDATED_SNAPSHOT_ID: ${{ needs.validate.outputs.snapshot_id }}
+          VALIDATED_ARTEMIS_COMMIT: ${{ needs.validate.outputs.artemis_commit }}
+          ARTEMIS_SHA: ${{ inputs.artemis_sha }}
+        run: |
+          set -euo pipefail
+          test "$VALIDATED_SNAPSHOT_ID" = "$EXPECTED_SNAPSHOT_ID"
+          test "$VALIDATED_ARTEMIS_COMMIT" = "$ARTEMIS_SHA"
 
       - name: Download smoke-tested image
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -58,22 +149,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish discovery tag and capture registry digest
+      - name: Publish snapshot-id discovery tag and capture registry digest
         id: publish
         shell: bash
         env:
-          REGISTRY_IMAGE: ghcr.io/ls1intum/artemis-feature-model
+          SNAPSHOT_ID: ${{ needs.identity.outputs.snapshot_id }}
         run: |
           set -euo pipefail
-          discovery_tag="test-${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
-          target_image="${REGISTRY_IMAGE}:${discovery_tag}"
+          target_image="${REGISTRY_IMAGE}:${SNAPSHOT_ID}"
           docker tag "artemis-feature-model:ci-${GITHUB_SHA}" "$target_image"
           push_output=$(mktemp)
           docker push "$target_image" | tee "$push_output"
           image_digest=$(awk '$2 == "digest:" { print $3 }' "$push_output" | tail -n 1)
           [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "discovery_tag=$discovery_tag" >> "$GITHUB_OUTPUT"
+          echo "discovery_tag=$SNAPSHOT_ID" >> "$GITHUB_OUTPUT"
           echo "image_digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/ls1intum/artemis-feature-model
+          subject-digest: ${{ steps.publish.outputs.image_digest }}
+          push-to-registry: true
 
       - name: Prove anonymous digest pull and provenance
         shell: bash
@@ -82,7 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           docker logout ghcr.io
-          immutable_image="ghcr.io/ls1intum/artemis-feature-model@${IMAGE_DIGEST}"
+          immutable_image="${REGISTRY_IMAGE}@${IMAGE_DIGEST}"
           docker pull --platform linux/amd64 "$immutable_image"
           test "$(docker image inspect "$immutable_image" --format '{{.Architecture}}')" = "amd64"
           scripts/verify-snapshot-image.sh "$immutable_image" build/published-image/feature-model-snapshot
@@ -99,7 +196,7 @@ jobs:
         run: |
           set -euo pipefail
           jq -n \
-            --arg registryImage "ghcr.io/ls1intum/artemis-feature-model" \
+            --arg registryImage "$REGISTRY_IMAGE" \
             --arg discoveryTag "$DISCOVERY_TAG" \
             --arg imageDigest "$IMAGE_DIGEST" \
             --arg featureModelRepositoryCommit "$GITHUB_SHA" \
@@ -110,7 +207,7 @@ jobs:
             --arg runId "$GITHUB_RUN_ID" \
             --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
             '{
-              schemaVersion: 1,
+              schemaVersion: 2,
               registryImage: $registryImage,
               discoveryTag: $discoveryTag,
               imageDigest: $imageDigest,
@@ -141,14 +238,34 @@ jobs:
             echo '## Public snapshot image publication'
             echo
             echo "- Source commit: \`${GITHUB_SHA}\`"
-            echo "- Image: \`ghcr.io/ls1intum/artemis-feature-model@${{ steps.publish.outputs.image_digest }}\`"
+            echo "- Image: \`${REGISTRY_IMAGE}@${{ steps.publish.outputs.image_digest }}\`"
             echo "- Discovery tag: \`${{ steps.publish.outputs.discovery_tag }}\`"
             echo '- Platform: `linux/amd64`'
             echo "- Snapshot: \`${{ needs.validate.outputs.snapshot_id }}\` (\`${{ needs.validate.outputs.snapshot_digest }}\`)"
             echo "- Artemis commit: \`${{ needs.validate.outputs.artemis_commit }}\`"
             echo "- Manifest digest: \`${{ needs.validate.outputs.manifest_digest }}\`"
             echo '- Anonymous digest pull and container provenance smoke: `pass`'
+            echo '- Build provenance attestation: pushed to registry'
             echo "- Evidence artifact: \`publication-evidence-${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}\`"
             echo
-            echo '`LAST_VERIFIED_IMAGE_DIGEST` was not changed. Deployment and rollback remain deferred.'
+            echo 'Promotion to `verified` happens exclusively by digest through the promotion workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  summarize-short-circuit:
+    name: Summarize short-circuit
+    needs: identity
+    if: needs.identity.outputs.proceed == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize
+        shell: bash
+        env:
+          SNAPSHOT_ID: ${{ needs.identity.outputs.snapshot_id }}
+        run: |
+          {
+            echo '## Publication short-circuited'
+            echo
+            echo "- Snapshot \`${SNAPSHOT_ID}\` from source commit \`${GITHUB_SHA}\` is already published."
+            echo '- No image was built or pushed.'
           } >> "$GITHUB_STEP_SUMMARY"
