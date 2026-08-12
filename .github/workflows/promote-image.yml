@@ -96,9 +96,27 @@ jobs:
         shell: bash
         env:
           IMAGE_DIGEST: ${{ inputs.image_digest }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "${REGISTRY_IMAGE}:verified" "${REGISTRY_IMAGE}@${IMAGE_DIGEST}"
+          # A manifest-preserving retag through the registry API: `imagetools create` would wrap the manifest in a
+          # new index with a new digest, but the verified tag must resolve to exactly the promoted ledger digest.
+          repository_path="${REGISTRY_IMAGE#ghcr.io/}"
+          token=$(curl -sf -u "${{ github.actor }}:${GITHUB_TOKEN}" \
+            "https://ghcr.io/token?service=ghcr.io&scope=repository:${repository_path}:pull,push" | jq -r '.token')
+          manifest_file=$(mktemp)
+          headers_file=$(mktemp)
+          curl -sf -D "$headers_file" -o "$manifest_file" \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/${repository_path}/manifests/${IMAGE_DIGEST}"
+          content_type=$(awk 'tolower($1) == "content-type:" { print $2 }' "$headers_file" | tr -d '\r' | tail -n 1)
+          test -n "$content_type"
+          curl -sf -X PUT \
+            -H "Authorization: Bearer $token" \
+            -H "Content-Type: ${content_type}" \
+            --data-binary "@$manifest_file" \
+            "https://ghcr.io/v2/${repository_path}/manifests/verified"
           resolved=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:verified" --format '{{ json .Manifest }}' | jq -r '.digest')
           test "$resolved" = "$IMAGE_DIGEST"
 
