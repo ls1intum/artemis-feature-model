@@ -114,11 +114,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         return ids;
     });
-    readonly progressPercent = computed(() => {
-        const stepCount = this.decisionSteps().length + 2;
-        const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
-        return Math.round((current / stepCount) * 100);
-    });
     readonly selectedCount = computed(() => this.selectedFeatureIds().size);
     readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
         const map = new Map<string, string>();
@@ -197,6 +192,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                         decisionId: decision.id,
                         question: decision.question,
                         selectedOptions: decision.options.filter((option) => current.has(option.id)).map((option) => option.label),
+                        baselineOptions: decision.options.filter((option) => baseline.has(option.id)).map((option) => option.label),
                     });
                 }
             }

@@ -1,22 +1,41 @@
-<section class="progress-panel" aria-label="Configurator progress">
-    <div class="progress" role="progressbar" [attr.aria-valuenow]="progressPercent()" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar" [style.width.%]="progressPercent()"></div>
-    </div>
+<section class="progress-panel fm-surface" aria-label="Configurator progress">
     <nav class="step-nav" aria-label="Guided steps">
-        <button type="button" class="step-pill" [class.step-pill--active]="screen() === 'templates'" (click)="returnToTemplates.emit()">
+        <button
+            type="button"
+            class="step-pill"
+            [class.step-pill--current]="screen() === 'templates'"
+            [class.step-pill--done]="screen() !== 'templates'"
+            (click)="returnToTemplates.emit()"
+        >
+            @if (screen() !== 'templates') {
+                <svg class="step-pill__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 8.5 6.2 11.7 13 4.9" />
+                </svg>
+            }
             Templates
         </button>
         @for (step of decisionSteps(); track step.id; let index = $index) {
+            <span class="step-line" aria-hidden="true"></span>
             <button
                 type="button"
                 class="step-pill"
-                [class.step-pill--active]="screen() === 'workflow' && activeStepIndex() === index"
+                [class.step-pill--current]="isStepCurrent(index)"
+                [class.step-pill--done]="isStepDone(index)"
+                [attr.aria-current]="isStepCurrent(index) ? 'step' : null"
                 (click)="jumpToStep.emit(index)"
             >
+                @if (isStepDone(index)) {
+                    <svg class="step-pill__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 8.5 6.2 11.7 13 4.9" />
+                    </svg>
+                } @else {
+                    <span class="small opacity-75">{{ index + 1 }}</span>
+                }
                 {{ step.title }}
             </button>
         }
-        <button type="button" class="step-pill" [class.step-pill--active]="screen() === 'review'" (click)="openReview.emit()">Review</button>
+        <span class="step-line" aria-hidden="true"></span>
+        <button type="button" class="step-pill" [class.step-pill--current]="screen() === 'review'" (click)="openReview.emit()">Review</button>
     </nav>
 </section>
 
@@ -25,7 +44,7 @@
         <div class="section-heading">
             <h2>Choose a starting point</h2>
             @if (selectedTemplate(); as template) {
-                <p>{{ template.description }}</p>
+                <p class="mb-0 text-body-secondary">{{ template.description }}</p>
             }
         </div>
 
@@ -33,32 +52,32 @@
             @for (template of templates(); track template.id) {
                 <button
                     type="button"
-                    class="template-card"
+                    class="template-card fm-surface"
                     [class.template-card--active]="selectedTemplateId() === template.id"
                     (click)="selectTemplate.emit(template.id)"
                     [attr.data-testid]="'template-card-' + template.id"
                 >
-                    <span class="template-card__title">{{ template.label }}</span>
-                    <span class="template-card__description">{{ template.description }}</span>
+                    <span class="fw-semibold">{{ template.label }}</span>
+                    <span class="small text-body-secondary">{{ template.description }}</span>
                     <span class="template-card__meta">{{ template.selectedFeatureIds.length || 'Default' }} initial features</span>
                 </button>
             }
         </div>
 
         @if (selectedTemplate(); as template) {
-            <aside class="template-impact" data-testid="template-impact">
-                <h3>{{ template.label }}</h3>
+            <aside class="template-impact fm-surface" data-testid="template-impact">
+                <p class="fm-eyebrow">{{ template.label }}</p>
                 @if (template.consequences.length > 0) {
-                    <ul>
+                    <ul class="info-list">
                         @for (consequence of template.consequences; track consequence) {
                             <li>{{ consequence }}</li>
                         }
                     </ul>
                 }
                 @if (template.warnings.length > 0) {
-                    <div class="warning-list">
+                    <div class="warning-list mt-3">
                         @for (warning of template.warnings; track warning) {
-                            <p>{{ warning }}</p>
+                            <p class="mb-0">{{ warning }}</p>
                         }
                     </div>
                 }
@@ -76,52 +95,54 @@
             <main class="decision-main">
                 <div class="section-heading">
                     <h2>{{ step.title }}</h2>
-                    <p>{{ step.description }}</p>
+                    <p class="mb-0 text-body-secondary">{{ step.description }}</p>
                 </div>
 
                 @for (decision of step.decisions; track decision.id) {
                     <section class="decision-block" [attr.data-testid]="'decision-' + decision.id">
                         <header>
-                            <h3>{{ decision.question }}</h3>
-                            <p>{{ decision.description }}</p>
+                            <h3 class="h6 mb-0">{{ decision.question }}</h3>
+                            <p class="mb-0 text-body-secondary">{{ decision.description }}</p>
                         </header>
                         <div class="option-grid">
                             @for (option of decision.options; track option.id) {
                                 <button
                                     type="button"
-                                    class="option-card"
+                                    class="option-card fm-surface"
                                     [class.option-card--selected]="isOptionSelected(decision, option)"
-                                    [class.option-card--requires-profile]="option.requiresCapabilities.length > 0 && isOptionAvailable(option)"
                                     [class.option-card--unavailable]="!isOptionAvailable(option)"
                                     [disabled]="!isOptionAvailable(option)"
                                     (click)="onToggleDecisionOption(decision, option)"
                                     (focus)="focusOption.emit(option.id)"
                                     [attr.data-testid]="'option-card-' + option.id"
                                 >
-                                    <span class="option-card__topline">
-                                        <span class="option-card__title">{{ option.label }}</span>
-                                        @if (isOptionSelected(decision, option)) {
-                                            <span class="badge text-bg-success">Selected</span>
-                                        } @else if (!isOptionAvailable(option)) {
-                                            <span class="badge text-bg-secondary">Unavailable</span>
-                                        } @else if (option.requiresCapabilities.length > 0) {
-                                            <span class="badge text-bg-light border">Requires setup</span>
+                                    <span class="option-card__check" [class.option-card__check--on]="isOptionSelected(decision, option)" aria-hidden="true">
+                                        @if (isOptionAvailable(option)) {
+                                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 8.5 6.2 11.7 13 4.9" />
+                                            </svg>
+                                        } @else {
+                                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                <rect x="3.2" y="7" width="9.6" height="7" rx="1.4" />
+                                                <path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7" />
+                                            </svg>
                                         }
                                     </span>
-                                    <span class="option-card__description">{{ option.description }}</span>
+                                    <span class="fw-semibold">{{ option.label }}</span>
+                                    <span class="small text-body-secondary">{{ option.description }}</span>
                                     @if (optionFeatureNames(option).length > 0) {
-                                        <span class="feature-chip-row">
+                                        <span class="d-flex flex-wrap gap-1">
                                             @for (name of optionFeatureNames(option); track name) {
-                                                <span class="feature-chip">{{ name }}</span>
+                                                <span class="chip">{{ name }}</span>
                                             }
                                         </span>
                                     }
                                     @if (!isOptionAvailable(option)) {
-                                        <span class="option-card__availability option-card__availability--unavailable" data-testid="option-unavailable-reason">
+                                        <span class="d-block small text-danger-emphasis" data-testid="option-unavailable-reason">
                                             {{ optionAvailabilityText(option) }}
                                         </span>
                                     } @else if (option.requiresCapabilities.length > 0) {
-                                        <span class="option-card__availability" data-testid="option-availability-note">
+                                        <span class="d-block small text-body-secondary" data-testid="option-availability-note">
                                             {{ optionAvailabilityText(option) }}
                                         </span>
                                     }
@@ -133,73 +154,7 @@
             </main>
 
             <aside class="impact-panel" aria-label="Impact panel" data-testid="impact-panel">
-                @if (focusedOption(); as option) {
-                    <h3>{{ option.label }}</h3>
-                    <section class="impact-section">
-                        <h4>Availability</h4>
-                        <p>{{ optionAvailabilityText(option) }}</p>
-                    </section>
-
-                    <section class="impact-section">
-                        <h4>What this enables</h4>
-                        @if (option.enabledOutcome.length > 0) {
-                            <ul>
-                                @for (item of option.enabledOutcome; track item) {
-                                    <li>{{ item }}</li>
-                                }
-                            </ul>
-                        } @else {
-                            <p>No additional user-facing outcome is listed for this option.</p>
-                        }
-                    </section>
-
-                    <section class="impact-section">
-                        <h4>Recommended when</h4>
-                        @if (option.recommendedWhen.length > 0) {
-                            <ul>
-                                @for (item of option.recommendedWhen; track item) {
-                                    <li>{{ item }}</li>
-                                }
-                            </ul>
-                        } @else {
-                            <p>No recommendation is listed for this option.</p>
-                        }
-                    </section>
-
-                    <section class="impact-section">
-                        <h4>Things to know</h4>
-                        @if (option.thingsToKnow.length > 0) {
-                            <ul>
-                                @for (item of option.thingsToKnow; track item) {
-                                    <li>{{ item }}</li>
-                                }
-                            </ul>
-                        } @else {
-                            <p>No additional notes are listed for this option.</p>
-                        }
-                    </section>
-
-                    @if (optionFeatureNames(option).length > 0) {
-                        <section class="impact-section">
-                            <h4>Included features</h4>
-                            <span class="feature-chip-row">
-                                @for (name of optionFeatureNames(option); track name) {
-                                    <span class="feature-chip">{{ name }}</span>
-                                }
-                            </span>
-                        </section>
-                    }
-
-                    @if (option.warnings.length > 0) {
-                        <div class="warning-list">
-                            @for (warning of option.warnings; track warning) {
-                                <p>{{ warning }}</p>
-                            }
-                        </div>
-                    }
-                }
-
-                <section class="validation-panel" aria-label="Validation status" data-testid="validation-panel">
+                <section class="d-flex flex-column gap-2" aria-label="Validation status" data-testid="validation-panel">
                     @if (validationErrorMessage(); as message) {
                         <div class="alert alert-danger mb-0" role="alert" data-testid="validation-error">
                             <strong>Validation failed.</strong>
@@ -208,34 +163,44 @@
                     } @else if (validationLoading() && !hasValidationResult()) {
                         <div class="alert alert-info mb-0" role="status" data-testid="validation-loading">Validating selection...</div>
                     } @else if (hasValidationResult()) {
-                        <div class="validation-status" [class.validation-status--valid]="isValid()" [class.validation-status--invalid]="!isValid()" data-testid="validation-status">
+                        <div
+                            class="status-strip"
+                            [class.status-strip--valid]="isValid()"
+                            [class.status-strip--invalid]="!isValid()"
+                            data-testid="validation-status"
+                        >
+                            <svg class="status-strip__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="8" cy="8" r="6.4" />
+                                @if (isValid()) {
+                                    <path d="M5.2 8.2 7.2 10.2 10.9 6" />
+                                } @else {
+                                    <path d="M5.8 5.8 10.2 10.2M10.2 5.8 5.8 10.2" />
+                                }
+                            </svg>
                             <strong data-testid="validation-status-label">{{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}</strong>
                             @if (validationLoading()) {
-                                <small>Revalidating...</small>
+                                <small class="ms-auto fw-normal">Revalidating...</small>
                             }
                         </div>
                         @if (localizedViolations().length > 0) {
                             <section class="validation-detail validation-detail--danger" data-testid="guided-violations-panel">
-                                <h4>Violations</h4>
+                                <h4 class="h6 mb-2">Violations</h4>
                                 <ul>
                                     @for (violation of localizedViolations(); track violation.code + '-' + $index) {
                                         <li data-testid="guided-violation-item">
-                                            <div>
-                                                <code>{{ violation.code }}</code>
-                                                <span>{{ violation.message }}</span>
-                                            </div>
+                                            <span>{{ violation.message }}</span>
                                             @if (violation.features.length > 0) {
-                                                <p>
+                                                <p class="d-flex flex-wrap gap-1 m-0">
                                                     Affects
                                                     @for (feature of violation.features; track feature.id) {
                                                         <strong>{{ feature.name }}</strong>
-                                                        <code>{{ feature.id }}</code>
                                                     }
                                                 </p>
                                             }
                                             @if (violation.suggestion) {
-                                                <p>{{ violation.suggestion }}</p>
+                                                <p class="m-0">{{ violation.suggestion }}</p>
                                             }
+                                            <code>{{ violation.code }}</code>
                                         </li>
                                     }
                                 </ul>
@@ -243,26 +208,23 @@
                         }
                         @if (localizedWarnings().length > 0) {
                             <section class="validation-detail validation-detail--warning" data-testid="guided-warnings-panel">
-                                <h4>Warnings</h4>
+                                <h4 class="h6 mb-2">Warnings</h4>
                                 <ul>
                                     @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
                                         <li data-testid="guided-warning-item">
-                                            <div>
-                                                <code>{{ warning.code }}</code>
-                                                <span>{{ warning.message }}</span>
-                                            </div>
+                                            <span>{{ warning.message }}</span>
                                             @if (warning.features.length > 0) {
-                                                <p>
+                                                <p class="d-flex flex-wrap gap-1 m-0">
                                                     Affects
                                                     @for (feature of warning.features; track feature.id) {
                                                         <strong>{{ feature.name }}</strong>
-                                                        <code>{{ feature.id }}</code>
                                                     }
                                                 </p>
                                             }
                                             @if (warning.suggestion) {
-                                                <p>{{ warning.suggestion }}</p>
+                                                <p class="m-0">{{ warning.suggestion }}</p>
                                             }
+                                            <code>{{ warning.code }}</code>
                                         </li>
                                     }
                                 </ul>
@@ -270,12 +232,94 @@
                         }
                     }
                 </section>
+
+                @if (focusedOption(); as option) {
+                    <section class="option-panel fm-surface">
+                        <div class="d-flex align-items-baseline justify-content-between gap-2">
+                            <h3 class="h6 mb-0">{{ option.label }}</h3>
+                            @if (isFocusedOptionSelected()) {
+                                <span class="badge text-bg-primary">Selected</span>
+                            }
+                        </div>
+                        <p class="small mt-1 mb-0 {{ availabilityTextClass(option) }}">{{ optionAvailabilityText(option) }}</p>
+
+                        <div class="info-tabs mt-3 mb-2" role="tablist">
+                            <button type="button" class="info-tab" [class.info-tab--active]="infoTab() === 'outcome'" role="tab" [attr.aria-selected]="infoTab() === 'outcome'" (click)="onSelectInfoTab('outcome')">
+                                What this enables<span class="count-pill">{{ option.enabledOutcome.length }}</span>
+                            </button>
+                            <button type="button" class="info-tab" [class.info-tab--active]="infoTab() === 'recommended'" role="tab" [attr.aria-selected]="infoTab() === 'recommended'" (click)="onSelectInfoTab('recommended')">
+                                Recommended when<span class="count-pill">{{ option.recommendedWhen.length }}</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="info-tab"
+                                [class.info-tab--active]="infoTab() === 'caveats'"
+                                [class.info-tab--warn]="optionCaveats(option).length > 0"
+                                role="tab"
+                                [attr.aria-selected]="infoTab() === 'caveats'"
+                                (click)="onSelectInfoTab('caveats')"
+                            >
+                                Things to know<span class="count-pill">{{ optionCaveats(option).length }}</span>
+                            </button>
+                        </div>
+
+                        @switch (infoTab()) {
+                            @case ('outcome') {
+                                @if (option.enabledOutcome.length > 0) {
+                                    <ul class="info-list">
+                                        @for (item of option.enabledOutcome; track item) {
+                                            <li>{{ item }}</li>
+                                        }
+                                    </ul>
+                                } @else {
+                                    <p class="mb-0 text-body-secondary">No additional user-facing outcome is listed for this option.</p>
+                                }
+                            }
+                            @case ('recommended') {
+                                @if (option.recommendedWhen.length > 0) {
+                                    <ul class="info-list">
+                                        @for (item of option.recommendedWhen; track item) {
+                                            <li>{{ item }}</li>
+                                        }
+                                    </ul>
+                                } @else {
+                                    <p class="mb-0 text-body-secondary">No recommendation is listed for this option.</p>
+                                }
+                            }
+                            @case ('caveats') {
+                                @if (optionCaveats(option).length > 0) {
+                                    <ul class="info-list info-list--warn">
+                                        @for (item of optionCaveats(option); track item) {
+                                            <li>{{ item }}</li>
+                                        }
+                                    </ul>
+                                } @else {
+                                    <p class="mb-0 text-body-secondary">No additional notes are listed for this option.</p>
+                                }
+                            }
+                        }
+
+                        @if (optionFeatureNames(option).length > 0) {
+                            <p class="fm-eyebrow mt-3">Adds</p>
+                            <span class="d-flex flex-wrap gap-1">
+                                @for (name of optionFeatureNames(option); track name) {
+                                    <span class="chip">{{ name }}</span>
+                                }
+                            </span>
+                        }
+                    </section>
+                }
             </aside>
         </section>
 
         <div class="flow-actions">
             <button type="button" class="btn btn-outline-secondary" (click)="previousStep.emit()" data-testid="previous-step">Back</button>
-            <button type="button" class="btn btn-outline-secondary" (click)="openTree.emit()" data-testid="advanced-tree-button">Advanced tree</button>
+            @if (hasValidationResult() && !validationErrorMessage()) {
+                <span class="small {{ flowStatusClass() }}">
+                    {{ isValid() ? 'Selection is valid' : localizedViolations().length + ' to resolve' }}
+                </span>
+            }
+            <button type="button" class="btn btn-outline-secondary ms-auto" (click)="openTree.emit()" data-testid="advanced-tree-button">Advanced tree</button>
             <button type="button" class="btn btn-primary" (click)="nextStep.emit()" data-testid="next-step">
                 {{ activeStepIndex() >= decisionSteps().length - 1 ? 'Review' : 'Next' }}
             </button>
@@ -283,142 +327,124 @@
     }
 } @else if (screen() === 'review') {
     <section class="review-screen" aria-label="Final review" data-testid="review-screen">
-        <div class="section-heading">
+        <div class="section-heading d-flex flex-wrap align-items-baseline justify-content-between gap-2">
             <h2>Review configuration</h2>
-            <p data-testid="review-deployment-context">Deployment context loaded. You only choose functional features; technical setup is handled separately.</p>
+            <span class="small text-body-secondary">{{ selectedCount() }} features · {{ reviewGroups().length }} groups</span>
         </div>
+        <p class="mb-0 text-body-secondary" data-testid="review-deployment-context">
+            Deployment context loaded — you choose functional features, technical setup is handled separately.
+        </p>
 
-        @if (reconciliationNote(); as note) {
-            <div class="alert alert-warning" role="alert" data-testid="profile-reconciliation-note">{{ note }}</div>
-        }
+        <div
+            class="status-strip"
+            [class.status-strip--valid]="isValid() && !validationLoading()"
+            [class.status-strip--invalid]="!isValid() && hasValidationResult() && !validationLoading()"
+            data-testid="validation-summary"
+        >
+            <svg class="status-strip__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.4" />
+                @if (isValid() && !validationLoading()) {
+                    <path d="M5.2 8.2 7.2 10.2 10.9 6" />
+                } @else {
+                    <path d="M8 4.8v4.1M8 11.2h.01" />
+                }
+            </svg>
+            @if (validationErrorMessage(); as message) {
+                <strong>Validation failed.</strong>
+                <span class="ms-auto small">{{ message }}</span>
+            } @else if (validationLoading()) {
+                <strong>Rechecking your configuration…</strong>
+            } @else if (hasValidationResult()) {
+                <strong>{{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}</strong>
+                <span class="ms-auto small">
+                    {{ localizedViolations().length }} blocking · {{ reviewWarningCount() }} warnings · {{ reviewNoteCount() }} notes
+                </span>
+            } @else {
+                <strong>Validation has not completed yet.</strong>
+            }
+        </div>
 
         <div class="review-layout">
             <main>
-                <section class="review-section" data-testid="selected-features-summary">
-                    <h3>Selected functional features</h3>
+                <section class="review-section fm-surface" data-testid="selected-features-summary">
+                    <p class="fm-eyebrow">Your configuration</p>
                     @if (reviewGroups().length > 0) {
                         @for (group of reviewGroups(); track group.id) {
                             <div class="review-group">
-                                <h4>{{ group.title }}</h4>
-                                <div class="feature-chip-row">
+                                <div class="d-flex align-items-baseline gap-2 mb-1 small text-body-secondary">
+                                    {{ group.title }}
+                                    <span class="count-pill">{{ group.features.length }}</span>
+                                </div>
+                                <div class="d-flex flex-wrap gap-1">
                                     @for (feature of group.features; track feature.id) {
-                                        <span class="feature-chip">{{ feature.name }}</span>
+                                        <span class="chip">{{ feature.name }}</span>
                                     }
                                 </div>
                             </div>
                         }
                     } @else {
-                        <p class="muted">No guided review groups contain selected features.</p>
+                        <p class="mb-0 text-body-secondary">No guided review groups contain selected features.</p>
                     }
                 </section>
 
-                <section class="review-section" data-testid="decision-change-summary">
-                    <h3>Changed from template</h3>
+                <section class="review-section fm-surface" data-testid="decision-change-summary">
+                    <p class="fm-eyebrow">Changed from the template</p>
                     @if (changedDecisionSummaries().length > 0) {
-                        <ul>
+                        <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
                             @for (change of changedDecisionSummaries(); track change.decisionId) {
                                 <li>
-                                    <strong>{{ change.question }} </strong>
-                                    <span>{{ change.selectedOptions.length > 0 ? change.selectedOptions.join(', ') : 'No option selected' }}</span>
+                                    <div class="small text-body-secondary">{{ change.question }}</div>
+                                    <div class="small">
+                                        <span class="text-body-secondary text-decoration-line-through">
+                                            {{ change.baselineOptions.length > 0 ? change.baselineOptions.join(', ') : 'Nothing selected' }}
+                                        </span>
+                                        <span class="mx-1 text-body-secondary" aria-hidden="true">→</span>
+                                        <strong>{{ change.selectedOptions.length > 0 ? change.selectedOptions.join(', ') : 'Nothing selected' }}</strong>
+                                    </div>
                                 </li>
                             }
                         </ul>
                     } @else {
-                        <p class="muted">No guided decisions differ from the selected template.</p>
+                        <p class="mb-0 text-body-secondary">No guided decisions differ from the selected template.</p>
                     }
                 </section>
             </main>
 
             <aside>
-                <section class="review-section" data-testid="warning-summary">
-                    <h3>Warnings and availability</h3>
-                    @if (workflowWarnings().length > 0 || localizedWarnings().length > 0) {
-                        <ul>
-                            @for (warning of workflowWarnings(); track warning) {
-                                <li>{{ warning }}</li>
-                            }
-                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                <li>{{ warning.message }}</li>
-                            }
-                        </ul>
-                    } @else {
-                        <p class="muted">No guided warnings are active.</p>
-                    }
-                </section>
-
-                <section class="review-section" data-testid="profile-dependent-features">
-                    <h3>Needs deployment setup</h3>
-                    @if (profileDependentFeatures().length > 0) {
-                        <p class="muted">These selected features need technical setup before they work in a real Artemis instance.</p>
-                        <ul class="profile-feature-list">
-                            @for (feature of profileDependentFeatures(); track feature.featureId) {
-                                <li [class.profile-feature--unavailable]="!feature.available" data-testid="profile-dependent-feature">
-                                    <span class="profile-feature__name">{{ feature.featureName }}</span>
-                                    @if (!feature.available && feature.teacherReason) {
-                                        <span class="profile-feature__reason">{{ feature.teacherReason }}</span>
-                                    }
-                                </li>
-                            }
-                        </ul>
-                    } @else {
-                        <p class="muted">No selected features need extra deployment setup.</p>
-                    }
-                </section>
-
-                <section class="review-section" data-testid="validation-summary">
-                    <h3>Validation result</h3>
-                    @if (validationErrorMessage(); as message) {
-                        <p class="text-danger">{{ message }}</p>
-                    } @else if (hasValidationResult()) {
-                        <p [class.text-success]="isValid()" [class.text-danger]="!isValid()">
-                            {{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}
-                        </p>
-                        @if (localizedViolations().length > 0) {
-                            <ul>
-                                @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                    <li>{{ violation.message }}</li>
-                                }
-                            </ul>
-                        }
-                    } @else {
-                        <p class="muted">Validation has not completed yet.</p>
-                    }
-                </section>
-
                 @if (showArtifactsOnlyExport) {
-                    <section class="review-section" data-testid="artifact-generation">
-                        <h3>Deployment artifacts</h3>
-                        <p class="artifact-demo-note" data-testid="artifact-demo-note">
+                    <section class="review-section fm-surface" data-testid="artifact-generation">
+                        <p class="fm-eyebrow">Deployment artifacts</p>
+                        <p class="demo-note mb-2" data-testid="artifact-demo-note">
                             This artifact uses placeholder deployment parameters. It validates the generation flow, but real service values must be provided before
                             production deployment.
                         </p>
                         @if (activeProfile(); as profile) {
-                            <p class="muted" data-testid="artifact-profile">Deployment context: <strong>{{ profile.name }}</strong></p>
+                            <p class="small text-body-secondary" data-testid="artifact-profile">Deployment context: <strong>{{ profile.name }}</strong></p>
                         }
                         <button
                             type="button"
                             class="btn btn-primary w-100"
-                            [disabled]="!isValid() || artifactGenerating()"
+                            [disabled]="exportBlocked() || artifactGenerating()"
                             (click)="generateArtifacts.emit()"
                             data-testid="generate-artifacts-button"
                         >
                             {{ artifactGenerating() ? 'Generating...' : 'Generate and download artifacts' }}
                         </button>
                         @if (!isValid()) {
-                            <p class="muted" data-testid="artifact-invalid-note">Resolve the validation issues above before generating artifacts.</p>
+                            <p class="mt-2 mb-0 small text-body-secondary" data-testid="artifact-invalid-note">Resolve the validation issues above before generating artifacts.</p>
                         }
                         @if (artifactErrorMessage(); as error) {
-                            <div class="alert alert-danger" role="alert" data-testid="artifact-error">{{ error }}</div>
+                            <div class="alert alert-danger mt-2 mb-0" role="alert" data-testid="artifact-error">{{ error }}</div>
                         }
                     </section>
                 }
 
-                <section class="review-section" data-testid="deployment-package">
-                    <h3>Deployment package</h3>
+                <section class="review-section fm-surface" data-testid="deployment-package">
+                    <p class="fm-eyebrow">Export</p>
                     <fieldset class="deployment-target-picker" data-testid="deployment-target-picker">
-                        <legend>Deployment target</legend>
+                        <legend class="visually-hidden">Deployment target</legend>
                         @for (target of deploymentTargets; track target.id) {
-                            <label class="deployment-target-option">
+                            <label class="deployment-target" [class.deployment-target--active]="selectedDeploymentMode() === target.id">
                                 <input
                                     type="radio"
                                     name="deployment-target"
@@ -427,30 +453,107 @@
                                     (change)="selectDeploymentMode.emit(target.id)"
                                     [attr.data-testid]="'deployment-mode-' + target.id"
                                 />
-                                <span>
+                                <span class="small fw-semibold">
                                     {{ target.label }}
                                     @if (target.hint) {
-                                        <small class="muted">{{ target.hint }}</small>
+                                        <span class="fw-normal text-body-secondary">{{ target.hint }}</span>
                                     }
                                 </span>
                             </label>
                         }
                     </fieldset>
-                    <p class="artifact-demo-note" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
+                    <p class="mt-2 mb-0 small text-body-secondary" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
+
                     <button
                         type="button"
-                        class="btn btn-outline-primary w-100"
-                        [disabled]="!isValid() || deploymentPackageDownloading()"
+                        class="btn btn-primary w-100"
+                        [disabled]="exportBlocked() || deploymentPackageDownloading()"
                         (click)="downloadDeploymentPackage.emit()"
                         data-testid="download-deployment-package-button"
                     >
                         {{ deploymentPackageDownloading() ? 'Preparing ZIP...' : selectedDeploymentTarget().downloadLabel }}
                     </button>
-                    @if (!isValid()) {
-                        <p class="muted" data-testid="deployment-package-invalid-note">Resolve the validation issues above before downloading the runtime package.</p>
+
+                    @if (exportBlocked()) {
+                        <p class="mt-2 mb-0 small text-danger-emphasis" data-testid="deployment-package-invalid-note">
+                            @if (validationLoading()) {
+                                Waiting for the current validation to finish.
+                            } @else {
+                                Blocked by {{ localizedViolations().length || 1 }} issue{{ localizedViolations().length === 1 ? '' : 's' }} below — resolve it to enable
+                                the download.
+                            }
+                        </p>
                     }
+
+                    <p class="demo-note mt-2 mb-0">DEMO placeholders only — nothing is deployed, and no real secrets are written.</p>
+
                     @if (deploymentPackageErrorMessage(); as error) {
-                        <div class="alert alert-danger" role="alert" data-testid="deployment-package-error">{{ error }}</div>
+                        <div class="alert alert-danger mt-2 mb-0" role="alert" data-testid="deployment-package-error">{{ error }}</div>
+                    }
+                </section>
+
+                <section class="review-section fm-surface" data-testid="review-issues">
+                    <p class="fm-eyebrow">Issues and notes</p>
+
+                    @if (localizedViolations().length > 0) {
+                        <ul class="list-unstyled mb-0" data-testid="review-violation-summary">
+                            @for (violation of localizedViolations(); track violation.code + '-' + $index) {
+                                <li class="issue issue--blocking">
+                                    <span class="issue__severity">Blocking</span>
+                                    <span>{{ violation.message }}</span>
+                                    @if (violation.suggestion) {
+                                        <span class="text-body-secondary">{{ violation.suggestion }}</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    @if (reconciliationNote(); as note) {
+                        <ul class="list-unstyled mb-0" data-testid="profile-reconciliation-note">
+                            <li class="issue issue--warning">
+                                <span class="issue__severity">Warning</span>
+                                <span>{{ note }}</span>
+                            </li>
+                        </ul>
+                    }
+
+                    @if (reviewWarningCount() > 0) {
+                        <ul class="list-unstyled mb-0" data-testid="warning-summary">
+                            @for (warning of workflowWarnings(); track warning) {
+                                <li class="issue issue--warning">
+                                    <span class="issue__severity">Warning</span>
+                                    <span>{{ warning }}</span>
+                                </li>
+                            }
+                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
+                                <li class="issue issue--warning">
+                                    <span class="issue__severity">Warning</span>
+                                    <span>{{ warning.message }}</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    @if (profileDependentFeatures().length > 0) {
+                        <div data-testid="profile-dependent-features">
+                            <p class="mt-2 mb-1 small text-body-secondary">These selected features need technical setup before they work in a real Artemis instance.</p>
+                            <ul class="list-unstyled mb-0">
+                                @for (feature of profileDependentFeatures(); track feature.featureId) {
+                                    <li class="issue" [class.issue--warning]="!feature.available" data-testid="profile-dependent-feature">
+                                        <span class="issue__severity">{{ feature.available ? 'Set up later' : 'Unavailable' }}</span>
+                                        <span><strong>{{ feature.featureName }}</strong></span>
+                                        @if (!feature.available && feature.teacherReason) {
+                                            <span class="text-body-secondary">{{ feature.teacherReason }}</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (!hasReviewFindings()) {
+                        <p class="mb-0 text-body-secondary">No issues or notes for this configuration.</p>
                     }
                 </section>
             </aside>

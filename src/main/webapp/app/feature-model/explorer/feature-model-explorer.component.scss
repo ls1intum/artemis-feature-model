@@ -25,10 +25,12 @@
 /* Counters as a strip of value/label cells: the number, not the sentence, carries the weight. */
 .explorer-stats {
     display: flex;
+    flex-wrap: wrap;
     overflow: hidden;
 }
 
 .explorer-stat {
+    flex: 1 1 6rem;
     min-width: 6rem;
     padding: 0.4rem 0.9rem;
     border-left: 1px solid var(--bs-border-color);

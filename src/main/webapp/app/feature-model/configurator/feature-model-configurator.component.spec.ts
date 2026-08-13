@@ -744,6 +744,31 @@ describe('FeatureModelConfiguratorComponent', () => {
         downloadRequest.flush(new Blob(['zip-bytes']));
     });
 
+    it('blocks the export and says so while a revalidation is still in flight', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        const downloadButton = () => rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(downloadButton().disabled).toBe(false);
+
+        // A tree edit starts a new validation; until it answers, the previous verdict must not gate the export.
+        const edited = new Set(fixture.componentInstance.selectedFeatureIds());
+        edited.add('athena');
+        fixture.componentInstance.onReplaceSelection(edited);
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Rechecking');
+        expect(downloadButton().disabled).toBe(true);
+
+        flushValidation(httpMock, validResult());
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="validation-summary"]')?.textContent).toContain('Configuration is valid.');
+        expect(downloadButton().disabled).toBe(false);
+    });
+
     it('preselects the local Docker target and omits the deployment mode from the default download request', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
