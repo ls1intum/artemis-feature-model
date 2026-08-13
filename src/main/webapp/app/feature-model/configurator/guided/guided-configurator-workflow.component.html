@@ -94,6 +94,7 @@
         <section class="decision-screen">
             <main class="decision-main">
                 <div class="section-heading">
+                    <p class="fm-eyebrow">Step {{ activeStepIndex() + 1 }} of {{ decisionSteps().length }}</p>
                     <h2>{{ step.title }}</h2>
                     <p class="mb-0 text-body-secondary">{{ step.description }}</p>
                 </div>
@@ -101,8 +102,8 @@
                 @for (decision of step.decisions; track decision.id) {
                     <section class="decision-block" [attr.data-testid]="'decision-' + decision.id">
                         <header>
-                            <h3 class="h6 mb-0">{{ decision.question }}</h3>
-                            <p class="mb-0 text-body-secondary">{{ decision.description }}</p>
+                            <h3 class="h6 fw-semibold mb-1">{{ decision.question }}</h3>
+                            <p class="mb-0 small text-body-secondary">{{ decision.description }}</p>
                         </header>
                         <div class="option-grid">
                             @for (option of decision.options; track option.id) {

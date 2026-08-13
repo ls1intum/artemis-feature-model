@@ -75,15 +75,31 @@
 
 .section-heading h2 {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.5rem;
+    font-weight: 600;
 }
 
+/* Prose keeps a readable measure instead of running the full column width. */
+.section-heading p,
+.decision-block header p {
+    max-width: 66ch;
+}
+
+/* A rule separates the step header from the first decision, and decisions from each other. */
+.decision-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* No align-items: cards in the same row stretch to a common height, with no arbitrary minimum. */
 .template-grid,
 .option-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
     gap: 0.75rem;
-    align-items: start;
 }
 
 .template-card {
