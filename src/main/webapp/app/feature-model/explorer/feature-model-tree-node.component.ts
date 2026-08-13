@@ -26,10 +26,14 @@ export class FeatureModelTreeNodeComponent {
     readonly isSelected = computed(() => this.selectedId() === this.featureId());
     readonly isMatched = computed(() => this.matchedIds().has(this.featureId()));
     readonly nextDepth = computed(() => this.depth() + 1);
-    readonly kindLabel = computed(() => formatKind(this.node().feature.kind));
-    readonly relationLabel = computed(() => formatRelation(this.node()));
-    readonly defaultStateLabel = computed(() => formatDefaultState(this.node().feature.defaultState));
-    readonly defaultStateBadgeClass = computed(() => formatDefaultStateBadgeClass(this.node().feature.defaultState));
+    readonly isStructural = computed(() => !this.node().feature.selectable);
+    readonly isDefaultEnabled = computed(() => this.node().feature.defaultState === 'enabled');
+    readonly kindDotClass = computed(() => kindDotClass(this.node().feature.kind));
+    /** Accessible name for the colour dot; it carries kind and selectability, which no longer have badges. */
+    readonly kindTitle = computed(() => {
+        const kind = formatKind(this.node().feature.kind);
+        return this.isStructural() ? `${kind} · structural` : kind;
+    });
 
     /**
      * Emits `toggleExpand` for this node and stops the click from bubbling to the row, which would
@@ -70,44 +74,16 @@ function formatKind(kind: string): string {
     }
 }
 
-function formatRelation(node: FeatureTreeNode): string | null {
-    const incoming = node.incomingRelation;
-    if (!incoming) {
-        return null;
-    }
-    const base = capitalize(incoming.relationType);
-    if (incoming.relationType === 'group' && incoming.groupType) {
-        return `${base} (${incoming.groupType})`;
-    }
-    return base;
-}
-
-function formatDefaultState(state: string | null): string | null {
-    if (!state) {
-        return null;
-    }
-    if (state === 'not_applicable') {
-        return 'Not applicable';
-    }
-    return capitalize(state);
-}
-
-function formatDefaultStateBadgeClass(state: string | null): string {
-    switch (state) {
-        case 'enabled':
-            return 'text-bg-success';
-        case 'disabled':
-            return 'text-bg-light border';
-        case 'not_applicable':
-            return 'text-bg-secondary';
+function kindDotClass(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'tree-dot--root';
+        case 'group':
+        case 'module':
+            return 'tree-dot--group';
+        case 'feature':
+            return 'tree-dot--feature';
         default:
-            return 'text-bg-light border';
+            return 'tree-dot--other';
     }
-}
-
-function capitalize(value: string): string {
-    if (value.length === 0) {
-        return value;
-    }
-    return value.charAt(0).toUpperCase() + value.slice(1);
 }

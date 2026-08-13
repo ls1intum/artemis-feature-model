@@ -1,30 +1,25 @@
-<section class="snapshot-panel" aria-label="Imported model snapshots" data-testid="snapshot-panel">
-    <h2 class="h6 mb-2">Imported model snapshots</h2>
+<div class="snapshot-line small text-body-secondary" aria-label="Imported model snapshots" data-testid="snapshot-panel">
     @if (failed()) {
-        <p class="text-muted small mb-0" data-testid="snapshot-error">Snapshot information is currently unavailable.</p>
+        <span data-testid="snapshot-error">Snapshot information is currently unavailable.</span>
     } @else if (hasSnapshots()) {
-        <ul class="snapshot-list list-unstyled mb-0">
-            @for (snapshot of snapshots(); track snapshot.snapshotId) {
-                <li class="snapshot-item" data-testid="snapshot-item">
-                    <code class="snapshot-id">{{ snapshot.snapshotId }}</code>
-                    @if (snapshot.active) {
-                        <span class="badge text-bg-success" data-testid="snapshot-active">Active</span>
-                    }
-                    @if (snapshot.version) {
-                        <span class="text-muted small">v{{ snapshot.version }}</span>
-                    }
-                    @if (snapshot.status) {
-                        <span class="badge text-bg-light border">{{ snapshot.status }}</span>
-                    }
-                    @if (snapshot.sourceRef) {
-                        <span class="text-muted small">ref {{ snapshot.sourceRef }}</span>
-                    }
-                </li>
-            }
-        </ul>
+        @for (snapshot of snapshots(); track snapshot.snapshotId) {
+            <span class="snapshot-item" data-testid="snapshot-item">
+                <code class="snapshot-id">{{ snapshot.snapshotId }}</code>
+                @if (snapshot.active) {
+                    <span class="badge text-bg-success" data-testid="snapshot-active">Active</span>
+                }
+                @if (snapshot.version) {
+                    <span>v{{ snapshot.version }}</span>
+                }
+                @if (snapshot.status) {
+                    <span>{{ snapshot.status }}</span>
+                }
+                @if (snapshot.sourceRef) {
+                    <span>ref {{ snapshot.sourceRef }}</span>
+                }
+            </span>
+        }
     } @else {
-        <p class="text-muted small mb-0" data-testid="snapshot-empty">
-            No local snapshots imported — using the bootstrap classpath model.
-        </p>
+        <span data-testid="snapshot-empty">No local snapshots imported — using the bootstrap classpath model.</span>
     }
-</section>
+</div>

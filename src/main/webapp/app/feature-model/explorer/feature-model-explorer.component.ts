@@ -31,6 +31,8 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly searchQuery = signal<string>('');
     readonly selectedFeatureId = signal<string | undefined>(undefined);
     readonly viewMode = signal<ExplorerViewMode>('list');
+    /** Keeps the maintainer-only source metadata collapsed until it is asked for. */
+    readonly sourceExpanded = signal<boolean>(false);
     private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
 
     readonly model = computed(() => this.response()?.model);
@@ -89,7 +91,8 @@ export class FeatureModelExplorerComponent implements OnInit {
         return Boolean(id && defaults.includes(id));
     });
     readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedNode()?.feature.defaultState ?? null));
-    readonly relationBadgeClass = computed(() => relationBadgeClass(this.selectedIncomingRelation()?.relationType));
+    readonly selectedKindLabel = computed(() => formatKind(this.selectedNode()?.feature.kind ?? ''));
+    readonly selectedKindDotClass = computed(() => kindDotClass(this.selectedNode()?.feature.kind ?? ''));
 
     ngOnInit(): void {
         this.featureModelService
@@ -147,6 +150,10 @@ export class FeatureModelExplorerComponent implements OnInit {
 
     onSetViewMode(mode: ExplorerViewMode): void {
         this.viewMode.set(mode);
+    }
+
+    onToggleSourceMetadata(): void {
+        this.sourceExpanded.update((expanded) => !expanded);
     }
 
     /**
@@ -211,15 +218,31 @@ function defaultStateBadgeClass(state: string | null): string {
     }
 }
 
-function relationBadgeClass(relationType: string | undefined): string {
-    switch (relationType) {
-        case 'mandatory':
-            return 'text-bg-primary';
-        case 'optional':
-            return 'text-bg-warning';
+function formatKind(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'Root';
         case 'group':
-            return 'text-bg-info';
+            return 'Group';
+        case 'module':
+            return 'Module';
+        case 'feature':
+            return 'Feature';
         default:
-            return 'text-bg-light border';
+            return kind;
+    }
+}
+
+function kindDotClass(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'kind-dot--root';
+        case 'group':
+        case 'module':
+            return 'kind-dot--group';
+        case 'feature':
+            return 'kind-dot--feature';
+        default:
+            return '';
     }
 }

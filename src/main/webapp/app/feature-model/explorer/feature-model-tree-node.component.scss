@@ -11,17 +11,20 @@
 .tree-children {
     list-style: none;
     margin: 0;
-    padding-left: 1.25rem;
-    border-left: 1px dashed var(--bs-border-color);
+    padding-left: 1.15rem;
+    border-left: 1px solid var(--bs-border-color);
 }
 
+/* Fixed height and no wrapping: rows must form a single scannable column. */
 .tree-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
+    gap: 0.45rem;
+    height: 2rem;
+    padding: 0 0.5rem 0 0.35rem;
+    border-left: 3px solid transparent;
     border-radius: var(--bs-border-radius-sm);
+    white-space: nowrap;
     cursor: pointer;
     user-select: none;
 }
@@ -35,39 +38,84 @@
     outline-offset: -2px;
 }
 
+/* Match and selection share one language and differ only in colour. */
+.tree-row--match {
+    border-left-color: var(--bs-info);
+}
+
 .tree-row--selected {
     background: var(--bs-primary-bg-subtle);
+    border-left-color: var(--bs-primary);
     color: var(--bs-emphasis-color);
 }
 
-.tree-row--match {
-    box-shadow: inset 0 0 0 2px var(--bs-info);
-}
-
-.tree-toggle {
-    width: 1.5rem;
+.tree-toggle,
+.tree-indent {
+    display: inline-block;
+    width: 1.1rem;
+    flex: none;
     line-height: 1;
+    text-align: center;
     text-decoration: none;
     color: var(--bs-secondary-color);
 }
 
-.tree-leaf-spacer {
-    display: inline-block;
-    width: 1.5rem;
+/* Feature kind, encoded as colour instead of a badge; hollow means the node is not selectable. */
+.tree-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--fm-dot-color);
+}
+
+.tree-dot--hollow {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--fm-dot-color);
+}
+
+.tree-dot--root {
+    --fm-dot-color: var(--fm-kind-root);
+}
+
+.tree-dot--group {
+    --fm-dot-color: var(--fm-kind-group);
+}
+
+.tree-dot--feature {
+    --fm-dot-color: var(--fm-kind-feature);
+}
+
+.tree-dot--other {
+    --fm-dot-color: var(--bs-secondary-color);
 }
 
 .tree-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-weight: 500;
 }
 
+.tree-name--structural {
+    color: var(--bs-secondary-color);
+    font-weight: 400;
+}
+
 .tree-id {
+    flex: none;
     font-family: var(--bs-font-monospace);
     font-size: 0.8em;
 }
 
-.tree-badge {
-    font-size: 0.7rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+.tree-flag {
+    flex: none;
+    padding: 0.05rem 0.3rem;
+    border-radius: var(--bs-border-radius-sm);
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
