@@ -22,6 +22,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionIn
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.model.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
 import tools.jackson.databind.ObjectMapper;

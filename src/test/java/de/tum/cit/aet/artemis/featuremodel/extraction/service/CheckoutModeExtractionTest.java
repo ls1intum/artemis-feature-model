@@ -17,6 +17,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestExce
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException;
+import de.tum.cit.aet.artemis.featuremodel.extraction.model.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.SyntheticArtemisCheckout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;

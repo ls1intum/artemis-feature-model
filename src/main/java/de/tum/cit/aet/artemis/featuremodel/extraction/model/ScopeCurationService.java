@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,7 +27,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScop
  * resolve, entries colliding on one candidate, or resolved semantics conflicting after annotation precedence — become
  * error report items rather than aborting the run, so one run reports every curation gap at once instead of the first
  * one. {@link ManifestConformanceService} turns those errors into the blocking verdict; statically detectable
- * authoring errors are rejected earlier by {@link FeatureManifestLoader}.
+ * authoring errors are rejected earlier by {@link de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.FeatureManifestLoader}.
  */
 class ScopeCurationService {
 

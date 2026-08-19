@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,7 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrit
  * Validates the assembled generated model through the same structural integrity rules the running app uses, plus the
  * two model-side E3 rules: no technical feature may be visible or configurable for teachers, and every capability an
  * included technical feature provides must be listed by the bundled deployment profile. Everything the guided
- * workflow contributes is validated by {@link GuidedWorkflowValidator} in the workflow stage.
+ * workflow contributes is validated by the workflow stage validator.
  */
 class GeneratedModelValidator {
 

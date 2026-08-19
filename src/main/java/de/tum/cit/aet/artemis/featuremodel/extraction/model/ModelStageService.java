@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.model;
 
 import java.io.IOException;
 import java.nio.file.Path;
