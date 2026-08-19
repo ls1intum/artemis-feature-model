@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -57,7 +58,7 @@ class ScopeCurationServiceTest {
             assertThat(feature.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_OPTIONAL);
         });
         assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:beta");
-        assertThat(result.report().decisions().getFirst().state()).isEqualTo(ScopeCurationService.STATE_UNDECLARED);
+        assertThat(result.report().decisions().getFirst().state()).isEqualTo(CurationReport.STATE_UNDECLARED);
         assertThat(result.items()).extracting(ReportItem::code).contains(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION,
                 ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, ReportItem.CODE_UNDECLARED_CANDIDATE);
         assertThat(result.items()).filteredOn(item -> ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION.equals(item.code())).singleElement().satisfies(item -> {
@@ -96,7 +97,7 @@ class ScopeCurationServiceTest {
             assertThat(item.subject()).isEqualTo("module:alpha");
         });
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> assertThat(feature.id()).isEqualTo("alpha"));
-        assertThat(result.report().stateCounts()).containsEntry(ScopeCurationService.STATE_INCLUDE, 1).containsEntry(ScopeCurationService.STATE_EXCLUDE, 0);
+        assertThat(result.report().stateCounts()).containsEntry(CurationReport.STATE_INCLUDE, 1).containsEntry(CurationReport.STATE_EXCLUDE, 0);
     }
 
     @Test
@@ -129,7 +130,7 @@ class ScopeCurationServiceTest {
                 result.items(), List.of());
 
         assertThat(result.report().decisions()).singleElement().satisfies(decision -> {
-            assertThat(decision.state()).isEqualTo(ScopeCurationService.STATE_EXCLUDE);
+            assertThat(decision.state()).isEqualTo(CurationReport.STATE_EXCLUDE);
             assertThat(decision.reason()).isEqualTo(FeatureScopeManifest.EXCLUSION_REASON_UNSPECIFIED);
         });
         assertThat(result.items()).extracting(ReportItem::code).containsExactlyInAnyOrder(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED,

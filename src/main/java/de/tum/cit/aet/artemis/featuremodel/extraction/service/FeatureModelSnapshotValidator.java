@@ -17,10 +17,12 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtifactMappingTargets;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
@@ -62,24 +64,24 @@ public class FeatureModelSnapshotValidator {
     public SnapshotValidationResult validate(Path directory) throws IOException {
         requireDirectory(directory);
         requireExactFiles(directory);
-        Map<String, String> checksums = readChecksums(directory.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE));
+        Map<String, String> checksums = readChecksums(directory.resolve(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE));
         verifyChecksums(directory, checksums);
 
         // The schema gate runs on the metadata alone, so an unsupported snapshot fails with its schema version named
         // before any other payload is parsed against the current contracts.
-        GeneratedSnapshotMetadata metadata = read(directory, SnapshotPublisher.SNAPSHOT_METADATA_FILE, GeneratedSnapshotMetadata.class);
+        GeneratedSnapshotMetadata metadata = read(directory, SnapshotBundleContract.SNAPSHOT_METADATA_FILE, GeneratedSnapshotMetadata.class);
         requireSupportedSchema(metadata);
 
-        FeatureModel model = read(directory, SnapshotPublisher.SNAPSHOT_MODEL_FILE, FeatureModel.class);
-        GuidedWorkflow workflow = read(directory, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, GuidedWorkflow.class);
-        ArtemisConfigKeyCatalog catalog = read(directory, SnapshotPublisher.SNAPSHOT_CATALOG_FILE, ArtemisConfigKeyCatalog.class);
-        ExtractionReport report = read(directory, SnapshotPublisher.SNAPSHOT_REPORT_FILE, ExtractionReport.class);
-        SnapshotProvenance provenance = read(directory, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE, SnapshotProvenance.class);
+        FeatureModel model = read(directory, SnapshotBundleContract.SNAPSHOT_MODEL_FILE, FeatureModel.class);
+        GuidedWorkflow workflow = read(directory, SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE, GuidedWorkflow.class);
+        ArtemisConfigKeyCatalog catalog = read(directory, SnapshotBundleContract.SNAPSHOT_CATALOG_FILE, ArtemisConfigKeyCatalog.class);
+        ExtractionReport report = read(directory, SnapshotBundleContract.SNAPSHOT_REPORT_FILE, ExtractionReport.class);
+        SnapshotProvenance provenance = read(directory, SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE, SnapshotProvenance.class);
 
         validateMetadata(metadata, model, provenance);
         validateProvenance(directory, provenance, metadata, report, catalog);
         validateModelWorkflowAndCatalog(model, workflow, catalog);
-        return new SnapshotValidationResult(metadata.snapshotId(), Sha256Digest.of(directory.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)),
+        return new SnapshotValidationResult(metadata.snapshotId(), Sha256Digest.of(directory.resolve(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE)),
                 provenance.artemisCommit(), provenance.manifestDigest(), checksums.size());
     }
 
@@ -90,8 +92,8 @@ public class FeatureModelSnapshotValidator {
     }
 
     private void requireExactFiles(Path directory) throws IOException {
-        Set<String> expected = new HashSet<>(SnapshotPublisher.PAYLOAD_FILES);
-        expected.add(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE);
+        Set<String> expected = new HashSet<>(SnapshotBundleContract.PAYLOAD_FILES);
+        expected.add(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE);
         Set<String> actual = new HashSet<>();
         try (var paths = Files.list(directory)) {
             for (Path path : paths.toList()) {
@@ -121,7 +123,7 @@ public class FeatureModelSnapshotValidator {
                 fail("Duplicate checksum entry for " + matcher.group(2) + ".");
             }
         }
-        if (!checksums.keySet().equals(new java.util.TreeSet<>(SnapshotPublisher.PAYLOAD_FILES))) {
+        if (!checksums.keySet().equals(new java.util.TreeSet<>(SnapshotBundleContract.PAYLOAD_FILES))) {
             fail("Checksum entries must cover every payload exactly once.");
         }
         return checksums;
@@ -148,9 +150,9 @@ public class FeatureModelSnapshotValidator {
     private void validateMetadata(GeneratedSnapshotMetadata metadata, FeatureModel model, SnapshotProvenance provenance) {
         List<String> declaredFiles = List.of(metadata.modelFile(), metadata.workflowFile(), metadata.catalogFile(), metadata.reportFile(),
                 metadata.provenanceFile(), metadata.checksumFile());
-        List<String> expectedFiles = List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
-                SnapshotPublisher.SNAPSHOT_CATALOG_FILE, SnapshotPublisher.SNAPSHOT_REPORT_FILE, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE,
-                SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE);
+        List<String> expectedFiles = List.of(SnapshotBundleContract.SNAPSHOT_MODEL_FILE, SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE,
+                SnapshotBundleContract.SNAPSHOT_CATALOG_FILE, SnapshotBundleContract.SNAPSHOT_REPORT_FILE, SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE,
+                SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE);
         if (!declaredFiles.equals(expectedFiles)) {
             fail("Snapshot metadata declares an unsupported payload name.");
         }
@@ -165,7 +167,7 @@ public class FeatureModelSnapshotValidator {
         if (!IMAGE_IDENTITY.matcher(metadata.imageDigest() == null ? "" : metadata.imageDigest()).matches()) {
             fail("Snapshot metadata contains an invalid Artemis image identity.");
         }
-        String expectedId = snapshotId(provenance.artemisCommit(), provenance.manifestDigest());
+        String expectedId = SnapshotBundleContract.snapshotId(provenance.artemisCommit(), provenance.manifestDigest());
         if (!expectedId.equals(metadata.snapshotId())) {
             fail("Snapshot id does not match its Artemis commit and manifest digest.");
         }
@@ -191,10 +193,10 @@ public class FeatureModelSnapshotValidator {
         if (!ExtractionReport.STATUS_PASS.equals(report.status())) {
             fail("Generation report is not passing.");
         }
-        requireDigest(directory, SnapshotPublisher.SNAPSHOT_MODEL_FILE, provenance.featureModelDigest());
-        requireDigest(directory, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE, provenance.workflowDigest());
-        requireDigest(directory, SnapshotPublisher.SNAPSHOT_CATALOG_FILE, provenance.catalogDigest());
-        requireDigest(directory, SnapshotPublisher.SNAPSHOT_REPORT_FILE, provenance.generationReportDigest());
+        requireDigest(directory, SnapshotBundleContract.SNAPSHOT_MODEL_FILE, provenance.featureModelDigest());
+        requireDigest(directory, SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE, provenance.workflowDigest());
+        requireDigest(directory, SnapshotBundleContract.SNAPSHOT_CATALOG_FILE, provenance.catalogDigest());
+        requireDigest(directory, SnapshotBundleContract.SNAPSHOT_REPORT_FILE, provenance.generationReportDigest());
     }
 
     private void validateModelWorkflowAndCatalog(FeatureModel model, GuidedWorkflow workflow, ArtemisConfigKeyCatalog catalog) {
@@ -212,7 +214,7 @@ public class FeatureModelSnapshotValidator {
         }
         for (var feature : model.features()) {
             for (ArtifactMapping mapping : feature.artifactMappings()) {
-                if (!GeneratedModelAssembler.OVERLAY_TARGET.equals(mapping.target())) {
+                if (!ArtifactMappingTargets.OVERLAY_TARGET.equals(mapping.target())) {
                     continue;
                 }
                 String type = types.get(mapping.path());
@@ -254,10 +256,6 @@ public class FeatureModelSnapshotValidator {
         if (actual == null || !actual.equals(expected)) {
             fail("Snapshot " + field + " values are inconsistent.");
         }
-    }
-
-    private String snapshotId(String artemisCommit, String manifestDigest) {
-        return "generated-" + artemisCommit.substring(0, 12) + "-" + manifestDigest.substring("sha256:".length(), "sha256:".length() + 12);
     }
 
     private void fail(String message) {

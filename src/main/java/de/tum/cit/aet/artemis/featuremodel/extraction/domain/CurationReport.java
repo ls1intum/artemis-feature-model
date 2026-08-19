@@ -16,6 +16,15 @@ import java.util.Map;
 public record CurationReport(int manifestVersion, String artemisCommitSha, Map<String, Integer> stateCounts,
         Map<String, Map<String, Integer>> countsByCandidateKind, List<String> undeclaredCandidateIds, List<CurationDecision> decisions) {
 
+    /** Persisted state key of a candidate the manifest includes. */
+    public static final String STATE_INCLUDE = "include";
+
+    /** Persisted state key of a candidate the manifest excludes. */
+    public static final String STATE_EXCLUDE = "exclude";
+
+    /** Persisted state key of a candidate the manifest never decided about. */
+    public static final String STATE_UNDECLARED = "undeclared";
+
     /**
      * Normalizes report collections to immutable copies.
      */

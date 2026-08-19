@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import tools.jackson.databind.ObjectMapper;
 
@@ -62,12 +63,12 @@ class SnapshotPublisherTest {
         assertThat(publish(WORKFLOW_BYTES, true)).isTrue();
 
         Path snapshotDirectory = layout().snapshotDirectory();
-        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_MODEL_FILE)).isRegularFile();
-        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE)).isRegularFile();
-        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE)).isRegularFile();
-        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE)).content().contains("\"sourceCommit\" : \"" + ARTEMIS_COMMIT + "\"")
+        assertThat(snapshotDirectory.resolve(SnapshotBundleContract.SNAPSHOT_MODEL_FILE)).isRegularFile();
+        assertThat(snapshotDirectory.resolve(SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE)).isRegularFile();
+        assertThat(snapshotDirectory.resolve(SnapshotBundleContract.SNAPSHOT_METADATA_FILE)).isRegularFile();
+        assertThat(snapshotDirectory.resolve(SnapshotBundleContract.SNAPSHOT_METADATA_FILE)).content().contains("\"sourceCommit\" : \"" + ARTEMIS_COMMIT + "\"")
                 .contains("\"imageDigest\" : \"latest\"");
-        assertThat(snapshotDirectory.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)).content().startsWith("sha256:")
+        assertThat(snapshotDirectory.resolve(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE)).content().startsWith("sha256:")
                 .contains("  config-key-catalog.json", "  provenance.json", "  generation-report.json");
         assertThat(Files.list(snapshotDirectory).map(path -> path.getFileName().toString()).sorted().toList())
                 .containsExactly("checksums.txt", "config-key-catalog.json", "feature-model.json", "generation-report.json", "guided-workflow.json",

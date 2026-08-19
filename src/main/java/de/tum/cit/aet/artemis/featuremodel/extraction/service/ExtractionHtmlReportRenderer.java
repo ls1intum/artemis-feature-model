@@ -50,8 +50,8 @@ class ExtractionHtmlReportRenderer {
             ReportItem.SEVERITY_INFO, "Info");
 
     /** Column order of the candidate decision matrix. */
-    private static final List<String> DECISION_STATES = List.of(ScopeCurationService.STATE_INCLUDE, ScopeCurationService.STATE_EXCLUDE,
-            ScopeCurationService.STATE_UNDECLARED);
+    private static final List<String> DECISION_STATES = List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE,
+            CurationReport.STATE_UNDECLARED);
 
     /**
      * Preferred row order of the candidate decision matrix, from the most feature-like kind to the most infrastructural
@@ -155,7 +155,7 @@ class ExtractionHtmlReportRenderer {
         int errors = countOf(severityCounts, ReportItem.SEVERITY_ERROR);
         int warnings = countOf(severityCounts, ReportItem.SEVERITY_WARNING);
         int infos = countOf(severityCounts, ReportItem.SEVERITY_INFO);
-        int undeclared = countOf(report.curation().stateCounts(), ScopeCurationService.STATE_UNDECLARED);
+        int undeclared = countOf(report.curation().stateCounts(), CurationReport.STATE_UNDECLARED);
         String tiles = tile("Errors", errors, errors == 0 ? "ok" : "bad") + tile("Warnings", warnings, warnings == 0 ? "ok" : "warn")
                 + tile("Info", infos, infos == 0 ? "ok" : "info") + tile("Undeclared", undeclared, undeclared == 0 ? "ok" : "bad")
                 + tile("Candidates", report.curation().decisions().size(), "neutral");
@@ -307,9 +307,9 @@ class ExtractionHtmlReportRenderer {
                 <section id="decisions">
                 <h2>Candidate decisions <span class="count">%s</span></h2>
                 %s%s%s%s</section>
-                """.formatted(decisions.size(), decisionMatrix(curation), undeclaredBlock(decisionsWithState(decisions, ScopeCurationService.STATE_UNDECLARED)),
-                includedGroup(decisionsWithState(decisions, ScopeCurationService.STATE_INCLUDE)),
-                excludedGroup(decisionsWithState(decisions, ScopeCurationService.STATE_EXCLUDE)));
+                """.formatted(decisions.size(), decisionMatrix(curation), undeclaredBlock(decisionsWithState(decisions, CurationReport.STATE_UNDECLARED)),
+                includedGroup(decisionsWithState(decisions, CurationReport.STATE_INCLUDE)),
+                excludedGroup(decisionsWithState(decisions, CurationReport.STATE_EXCLUDE)));
     }
 
     /**

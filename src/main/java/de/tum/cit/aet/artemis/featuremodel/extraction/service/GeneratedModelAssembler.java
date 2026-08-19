@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtifactMappingTargets;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -43,8 +44,6 @@ class GeneratedModelAssembler {
     static final String GENERATED_MODEL_ID = "artemis-generated-feature-model";
 
     static final String GENERATED_MODEL_NAME = "Artemis Generated Feature Model";
-
-    static final String OVERLAY_TARGET = "application-feature-model.yml";
 
     private static final String KIND_ROOT = "root";
 
@@ -384,7 +383,7 @@ class GeneratedModelAssembler {
     private List<ArtifactMapping> artifactMappings(ResolvedFeatureScope included, FeatureCandidate candidate) {
         List<ArtifactMapping> mappings = new ArrayList<>();
         if (candidate != null && candidate.configKey() != null && FeatureCandidate.KIND_MODULE_FEATURE.equals(candidate.kind())) {
-            mappings.add(new ArtifactMapping(OVERLAY_TARGET, candidate.configKey(), ArtifactMappingSource.SELECTION, objectMapper.valueToTree(Boolean.TRUE),
+            mappings.add(new ArtifactMapping(ArtifactMappingTargets.OVERLAY_TARGET, candidate.configKey(), ArtifactMappingSource.SELECTION, objectMapper.valueToTree(Boolean.TRUE),
                     objectMapper.valueToTree(Boolean.FALSE), null));
         }
         for (MappingHint hint : included.artifactMappings()) {

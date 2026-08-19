@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.List;
 import java.util.UUID;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
@@ -17,30 +16,12 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactL
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import tools.jackson.databind.ObjectMapper;
 
 /** Publishes the complete deterministic snapshot of an eligible generated artifact bundle atomically. */
 class SnapshotPublisher {
-
-    static final String SNAPSHOT_MODEL_FILE = "feature-model.json";
-
-    static final String SNAPSHOT_WORKFLOW_FILE = "guided-workflow.json";
-
-    static final String SNAPSHOT_CATALOG_FILE = "config-key-catalog.json";
-
-    static final String SNAPSHOT_REPORT_FILE = "generation-report.json";
-
-    static final String SNAPSHOT_PROVENANCE_FILE = "provenance.json";
-
-    static final String SNAPSHOT_METADATA_FILE = "metadata.json";
-
-    static final String SNAPSHOT_CHECKSUM_FILE = "checksums.txt";
-
-    static final List<String> PAYLOAD_FILES = List.of(SNAPSHOT_CATALOG_FILE, SNAPSHOT_MODEL_FILE, SNAPSHOT_REPORT_FILE, SNAPSHOT_METADATA_FILE,
-            SNAPSHOT_PROVENANCE_FILE, SNAPSHOT_WORKFLOW_FILE);
-
-    private static final int SHORT_ID_LENGTH = 12;
 
     private static final String LINE_FEED = "\n";
 
@@ -110,10 +91,10 @@ class SnapshotPublisher {
     private void writeSnapshotContents(Path directory, FeatureModel model, byte[] workflowBytes, ArtemisConfigKeyCatalog catalog, ExtractionReport report,
             String artemisCommit, String manifestDigest, String repositoryCommit, String profileDigest, String imageDigest, String manifestSource)
             throws IOException {
-        Path modelFile = directory.resolve(SNAPSHOT_MODEL_FILE);
-        Path workflowFile = directory.resolve(SNAPSHOT_WORKFLOW_FILE);
-        Path catalogFile = directory.resolve(SNAPSHOT_CATALOG_FILE);
-        Path reportFile = directory.resolve(SNAPSHOT_REPORT_FILE);
+        Path modelFile = directory.resolve(SnapshotBundleContract.SNAPSHOT_MODEL_FILE);
+        Path workflowFile = directory.resolve(SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE);
+        Path catalogFile = directory.resolve(SnapshotBundleContract.SNAPSHOT_CATALOG_FILE);
+        Path reportFile = directory.resolve(SnapshotBundleContract.SNAPSHOT_REPORT_FILE);
         jsonWriter.write(modelFile, model);
         Files.write(workflowFile, workflowBytes);
         jsonWriter.write(catalogFile, catalog);
@@ -122,28 +103,24 @@ class SnapshotPublisher {
         SnapshotProvenance provenance = new SnapshotProvenance(SnapshotProvenance.CURRENT_FORMAT_VERSION, artemisCommit, manifestDigest, repositoryCommit,
                 ScanResult.EXTRACTOR_VERSION, Sha256Digest.of(modelFile), Sha256Digest.of(workflowFile), Sha256Digest.of(catalogFile),
                 Sha256Digest.of(reportFile), profileDigest, manifestSource);
-        jsonWriter.write(directory.resolve(SNAPSHOT_PROVENANCE_FILE), provenance);
+        jsonWriter.write(directory.resolve(SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE), provenance);
 
-        String snapshotId = snapshotId(artemisCommit, manifestDigest);
+        String snapshotId = SnapshotBundleContract.snapshotId(artemisCommit, manifestDigest);
         GeneratedSnapshotMetadata metadata = new GeneratedSnapshotMetadata(GeneratedSnapshotMetadata.CURRENT_SCHEMA_VERSION,
                 SnapshotProvenance.CURRENT_FORMAT_VERSION, model.model().id(), snapshotId, model.model().version(), GeneratedSnapshotMetadata.STATUS_GENERATED,
-                artemisCommit, imageDigest, GeneratedSnapshotMetadata.EXTRACTOR_ID_PREFIX + ScanResult.EXTRACTOR_VERSION, SNAPSHOT_MODEL_FILE,
-                SNAPSHOT_WORKFLOW_FILE, SNAPSHOT_CATALOG_FILE, SNAPSHOT_REPORT_FILE, SNAPSHOT_PROVENANCE_FILE, SNAPSHOT_CHECKSUM_FILE);
-        jsonWriter.write(directory.resolve(SNAPSHOT_METADATA_FILE), metadata);
+                artemisCommit, imageDigest, GeneratedSnapshotMetadata.EXTRACTOR_ID_PREFIX + ScanResult.EXTRACTOR_VERSION,
+                SnapshotBundleContract.SNAPSHOT_MODEL_FILE, SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE, SnapshotBundleContract.SNAPSHOT_CATALOG_FILE,
+                SnapshotBundleContract.SNAPSHOT_REPORT_FILE, SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE, SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE);
+        jsonWriter.write(directory.resolve(SnapshotBundleContract.SNAPSHOT_METADATA_FILE), metadata);
         writeChecksums(directory);
-    }
-
-    private String snapshotId(String artemisCommit, String manifestDigest) {
-        String manifestHex = manifestDigest.substring(manifestDigest.indexOf(':') + 1);
-        return "generated-" + artemisCommit.substring(0, SHORT_ID_LENGTH) + "-" + manifestHex.substring(0, SHORT_ID_LENGTH);
     }
 
     private void writeChecksums(Path directory) throws IOException {
         StringBuilder checksums = new StringBuilder();
-        for (String fileName : PAYLOAD_FILES) {
+        for (String fileName : SnapshotBundleContract.PAYLOAD_FILES) {
             checksums.append(Sha256Digest.of(directory.resolve(fileName))).append("  ").append(fileName).append(LINE_FEED);
         }
-        Files.write(directory.resolve(SNAPSHOT_CHECKSUM_FILE), checksums.toString().getBytes(StandardCharsets.UTF_8));
+        Files.write(directory.resolve(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE), checksums.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     private void publishSnapshot(Path temporaryDirectory, Path snapshotDirectory) throws IOException {

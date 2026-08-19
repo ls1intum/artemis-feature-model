@@ -199,9 +199,9 @@ class ExtractionHtmlReportRendererTest {
     private CurationReport curation(List<CurationDecision> decisions) {
         Map<String, Integer> stateCounts = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> countsByKind = new LinkedHashMap<>();
-        List<String> undeclaredIds = decisions.stream().filter(decision -> ScopeCurationService.STATE_UNDECLARED.equals(decision.state()))
+        List<String> undeclaredIds = decisions.stream().filter(decision -> CurationReport.STATE_UNDECLARED.equals(decision.state()))
                 .map(CurationDecision::candidateId).toList();
-        for (String state : List.of(ScopeCurationService.STATE_INCLUDE, ScopeCurationService.STATE_EXCLUDE, ScopeCurationService.STATE_UNDECLARED)) {
+        for (String state : List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE, CurationReport.STATE_UNDECLARED)) {
             stateCounts.put(state, 0);
         }
         for (CurationDecision decision : decisions) {
@@ -218,23 +218,23 @@ class ExtractionHtmlReportRendererTest {
      */
     private Map<String, Integer> stateCountTemplate() {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        counts.put(ScopeCurationService.STATE_INCLUDE, 0);
-        counts.put(ScopeCurationService.STATE_EXCLUDE, 0);
-        counts.put(ScopeCurationService.STATE_UNDECLARED, 0);
+        counts.put(CurationReport.STATE_INCLUDE, 0);
+        counts.put(CurationReport.STATE_EXCLUDE, 0);
+        counts.put(CurationReport.STATE_UNDECLARED, 0);
         return counts;
     }
 
     private CurationDecision included(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, ScopeCurationService.STATE_INCLUDE, "alpha-feature", null, "manifest");
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null, "manifest");
     }
 
     private CurationDecision excluded(String candidateId, String reason) {
         String kind = candidateId.startsWith("profile:") ? FeatureCandidate.KIND_SPRING_PROFILE
                 : candidateId.startsWith("infra:") ? FeatureCandidate.KIND_INFRASTRUCTURE : FeatureCandidate.KIND_MODULE_FEATURE;
-        return new CurationDecision(candidateId, kind, ScopeCurationService.STATE_EXCLUDE, null, reason, null);
+        return new CurationDecision(candidateId, kind, CurationReport.STATE_EXCLUDE, null, reason, null);
     }
 
     private CurationDecision undeclared(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, ScopeCurationService.STATE_UNDECLARED, null, null, null);
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_UNDECLARED, null, null, null);
     }
 }

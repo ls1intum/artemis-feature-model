@@ -12,6 +12,7 @@ import java.util.List;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ArtifactDirectoryOperations;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.DockerSnapshotContext;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import tools.jackson.databind.ObjectMapper;
@@ -24,8 +25,6 @@ public class DockerSnapshotContextStager {
 
     /** Deterministic build-argument file written beside, but not inside, the named context. */
     public static final String BUILD_PROPERTIES_FILE = "image-build.properties";
-
-    private static final String PROVENANCE_FILE = "provenance.json";
 
     private final ObjectMapper objectMapper;
 
@@ -60,7 +59,7 @@ public class DockerSnapshotContextStager {
             throw new IOException("Docker snapshot context must not contain or replace its source snapshot.");
         }
         SnapshotValidationResult sourceValidation = validator.validate(normalizedSource);
-        SnapshotProvenance provenance = objectMapper.readValue(Files.readAllBytes(normalizedSource.resolve(PROVENANCE_FILE)), SnapshotProvenance.class);
+        SnapshotProvenance provenance = objectMapper.readValue(Files.readAllBytes(normalizedSource.resolve(SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE)), SnapshotProvenance.class);
 
         Path parent = normalizedContext.getParent();
         if (parent == null) {

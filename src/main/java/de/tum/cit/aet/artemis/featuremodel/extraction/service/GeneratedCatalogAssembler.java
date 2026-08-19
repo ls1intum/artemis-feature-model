@@ -8,6 +8,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtifactMappingTargets;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -45,7 +46,7 @@ class GeneratedCatalogAssembler {
         TreeSet<String> keys = new TreeSet<>();
         for (FeatureNode feature : generatedModel.features()) {
             for (ArtifactMapping mapping : feature.artifactMappings()) {
-                if (GeneratedModelAssembler.OVERLAY_TARGET.equals(mapping.target())) {
+                if (ArtifactMappingTargets.OVERLAY_TARGET.equals(mapping.target())) {
                     keys.add(mapping.path());
                 }
             }

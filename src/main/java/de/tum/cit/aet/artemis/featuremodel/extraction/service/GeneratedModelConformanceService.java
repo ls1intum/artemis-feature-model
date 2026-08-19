@@ -13,6 +13,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtifactMappingTargets;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
@@ -235,7 +236,7 @@ class GeneratedModelConformanceService {
     private List<ArtifactMapping> expectedMappings(ResolvedFeatureScope included, FeatureCandidate candidate) {
         List<ArtifactMapping> mappings = new ArrayList<>();
         if (candidate != null && candidate.configKey() != null && FeatureCandidate.KIND_MODULE_FEATURE.equals(candidate.kind())) {
-            mappings.add(new ArtifactMapping(GeneratedModelAssembler.OVERLAY_TARGET, candidate.configKey(), ArtifactMappingSource.SELECTION,
+            mappings.add(new ArtifactMapping(ArtifactMappingTargets.OVERLAY_TARGET, candidate.configKey(), ArtifactMappingSource.SELECTION,
                     objectMapper.valueToTree(Boolean.TRUE), objectMapper.valueToTree(Boolean.FALSE), null));
         }
         for (MappingHint hint : included.artifactMappings()) {

@@ -20,6 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactE
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -95,7 +96,7 @@ class FeatureModelSnapshotValidatorTest {
 
     @Test
     void rejectsMetadataCommitMismatchEvenWithUpdatedChecksum() throws Exception {
-        Path metadata = snapshot.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE);
+        Path metadata = snapshot.resolve(SnapshotBundleContract.SNAPSHOT_METADATA_FILE);
         Files.writeString(metadata, Files.readString(metadata).replace(ARTEMIS_COMMIT, "bbbbbbbbccccccccddddddddeeeeeeeeffffffff"));
         rewriteChecksums();
 
@@ -105,7 +106,7 @@ class FeatureModelSnapshotValidatorTest {
 
     @Test
     void rejectsProvenanceManifestMismatchEvenWithUpdatedChecksum() throws Exception {
-        Path provenance = snapshot.resolve(SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE);
+        Path provenance = snapshot.resolve(SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE);
         String original = Files.readString(provenance);
         int digestStart = original.indexOf("sha256:");
         char replacement = original.charAt(digestStart + 7) == '0' ? '1' : '0';
@@ -146,7 +147,7 @@ class FeatureModelSnapshotValidatorTest {
         replaceMetadata("\"schemaVersion\" : 3", "\"schemaVersion\" : 2");
         // A v2 model payload would not even parse against the current mapping contract; the schema gate must fire
         // first, so the model payload is made unparseable to prove no payload parsing happens after the gate.
-        Files.writeString(snapshot.resolve(SnapshotPublisher.SNAPSHOT_MODEL_FILE), "not json\n");
+        Files.writeString(snapshot.resolve(SnapshotBundleContract.SNAPSHOT_MODEL_FILE), "not json\n");
         rewriteChecksums();
 
         assertThatThrownBy(() -> new FeatureModelSnapshotValidator(objectMapper).validate(snapshot)).isInstanceOf(ExtractionArtifactException.class)
@@ -155,7 +156,7 @@ class FeatureModelSnapshotValidatorTest {
 
     @Test
     void rejectsAProvenanceWithoutAValidManifestSource() throws Exception {
-        Path provenance = snapshot.resolve(SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE);
+        Path provenance = snapshot.resolve(SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE);
         Files.writeString(provenance, Files.readString(provenance).replace("\"manifestSource\" : \"repository\"", "\"manifestSource\" : \"unknown\""));
         rewriteChecksums();
 
@@ -164,7 +165,7 @@ class FeatureModelSnapshotValidatorTest {
     }
 
     private void replaceMetadata(String original, String replacement) throws Exception {
-        Path metadata = snapshot.resolve(SnapshotPublisher.SNAPSHOT_METADATA_FILE);
+        Path metadata = snapshot.resolve(SnapshotBundleContract.SNAPSHOT_METADATA_FILE);
         String content = Files.readString(metadata);
         assertThat(content).contains(original);
         Files.writeString(metadata, content.replace(original, replacement));
@@ -173,10 +174,10 @@ class FeatureModelSnapshotValidatorTest {
 
     private void rewriteChecksums() throws Exception {
         StringBuilder content = new StringBuilder();
-        for (String fileName : SnapshotPublisher.PAYLOAD_FILES) {
+        for (String fileName : SnapshotBundleContract.PAYLOAD_FILES) {
             content.append(Sha256Digest.of(snapshot.resolve(fileName))).append("  ").append(fileName).append('\n');
         }
-        Files.write(snapshot.resolve(SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE), content.toString().getBytes(StandardCharsets.UTF_8));
+        Files.write(snapshot.resolve(SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE), content.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     private Map<String, byte[]> snapshotBytes() throws Exception {

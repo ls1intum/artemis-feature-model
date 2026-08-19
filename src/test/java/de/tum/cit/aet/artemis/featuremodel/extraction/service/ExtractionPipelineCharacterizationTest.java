@@ -31,6 +31,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ModelResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
@@ -170,9 +171,9 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.RELEASE_DELTA_REPORT_FILE)).content().contains("\"status\" : \"skipped\"")
                 .contains("\"blocking\" : false");
 
-        for (String fileName : List.of(SnapshotPublisher.SNAPSHOT_MODEL_FILE, SnapshotPublisher.SNAPSHOT_WORKFLOW_FILE,
-                SnapshotPublisher.SNAPSHOT_CATALOG_FILE, SnapshotPublisher.SNAPSHOT_REPORT_FILE, SnapshotPublisher.SNAPSHOT_PROVENANCE_FILE,
-                SnapshotPublisher.SNAPSHOT_METADATA_FILE, SnapshotPublisher.SNAPSHOT_CHECKSUM_FILE)) {
+        for (String fileName : List.of(SnapshotBundleContract.SNAPSHOT_MODEL_FILE, SnapshotBundleContract.SNAPSHOT_WORKFLOW_FILE,
+                SnapshotBundleContract.SNAPSHOT_CATALOG_FILE, SnapshotBundleContract.SNAPSHOT_REPORT_FILE, SnapshotBundleContract.SNAPSHOT_PROVENANCE_FILE,
+                SnapshotBundleContract.SNAPSHOT_METADATA_FILE, SnapshotBundleContract.SNAPSHOT_CHECKSUM_FILE)) {
             assertThat(layout.snapshotDirectory().resolve(fileName)).as("snapshot file %s", fileName).isRegularFile();
         }
     }

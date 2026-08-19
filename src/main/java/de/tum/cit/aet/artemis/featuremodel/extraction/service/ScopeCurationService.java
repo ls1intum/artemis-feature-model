@@ -31,12 +31,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScop
  */
 class ScopeCurationService {
 
-    static final String STATE_INCLUDE = "include";
-
-    static final String STATE_EXCLUDE = "exclude";
-
-    static final String STATE_UNDECLARED = "undeclared";
-
     private static final String SEMANTIC_SOURCE_MANIFEST = "manifest";
 
     private static final String SEMANTIC_SOURCE_ANNOTATION = "annotation";
@@ -227,21 +221,21 @@ class ScopeCurationService {
         if (membership != null && membership.include() != null) {
             ResolvedFeatureScope scope = resolveSemantics(candidate, membership.include(), annotation, items);
             includedFeatures.add(scope);
-            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_INCLUDE, scope.id(), null, scope.semanticSource()));
+            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_INCLUDE, scope.id(), null, scope.semanticSource()));
             return;
         }
         if (membership != null) {
-            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_EXCLUDE, null, membership.exclude().reason(), null));
+            decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_EXCLUDE, null, membership.exclude().reason(), null));
             if (annotation != null) {
-                items.add(annotatedButUnscoped(candidate, annotation, STATE_EXCLUDE));
+                items.add(annotatedButUnscoped(candidate, annotation, CurationReport.STATE_EXCLUDE));
             }
             return;
         }
-        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), STATE_UNDECLARED, null, null, null));
+        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_UNDECLARED, null, null, null));
         items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(),
                 "Candidate has no manifest decision; add it to include or exclude before this scan can produce a model."));
         if (annotation != null) {
-            items.add(annotatedButUnscoped(candidate, annotation, STATE_UNDECLARED));
+            items.add(annotatedButUnscoped(candidate, annotation, CurationReport.STATE_UNDECLARED));
         }
     }
 
@@ -470,7 +464,7 @@ class ScopeCurationService {
         for (CurationDecision decision : decisions) {
             stateCounts.merge(decision.state(), 1, Integer::sum);
             byKind.computeIfAbsent(decision.candidateKind(), ignored -> initializedCounts()).merge(decision.state(), 1, Integer::sum);
-            if (STATE_UNDECLARED.equals(decision.state())) {
+            if (CurationReport.STATE_UNDECLARED.equals(decision.state())) {
                 undeclared.add(decision.candidateId());
             }
         }
@@ -486,9 +480,9 @@ class ScopeCurationService {
      */
     private Map<String, Integer> initializedCounts() {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        counts.put(STATE_INCLUDE, 0);
-        counts.put(STATE_EXCLUDE, 0);
-        counts.put(STATE_UNDECLARED, 0);
+        counts.put(CurationReport.STATE_INCLUDE, 0);
+        counts.put(CurationReport.STATE_EXCLUDE, 0);
+        counts.put(CurationReport.STATE_UNDECLARED, 0);
         return counts;
     }
 
@@ -512,8 +506,8 @@ class ScopeCurationService {
      */
     private int stateOrder(String state) {
         return switch (state) {
-            case STATE_UNDECLARED -> 0;
-            case STATE_INCLUDE -> 1;
+            case CurationReport.STATE_UNDECLARED -> 0;
+            case CurationReport.STATE_INCLUDE -> 1;
             default -> 2;
         };
     }
