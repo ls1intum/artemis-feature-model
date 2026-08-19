@@ -278,10 +278,19 @@ Server package areas:
   config key catalog.
 - `extraction` owns the manifest-driven staged pipeline. `extraction.source`
   owns upstream source conventions, verified location, and shared parse/scan
-  results; `extraction.domain` owns persisted scan and envelope contracts;
-  `extraction.service` owns scanners, stateless feature-family assembly, and
-  command orchestration; `extraction.artifact` owns deterministic JSON bytes,
-  SHA-256 calculation, and artifact-directory lifecycle operations.
+  results; `extraction.domain` owns persisted scan, envelope, and
+  snapshot-bundle contracts; `extraction.pipeline` owns shared stage
+  infrastructure — run context, verified input loading, manifest loading and
+  preflight, the digest-verified artifact store, and controlled-failure
+  reporting; `extraction.scan` owns the source scanners and candidate assembly
+  behind the scan stage; `extraction.model` owns curation, conformance, and
+  model/catalog generation behind the model stage; `extraction.workflow` owns
+  extraction-time workflow validation and scaffold authoring;
+  `extraction.report` owns report assembly and HTML rendering and depends only
+  on `extraction.domain`; `extraction.snapshot` owns snapshot publication,
+  validation, and Docker context staging behind the package stage;
+  `extraction.artifact` owns deterministic JSON bytes, SHA-256 calculation,
+  and artifact-directory lifecycle operations.
 - `shared` is only for truly shared exceptions, constants, and small utilities.
 
 Client areas:
