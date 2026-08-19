@@ -14,13 +14,16 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRe
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The {@code extractFeatureCandidates} command: reads the pinned Artemis checkout once and writes the raw source
- * discovery artifacts. It is the only stage that opens Artemis, so every later command works from these files.
+ * The {@code extractFeatureCandidates} command: reads the verified Artemis checkout once and writes the raw source
+ * discovery artifacts. It is the only stage that reads Artemis sources, so every later command works from these files.
  *
  * <p>
- * The command invalidates its own output and every downstream directory before it resolves the checkout, so any way
- * this scan can fail — missing checkout configuration, a checkout at another commit, a dirty working tree, or a write
- * error — leaves no artifact of a previous run behind that a later command could mistake for this one.
+ * The command derives its run identity from the checkout HEAD before it touches any artifact: a failure to establish
+ * that identity — missing checkout configuration, no derivable revision, a dirty working tree, or a mismatch with the
+ * externally expected revision — stops the run before anything is invalidated, because no run directory can be
+ * attributed to it. Once the identity is established, the command invalidates its own output and every downstream
+ * directory of that revision before scanning, so a scan failure leaves no artifact behind that a later command could
+ * mistake for this run's output.
  */
 public class ScanStageService {
 
@@ -58,22 +61,20 @@ public class ScanStageService {
      * Runs one scan.
      *
      * @param inputs resolved command inputs.
-     * @param sourceFactory creates the source repository over the configured checkout. The command resolves the
-     *            checkout itself, so a missing checkout configuration fails inside the same invalidation boundary as
-     *            every other scan failure.
+     * @param sourceFactory creates the source repository over the configured checkout.
      * @return summary of the written scan artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
-     * @throws IllegalStateException if no Artemis checkout is configured; no artifact of this run survives.
-     * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if the checkout is not the
-     *             pinned commit or is not clean; the scan does not run and no artifact of this run survives.
+     * @throws IllegalStateException if no Artemis checkout is configured; the run has no identity, so nothing is
+     *             invalidated.
+     * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if no revision can be
+     *             derived, the checkout is dirty, or the derived revision differs from the expected one; the run has
+     *             no attributable identity, so nothing is invalidated.
      */
     public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
-        ExtractionRunContext context = inputLoader.runContext(inputs);
+        ArtemisSourceRepository source = inputLoader.verifiedSource(inputs, sourceFactory);
+        ExtractionRunContext context = inputLoader.runContext(inputs, source);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.SCAN);
         try {
-            ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
-            new ArtemisSourcePreflight().verify(source, context.artemisCommit());
-
             String scanStartedAt = Instant.now().toString();
             ExtractedSourceFacts outcome = new FeatureExtractionService(objectMapper).scan(source);
             String scanFinishedAt = Instant.now().toString();

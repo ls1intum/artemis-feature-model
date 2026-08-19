@@ -6,14 +6,14 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactL
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 
 /**
- * Per-command manifest boundary derived from one byte read: exact bytes, parsed content, digest, pinned commit, and
- * commit-scoped artifact layout cannot drift apart within a command.
+ * Per-command manifest boundary derived from one byte read and one verified checkout: exact manifest bytes, parsed
+ * content, digest, derived source revision, and revision-scoped artifact layout cannot drift apart within a command.
  *
  * @param manifestBytes exact bytes read from the configured manifest.
  * @param manifest parsed and validated manifest from those bytes.
  * @param manifestDigest SHA-256 digest of those bytes.
- * @param artemisCommit pinned Artemis commit from the parsed manifest.
- * @param layout artifact layout derived from the output root and pinned commit.
+ * @param artemisCommit source revision derived from the verified checkout's HEAD.
+ * @param layout artifact layout derived from the output root and the derived revision.
  */
 record ExtractionRunContext(byte[] manifestBytes, FeatureScopeManifest manifest, String manifestDigest, String artemisCommit,
         ExtractionArtifactLayout layout) {
@@ -24,9 +24,6 @@ record ExtractionRunContext(byte[] manifestBytes, FeatureScopeManifest manifest,
         Objects.requireNonNull(manifestDigest);
         Objects.requireNonNull(artemisCommit);
         Objects.requireNonNull(layout);
-        if (!artemisCommit.equals(manifest.artemisCommitSha())) {
-            throw new IllegalArgumentException("The run context commit must equal the parsed manifest commit.");
-        }
     }
 
     @Override

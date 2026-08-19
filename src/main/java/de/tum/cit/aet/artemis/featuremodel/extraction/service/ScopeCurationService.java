@@ -61,9 +61,10 @@ class ScopeCurationService {
      * @param manifest loaded manifest.
      * @param candidates extracted candidates.
      * @param annotations parsed source annotations.
+     * @param artemisCommit derived source revision the scan was taken from.
      * @return classifications, resolved include semantics, and diagnostics.
      */
-    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<ExtractedAnnotation> annotations) {
+    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<ExtractedAnnotation> annotations, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveMembership(manifest, resolver, items);
@@ -78,7 +79,7 @@ class ScopeCurationService {
         includedFeatures.sort(Comparator.comparing(ResolvedFeatureScope::candidateId));
         reportResolvedSemanticConflicts(manifest, includedFeatures, items);
         decisions.sort(Comparator.comparingInt((CurationDecision decision) -> stateOrder(decision.state())).thenComparing(CurationDecision::candidateId));
-        CurationReport report = assembleReport(manifest, decisions);
+        CurationReport report = assembleReport(manifest, decisions, artemisCommit);
         return new Result(report, List.copyOf(includedFeatures), List.copyOf(items));
     }
 
@@ -459,9 +460,10 @@ class ScopeCurationService {
      *
      * @param manifest loaded manifest.
      * @param decisions sorted candidate decisions.
+     * @param artemisCommit derived source revision the scan was taken from.
      * @return curation report section.
      */
-    private CurationReport assembleReport(FeatureScopeManifest manifest, List<CurationDecision> decisions) {
+    private CurationReport assembleReport(FeatureScopeManifest manifest, List<CurationDecision> decisions, String artemisCommit) {
         Map<String, Integer> stateCounts = initializedCounts();
         Map<String, Map<String, Integer>> byKind = new TreeMap<>();
         List<String> undeclared = new ArrayList<>();
@@ -473,7 +475,7 @@ class ScopeCurationService {
             }
         }
         undeclared.sort(String::compareTo);
-        return new CurationReport(manifest.manifestVersion(), manifest.artemisCommitSha(), new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
+        return new CurationReport(manifest.manifestVersion(), artemisCommit, new LinkedHashMap<>(stateCounts), deepImmutable(byKind),
                 List.copyOf(undeclared), List.copyOf(decisions));
     }
 

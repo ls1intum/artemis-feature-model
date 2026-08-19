@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
@@ -12,13 +13,15 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * The {@code assembleFeatureModel} command: applies the manifest to an existing scan and assembles the generated
- * feature model, the regenerated config key catalog, and the standalone manifest-conformance verdict. It
- * consumes the scan artifacts through the artifact store and never reopens the Artemis checkout, and it fails without
- * a model when the manifest leaves any discovered candidate or relation undecided.
+ * feature model, the regenerated config key catalog, and the standalone manifest-conformance verdict. It derives its
+ * run identity from the verified checkout's HEAD but consumes the scan artifacts through the artifact store and never
+ * rescans Artemis sources, and it fails without a model when the manifest leaves any discovered candidate or relation
+ * undecided.
  */
 public class ModelStageService {
 
@@ -59,13 +62,15 @@ public class ModelStageService {
      * Runs one model assembly.
      *
      * @param inputs resolved command inputs.
+     * @param sourceFactory creates the source repository over the configured checkout for revision derivation.
      * @return summary of the written model artifacts.
      * @throws IOException if an input cannot be read or an artifact cannot be written.
      * @throws ManifestConformanceException if the manifest leaves a candidate or relation undecided; diagnostics are
      *             written before the failure and no model is assembled.
      */
-    public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        ExtractionRunContext context = inputLoader.runContext(inputs);
+    public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
+        ArtemisSourceRepository source = inputLoader.verifiedSource(inputs, sourceFactory);
+        ExtractionRunContext context = inputLoader.runContext(inputs, source);
         FeatureScopeManifest manifest = context.manifest();
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
         ExtractionArtifactStore.LoadedScan scan;

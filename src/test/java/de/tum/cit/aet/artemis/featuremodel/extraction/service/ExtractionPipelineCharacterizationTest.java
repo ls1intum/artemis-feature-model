@@ -49,7 +49,7 @@ class ExtractionPipelineCharacterizationTest {
 
     private static final Path FIXTURE_INPUTS = Path.of("src/test/resources/extraction/fixture-inputs");
 
-    private static final String PINNED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
+    private static final String DERIVED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
 
     private static final String OTHER_COMMIT = "bbbbbbbbccccccccddddddddeeeeeeeeffffffff";
 
@@ -63,11 +63,11 @@ class ExtractionPipelineCharacterizationTest {
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("model/generated-feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("model/manifest-conformance-report.json", "30068f9b663069ba0fce9490fc6a9ea2937f515f6d7dacee04ed3eb1b5cc046d"),
+            Map.entry("model/manifest-conformance-report.json", "c72f79baee5b0552bb16c7ef4bab16bbfdd9bae4c377f9d357ee2d13e241d7b8"),
             Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "3d9ca6a624b30ca80d9e10593e348fc33bba9464e789029d9a4caaccd4222280"),
-            Map.entry("report/extraction-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
-            Map.entry("report/index.html", "1682de7820a9229d04b79536b31df2f8fe8e58bb302bc9b47160b54c207e7ef4"),
+            Map.entry("model/model-result.json", "3c198c42378a43e02ea5af028b12df4025be33826b07744b069d8fa69b9a01ec"),
+            Map.entry("report/extraction-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
+            Map.entry("report/index.html", "aeda17a128abde99bc6f146b706e56eee9437cc040dc7dcbd3e5c7318c35a2d5"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
@@ -76,13 +76,13 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "d267c771de0327d94a519e0a32849b024f4f354d05ba8bcdb078ff2df0e8a08c"),
+            Map.entry("snapshot/checksums.txt", "52ed44ace90f3de4ba6066e87233bfc7c3489e57394ea13d315788d38039900e"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("snapshot/generation-report.json", "664c1bf904892c05ab30b15f1610562e470d26c9942402302559137e9b37f44e"),
+            Map.entry("snapshot/generation-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
             Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
-            Map.entry("snapshot/metadata.json", "b7d772fd12e89b34c1885648e6d8e7be4c8bf47627b7a1e71e7b20419134a13e"),
-            Map.entry("snapshot/provenance.json", "11df14b0604a69839a193e615288a6cd84dd8ffb201a8197069128257027520d"),
+            Map.entry("snapshot/metadata.json", "fcb059a6e620241630c5d0d2afc416357ccf15d98c320ecf12534833a5caaaf7"),
+            Map.entry("snapshot/provenance.json", "9fbf242e4daf3e5ef2d0956da9adb0c887dda437a6a92fde02764fca41cd9546"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
@@ -98,8 +98,9 @@ class ExtractionPipelineCharacterizationTest {
     @BeforeEach
     void resolveInputs() {
         inputs = new FeatureExtractionInputs(FIXTURE_PATH, Path.of("src/test/resources/extraction/mini-artemis-manifest.yml"),
-                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"), outputRoot);
-        layout = ExtractionArtifactLayout.forCommit(outputRoot, PINNED_COMMIT);
+                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
+                FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot);
+        layout = ExtractionArtifactLayout.forCommit(outputRoot, DERIVED_COMMIT);
     }
 
     @Test
@@ -108,7 +109,7 @@ class ExtractionPipelineCharacterizationTest {
 
         assertThat(summary.candidateCount()).isEqualTo(15);
         assertThat(summary.relationCandidateCount()).isEqualTo(2);
-        assertThat(summary.artemisCommit()).isEqualTo(PINNED_COMMIT);
+        assertThat(summary.artemisCommit()).isEqualTo(DERIVED_COMMIT);
         for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
                 ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE,
                 ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE)) {
@@ -121,10 +122,10 @@ class ExtractionPipelineCharacterizationTest {
     }
 
     @Test
-    void modelAssemblyConsumesTheScanWithoutReopeningArtemis() throws Exception {
+    void modelAssemblyConsumesTheScanWithoutRescanningArtemis() throws Exception {
         runScan();
 
-        ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource);
 
         assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 14).containsEntry("undeclared", 0);
         assertThat(summary.featureCount()).isEqualTo(2);
@@ -162,7 +163,7 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(reportCodes(report)).contains(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
         assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
-        assertThat(report.artemisCommit()).isEqualTo(PINNED_COMMIT);
+        assertThat(report.artemisCommit()).isEqualTo(DERIVED_COMMIT);
         assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
         assertThat(report.curation().stateCounts()).containsEntry("include", 1).containsEntry("exclude", 14);
         assertThat(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE)).isRegularFile();
@@ -200,10 +201,10 @@ class ExtractionPipelineCharacterizationTest {
     void warningOnlyGuidedFindingsPublishAFreshSnapshot() throws Exception {
         FeatureExtractionInputs draftInputs = withWorkflow(workflowWithDraftOption());
         runScan(draftInputs);
-        new ModelStageService(OBJECT_MAPPER).run(draftInputs);
+        new ModelStageService(OBJECT_MAPPER).run(draftInputs, this::fixtureSource);
 
-        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(draftInputs);
-        PackageStageService.Summary packageSummary = new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(draftInputs);
+        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(draftInputs, this::fixtureSource);
+        PackageStageService.Summary packageSummary = new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(draftInputs, this::fixtureSource);
 
         assertThat(workflowSummary.validationStatus()).isEqualTo(GuidedWorkflowValidationReport.STATUS_FINDINGS);
         assertThat(workflowSummary.deliveryEligible()).isTrue();
@@ -220,13 +221,14 @@ class ExtractionPipelineCharacterizationTest {
     void publishedOptionWithIncompleteProseBlocksPublication() throws Exception {
         FeatureExtractionInputs todoInputs = withWorkflow(workflowWithTodoPublishedOption());
         runScan(todoInputs);
-        new ModelStageService(OBJECT_MAPPER).run(todoInputs);
+        new ModelStageService(OBJECT_MAPPER).run(todoInputs, this::fixtureSource);
 
-        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(todoInputs);
+        WorkflowStageService.Summary workflowSummary = new WorkflowStageService(OBJECT_MAPPER).run(todoInputs, this::fixtureSource);
 
         assertThat(workflowSummary.deliveryEligible()).isFalse();
         assertThat(workflowSummary.severityCounts()).containsKey(ReportItem.SEVERITY_ERROR);
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(todoInputs)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(todoInputs, this::fixtureSource))
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no snapshot was published");
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
@@ -234,10 +236,10 @@ class ExtractionPipelineCharacterizationTest {
     @Test
     void rejectsAModelAssembledFromAScanThatChangedAfterwards() throws Exception {
         runScan();
-        new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
+        new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource);
         Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.RELATION_CANDIDATES_FILE), "[]\n");
 
-        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.RELATION_CANDIDATES_FILE);
         assertThat(layout.workflowDirectory()).doesNotExist();
         assertFailureReportExists();
@@ -249,7 +251,7 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource))
                 .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated model digest");
         assertFailureReportExists();
@@ -260,9 +262,9 @@ class ExtractionPipelineCharacterizationTest {
     void rejectsATamperedGeneratedCatalogBeforePackaging() throws Exception {
         runPipeline();
         Path catalogFile = layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE);
-        Files.writeString(catalogFile, Files.readString(catalogFile).replace(PINNED_COMMIT, OTHER_COMMIT));
+        Files.writeString(catalogFile, Files.readString(catalogFile).replace(DERIVED_COMMIT, OTHER_COMMIT));
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource))
                 .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("generated catalog digest");
 
@@ -283,7 +285,7 @@ class ExtractionPipelineCharacterizationTest {
                 result.modelIntegrityValid(), result.deliveryEligible(), result.conformance(), result.curation());
         Files.writeString(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(matchingDigest));
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource))
                 .isInstanceOf(RuntimeException.class);
 
         assertFailureVerdictMentions("unrecognized token");
@@ -300,7 +302,7 @@ class ExtractionPipelineCharacterizationTest {
                 result.conformance(), result.curation());
         Files.writeString(resultFile, OBJECT_MAPPER.writeValueAsString(failedConformance));
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource))
                 .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("does not conform to the resolved manifest semantics");
 
@@ -317,17 +319,37 @@ class ExtractionPipelineCharacterizationTest {
                 scanResult.payloadDigests(), scanResult.payloadDigest());
         Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE), OBJECT_MAPPER.writeValueAsString(otherCommit));
 
-        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("Artemis commit");
     }
 
     @Test
-    void aCheckoutAtAnotherCommitNeverStartsAScan() throws Exception {
+    void anExpectedRevisionMismatchNeverStartsAScanAndTouchesNoArtifact() throws Exception {
+        runPipeline();
+        FeatureExtractionInputs expectingInputs = new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(),
+                FeatureExtractionInputs.MANIFEST_SOURCE_REPOSITORY, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.runtimeImageFile(),
+                outputRoot, DERIVED_COMMIT);
+
+        assertThatThrownBy(
+                () -> new ScanStageService(OBJECT_MAPPER).run(expectingInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
+                .isInstanceOf(SourcePreflightException.class).hasMessageContaining(DERIVED_COMMIT).hasMessageContaining(OTHER_COMMIT);
+        assertThat(layout.snapshotDirectory()).isDirectory();
+        assertThat(ExtractionArtifactLayout.forCommit(outputRoot, OTHER_COMMIT).root()).doesNotExist();
+    }
+
+    @Test
+    void aCheckoutAtAnotherRevisionScansIntoItsOwnLayoutAndLeavesTheFirstRunIntact() throws Exception {
         runPipeline();
 
-        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT)))
-                .isInstanceOf(SourcePreflightException.class).hasMessageContaining(PINNED_COMMIT);
-        assertNoStageArtifactSurvives();
+        ScanStageService.Summary otherScan = new ScanStageService(OBJECT_MAPPER).run(inputs,
+                checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, OTHER_COMMIT));
+
+        ExtractionArtifactLayout otherLayout = ExtractionArtifactLayout.forCommit(outputRoot, OTHER_COMMIT);
+        assertThat(otherScan.artemisCommit()).isEqualTo(OTHER_COMMIT);
+        assertThat(otherScan.scanDirectory()).isEqualTo(otherLayout.scanDirectory());
+        assertThat(otherLayout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)).isRegularFile();
+        assertThat(layout.snapshotDirectory()).isDirectory();
+        assertThat(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)).isRegularFile();
     }
 
     @Test
@@ -336,7 +358,8 @@ class ExtractionPipelineCharacterizationTest {
         FeatureExtractionInputs incompleteManifest = withManifest(FIXTURE_INPUTS.resolve("manifest-with-undeclared-candidate.yml"));
 
         runScan(incompleteManifest);
-        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ManifestConformanceException.class)
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(incompleteManifest, this::fixtureSource))
+                .isInstanceOf(ManifestConformanceException.class)
                 .hasMessageContaining("module:gamma").hasMessageContaining("no feature model was assembled");
 
         ModelResult modelResult = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MODEL_RESULT_FILE)),
@@ -350,19 +373,25 @@ class ExtractionPipelineCharacterizationTest {
         String html = Files.readString(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE));
         assertThat(html).contains(FAILED_VERDICT_BADGE, "module:gamma", "UNDECLARED_CANDIDATE");
         assertThat(layout.snapshotDirectory()).doesNotExist();
-        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest)).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest, this::fixtureSource))
+                .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
     }
 
     @Test
-    void aMissingCheckoutConfigurationRemovesThePreviouslyPublishedSnapshot() throws Exception {
+    void aMissingCheckoutConfigurationFailsBeforeAnyRunIdentityExists() throws Exception {
         runPipeline();
         assertThat(layout.snapshotDirectory()).isDirectory();
+        FeatureExtractionInputs checkoutlessInputs = new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(),
+                inputs.deploymentProfileFile(), inputs.runtimeImageFile(), outputRoot);
 
-        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(inputsWithoutCheckout(), LocalArtemisSourceRepository::new))
+        assertThatThrownBy(() -> new ScanStageService(OBJECT_MAPPER).run(checkoutlessInputs, LocalArtemisSourceRepository::new))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining(FeatureExtractionInputs.ARTEMIS_PATH_ENVIRONMENT_VARIABLE);
 
-        assertNoStageArtifactSurvives();
+        // Without a checkout no revision can be derived, so no run directory can be attributed to the failed
+        // invocation and the previous run's artifacts legitimately survive.
+        assertThat(layout.snapshotDirectory()).isDirectory();
+        assertThat(layout.scanDirectory().resolve(ExtractionArtifactStore.SCAN_RESULT_FILE)).isRegularFile();
     }
 
     @Test
@@ -370,7 +399,7 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.EVIDENCE_FILE), "[]\n");
 
-        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class);
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource)).isInstanceOf(ExtractionArtifactException.class);
 
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
@@ -383,7 +412,7 @@ class ExtractionPipelineCharacterizationTest {
         runPipeline();
         Files.writeString(layout.workflowDirectory().resolve(ExtractionArtifactStore.PREPARED_WORKFLOW_FILE), "{}\n");
 
-        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout()))
+        assertThatThrownBy(() -> new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource))
                 .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("prepared workflow digest");
 
@@ -393,19 +422,8 @@ class ExtractionPipelineCharacterizationTest {
 
     @Test
     void modelAssemblyFailsWithoutAPriorScan() {
-        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout())).isInstanceOf(ExtractionArtifactException.class)
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource)).isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining(ExtractionArtifactStore.SCAN_RESULT_FILE);
-    }
-
-    /**
-     * Asserts that no artifact of any stage survived, which is what every scan failure must leave behind.
-     */
-    private void assertNoStageArtifactSurvives() {
-        assertThat(layout.scanDirectory()).doesNotExist();
-        assertThat(layout.modelDirectory()).doesNotExist();
-        assertThat(layout.workflowDirectory()).doesNotExist();
-        assertFailureReportExists();
-        assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 
     private void assertFailureReportExists() {
@@ -440,7 +458,7 @@ class ExtractionPipelineCharacterizationTest {
      * @throws Exception if the scan fails.
      */
     private ScanStageService.Summary runScan(FeatureExtractionInputs scanInputs) throws Exception {
-        return new ScanStageService(OBJECT_MAPPER).run(scanInputs, checkout -> FixtureArtemisSourceRepository.cleanAt(checkout, PINNED_COMMIT));
+        return new ScanStageService(OBJECT_MAPPER).run(scanInputs, this::fixtureSource);
     }
 
     /**
@@ -450,7 +468,8 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given manifest.
      */
     private FeatureExtractionInputs withManifest(Path manifestFile) {
-        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(FIXTURE_PATH, manifestFile, inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(),
+                inputs.runtimeImageFile(), inputs.outputRoot());
     }
 
     /**
@@ -460,7 +479,8 @@ class ExtractionPipelineCharacterizationTest {
      * @return inputs pointing at the given workflow.
      */
     private FeatureExtractionInputs withWorkflow(Path workflowFile) {
-        return new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), workflowFile, inputs.deploymentProfileFile(), inputs.outputRoot());
+        return new FeatureExtractionInputs(FIXTURE_PATH, inputs.manifestFile(), workflowFile, inputs.deploymentProfileFile(),
+                inputs.runtimeImageFile(), inputs.outputRoot());
     }
 
     /**
@@ -515,18 +535,19 @@ class ExtractionPipelineCharacterizationTest {
      */
     private void runPipeline() throws Exception {
         runScan();
-        new ModelStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
-        new WorkflowStageService(OBJECT_MAPPER).run(inputsWithoutCheckout());
-        new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputsWithoutCheckout());
+        new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource);
+        new WorkflowStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource);
+        new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(inputs, this::fixtureSource);
     }
 
     /**
-     * Creates inputs without an Artemis checkout, proving that the downstream commands never open one.
+     * Creates the clean fixture source repository the pipeline derives its run identity from.
      *
-     * @return inputs whose checkout is unset.
+     * @param checkout configured checkout path.
+     * @return fixture repository reporting the derived commit and a clean working tree.
      */
-    private FeatureExtractionInputs inputsWithoutCheckout() {
-        return new FeatureExtractionInputs(null, inputs.manifestFile(), inputs.authoredWorkflowFile(), inputs.deploymentProfileFile(), inputs.outputRoot());
+    private FixtureArtemisSourceRepository fixtureSource(Path checkout) {
+        return FixtureArtemisSourceRepository.cleanAt(checkout, DERIVED_COMMIT);
     }
 
     /**

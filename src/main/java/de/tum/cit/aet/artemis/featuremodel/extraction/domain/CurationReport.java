@@ -7,7 +7,7 @@ import java.util.Map;
  * Manifest classification section of the extraction report.
  *
  * @param manifestVersion loaded manifest version.
- * @param artemisCommitSha Artemis commit the manifest pins.
+ * @param artemisCommitSha source revision derived from the verified checkout.
  * @param stateCounts total counts for include, exclude, and undeclared.
  * @param countsByCandidateKind state counts grouped by extraction candidate kind.
  * @param undeclaredCandidateIds ids without a manifest decision, sorted by candidate id.

@@ -217,7 +217,7 @@ class GuidedWorkflowScaffoldServiceTest {
     }
 
     private FeatureScopeManifest manifest(List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes, List<RenameEntry> renames) {
-        return new FeatureScopeManifest(2, "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee", "latest", includes, List.of(), conceptualNodes, List.of(), List.of(), renames);
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, includes, List.of(), conceptualNodes, List.of(), List.of(), renames);
     }
 
     private IncludeEntry include(String id, String group, String name) {

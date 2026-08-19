@@ -5,12 +5,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -68,12 +70,14 @@ public class PackageStageService {
      * Runs one packaging command.
      *
      * @param inputs resolved command inputs.
+     * @param sourceFactory creates the source repository over the configured checkout for revision derivation.
      * @return summary of the consolidated report and the publication decision.
      * @throws IOException if an artifact cannot be read or written.
      * @throws IllegalStateException if the run is ineligible; diagnostics are written before the failure.
      */
-    public Summary run(FeatureExtractionInputs inputs) throws IOException {
-        ExtractionRunContext context = inputLoader.runContext(inputs);
+    public Summary run(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) throws IOException {
+        ArtemisSourceRepository source = inputLoader.verifiedSource(inputs, sourceFactory);
+        ExtractionRunContext context = inputLoader.runContext(inputs, source);
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.PACKAGE);
         Summary summary;
         boolean eligible;
@@ -94,7 +98,7 @@ public class PackageStageService {
             artifactStore.writeReport(context.layout(), report);
             boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), model.generatedCatalog(), report,
                     context.artemisCommit(), context.manifestDigest(), repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()),
-                    context.manifest().artemisImageDigest(), eligible);
+                    inputLoader.runtimeImage(inputs).digest(), inputs.manifestSource(), eligible);
             if (published) {
                 new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
             }

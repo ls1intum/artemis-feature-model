@@ -4,11 +4,11 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Output layout of one extraction run, derived from the output root and the pinned Artemis commit. Every extraction
- * command resolves its directories through this layout instead of composing paths itself, so each stage owns exactly
- * one directory and no stage can write into another stage's output.
+ * Output layout of one extraction run, derived from the output root and the source revision derived from the verified
+ * checkout. Every extraction command resolves its directories through this layout instead of composing paths itself,
+ * so each stage owns exactly one directory and no stage can write into another stage's output.
  *
- * @param root run directory, {@code <outputRoot>/<artemisCommitSha>}.
+ * @param root run directory, {@code <outputRoot>/<derived-source-revision>}.
  */
 public record ExtractionArtifactLayout(Path root) {
 
@@ -26,7 +26,7 @@ public record ExtractionArtifactLayout(Path root) {
      * Derives the layout of one run.
      *
      * @param outputRoot root directory of all extraction runs, typically {@code build/feature-extraction}.
-     * @param artemisCommitSha pinned Artemis commit the run scans.
+     * @param artemisCommitSha derived source revision the run is attributed to.
      * @return layout of the run directory.
      */
     public static ExtractionArtifactLayout forCommit(Path outputRoot, String artemisCommitSha) {

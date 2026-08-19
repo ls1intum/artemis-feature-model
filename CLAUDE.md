@@ -111,28 +111,40 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   path is missing from the catalog, so the catalog must be refreshed when
   Artemis config keys change.
 - Extraction runs as four composable commands plus one aggregate:
-  `extractFeatureCandidates` (the only one that opens the checkout),
+  `extractFeatureCandidates` (the only one that reads Artemis sources),
   `assembleFeatureModel`, `prepareGuidedWorkflow`, `packageFeatureModelSnapshot`,
   and `buildFeatureModelSnapshot`; `featureModelManifestPreflight` prints the
-  pinned commit and manifest digest, and `extractFeatureModel` is a deprecated
-  alias of the aggregate. Each command owns one directory of
-  `build/feature-extraction/<artemis-sha>/{scan,model,workflow,report,snapshot}`
+  derived source revision and manifest digest, and `extractFeatureModel` is a
+  deprecated alias of the aggregate. Every command resolves the Artemis
+  checkout, requires a clean git work tree, derives the run identity from
+  checkout HEAD, and optionally verifies it against `-PexpectedArtemisSha`
+  (the CI validation pin or a dispatch input). Each command owns one directory
+  of
+  `build/feature-extraction/<derived-revision>/{scan,model,workflow,report,snapshot}`
   and consumes upstream artifacts only through digest-verified envelopes, so a
   stale or foreign intermediate artifact is rejected instead of composed. The
   model envelope covers both the generated feature model and generated config-key
   catalog; packaging never reads either as an unverified side file.
   Configuration enters through `FeatureExtractionInputs`. Each command reads
-  the manifest once and binds its parsed content, byte digest, pinned commit,
-  and commit-scoped layout in `ExtractionRunContext`; the local checkout
-  resolves from `-PartemisPath` (or user-level `gradle.properties`), then
-  `ARTEMIS_PATH`, and no developer path is committed. Override the relocatable
+  the manifest once — through the two-mode `featureManifestSource` strategy
+  (`repository` committed default; `checkout` reads
+  `supportingFiles/feature-model/artemis-feature-manifest.yml` inside the
+  checkout, and repository mode fails on a diverging co-located copy) — and
+  binds its parsed content, byte digest, derived revision, and revision-scoped
+  layout in `ExtractionRunContext`; the local checkout resolves from
+  `-PartemisPath` (or user-level `gradle.properties`), then `ARTEMIS_PATH`,
+  and no developer path is committed. Override the relocatable repository-mode
   manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
   deterministic apart from scan-metadata timestamps; the drift report replaces
   the discovery step of the manual weekly consistency audit.
-- The scope manifest is schema version 2 and is the executable contract of a
-  run: `artemisCommitSha` selects one immutable Artemis commit, and the scan
-  verifies before reading any file that the checkout is at that commit and
-  clean. Curation is fail-closed — an undeclared candidate, a relation between
+- The scope manifest is schema version 3 and carries curation content only:
+  the source revision is derived from the verified checkout HEAD (a file
+  cannot pin the commit that contains it), the runtime image reference lives
+  in `delivery/artemis-runtime-image.json`, and the retired
+  `artemisCommitSha`/`artemisImageDigest` fields are rejected with migration
+  messages. The scan verifies before reading any file that the checkout is a
+  clean git work tree and matches the expected revision when one is supplied.
+  Curation is fail-closed — an undeclared candidate, a relation between
   included features without a declared constraint or an `ignoredRelations`
   entry, an orphan or ambiguous anchor, a colliding decision, or a failed
   extractor blocks the run, which writes diagnostics and exits non-zero without
@@ -187,14 +199,22 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   fail-closed for generated lifecycle status, extractor identity, and immutable
   image identity as well as payload names and cross-artifact provenance.
 - GitHub delivery reuses one read-only validation workflow for pull requests,
-  development-branch pushes, and publication. It resolves the Artemis SHA through
-  `featureModelManifestPreflight`, uploads HTML/raw reports even on failure, validates
-  the snapshot offline, and smoke-tests the snapshot image before it can be passed
-  to the publication job. Only pushes to `deployment/image-publish-test` enter the
-  branch-restricted `image-publish-test` Environment and receive `packages: write`;
-  they publish one `linux/amd64` GHCR discovery tag and record the registry digest.
-  No workflow publishes `latest`, deploys the image, or updates
-  `LAST_VERIFIED_IMAGE_DIGEST`; deployment and rollback remain deferred.
+  development-branch pushes, and publication. PR CI checks out Artemis at the
+  committed `delivery/artemis-validation-pin` and validates deterministically;
+  publication runs supply an explicitly resolved immutable SHA. Publication
+  (`publish-snapshot-image.yml`, `image-publish` Environment) tags the
+  content-addressed snapshot id, short-circuits on an already-published
+  identity, attests build provenance, and records the registry digest.
+  Promotion (`promote-image.yml`, `image-promote` Environment) retags a
+  published digest as `verified` without rebuilding and appends to the
+  `delivery/verified-images.json` ledger via an automated PR; rollback is
+  promotion of a prior ledger entry. The scheduled poller
+  (`poll-artemis-delivery.yml`) resolves the Artemis tracking ref, publishes,
+  and opens the delivery auto-PR (fixture refresh, validation-pin bump,
+  coverage summary). No workflow publishes `latest` or deploys the image;
+  deployment remains deferred. The cutover to the Artemis-hosted manifest is
+  documented in `docs/extraction/automated-model-delivery.md` and not
+  executed.
 - Runtime source mode is explicit under `artemis.feature-model.source-mode`.
   Local development defaults to `classpath`, which loads and validates the
   hand-maintained model, workflow, and config-key catalog as one bundle and

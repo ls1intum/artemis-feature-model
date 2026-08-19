@@ -66,18 +66,19 @@ class SnapshotPublisher {
      * @param workflowBytes prepared workflow bytes.
      * @param generatedCatalog generated catalog.
      * @param generationReport consolidated successful report.
-     * @param artemisCommit pinned Artemis commit.
+     * @param artemisCommit derived Artemis source revision.
      * @param manifestDigest manifest digest.
      * @param featureModelRepositoryCommit generator repository commit.
      * @param deploymentProfileDigest validated profile digest.
-     * @param imageDigest manifest runtime image identity.
+     * @param imageDigest delivery-configuration runtime image identity.
+     * @param manifestSource resolution mode the manifest bytes came from.
      * @param eligible all delivery gates passed.
      * @return true when publication succeeded.
      * @throws IOException if publication fails.
      */
     boolean publish(ExtractionArtifactLayout layout, FeatureModel generatedModel, byte[] workflowBytes, ArtemisConfigKeyCatalog generatedCatalog,
             ExtractionReport generationReport, String artemisCommit, String manifestDigest, String featureModelRepositoryCommit,
-            String deploymentProfileDigest, String imageDigest, boolean eligible) throws IOException {
+            String deploymentProfileDigest, String imageDigest, String manifestSource, boolean eligible) throws IOException {
         Path snapshotDirectory = layout.snapshotDirectory();
         if (!eligible) {
             removePublishedSnapshot(snapshotDirectory);
@@ -87,7 +88,7 @@ class SnapshotPublisher {
         Path temporaryDirectory = Files.createTempDirectory(Files.createDirectories(layout.root()), ".snapshot-");
         try {
             writeSnapshotContents(temporaryDirectory, generatedModel, workflowBytes, generatedCatalog, generationReport, artemisCommit, manifestDigest,
-                    featureModelRepositoryCommit, deploymentProfileDigest, imageDigest);
+                    featureModelRepositoryCommit, deploymentProfileDigest, imageDigest, manifestSource);
             publishSnapshot(temporaryDirectory, snapshotDirectory);
             return true;
         }
@@ -107,7 +108,8 @@ class SnapshotPublisher {
     }
 
     private void writeSnapshotContents(Path directory, FeatureModel model, byte[] workflowBytes, ArtemisConfigKeyCatalog catalog, ExtractionReport report,
-            String artemisCommit, String manifestDigest, String repositoryCommit, String profileDigest, String imageDigest) throws IOException {
+            String artemisCommit, String manifestDigest, String repositoryCommit, String profileDigest, String imageDigest, String manifestSource)
+            throws IOException {
         Path modelFile = directory.resolve(SNAPSHOT_MODEL_FILE);
         Path workflowFile = directory.resolve(SNAPSHOT_WORKFLOW_FILE);
         Path catalogFile = directory.resolve(SNAPSHOT_CATALOG_FILE);
@@ -119,7 +121,7 @@ class SnapshotPublisher {
 
         SnapshotProvenance provenance = new SnapshotProvenance(SnapshotProvenance.CURRENT_FORMAT_VERSION, artemisCommit, manifestDigest, repositoryCommit,
                 ScanResult.EXTRACTOR_VERSION, Sha256Digest.of(modelFile), Sha256Digest.of(workflowFile), Sha256Digest.of(catalogFile),
-                Sha256Digest.of(reportFile), profileDigest, SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY);
+                Sha256Digest.of(reportFile), profileDigest, manifestSource);
         jsonWriter.write(directory.resolve(SNAPSHOT_PROVENANCE_FILE), provenance);
 
         String snapshotId = snapshotId(artemisCommit, manifestDigest);

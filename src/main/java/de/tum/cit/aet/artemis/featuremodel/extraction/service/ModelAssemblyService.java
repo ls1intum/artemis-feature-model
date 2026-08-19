@@ -63,7 +63,7 @@ class ModelAssemblyService {
      */
     Outcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, DeploymentProfile bundledProfile, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
-        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations());
+        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations(), artemisCommit);
         items.addAll(curation.items());
         ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, curation.includedFeatures(),
                 scan.relationCandidates(), curation.report(), curation.items(), scan.items());

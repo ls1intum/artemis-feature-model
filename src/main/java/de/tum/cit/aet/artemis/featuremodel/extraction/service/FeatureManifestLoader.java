@@ -9,8 +9,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
-
 import org.yaml.snakeyaml.Yaml;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
@@ -25,18 +23,14 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 
 /**
  * Loads the relocatable YAML feature scope manifest and fails fast on authoring errors that are wrong regardless of
- * any Artemis checkout: malformed YAML, unknown fields, missing required values, a source selector that is not one
- * immutable commit, duplicate anchors or ids, and parent or group references that do not exist in the manifest itself.
- * Problems that only a scan can reveal, such as anchors no longer present in Artemis, are reported by the curation
- * step instead of failing here.
+ * any Artemis checkout: malformed YAML, unknown fields, retired identity fields, missing required values, duplicate
+ * anchors or ids, and parent or group references that do not exist in the manifest itself. Problems that only a scan
+ * can reveal, such as anchors no longer present in Artemis, are reported by the curation step instead of failing here.
  */
 public class FeatureManifestLoader {
 
-    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "artemisCommitSha", "artemisImageDigest", "include", "exclude", "conceptualNodes",
+    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "include", "exclude", "conceptualNodes",
             "constraints", "ignoredRelations", "renames");
-
-    /** A source selector must be one immutable commit: branch names, tags, and abbreviated hashes are rejected. */
-    private static final Pattern ARTEMIS_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
 
     private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
             "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
@@ -96,13 +90,12 @@ public class FeatureManifestLoader {
             throw new FeatureManifestException("Could not parse feature manifest " + sourceLabel + ": " + e.getMessage());
         }
         Map<String, Object> root = asMap(loaded, "Manifest root");
+        rejectRetiredIdentityFields(root);
         rejectUnknownFields(root, ROOT_FIELDS, "manifest root");
         int manifestVersion = requiredInteger(root, "manifestVersion", "manifest root");
         if (manifestVersion != FeatureScopeManifest.CURRENT_VERSION) {
             throw new FeatureManifestException("Unsupported manifestVersion " + manifestVersion + "; expected " + FeatureScopeManifest.CURRENT_VERSION + ".");
         }
-        String artemisCommitSha = artemisCommitSha(root);
-        String artemisImageDigest = requiredString(root, "artemisImageDigest", "manifest root");
         List<IncludeEntry> includes = parseIncludes(root.get("include"));
         List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
@@ -113,28 +106,25 @@ public class FeatureManifestLoader {
         validateInternalReferences(includes, conceptualNodes);
         validateConstraintReferences(constraints, includes, conceptualNodes);
         validateRenames(renames, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, artemisCommitSha, artemisImageDigest, includes, excludes, conceptualNodes, constraints, ignoredRelations,
-                renames);
+        return new FeatureScopeManifest(manifestVersion, includes, excludes, conceptualNodes, constraints, ignoredRelations, renames);
     }
 
     /**
-     * Reads the pinned Artemis commit and rejects every mutable or abbreviated source selector.
+     * Rejects the identity fields manifest version 3 removed with actionable migration messages instead of the
+     * generic unknown-field failure.
      *
      * @param root parsed manifest root.
-     * @return full 40-character lowercase commit hash.
-     * @throws FeatureManifestException if the value is absent or not a full lowercase commit hash.
+     * @throws FeatureManifestException if a retired identity field is present.
      */
-    private String artemisCommitSha(Map<String, Object> root) {
-        if (root.get("artemisCommitSha") instanceof Number number) {
-            throw new FeatureManifestException("manifest root.artemisCommitSha was read as the number " + number
-                    + "; quote a commit hash that consists of digits only so YAML keeps it as text.");
+    private void rejectRetiredIdentityFields(Map<String, Object> root) {
+        if (root.containsKey("artemisCommitSha")) {
+            throw new FeatureManifestException("manifest root.artemisCommitSha was removed in manifestVersion 3: the source revision is derived from the "
+                    + "verified Artemis checkout, so the manifest no longer pins a commit. Delete the field.");
         }
-        String value = requiredString(root, "artemisCommitSha", "manifest root");
-        if (!ARTEMIS_COMMIT_SHA.matcher(value).matches()) {
-            throw new FeatureManifestException("manifest root.artemisCommitSha must be a full 40-character lowercase Git commit hash, but was '" + value
-                    + "'. Branch names, tags, and abbreviated hashes select a moving source and are not accepted.");
+        if (root.containsKey("artemisImageDigest")) {
+            throw new FeatureManifestException("manifest root.artemisImageDigest was removed in manifestVersion 3: the runtime image reference is delivery "
+                    + "configuration in delivery/artemis-runtime-image.json, not curation content. Delete the field.");
         }
-        return value;
     }
 
     /**

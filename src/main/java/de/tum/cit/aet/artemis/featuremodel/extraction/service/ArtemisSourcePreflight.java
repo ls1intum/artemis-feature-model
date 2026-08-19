@@ -4,37 +4,41 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightExce
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 
 /**
- * Verifies before any scan that the local checkout is exactly the source the manifest selects. Extraction findings are
- * only meaningful when they can be attributed to one immutable commit, so a checkout at another commit, an unresolved
- * commit, or a dirty working tree stops the run instead of producing artifacts that claim the pinned commit.
+ * Verifies before any command consumes the checkout that a source revision can be derived from it and attributed to
+ * exactly one immutable commit: the checkout must be a git work tree, its working tree must be clean, and when the
+ * caller supplies an externally expected revision — a CI validation pin or a dispatch input — the derived revision
+ * must equal it. Extraction findings are only meaningful when they can be attributed to one immutable commit, so an
+ * unresolvable revision or a dirty working tree stops the run instead of producing artifacts with a false identity.
  */
 class ArtemisSourcePreflight {
 
     /**
-     * Verifies the checkout against the manifest pin.
+     * Verifies the checkout and its derived revision.
      *
-     * @param source Artemis source repository about to be scanned.
-     * @param artemisCommitSha commit the manifest pins.
-     * @throws SourcePreflightException if the checkout is not the pinned commit or is not clean.
+     * @param source Artemis source repository the command is about to consume.
+     * @param expectedArtemisSha externally supplied revision the checkout must be at, or null when the caller has no
+     *            expectation and the derived revision stands on its own.
+     * @throws SourcePreflightException if no revision can be derived, the checkout is not clean, or the derived
+     *             revision differs from the expected one.
      */
-    void verify(ArtemisSourceRepository source, String artemisCommitSha) {
+    void verify(ArtemisSourceRepository source, String expectedArtemisSha) {
         String commit = source.commit();
         if (ArtemisSourceRepository.UNKNOWN_COMMIT.equals(commit)) {
-            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " is not a git work tree, so it cannot be verified against the "
-                    + "manifest commit " + artemisCommitSha + ".");
+            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " is not a git work tree, so no source revision can be "
+                    + "derived for this run.");
         }
-        if (!artemisCommitSha.equals(commit)) {
-            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " is at commit " + commit + " but the manifest pins "
-                    + artemisCommitSha + ". Check out the pinned commit, or update artemisCommitSha deliberately.");
+        if (expectedArtemisSha != null && !expectedArtemisSha.equals(commit)) {
+            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " is at commit " + commit + " but this run expects "
+                    + expectedArtemisSha + ". Check out the expected commit, or drop the expectation for an unpinned local run.");
         }
         if (source.workingTreeDirty() == null) {
             throw new SourcePreflightException(
-                    "The working tree state of the Artemis checkout at " + source.root() + " could not be resolved, so the scan cannot be attributed to "
-                            + artemisCommitSha + ".");
+                    "The working tree state of the Artemis checkout at " + source.root() + " could not be resolved, so this run cannot be attributed to "
+                            + commit + ".");
         }
         if (source.workingTreeDirty()) {
-            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " has uncommitted changes, so a scan would not describe commit "
-                    + artemisCommitSha + ". Commit, stash, or discard the changes.");
+            throw new SourcePreflightException("The Artemis checkout at " + source.root() + " has uncommitted changes, so this run would not describe commit "
+                    + commit + ". Commit, stash, or discard the changes.");
         }
     }
 }

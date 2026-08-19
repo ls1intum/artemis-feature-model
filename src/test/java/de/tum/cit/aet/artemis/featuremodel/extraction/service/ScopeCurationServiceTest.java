@@ -39,14 +39,14 @@ class ScopeCurationServiceTest {
         List<FeatureCandidate> candidates = List.of(module("module:alpha", "AlphaEnabled"), module("module:beta", "BetaEnabled"));
         IncludeEntry include = new IncludeEntry("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", "manifest-alpha", "manifest-group", null, null, null, null, null,
                 null, List.of("manifest-service"), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(include), List.of(),
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(include), List.of(),
                 List.of(new ConceptualNode("manifest-group", null, "group", null, null, null, null, null, null),
                         new ConceptualNode("annotation-group", null, "group", null, null, null, null, null, null)),
                 List.of(), List.of(), List.of());
 
         List<ExtractedAnnotation> conditionAnnotations = annotationScan.facts().stream()
                 .filter(annotation -> annotation.anchor().endsWith("Enabled")).toList();
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, candidates, conditionAnnotations);
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, candidates, conditionAnnotations, PINNED_COMMIT);
 
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> {
             assertThat(feature.id()).isEqualTo("manifest-alpha");
@@ -69,9 +69,9 @@ class ScopeCurationServiceTest {
     @Test
     void reportsOrphanManifestAnchorAndKeepsCurating() {
         IncludeEntry orphan = new IncludeEntry("module:missing", "missing", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(orphan), List.of(), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(orphan), List.of(), List.of(), List.of(), List.of(), List.of());
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of());
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of(), PINNED_COMMIT);
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR);
@@ -86,9 +86,9 @@ class ScopeCurationServiceTest {
     void reportsConflictWhenSeveralEntriesResolveToOneCandidateAndFirstWins() {
         IncludeEntry byId = new IncludeEntry("module:alpha", "alpha", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
         FeatureScopeManifest.ExcludeEntry bySymbol = new FeatureScopeManifest.ExcludeEntry("AlphaEnabled", "duplicate", null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(byId), List.of(bySymbol), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(byId), List.of(bySymbol), List.of(), List.of(), List.of(), List.of());
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of());
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of(), PINNED_COMMIT);
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CURATION_CONFLICT);
@@ -102,11 +102,11 @@ class ScopeCurationServiceTest {
     @Test
     void blocksIncludedRuntimeToggleEntriesWithoutRationale() {
         IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of(), List.of());
         FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
                 null, null, null);
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of());
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of(), PINNED_COMMIT);
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CURATION_CONFLICT);
@@ -119,12 +119,12 @@ class ScopeCurationServiceTest {
     @Test
     void warnsButAcceptsExcludedRuntimeToggleWithoutReasonOrRationale() {
         FeatureScopeManifest.ExcludeEntry excludedToggle = new FeatureScopeManifest.ExcludeEntry("toggle:ToggleOne", null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(2, PINNED_COMMIT, "latest", List.of(), List.of(excludedToggle), List.of(), List.of(), List.of(),
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(excludedToggle), List.of(), List.of(), List.of(),
                 List.of());
         FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
                 null, null, null);
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of());
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of(), PINNED_COMMIT);
         ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, result.includedFeatures(), List.of(), result.report(),
                 result.items(), List.of());
 

@@ -44,44 +44,53 @@ tasks.named('test') {
 // and passed explicitly to Java; the machine-specific Artemis checkout is never committed and is resolved from the
 // -PartemisPath property first and the ARTEMIS_PATH environment variable second.
 def featureExtraction = [
-        manifest         : providers.gradleProperty('featureManifestPath')
+        manifest          : providers.gradleProperty('featureManifestPath')
                 .getOrElse(layout.projectDirectory.file('src/main/resources/feature-model/extraction/artemis-feature-manifest.yml').asFile.path),
-        authoredWorkflow : layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path,
-        deploymentProfile: layout.projectDirectory.file('src/main/resources/deployment-profiles/default-artemis-profile.json').asFile.path,
-        outputRoot       : layout.buildDirectory.dir('feature-extraction').get().asFile.path,
-        artemisPath      : providers.gradleProperty('artemisPath').orElse(providers.environmentVariable('ARTEMIS_PATH')),
+        manifestSource    : providers.gradleProperty('featureManifestSource').getOrElse('repository'),
+        authoredWorkflow  : layout.projectDirectory.file('src/main/resources/feature-model/guided-workflow.json').asFile.path,
+        deploymentProfile : layout.projectDirectory.file('src/main/resources/deployment-profiles/default-artemis-profile.json').asFile.path,
+        runtimeImage      : layout.projectDirectory.file('delivery/artemis-runtime-image.json').asFile.path,
+        outputRoot        : layout.buildDirectory.dir('feature-extraction').get().asFile.path,
+        artemisPath       : providers.gradleProperty('artemisPath').orElse(providers.environmentVariable('ARTEMIS_PATH')),
+        expectedArtemisSha: providers.gradleProperty('expectedArtemisSha'),
 ]
 
-// Every extraction command shares one main class and the same repository-relative options; only the scan reads the
-// Artemis checkout. None of them declares an up-to-date check: the scan depends on mutable checkout state and each
-// later command must be able to observe an edited manifest or authored workflow.
-def registerExtractionCommand = { String taskName, String command, String taskDescription, boolean readsArtemisCheckout ->
+// Every extraction command shares one main class and the same repository-relative options; each command derives its
+// run identity from the checkout HEAD, and only the scan reads Artemis sources. None of them declares an up-to-date
+// check: the scan depends on mutable checkout state and each later command must be able to observe an edited manifest
+// or authored workflow.
+def registerExtractionCommand = { String taskName, String command, String taskDescription ->
     tasks.register(taskName, JavaExec) {
         description = taskDescription
         group = 'feature model'
         classpath = sourceSets.main.runtimeClasspath
         mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.FeatureExtractionCli'
         outputs.upToDateWhen { false }
-        args = [command, "--manifest=${featureExtraction.manifest}", "--authored-workflow=${featureExtraction.authoredWorkflow}",
-                "--deployment-profile=${featureExtraction.deploymentProfile}", "--output-root=${featureExtraction.outputRoot}"]
-        if (readsArtemisCheckout && featureExtraction.artemisPath.isPresent()) {
-            // An absent checkout is not reported here: the command itself must run so that it invalidates its stale
-            // output before failing, and it already prints the actionable message.
+        args = [command, "--manifest=${featureExtraction.manifest}", "--manifest-source=${featureExtraction.manifestSource}",
+                "--authored-workflow=${featureExtraction.authoredWorkflow}",
+                "--deployment-profile=${featureExtraction.deploymentProfile}", "--runtime-image=${featureExtraction.runtimeImage}",
+                "--output-root=${featureExtraction.outputRoot}"]
+        if (featureExtraction.artemisPath.isPresent()) {
+            // An absent checkout is not reported here: the command itself must run so that it fails with the
+            // actionable configuration message instead of a silent Gradle no-op.
             args = args + ["--artemis-path=${featureExtraction.artemisPath.get()}"]
+        }
+        if (featureExtraction.expectedArtemisSha.isPresent()) {
+            args = args + ["--expected-artemis-sha=${featureExtraction.expectedArtemisSha.get()}"]
         }
     }
 }
 
 registerExtractionCommand('featureModelManifestPreflight', 'preflight',
-        'Validates the scope manifest and prints the pinned Artemis commit and the manifest digest.', false)
+        'Validates the scope manifest and prints the derived Artemis source revision and the manifest digest.')
 registerExtractionCommand('extractFeatureCandidates', 'scan',
-        'Scans the pinned Artemis checkout and writes feature candidates, evidence, and relation candidates.', true)
+        'Scans the verified Artemis checkout and writes feature candidates, evidence, and relation candidates.')
 registerExtractionCommand('assembleFeatureModel', 'model',
-        'Applies the scope manifest to an existing scan and assembles the generated feature model and catalog.', false)
+        'Applies the scope manifest to an existing scan and assembles the generated feature model and catalog.')
 registerExtractionCommand('prepareGuidedWorkflow', 'workflow',
-        'Validates the authored guided workflow against the generated model and prepares the build copy.', false)
+        'Validates the authored guided workflow against the generated model and prepares the build copy.')
 registerExtractionCommand('packageFeatureModelSnapshot', 'snapshot',
-        'Consolidates the extraction report and publishes the importable feature model snapshot.', false)
+        'Consolidates the extraction report and publishes the importable feature model snapshot.')
 
 tasks.named('assembleFeatureModel') { mustRunAfter tasks.named('extractFeatureCandidates') }
 tasks.named('prepareGuidedWorkflow') { mustRunAfter tasks.named('assembleFeatureModel') }
@@ -138,8 +147,19 @@ tasks.register('syncGuidedWorkflowScaffold', JavaExec) {
     group = 'feature model'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'de.tum.cit.aet.artemis.featuremodel.extraction.GuidedWorkflowScaffoldRunner'
-    args = [featureExtraction.authoredWorkflow, featureExtraction.manifest,
-            layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
+    doFirst {
+        // The scaffold reads the manifest through the same two-mode strategy as the extraction commands: the in-repo
+        // file in 'repository' mode, the canonical checkout path in 'checkout' mode (requiring -PartemisPath).
+        def scaffoldManifest = featureExtraction.manifest
+        if (featureExtraction.manifestSource == 'checkout') {
+            if (!featureExtraction.artemisPath.isPresent()) {
+                throw new GradleException('featureManifestSource=checkout requires -PartemisPath=<checkout> for syncGuidedWorkflowScaffold.')
+            }
+            scaffoldManifest = "${featureExtraction.artemisPath.get()}/supportingFiles/feature-model/artemis-feature-manifest.yml"
+        }
+        args = [featureExtraction.authoredWorkflow, scaffoldManifest,
+                layout.buildDirectory.file('guided-workflow-scaffold-report.json').get().asFile.path]
+    }
 }
 
 tasks.register('refreshFeatureModelFixture', JavaExec) {

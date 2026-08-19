@@ -2,6 +2,12 @@ name: Model delivery validation
 
 on:
   workflow_call:
+    inputs:
+      artemis_sha:
+        description: Immutable Artemis commit to validate against; empty resolves the committed validation pin
+        required: false
+        type: string
+        default: ''
     outputs:
       artemis_commit:
         description: Exact Artemis commit used for extraction
@@ -18,6 +24,12 @@ on:
       snapshot_id:
         description: Validated snapshot id
         value: ${{ jobs.validate.outputs.snapshot_id }}
+      snapshot_artifact_name:
+        description: Artifact containing the validated snapshot directory
+        value: ${{ jobs.validate.outputs.snapshot_artifact_name }}
+      reports_artifact_name:
+        description: Artifact containing the extraction and workflow validation reports
+        value: ${{ jobs.validate.outputs.reports_artifact_name }}
 
 permissions:
   contents: read
@@ -33,6 +45,8 @@ jobs:
       manifest_digest: ${{ steps.preflight.outputs.manifest_digest }}
       snapshot_digest: ${{ steps.snapshot.outputs.snapshot_digest }}
       snapshot_id: ${{ steps.snapshot.outputs.snapshot_id }}
+      snapshot_artifact_name: ${{ steps.snapshot-artifact.outputs.artifact_name }}
+      reports_artifact_name: feature-model-reports-${{ github.sha }}-${{ github.run_attempt }}
 
     steps:
       - name: Check out repository
@@ -59,25 +73,28 @@ jobs:
       - name: Build client
         run: npm run build:prod
 
-      - name: Resolve manifest source identity
-        id: preflight
+      - name: Resolve validation target commit
+        id: target
         shell: bash
+        env:
+          INPUT_ARTEMIS_SHA: ${{ inputs.artemis_sha }}
         run: |
           set -euo pipefail
-          output=$(./gradlew -q featureModelManifestPreflight)
-          printf '%s\n' "$output"
-          artemis_commit=$(printf '%s\n' "$output" | awk -F= '$1 == "artemisCommitSha" { print $2 }')
-          manifest_digest=$(printf '%s\n' "$output" | awk -F= '$1 == "manifestDigest" { print $2 }')
-          [[ "$artemis_commit" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "artemis_commit=$artemis_commit" >> "$GITHUB_OUTPUT"
-          echo "manifest_digest=$manifest_digest" >> "$GITHUB_OUTPUT"
+          if [[ -n "$INPUT_ARTEMIS_SHA" ]]; then
+            artemis_sha="$INPUT_ARTEMIS_SHA"
+            echo "Validation target from workflow input."
+          else
+            artemis_sha=$(tr -d '[:space:]' < delivery/artemis-validation-pin)
+            echo "Validation target from committed validation pin."
+          fi
+          [[ "$artemis_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "artemis_sha=$artemis_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Check out manifest-pinned Artemis
+      - name: Check out pinned Artemis
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: ls1intum/Artemis
-          ref: ${{ steps.preflight.outputs.artemis_commit }}
+          ref: ${{ steps.target.outputs.artemis_sha }}
           path: build/ci-artemis
           persist-credentials: false
 
@@ -86,13 +103,31 @@ jobs:
         run: |
           set -euo pipefail
           actual_commit=$(git -C build/ci-artemis rev-parse HEAD)
-          test "$actual_commit" = "${{ steps.preflight.outputs.artemis_commit }}"
+          test "$actual_commit" = "${{ steps.target.outputs.artemis_sha }}"
           test -z "$(git -C build/ci-artemis status --porcelain)"
+
+      - name: Resolve derived source identity
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          output=$(./gradlew -q featureModelManifestPreflight \
+            -PartemisPath=${{ github.workspace }}/build/ci-artemis \
+            -PexpectedArtemisSha=${{ steps.target.outputs.artemis_sha }})
+          printf '%s\n' "$output"
+          artemis_commit=$(printf '%s\n' "$output" | awk -F= '$1 == "artemisCommitSha" { print $2 }')
+          manifest_digest=$(printf '%s\n' "$output" | awk -F= '$1 == "manifestDigest" { print $2 }')
+          [[ "$artemis_commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test "$artemis_commit" = "${{ steps.target.outputs.artemis_sha }}"
+          echo "artemis_commit=$artemis_commit" >> "$GITHUB_OUTPUT"
+          echo "manifest_digest=$manifest_digest" >> "$GITHUB_OUTPUT"
 
       - name: Build strict feature model snapshot
         run: >-
           ./gradlew buildFeatureModelSnapshot
           -PartemisPath=${{ github.workspace }}/build/ci-artemis
+          -PexpectedArtemisSha=${{ steps.target.outputs.artemis_sha }}
 
       - name: Upload extraction reports
         if: always()
@@ -121,6 +156,19 @@ jobs:
           [[ "$snapshot_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "snapshot_id=$snapshot_id" >> "$GITHUB_OUTPUT"
           echo "snapshot_digest=$snapshot_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Name snapshot artifact
+        id: snapshot-artifact
+        shell: bash
+        run: echo "artifact_name=feature-model-snapshot-${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload validated snapshot
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.snapshot-artifact.outputs.artifact_name }}
+          path: build/feature-extraction/${{ steps.preflight.outputs.artemis_commit }}/snapshot
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Stage validated Docker context
         run: >-

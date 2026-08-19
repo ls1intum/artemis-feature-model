@@ -40,9 +40,9 @@ class RealArtemisCheckoutSmokeTest {
         LocalArtemisSourceRepository source = new LocalArtemisSourceRepository(inputs.requireArtemisCheckout());
 
         ScanStageService.Summary scan = new ScanStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
-        ModelStageService.Summary model = new ModelStageService(objectMapper).run(inputs);
-        WorkflowStageService.Summary workflow = new WorkflowStageService(objectMapper).run(inputs);
-        PackageStageService.Summary packaged = new PackageStageService(objectMapper).run(inputs);
+        ModelStageService.Summary model = new ModelStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
+        WorkflowStageService.Summary workflow = new WorkflowStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
+        PackageStageService.Summary packaged = new PackageStageService(objectMapper).run(inputs, LocalArtemisSourceRepository::new);
 
         assertThat(scan.candidateCount()).isGreaterThanOrEqualTo(50);
         assertThat(scan.relationCandidateCount()).isPositive();
@@ -74,7 +74,7 @@ class RealArtemisCheckoutSmokeTest {
                 Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
                 Path.of("src/main/resources/feature-model/guided-workflow.json"),
                 Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
-                outputRoot);
+                Path.of("delivery/artemis-runtime-image.json"), outputRoot);
     }
 
     /**

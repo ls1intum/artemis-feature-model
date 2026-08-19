@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "digest": "sha256:9bb880f15f246d40486881c80cd2b2e0942b50d5622a722668ad6d0715e463c5",
+      "snapshotId": "generated-5eee99d5d62e-083a56804aee",
+      "artemisCommit": "5eee99d5d62ee667026ae371be0045c0dd208ed1",
+      "manifestDigest": "sha256:083a56804aee3cfac330001df731f7cce6bead4721e3156c31bedd48eb672190",
+      "sourceCommit": "77c4f97d7b7783cebcb5a8e164f77a77153bd636",
+      "promotedBy": "JTNing",
+      "runId": 31619490334
+    },
+    {
+      "digest": "sha256:f893db65869ead76724011426b5f1bef13a1b171d5006f1df2573a9771928e44",
+      "snapshotId": "generated-5eee99d5d62e-083a56804aee",
+      "artemisCommit": "5eee99d5d62ee667026ae371be0045c0dd208ed1",
+      "manifestDigest": "sha256:083a56804aee3cfac330001df731f7cce6bead4721e3156c31bedd48eb672190",
+      "sourceCommit": "14056352bda2ed6ee9a6aca4c559d5b3d0cd394c",
+      "promotedBy": "JTNing",
+      "runId": 31620625003
+    },
+    {
+      "digest": "sha256:9bb880f15f246d40486881c80cd2b2e0942b50d5622a722668ad6d0715e463c5",
+      "snapshotId": "generated-5eee99d5d62e-083a56804aee",
+      "artemisCommit": "5eee99d5d62ee667026ae371be0045c0dd208ed1",
+      "manifestDigest": "sha256:083a56804aee3cfac330001df731f7cce6bead4721e3156c31bedd48eb672190",
+      "sourceCommit": "77c4f97d7b7783cebcb5a8e164f77a77153bd636",
+      "promotedBy": "JTNing",
+      "runId": 31620768880
+    }
+  ]
+}
