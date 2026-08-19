@@ -23,6 +23,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
+import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
 import tools.jackson.databind.ObjectMapper;
 
 /** Covers pure offline validation, complete payload checksums, corruption, and cross-artifact provenance. */

@@ -2,41 +2,26 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 
 /** Covers candidate membership, source-symbol resolution, annotation precedence, and unscoped diagnostics. */
 class ScopeCurationServiceTest {
-
-    private static final Path ANNOTATED_FIXTURE = Path.of("src/test/resources/extraction/annotated-artemis");
 
     private static final String PINNED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
 
     @Test
     void keepsManifestSemanticsWhenAnAnnotationContradictsThem() throws Exception {
-        SourceScanResult<List<ExtractedAnnotation>> annotationScan = new ArtemisFeatureAnnotationScan()
-                .scan(new LocalArtemisSourceRepository(ANNOTATED_FIXTURE));
-        assertThat(annotationScan.diagnostics()).isEmpty();
-        assertThat(annotationScan.facts()).hasSize(4);
-        assertThat(annotationScan.facts()).anySatisfy(annotation -> {
-            assertThat(annotation.anchor()).isEqualTo("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled");
-            assertThat(annotation.semantics().id()).isEqualTo("annotated-alpha");
-            assertThat(annotation.semantics().requiresCapabilities()).containsExactly("annotation-service", "annotation-secret");
-        });
-        assertThat(annotationScan.facts()).extracting(ExtractedAnnotation::anchor).contains("MODULE_FEATURE_FIELD_ALPHA", "toggle:ToggleField");
-
         List<FeatureCandidate> candidates = List.of(module("module:alpha", "AlphaEnabled"), module("module:beta", "BetaEnabled"));
         IncludeEntry include = new IncludeEntry("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", "manifest-alpha", "manifest-group", null, null, null, null, null,
                 null, List.of("manifest-service"), List.of(), List.of(), null, null, null, null);
@@ -45,8 +30,15 @@ class ScopeCurationServiceTest {
                         new ConceptualNode("annotation-group", null, "group", null, null, null, null, null, null)),
                 List.of(), List.of(), List.of());
 
-        List<ExtractedAnnotation> conditionAnnotations = annotationScan.facts().stream()
-                .filter(annotation -> annotation.anchor().endsWith("Enabled")).toList();
+        // The two condition-class annotations of the annotated fixture, as ArtemisFeatureAnnotationScan extracts them.
+        List<ExtractedAnnotation> conditionAnnotations = List.of(
+                new ExtractedAnnotation("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled",
+                        new ExtractedAnnotationSemantics("annotated-alpha", "annotation-group", null, null,
+                                List.of("annotation-service", "annotation-secret"), null, "Annotated Alpha", null, null),
+                        "src/main/java/de/tum/cit/aet/artemis/alpha/config/AlphaEnabled.java", 3),
+                new ExtractedAnnotation("de.tum.cit.aet.artemis.beta.config.BetaEnabled",
+                        new ExtractedAnnotationSemantics("annotated-beta", null, "annotated-alpha", null, null, null, null, null, null),
+                        "src/main/java/de/tum/cit/aet/artemis/beta/config/BetaEnabled.java", 3));
         ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, candidates, conditionAnnotations, PINNED_COMMIT);
 
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> {

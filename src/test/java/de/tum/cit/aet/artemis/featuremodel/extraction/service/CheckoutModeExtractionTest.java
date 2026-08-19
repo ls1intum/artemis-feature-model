@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.SyntheticArtemisCheckout;
+import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
