@@ -160,30 +160,8 @@
     gap: 0.35rem;
 }
 
-.kind-dot {
-    display: inline-block;
-    width: 0.5rem;
-    height: 0.5rem;
-    flex: none;
-    border-radius: 50%;
-    background: var(--fm-dot-color, var(--bs-secondary-color));
-}
-
-.kind-dot--hollow {
-    background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--fm-dot-color, var(--bs-secondary-color));
-}
-
-.kind-dot--root {
-    --fm-dot-color: var(--fm-kind-root);
-}
-
-.kind-dot--group {
-    --fm-dot-color: var(--fm-kind-group);
-}
-
-.kind-dot--feature {
-    --fm-dot-color: var(--fm-kind-feature);
+.kind-legend__note {
+    font-style: italic;
 }
 
 .tree-root {

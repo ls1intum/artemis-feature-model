@@ -24,7 +24,7 @@
             <span class="tree-indent" aria-hidden="true"></span>
         }
 
-        <span class="tree-dot {{ kindDotClass() }}" [class.tree-dot--hollow]="isStructural()" role="img" [attr.aria-label]="kindTitle()" [title]="kindTitle()"></span>
+        <span class="fm-kind-dot {{ kindDotClass() }}" [class.fm-kind-dot--hollow]="isStructural()" role="img" [attr.aria-label]="kindTitle()" [title]="kindTitle()"></span>
 
         <span class="tree-name" [class.tree-name--structural]="isStructural()" [class.fw-semibold]="isMatched()">{{ node().feature.name }}</span>
         <small class="tree-id text-body-secondary d-none d-md-inline">{{ featureId() }}</small>

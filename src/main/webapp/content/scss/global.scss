@@ -2,8 +2,10 @@
     /* Elevation and feature-kind accents. Everything else in the client uses Bootstrap tokens directly. */
     --fm-surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
     --fm-kind-root: #6f42c1;
-    --fm-kind-group: #0d6efd;
+    --fm-kind-module: #0d6efd;
     --fm-kind-feature: #198754;
+    /* Groups are scaffolding rather than a choice, so they stay the quietest of the four kinds. */
+    --fm-kind-group: var(--bs-secondary-color);
 }
 
 html,
@@ -42,4 +44,38 @@ main {
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+}
+
+/**
+ * Feature-kind dot, shared by the explorer tree rows, the kind legend, and the details header so the
+ * three can never disagree. Hollow means the feature is structural, i.e. not selectable.
+ */
+.fm-kind-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--fm-dot-color, var(--bs-secondary-color));
+}
+
+.fm-kind-dot--hollow {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--fm-dot-color, var(--bs-secondary-color));
+}
+
+.fm-kind-dot--root {
+    --fm-dot-color: var(--fm-kind-root);
+}
+
+.fm-kind-dot--group {
+    --fm-dot-color: var(--fm-kind-group);
+}
+
+.fm-kind-dot--module {
+    --fm-dot-color: var(--fm-kind-module);
+}
+
+.fm-kind-dot--feature {
+    --fm-dot-color: var(--fm-kind-feature);
 }

@@ -124,10 +124,12 @@
             <aside class="tree-panel fm-surface" aria-label="Feature tree">
                 @if (isListView()) {
                     <p class="kind-legend" aria-hidden="true">
-                        <span><i class="kind-dot kind-dot--root"></i>Root</span>
-                        <span><i class="kind-dot kind-dot--group"></i>Group</span>
-                        <span><i class="kind-dot kind-dot--feature"></i>Feature</span>
-                        <span><i class="kind-dot kind-dot--hollow"></i>Structural</span>
+                        @for (entry of kindLegend(); track entry.kind) {
+                            <span><i class="fm-kind-dot {{ entry.dotClass }}" [class.fm-kind-dot--hollow]="entry.hollow"></i>{{ entry.label }}</span>
+                        }
+                        @if (hasStructuralKinds()) {
+                            <span class="kind-legend__note">hollow = structural, not selectable</span>
+                        }
                     </p>
                 }
                 @if (visibleTree(); as root) {
@@ -166,7 +168,7 @@
             <section class="details-panel fm-surface" aria-label="Selected feature details" data-testid="details-panel">
                 @if (selectedNode(); as node) {
                     <header class="details-header">
-                        <span class="kind-dot {{ selectedKindDotClass() }}" [class.kind-dot--hollow]="!node.feature.selectable" aria-hidden="true"></span>
+                        <span class="fm-kind-dot {{ selectedKindDotClass() }}" [class.fm-kind-dot--hollow]="!node.feature.selectable" aria-hidden="true"></span>
                         <h2 class="h6 mb-0 flex-grow-1" data-testid="details-name">{{ node.feature.name }}</h2>
                         @if (isDefaultSelected()) {
                             <span class="details-flag" title="Selected by default">ON</span>

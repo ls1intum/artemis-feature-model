@@ -193,3 +193,45 @@ function matchesNode(node: FeatureTreeNode, needle: string): boolean {
     const name = node.feature.name.toLowerCase();
     return id.includes(needle) || name.includes(needle);
 }
+
+/**
+ * Human-readable name for a feature kind. Unknown kinds are passed through so a model that adds one
+ * still renders something meaningful.
+ *
+ * @param kind Raw `kind` value from a feature.
+ */
+export function formatFeatureKind(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'Root';
+        case 'group':
+            return 'Group';
+        case 'module':
+            return 'Module';
+        case 'feature':
+            return 'Feature';
+        default:
+            return kind;
+    }
+}
+
+/**
+ * Modifier class for the shared `.fm-kind-dot` primitive. Single source for the tree rows, the kind
+ * legend, and the details header, so a colour can never mean two different kinds.
+ *
+ * @param kind Raw `kind` value from a feature.
+ */
+export function featureKindDotClass(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'fm-kind-dot--root';
+        case 'group':
+            return 'fm-kind-dot--group';
+        case 'module':
+            return 'fm-kind-dot--module';
+        case 'feature':
+            return 'fm-kind-dot--feature';
+        default:
+            return '';
+    }
+}

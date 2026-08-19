@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { collectExpandableNodeIds, countTreeNodes, filterTreeByQuery, findNodeById } from '../core/feature-model-tree.utils';
+import { collectExpandableNodeIds, countTreeNodes, featureKindDotClass, filterTreeByQuery, findNodeById, formatFeatureKind } from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 import { FeatureModelSnapshotsComponent } from './feature-model-snapshots.component';
@@ -12,6 +12,16 @@ import { FeatureModelTreeNodeComponent } from './feature-model-tree-node.compone
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
 
 export type ExplorerViewMode = 'list' | 'diagram';
+
+/** Fixed display order for the kind legend; kinds outside it keep their model order at the end. */
+const KIND_ORDER = ['root', 'group', 'module', 'feature'];
+
+export interface KindLegendEntry {
+    kind: string;
+    label: string;
+    dotClass: string;
+    hollow: boolean;
+}
 
 @Component({
     selector: 'fm-feature-model-explorer',
@@ -91,8 +101,28 @@ export class FeatureModelExplorerComponent implements OnInit {
         return Boolean(id && defaults.includes(id));
     });
     readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedNode()?.feature.defaultState ?? null));
-    readonly selectedKindLabel = computed(() => formatKind(this.selectedNode()?.feature.kind ?? ''));
-    readonly selectedKindDotClass = computed(() => kindDotClass(this.selectedNode()?.feature.kind ?? ''));
+    /**
+     * Legend built from the kinds the loaded model actually contains, using the same dot mapping the tree
+     * rows use. A kind is drawn hollow only when every feature of that kind is structural, so a swatch can
+     * never show a fill the rows do not.
+     */
+    readonly kindLegend = computed<KindLegendEntry[]>(() => {
+        const selectableByKind = new Map<string, boolean>();
+        for (const feature of this.response()?.features ?? []) {
+            selectableByKind.set(feature.kind, (selectableByKind.get(feature.kind) ?? false) || feature.selectable);
+        }
+        return [...selectableByKind.entries()]
+            .map(([kind, anySelectable]) => ({
+                kind,
+                label: formatFeatureKind(kind),
+                dotClass: featureKindDotClass(kind),
+                hollow: !anySelectable,
+            }))
+            .sort((left, right) => kindRank(left.kind) - kindRank(right.kind));
+    });
+    readonly hasStructuralKinds = computed(() => this.kindLegend().some((entry) => entry.hollow));
+    readonly selectedKindLabel = computed(() => formatFeatureKind(this.selectedNode()?.feature.kind ?? ''));
+    readonly selectedKindDotClass = computed(() => featureKindDotClass(this.selectedNode()?.feature.kind ?? ''));
 
     ngOnInit(): void {
         this.featureModelService
@@ -218,31 +248,7 @@ function defaultStateBadgeClass(state: string | null): string {
     }
 }
 
-function formatKind(kind: string): string {
-    switch (kind) {
-        case 'root':
-            return 'Root';
-        case 'group':
-            return 'Group';
-        case 'module':
-            return 'Module';
-        case 'feature':
-            return 'Feature';
-        default:
-            return kind;
-    }
-}
-
-function kindDotClass(kind: string): string {
-    switch (kind) {
-        case 'root':
-            return 'kind-dot--root';
-        case 'group':
-        case 'module':
-            return 'kind-dot--group';
-        case 'feature':
-            return 'kind-dot--feature';
-        default:
-            return '';
-    }
+function kindRank(kind: string): number {
+    const index = KIND_ORDER.indexOf(kind);
+    return index === -1 ? KIND_ORDER.length : index;
 }

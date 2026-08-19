@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, forwardRef, input, output } from '@angular/core';
 
+import { featureKindDotClass, formatFeatureKind } from '../core/feature-model-tree.utils';
 import { FeatureTreeNode } from '../core/feature-model.types';
 
 @Component({
@@ -28,10 +29,10 @@ export class FeatureModelTreeNodeComponent {
     readonly nextDepth = computed(() => this.depth() + 1);
     readonly isStructural = computed(() => !this.node().feature.selectable);
     readonly isDefaultEnabled = computed(() => this.node().feature.defaultState === 'enabled');
-    readonly kindDotClass = computed(() => kindDotClass(this.node().feature.kind));
+    readonly kindDotClass = computed(() => featureKindDotClass(this.node().feature.kind));
     /** Accessible name for the colour dot; it carries kind and selectability, which no longer have badges. */
     readonly kindTitle = computed(() => {
-        const kind = formatKind(this.node().feature.kind);
+        const kind = formatFeatureKind(this.node().feature.kind);
         return this.isStructural() ? `${kind} · structural` : kind;
     });
 
@@ -56,34 +57,5 @@ export class FeatureModelTreeNodeComponent {
 
     onChildSelect(id: string): void {
         this.selectFeature.emit(id);
-    }
-}
-
-function formatKind(kind: string): string {
-    switch (kind) {
-        case 'root':
-            return 'Root';
-        case 'group':
-            return 'Group';
-        case 'module':
-            return 'Module';
-        case 'feature':
-            return 'Feature';
-        default:
-            return kind;
-    }
-}
-
-function kindDotClass(kind: string): string {
-    switch (kind) {
-        case 'root':
-            return 'tree-dot--root';
-        case 'group':
-        case 'module':
-            return 'tree-dot--group';
-        case 'feature':
-            return 'tree-dot--feature';
-        default:
-            return 'tree-dot--other';
     }
 }

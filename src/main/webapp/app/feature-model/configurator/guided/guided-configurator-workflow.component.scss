@@ -138,6 +138,9 @@
     padding: 0.8rem 0.9rem;
     color: inherit;
     text-align: left;
+    /* Rows keep their natural height: without this, a card stretched to its row's height spreads the
+       slack across its grid rows and the chips stretch with them. */
+    align-content: start;
 }
 
 .option-card--unavailable,
