@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.model.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.workflow.WorkflowStageService;
 import tools.jackson.databind.ObjectMapper;
 
 class DockerSnapshotContextStagerTest {

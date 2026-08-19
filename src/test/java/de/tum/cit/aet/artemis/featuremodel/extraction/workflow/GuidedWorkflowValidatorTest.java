@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.workflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

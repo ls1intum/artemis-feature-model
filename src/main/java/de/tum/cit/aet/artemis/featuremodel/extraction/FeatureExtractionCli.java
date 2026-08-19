@@ -10,7 +10,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ManifestPreflight
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.WorkflowStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.workflow.WorkflowStageService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
