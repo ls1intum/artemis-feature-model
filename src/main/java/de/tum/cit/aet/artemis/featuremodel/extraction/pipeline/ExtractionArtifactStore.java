@@ -31,8 +31,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ModelAssemblyOutcome;
-import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
 import de.tum.cit.aet.artemis.featuremodel.extraction.report.ExtractionHtmlReportRenderer;
 import tools.jackson.databind.ObjectMapper;
 
