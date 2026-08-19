@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.pipeline;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -24,7 +24,7 @@ import tools.jackson.databind.ObjectMapper;
  * layout in an {@link ExtractionRunContext}; other inputs remain independently loaded files because their stages
  * consume them at different boundaries.
  */
-class ExtractionInputLoader {
+public class ExtractionInputLoader {
 
     private final ObjectMapper objectMapper;
 
@@ -49,7 +49,7 @@ class ExtractionInputLoader {
      *
      * @param objectMapper Jackson mapper used to parse the JSON inputs.
      */
-    ExtractionInputLoader(ObjectMapper objectMapper) {
+    public ExtractionInputLoader(ObjectMapper objectMapper) {
         this(objectMapper, Files::readAllBytes);
     }
 
@@ -75,7 +75,7 @@ class ExtractionInputLoader {
      * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.SourcePreflightException if no revision can be
      *             derived, the checkout is dirty, or the derived revision differs from the expected one.
      */
-    ArtemisSourceRepository verifiedSource(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) {
+    public ArtemisSourceRepository verifiedSource(FeatureExtractionInputs inputs, Function<Path, ArtemisSourceRepository> sourceFactory) {
         ArtemisSourceRepository source = sourceFactory.apply(inputs.requireArtemisCheckout());
         new ArtemisSourcePreflight().verify(source, inputs.expectedArtemisSha());
         return source;
@@ -94,7 +94,7 @@ class ExtractionInputLoader {
      * @throws de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException if a co-located checkout
      *             manifest diverges from the in-repo manifest in {@code repository} mode.
      */
-    ExtractionRunContext runContext(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
+    public ExtractionRunContext runContext(FeatureExtractionInputs inputs, ArtemisSourceRepository source) throws IOException {
         Path manifestFile = inputs.resolveManifestFile();
         byte[] manifestBytes = manifestBytesReader.read(manifestFile);
         FeatureScopeManifest manifest = new FeatureManifestLoader().load(new ByteArrayInputStream(manifestBytes), manifestFile.toString());
@@ -136,7 +136,7 @@ class ExtractionInputLoader {
      * @return deployment profile.
      * @throws IOException if the profile cannot be read.
      */
-    DeploymentProfile deploymentProfile(FeatureExtractionInputs inputs) throws IOException {
+    public DeploymentProfile deploymentProfile(FeatureExtractionInputs inputs) throws IOException {
         return readJson(inputs.deploymentProfileFile(), DeploymentProfile.class);
     }
 
@@ -147,7 +147,7 @@ class ExtractionInputLoader {
      * @return validated runtime image reference.
      * @throws IOException if the delivery configuration cannot be read.
      */
-    ArtemisRuntimeImage runtimeImage(FeatureExtractionInputs inputs) throws IOException {
+    public ArtemisRuntimeImage runtimeImage(FeatureExtractionInputs inputs) throws IOException {
         return readJson(inputs.runtimeImageFile(), ArtemisRuntimeImage.class);
     }
 
@@ -158,7 +158,7 @@ class ExtractionInputLoader {
      * @return authored workflow bytes.
      * @throws IOException if the workflow cannot be read.
      */
-    byte[] authoredWorkflowBytes(FeatureExtractionInputs inputs) throws IOException {
+    public byte[] authoredWorkflowBytes(FeatureExtractionInputs inputs) throws IOException {
         return Files.readAllBytes(inputs.authoredWorkflowFile());
     }
 

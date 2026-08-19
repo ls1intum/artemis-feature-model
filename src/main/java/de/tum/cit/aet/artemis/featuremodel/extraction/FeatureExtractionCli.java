@@ -5,8 +5,8 @@ import java.util.Map;
 import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ManifestPreflightService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.ManifestPreflightService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.ScanStageService;

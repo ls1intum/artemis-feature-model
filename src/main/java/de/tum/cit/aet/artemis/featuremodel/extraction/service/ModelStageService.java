@@ -13,6 +13,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ControlledFailureReportWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionArtifactStore;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionInputLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionRunContext;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ModelAssemblyOutcome;
 import de.tum.cit.aet.artemis.featuremodel.extraction.report.ExtractionReportAssembler;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;

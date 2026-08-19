@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.pipeline;
 
 import java.util.Objects;
 
@@ -15,10 +15,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
  * @param artemisCommit source revision derived from the verified checkout's HEAD.
  * @param layout artifact layout derived from the output root and the derived revision.
  */
-record ExtractionRunContext(byte[] manifestBytes, FeatureScopeManifest manifest, String manifestDigest, String artemisCommit,
+public record ExtractionRunContext(byte[] manifestBytes, FeatureScopeManifest manifest, String manifestDigest, String artemisCommit,
         ExtractionArtifactLayout layout) {
 
-    ExtractionRunContext {
+    public ExtractionRunContext {
         manifestBytes = manifestBytes.clone();
         Objects.requireNonNull(manifest);
         Objects.requireNonNull(manifestDigest);

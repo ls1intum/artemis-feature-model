@@ -10,6 +10,10 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFact
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ControlledFailureReportWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionArtifactStore;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionInputLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionRunContext;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 

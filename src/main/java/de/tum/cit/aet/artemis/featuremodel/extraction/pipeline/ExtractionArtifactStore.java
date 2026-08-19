@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.pipeline;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -48,47 +48,47 @@ import tools.jackson.databind.ObjectMapper;
  * different commit, a payload file edited after its stage ran, or a model assembled from another manifest is rejected
  * instead of silently composed into a snapshot.
  */
-class ExtractionArtifactStore {
+public class ExtractionArtifactStore {
 
-    static final String SCAN_METADATA_FILE = "scan-metadata.json";
+    public static final String SCAN_METADATA_FILE = "scan-metadata.json";
 
-    static final String FEATURE_CANDIDATES_FILE = "feature-candidates.json";
+    public static final String FEATURE_CANDIDATES_FILE = "feature-candidates.json";
 
-    static final String EVIDENCE_FILE = "evidence.json";
+    public static final String EVIDENCE_FILE = "evidence.json";
 
-    static final String RELATION_CANDIDATES_FILE = "relation-candidates.json";
+    public static final String RELATION_CANDIDATES_FILE = "relation-candidates.json";
 
-    static final String ANNOTATIONS_FILE = "annotations.json";
+    public static final String ANNOTATIONS_FILE = "annotations.json";
 
-    static final String CONFIG_DEFAULTS_FILE = "config-defaults.json";
+    public static final String CONFIG_DEFAULTS_FILE = "config-defaults.json";
 
-    static final String SCAN_DIAGNOSTICS_FILE = "scan-diagnostics.json";
+    public static final String SCAN_DIAGNOSTICS_FILE = "scan-diagnostics.json";
 
-    static final String SCAN_RESULT_FILE = "scan-result.json";
+    public static final String SCAN_RESULT_FILE = "scan-result.json";
 
-    static final String GENERATED_MODEL_FILE = "generated-feature-model.json";
+    public static final String GENERATED_MODEL_FILE = "generated-feature-model.json";
 
-    static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
+    public static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
 
-    static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
+    public static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
 
-    static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
+    public static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
 
-    static final String MODEL_RESULT_FILE = "model-result.json";
+    public static final String MODEL_RESULT_FILE = "model-result.json";
 
-    static final String PREPARED_WORKFLOW_FILE = "guided-workflow.json";
+    public static final String PREPARED_WORKFLOW_FILE = "guided-workflow.json";
 
-    static final String GUIDED_VALIDATION_FILE = "guided-workflow-validation.json";
+    public static final String GUIDED_VALIDATION_FILE = "guided-workflow-validation.json";
 
-    static final String WORKFLOW_DIAGNOSTICS_FILE = "workflow-diagnostics.json";
+    public static final String WORKFLOW_DIAGNOSTICS_FILE = "workflow-diagnostics.json";
 
-    static final String WORKFLOW_RESULT_FILE = "workflow-result.json";
+    public static final String WORKFLOW_RESULT_FILE = "workflow-result.json";
 
-    static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
+    public static final String EXTRACTION_REPORT_FILE = "extraction-report.json";
 
-    static final String HTML_REPORT_FILE = "index.html";
+    public static final String HTML_REPORT_FILE = "index.html";
 
-    static final String RELEASE_DELTA_REPORT_FILE = "release-delta-report.json";
+    public static final String RELEASE_DELTA_REPORT_FILE = "release-delta-report.json";
 
     private static final String LINE_FEED = "\n";
 
@@ -103,7 +103,7 @@ class ExtractionArtifactStore {
      *
      * @param objectMapper Jackson mapper used for serialization.
      */
-    ExtractionArtifactStore(ObjectMapper objectMapper) {
+    public ExtractionArtifactStore(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         jsonWriter = new ExtractionJsonWriter(objectMapper);
         directoryOperations = new ArtifactDirectoryOperations();
@@ -116,7 +116,7 @@ class ExtractionArtifactStore {
      * @param metadata scan metadata.
      * @param outcome source facts of the scan.
      */
-    record LoadedScan(ScanResult result, ScanMetadata metadata, ExtractedSourceFacts outcome) {
+    public record LoadedScan(ScanResult result, ScanMetadata metadata, ExtractedSourceFacts outcome) {
     }
 
     /**
@@ -127,7 +127,7 @@ class ExtractionArtifactStore {
      * @param generatedCatalog generated config-key catalog.
      * @param items model assembly diagnostics.
      */
-    record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
+    public record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
     }
 
     /**
@@ -137,7 +137,7 @@ class ExtractionArtifactStore {
      * @param preparedWorkflow bytes of the prepared guided workflow.
      * @param items workflow preparation diagnostics.
      */
-    record LoadedWorkflow(WorkflowResult result, byte[] preparedWorkflow, List<ReportItem> items) {
+    public record LoadedWorkflow(WorkflowResult result, byte[] preparedWorkflow, List<ReportItem> items) {
     }
 
     /**
@@ -148,7 +148,7 @@ class ExtractionArtifactStore {
      * @param stage stage that is about to write.
      * @throws IOException if a directory cannot be removed.
      */
-    void invalidateFrom(ExtractionArtifactLayout layout, ExtractionStage stage) throws IOException {
+    public void invalidateFrom(ExtractionArtifactLayout layout, ExtractionStage stage) throws IOException {
         directoryOperations.invalidateFrom(layout, stage);
     }
 
@@ -161,7 +161,7 @@ class ExtractionArtifactStore {
      * @return the written scan envelope.
      * @throws IOException if a file cannot be written.
      */
-    ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, ExtractedSourceFacts outcome) throws IOException {
+    public ScanResult writeScan(ExtractionArtifactLayout layout, ScanMetadata metadata, ExtractedSourceFacts outcome) throws IOException {
         Path directory = Files.createDirectories(layout.scanDirectory());
         jsonWriter.write(directory.resolve(SCAN_METADATA_FILE), metadata);
         jsonWriter.write(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
@@ -188,7 +188,7 @@ class ExtractionArtifactStore {
      * @throws IOException if a file cannot be read.
      * @throws ExtractionArtifactException if the scan is missing, stale, or from another commit or extractor version.
      */
-    LoadedScan readScan(ExtractionArtifactLayout layout, String expectedArtemisCommit) throws IOException {
+    public LoadedScan readScan(ExtractionArtifactLayout layout, String expectedArtemisCommit) throws IOException {
         Path directory = layout.scanDirectory();
         ScanResult result = readJson(directory.resolve(SCAN_RESULT_FILE), ScanResult.class, "scan");
         requireSchemaVersion("scan", result.schemaVersion(), ScanResult.CURRENT_SCHEMA_VERSION);
@@ -217,7 +217,7 @@ class ExtractionArtifactStore {
      * @return the written model envelope.
      * @throws IOException if a file cannot be written.
      */
-    ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyOutcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
+    public ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyOutcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
             throws IOException {
         Path directory = Files.createDirectories(layout.modelDirectory());
         jsonWriter.write(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
@@ -262,7 +262,7 @@ class ExtractionArtifactStore {
      * @throws IOException if a file cannot be read.
      * @throws ExtractionArtifactException if the model is missing or was assembled from other inputs.
      */
-    LoadedModel readModel(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedScanDigest, String expectedManifestDigest)
+    public LoadedModel readModel(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedScanDigest, String expectedManifestDigest)
             throws IOException {
         Path directory = layout.modelDirectory();
         ModelResult result = readJson(directory.resolve(MODEL_RESULT_FILE), ModelResult.class, "model");
@@ -298,7 +298,7 @@ class ExtractionArtifactStore {
      * @return the written workflow envelope.
      * @throws IOException if a file cannot be written.
      */
-    WorkflowResult writeWorkflow(ExtractionArtifactLayout layout, WorkflowValidationOutcome validation, byte[] authoredWorkflowBytes,
+    public WorkflowResult writeWorkflow(ExtractionArtifactLayout layout, WorkflowValidationOutcome validation, byte[] authoredWorkflowBytes,
             String generatedModelDigest, String artemisCommit) throws IOException {
         Path directory = Files.createDirectories(layout.workflowDirectory());
         Files.write(directory.resolve(PREPARED_WORKFLOW_FILE), authoredWorkflowBytes);
@@ -323,7 +323,7 @@ class ExtractionArtifactStore {
      * @throws IOException if a file cannot be read.
      * @throws ExtractionArtifactException if the prepared workflow is missing or was prepared from other inputs.
      */
-    LoadedWorkflow readWorkflow(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedModelDigest, String expectedAuthoredWorkflowDigest)
+    public LoadedWorkflow readWorkflow(ExtractionArtifactLayout layout, String expectedArtemisCommit, String expectedModelDigest, String expectedAuthoredWorkflowDigest)
             throws IOException {
         Path directory = layout.workflowDirectory();
         WorkflowResult result = readJson(directory.resolve(WORKFLOW_RESULT_FILE), WorkflowResult.class, "workflow");
@@ -346,7 +346,7 @@ class ExtractionArtifactStore {
      * @param report consolidated report.
      * @throws IOException if the report cannot be written.
      */
-    void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
+    public void writeReport(ExtractionArtifactLayout layout, ExtractionReport report) throws IOException {
         Path directory = Files.createDirectories(layout.reportDirectory());
         jsonWriter.write(directory.resolve(EXTRACTION_REPORT_FILE), report);
         jsonWriter.write(directory.resolve(RELEASE_DELTA_REPORT_FILE), ReleaseDeltaReport.noBaseline());
@@ -361,7 +361,7 @@ class ExtractionArtifactStore {
      * @throws IOException if the report cannot be read.
      * @throws ExtractionArtifactException if the report is missing.
      */
-    GuidedWorkflowValidationReport readGuidedValidation(ExtractionArtifactLayout layout) throws IOException {
+    public GuidedWorkflowValidationReport readGuidedValidation(ExtractionArtifactLayout layout) throws IOException {
         return readJson(layout.workflowDirectory().resolve(GUIDED_VALIDATION_FILE), GuidedWorkflowValidationReport.class, "workflow");
     }
 

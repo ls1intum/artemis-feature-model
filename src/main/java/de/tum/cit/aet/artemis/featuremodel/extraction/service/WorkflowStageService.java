@@ -7,6 +7,10 @@ import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ControlledFailureReportWriter;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionArtifactStore;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionInputLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ExtractionRunContext;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;

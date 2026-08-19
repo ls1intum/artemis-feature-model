@@ -6,7 +6,7 @@ import java.nio.file.Path;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureManifestLoader;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.FeatureManifestLoader;
 import de.tum.cit.aet.artemis.featuremodel.extraction.service.GuidedWorkflowScaffoldService;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;

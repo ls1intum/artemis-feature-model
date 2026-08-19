@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.pipeline;
 
 import java.io.IOException;
 import java.util.List;
@@ -10,7 +10,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.report.ExtractionReportAssembler;
 
 /** Writes a minimal consolidated JSON and HTML verdict when a stage cannot consume its normal inputs. */
-class ControlledFailureReportWriter {
+public class ControlledFailureReportWriter {
 
     private final ExtractionArtifactStore artifactStore;
 
@@ -19,7 +19,7 @@ class ControlledFailureReportWriter {
      *
      * @param artifactStore artifact boundary that writes both report formats.
      */
-    ControlledFailureReportWriter(ExtractionArtifactStore artifactStore) {
+    public ControlledFailureReportWriter(ExtractionArtifactStore artifactStore) {
         this.artifactStore = artifactStore;
     }
 
@@ -30,7 +30,7 @@ class ControlledFailureReportWriter {
      * @param failure failure returned by the stage.
      * @throws IOException if the report cannot be written.
      */
-    void write(ExtractionRunContext context, Exception failure) throws IOException {
+    public void write(ExtractionRunContext context, Exception failure) throws IOException {
         CurationReport curation = new CurationReport(context.manifest().manifestVersion(), context.artemisCommit(),
                 Map.of(CurationReport.STATE_INCLUDE, 0, CurationReport.STATE_EXCLUDE, 0, CurationReport.STATE_UNDECLARED, 0), Map.of(),
                 List.of(), List.of());
