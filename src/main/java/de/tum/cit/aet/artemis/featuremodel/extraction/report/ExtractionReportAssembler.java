@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.report;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,7 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
  * Consolidates the diagnostics of all extraction stages into the deterministic {@code extraction-report.json}. It is
  * the only place that sees scan, model, and workflow diagnostics together.
  */
-class ExtractionReportAssembler {
+public class ExtractionReportAssembler {
 
     private static final Map<String, String> CODE_DOCUMENTATION = new TreeMap<>(Map.ofEntries(
             Map.entry(ReportItem.CODE_GENERATED_MODEL_INVALID, "The assembled generated model failed the shared structural integrity validation."),
@@ -52,7 +52,7 @@ class ExtractionReportAssembler {
      * @param eligible whether all deterministic delivery gates passed.
      * @return assembled report.
      */
-    ExtractionReport assemble(String artemisCommit, String manifestDigest, CurationReport curation, List<ReportItem> stageItems, boolean eligible) {
+    public ExtractionReport assemble(String artemisCommit, String manifestDigest, CurationReport curation, List<ReportItem> stageItems, boolean eligible) {
         List<ReportItem> sortedItems = new ArrayList<>(stageItems);
         sortedItems.sort(Comparator.comparing(ReportItem::code).thenComparing(ReportItem::subject).thenComparing(ReportItem::message).thenComparing(ReportItem::severity));
         Map<String, Integer> severityCounts = new TreeMap<>();

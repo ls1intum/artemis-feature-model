@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.report;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +37,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
  * and absolute paths before escaping markup. Internal constants such as link targets are inserted verbatim, because the
  * sanitizer would rewrite their slashes.
  */
-class ExtractionHtmlReportRenderer {
+public class ExtractionHtmlReportRenderer {
 
     /** Classpath location of the stylesheet inlined into every rendered report. */
     private static final String STYLESHEET_RESOURCE = "/feature-model/extraction/report.css";
@@ -84,7 +84,7 @@ class ExtractionHtmlReportRenderer {
      * @param report consolidated JSON report.
      * @return UTF-8 HTML bytes.
      */
-    byte[] render(ExtractionReport report) {
+    public byte[] render(ExtractionReport report) {
         return document(report).getBytes(StandardCharsets.UTF_8);
     }
 

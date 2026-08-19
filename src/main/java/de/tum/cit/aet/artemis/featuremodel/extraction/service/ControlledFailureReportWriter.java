@@ -7,6 +7,7 @@ import java.util.Map;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.report.ExtractionReportAssembler;
 
 /** Writes a minimal consolidated JSON and HTML verdict when a stage cannot consume its normal inputs. */
 class ControlledFailureReportWriter {

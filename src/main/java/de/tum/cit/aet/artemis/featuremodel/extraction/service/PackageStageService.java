@@ -12,6 +12,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.report.ExtractionReportAssembler;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
