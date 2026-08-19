@@ -19,7 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMe
 import de.tum.cit.aet.artemis.featuremodel.extraction.model.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.FixtureArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.PackageStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.workflow.WorkflowStageService;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecisionOption;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;

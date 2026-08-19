@@ -1,4 +1,4 @@
-package de.tum.cit.aet.artemis.featuremodel.extraction.service;
+package de.tum.cit.aet.artemis.featuremodel.extraction.snapshot;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -52,7 +52,7 @@ public class PackageStageService {
      * @param objectMapper Jackson mapper shared with artifact services.
      * @param featureModelRepositoryCommit fixed repository commit, or null to resolve the current Git commit.
      */
-    PackageStageService(ObjectMapper objectMapper, String featureModelRepositoryCommit) {
+    public PackageStageService(ObjectMapper objectMapper, String featureModelRepositoryCommit) {
         this.objectMapper = objectMapper;
         this.inputLoader = new ExtractionInputLoader(objectMapper);
         this.artifactStore = new ExtractionArtifactStore(objectMapper);

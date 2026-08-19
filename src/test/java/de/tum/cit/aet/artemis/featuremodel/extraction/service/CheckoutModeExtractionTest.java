@@ -21,6 +21,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.model.ModelStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.LocalArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.SyntheticArtemisCheckout;
 import de.tum.cit.aet.artemis.featuremodel.extraction.scan.ScanStageService;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.PackageStageService;
 import de.tum.cit.aet.artemis.featuremodel.extraction.workflow.WorkflowStageService;
 import tools.jackson.databind.ObjectMapper;
 
