@@ -11,6 +11,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflowFinding;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowDiagnosticsService;
@@ -29,17 +30,6 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrit
 class GuidedWorkflowValidator {
 
     /**
-     * Validation result.
-     *
-     * @param workflowIntegrityValid whether the effective workflow passed hard reference validation against the model.
-     * @param deliveryEligible whether hard references passed and no error-severity finding exists.
-     * @param guidedValidation coverage and consistency findings of the workflow against the generated model.
-     * @param items validation diagnostics for the extraction report.
-     */
-    record Result(boolean workflowIntegrityValid, boolean deliveryEligible, GuidedWorkflowValidationReport guidedValidation, List<ReportItem> items) {
-    }
-
-    /**
      * Validates the authored workflow against the generated model.
      *
      * @param generatedModel assembled generated model.
@@ -47,12 +37,12 @@ class GuidedWorkflowValidator {
      * @param bundledProfile bundled deployment profile providing the known capabilities.
      * @return workflow integrity state, validation report, and report items.
      */
-    Result validate(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile) {
+    WorkflowValidationOutcome validate(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile) {
         List<ReportItem> items = new ArrayList<>();
         GuidedWorkflow effectiveWorkflow = new GuidedWorkflowProjectionService().project(authoredWorkflow).effectiveWorkflow();
         boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, effectiveWorkflow, items);
         GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, bundledProfile, workflowIntegrityValid, items);
-        return new Result(workflowIntegrityValid, guidedValidation.deliveryEligible(), guidedValidation, List.copyOf(items));
+        return new WorkflowValidationOutcome(workflowIntegrityValid, guidedValidation.deliveryEligible(), guidedValidation, List.copyOf(items));
     }
 
     /**

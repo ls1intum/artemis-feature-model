@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionStage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureExtractionInputs;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import tools.jackson.databind.ObjectMapper;
@@ -68,7 +69,7 @@ public class WorkflowStageService {
 
             byte[] authoredWorkflowBytes = inputLoader.authoredWorkflowBytes(inputs);
             GuidedWorkflow authoredWorkflow = objectMapper.readValue(authoredWorkflowBytes, GuidedWorkflow.class);
-            GuidedWorkflowValidator.Result validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow,
+            WorkflowValidationOutcome validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow,
                     inputLoader.deploymentProfile(inputs));
             artifactStore.writeWorkflow(context.layout(), validation, authoredWorkflowBytes, model.result().generatedModelDigest(), context.artemisCommit());
 

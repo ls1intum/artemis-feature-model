@@ -13,6 +13,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformanceException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ModelAssemblyOutcome;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -74,7 +75,7 @@ public class ModelStageService {
         FeatureScopeManifest manifest = context.manifest();
         artifactStore.invalidateFrom(context.layout(), ExtractionStage.MODEL);
         ExtractionArtifactStore.LoadedScan scan;
-        ModelAssemblyService.Outcome outcome;
+        ModelAssemblyOutcome outcome;
         try {
             scan = artifactStore.readScan(context.layout(), context.artemisCommit());
             outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
@@ -93,7 +94,7 @@ public class ModelStageService {
                 outcome.generatedCatalog().keys().size(), outcome.modelIntegrityValid());
     }
 
-    private void writeFailureReport(ExtractionRunContext context, ExtractionArtifactStore.LoadedScan scan, ModelAssemblyService.Outcome outcome)
+    private void writeFailureReport(ExtractionRunContext context, ExtractionArtifactStore.LoadedScan scan, ModelAssemblyOutcome outcome)
             throws IOException {
         if (outcome.conformance().conformant() && outcome.generatedOutputConformant()) {
             return;
@@ -110,7 +111,7 @@ public class ModelStageService {
      * @param outcome model assembly outcome containing both source and generated-output conformance.
      * @throws ManifestConformanceException if the manifest does not describe the scanned source completely.
      */
-    private void failIfNotConformant(ModelAssemblyService.Outcome outcome) {
+    private void failIfNotConformant(ModelAssemblyOutcome outcome) {
         ManifestConformance conformance = outcome.conformance();
         if (!conformance.conformant()) {
             throw new ManifestConformanceException("The manifest does not describe the scanned Artemis commit completely: " + conformance.describeFindings()

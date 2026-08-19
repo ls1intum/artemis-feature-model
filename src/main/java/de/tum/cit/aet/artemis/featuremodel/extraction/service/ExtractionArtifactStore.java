@@ -31,6 +31,8 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ScanResult;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.WorkflowResult;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ModelAssemblyOutcome;
+import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -214,7 +216,7 @@ class ExtractionArtifactStore {
      * @return the written model envelope.
      * @throws IOException if a file cannot be written.
      */
-    ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyService.Outcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
+    ModelResult writeModel(ExtractionArtifactLayout layout, ModelAssemblyOutcome outcome, String scanDigest, String manifestDigest, String artemisCommit)
             throws IOException {
         Path directory = Files.createDirectories(layout.modelDirectory());
         jsonWriter.write(directory.resolve(MODEL_DIAGNOSTICS_FILE), outcome.items());
@@ -295,7 +297,7 @@ class ExtractionArtifactStore {
      * @return the written workflow envelope.
      * @throws IOException if a file cannot be written.
      */
-    WorkflowResult writeWorkflow(ExtractionArtifactLayout layout, GuidedWorkflowValidator.Result validation, byte[] authoredWorkflowBytes,
+    WorkflowResult writeWorkflow(ExtractionArtifactLayout layout, WorkflowValidationOutcome validation, byte[] authoredWorkflowBytes,
             String generatedModelDigest, String artemisCommit) throws IOException {
         Path directory = Files.createDirectories(layout.workflowDirectory());
         Files.write(directory.resolve(PREPARED_WORKFLOW_FILE), authoredWorkflowBytes);
