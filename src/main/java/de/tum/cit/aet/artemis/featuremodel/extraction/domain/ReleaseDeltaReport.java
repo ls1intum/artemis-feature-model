@@ -1,8 +1,8 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
 /**
- * Informational comparison status against a previously deployed validated snapshot. Stage 2 has no configured
- * baseline input, so it records a deterministic skipped result that can never change release eligibility.
+ * Informational comparison status against a previously deployed validated snapshot. The extraction run has no
+ * configured baseline input, so it records a deterministic skipped result that can never change release eligibility.
  *
  * @param schemaVersion report schema version.
  * @param status {@code skipped} when no baseline is configured.

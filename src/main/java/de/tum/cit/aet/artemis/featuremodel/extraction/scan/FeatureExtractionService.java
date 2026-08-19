@@ -102,7 +102,7 @@ class FeatureExtractionService {
     }
 
     /**
-     * Appends whole-scanner failures in scanner invocation order, preserving the Stage 1 diagnostic contract.
+     * Appends whole-scanner failures in scanner invocation order, preserving the persisted diagnostic order contract.
      *
      * @param scanResults source-scan results in invocation order.
      * @param items diagnostic sink.

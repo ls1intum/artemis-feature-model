@@ -2,7 +2,7 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
 /**
  * Deterministic metadata and recognized-file declaration of a generated snapshot. Field names shared with the legacy
- * local snapshot DTO keep Stage 2 artifacts importable while Stage 3 adopts the complete validator.
+ * local snapshot DTO keep generated snapshots importable through the explicit-development-only snapshot surface.
  *
  * @param schemaVersion metadata schema version.
  * @param snapshotFormatVersion complete snapshot format version.
