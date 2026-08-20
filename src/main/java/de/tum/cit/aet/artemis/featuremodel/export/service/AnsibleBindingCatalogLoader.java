@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -43,6 +44,7 @@ public class AnsibleBindingCatalogLoader {
      * @param objectMapper Jackson mapper used to parse the catalog.
      * @throws FeatureModelLoadException if the catalog cannot be read, parsed, or validated.
      */
+    @Autowired
     public AnsibleBindingCatalogLoader(ResourceLoader resourceLoader, ObjectMapper objectMapper) {
         this(resourceLoader, objectMapper, CATALOG_RESOURCE);
     }
