@@ -244,6 +244,9 @@ public class DeploymentPackageService {
         if (!profile.supportsDeploymentMode(deploymentMode)) {
             throw ArtifactGenerationException.unsupportedDeploymentMode(deploymentMode, profile.id());
         }
+        if (request.remoteEnvironment() != null && !DeploymentModes.REMOTE_ANSIBLE.equals(deploymentMode)) {
+            throw ArtifactGenerationException.remoteEnvironmentNotApplicable(deploymentMode);
+        }
 
         SharedArtifacts shared = generateSharedArtifacts(request);
         shared = applyModeMetadata(shared, deploymentMode);
@@ -269,7 +272,8 @@ public class DeploymentPackageService {
         return switch (deploymentMode) {
             case DeploymentModes.LOCAL_DOCKER -> composeLocalDockerFiles(shared, requestedDeploymentMode);
             case DeploymentModes.DEV_IDE -> composeDevIdeFiles(shared);
-            case DeploymentModes.REMOTE_ANSIBLE -> composeRemoteAnsibleFiles(shared, RemoteEnvironmentValues.placeholders());
+            case DeploymentModes.REMOTE_ANSIBLE -> composeRemoteAnsibleFiles(shared,
+                    request.remoteEnvironment() == null ? RemoteEnvironmentValues.placeholders() : request.remoteEnvironment().resolve());
             default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
         };
     }

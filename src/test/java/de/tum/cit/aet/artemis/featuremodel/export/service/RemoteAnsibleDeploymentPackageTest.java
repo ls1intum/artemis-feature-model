@@ -23,6 +23,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManife
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
+import de.tum.cit.aet.artemis.featuremodel.export.dto.RemoteEnvironmentInput;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import de.tum.cit.aet.artemis.featuremodel.validation.service.FeatureModelValidationService;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
@@ -177,6 +178,39 @@ class RemoteAnsibleDeploymentPackageTest {
         for (GeneratedArtifactFile file : result.files()) {
             assertThat(file.content()).as("file %s", file.path()).doesNotContain("secrets.example");
         }
+    }
+
+    @Test
+    void environmentInputYieldsSameStructureWithValuesInsteadOfPlaceholders() {
+        GeneratedArtifactPackage placeholderPackage = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage labPackage = service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "remote-ansible",
+                labEnvironment()));
+
+        List<String> placeholderPaths = placeholderPackage.files().stream().map(GeneratedArtifactFile::path)
+                .map(path -> path.replace("artemistarget", "artemislocal")).toList();
+        assertThat(labPackage.files().stream().map(GeneratedArtifactFile::path).toList()).isEqualTo(placeholderPaths);
+        assertThat(content(labPackage, "inventory/group_vars/artemislocal/main.yml"))
+                .isEqualTo("---\nvar_testserver_name: \"artemis-local\"\nvar_server_hostname: \"artemis.192.168.252.2.nip.io\"");
+        assertThat(content(placeholderPackage, "inventory/group_vars/artemistarget/main.yml")).contains("REPLACE_ME_TARGET_NAME");
+        JsonNode labReadiness = objectMapper.readTree(content(labPackage, "metadata/remote-readiness.json"));
+        assertThat(labReadiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("provided"));
+        JsonNode placeholderReadiness = objectMapper.readTree(content(placeholderPackage, "metadata/remote-readiness.json"));
+        assertThat(placeholderReadiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("pending"));
+    }
+
+    @Test
+    void remoteEnvironmentOnNonRemoteModesIsRejected() {
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "local-docker", labEnvironment())))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("local-docker");
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "dev-ide", labEnvironment())))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("dev-ide");
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, null, labEnvironment())))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("remote-ansible");
+    }
+
+    private RemoteEnvironmentInput labEnvironment() {
+        return new RemoteEnvironmentInput("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
+                "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);
     }
 
     private ArtifactGenerationRequest remoteRequest(List<String> selection) {
