@@ -1,7 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 /**
- * Shared string constants for the Phase 6 local runtime deployment package. They keep the generated Compose override,
+ * Shared string constants for the local runtime deployment package. They keep the generated Compose override,
  * helper scripts, README files, and manifest consistent, so the path the start script mounts and the path the override
  * references never drift apart.
  *
@@ -23,7 +23,7 @@ public final class RuntimePackageConstants {
     /** Package format version recorded in the manifest. */
     public static final String PACKAGE_VERSION = "2.0.0";
 
-    /** Only generation mode in this phase; placeholder values are allowed but reported. */
+    /** Only supported generation mode; placeholder values are allowed but reported. */
     public static final String MODE_DEMO = "DEMO";
 
     /** Runtime mode identifier for the local Artemis repository layer (Layer 1). */
@@ -35,7 +35,7 @@ public final class RuntimePackageConstants {
     /** Path of the generated Spring configuration overlay inside the package. */
     public static final String OVERLAY_PACKAGE_PATH = "config/application-feature-model.yml";
 
-    /** Path of the generated {@code .env.example} inside the package (empty values, from Phase 5). */
+    /** Path of the generated {@code .env.example} inside the package (empty values, from artifact generation). */
     public static final String ENV_EXAMPLE_PACKAGE_PATH = "env/.env.example";
 
     /** Path of the generated demo env file inside the package. */

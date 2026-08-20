@@ -10,7 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * {@code metadata/generation-report.json} and returned in the preview response.
  *
  * @param status generation status, one of {@link #STATUS_GENERATED} or {@link #STATUS_GENERATED_WITH_WARNINGS}.
- * @param mode generation mode; only {@link #MODE_DEMO} is supported in this phase.
+ * @param mode generation mode; only {@link #MODE_DEMO} is supported.
  * @param modelId active feature model id.
  * @param modelVersion active feature model version.
  * @param profileId active deployment profile id.
@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * @param generatedFiles relative paths of the generated files.
  * @param environmentRequirements structured environment values the deployment environment must supply.
  * @param warnings warnings and informational notes.
- * @param errors blocking errors; empty in this phase because blocking cases throw before a report is built.
+ * @param errors blocking errors; always empty because blocking cases throw before a report is built.
  * @param technicalSelection selected technical axes recorded by deployment-package generation, or {@code null} for
  *            models without technical mappings.
  */
@@ -62,7 +62,7 @@ public record GenerationReport(String status, String mode, String modelId, Strin
     }
 
     /**
-     * Creates a Phase 5 report without technical-selection metadata.
+     * Creates a report without technical-selection metadata.
      *
      * @param status generation status.
      * @param mode generation mode.

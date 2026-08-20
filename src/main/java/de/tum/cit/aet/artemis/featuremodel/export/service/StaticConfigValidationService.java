@@ -28,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Statically validates a generated configuration overlay against the curated Artemis configuration key catalog,
- * without booting Artemis (Workstream A1).
+ * without booting Artemis.
  *
  * <p>
  * The overlay YAML is parsed back into flat dotted keys with typed scalar values. Every entry must use a key from the

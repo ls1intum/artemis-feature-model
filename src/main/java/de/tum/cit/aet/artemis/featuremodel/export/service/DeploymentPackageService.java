@@ -37,18 +37,18 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationEx
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Builds a deployment package for the requested deployment mode by enriching the Phase 5 configuration artifacts with
- * mode-specific files and package metadata.
+ * Builds a deployment package for the requested deployment mode by enriching the generated configuration artifacts
+ * with mode-specific files and package metadata.
  *
  * <p>
  * This service does not re-map features to parameters or re-render the YAML overlay: it delegates to
- * {@link ArtifactGenerationService}, reuses the generated Phase 5 files, and composes them per deployment mode with
- * shared metadata (package manifest, static config validation report) plus mode-specific files. The default mode is
- * {@link DeploymentModes#LOCAL_DOCKER} (Phase 6, Layer 1): package README, demo env file, env README, runtime checks,
+ * {@link ArtifactGenerationService}, reuses the generated configuration artifact files, and composes them per
+ * deployment mode with shared metadata (package manifest, static config validation report) plus mode-specific files.
+ * The default mode is {@link DeploymentModes#LOCAL_DOCKER}: package README, demo env file, env README, runtime checks,
  * the local-repo Compose override and its README, and the helper scripts. A default-mode request and an explicit
  * local-docker request produce the same package except for the deployment mode recorded in the manifest; a recorded
  * fixture test guards the package bytes against accidental drift, so deliberate content changes must re-baseline the
- * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and its Phase 5
+ * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and its base
  * report gains technical-selection recording only when the active model declares selected structural mappings.
  */
 @Service
@@ -56,7 +56,7 @@ public class DeploymentPackageService {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentPackageService.class);
 
-    /** Phase 6 package README, which replaces the Phase 5 artifacts README at the package root. */
+    /** Deployment-package README, which replaces the configuration-artifacts README at the package root. */
     static final String PACKAGE_README_FILE = "README.md";
 
     static final String ENV_DEMO_FILE = "env/.env.demo";
@@ -157,7 +157,7 @@ public class DeploymentPackageService {
     /**
      * Creates the deployment package service.
      *
-     * @param artifactGenerationService Phase 5 service used to generate the base configuration artifacts.
+     * @param artifactGenerationService service used to generate the base configuration artifacts.
      * @param featureModelCatalogService service used to re-read the active feature model for technical resolution.
      * @param deploymentProfileService service used to resolve the active profile for the deployment-mode support check.
      * @param technicalSelectionResolver resolver for selected structural technical mappings.
@@ -195,11 +195,11 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Shared generation results every deployment mode composes its package from: the Phase 5 files by path, the Phase
-     * 5 report, the parsed required environment variables, and the static overlay validation.
+     * Shared generation results every deployment mode composes its package from: the base artifact files by path, the
+     * base generation report, the parsed required environment variables, and the static overlay validation.
      *
-     * @param report Phase 5 generation report.
-     * @param baseByPath Phase 5 files keyed by package path.
+     * @param report base generation report.
+     * @param baseByPath base artifact files keyed by package path.
      * @param overlay generated Spring configuration overlay file.
      * @param envExample generated {@code .env.example} file.
      * @param requiredEnvVars environment variable names the overlay references.
@@ -270,8 +270,8 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Generates the mode-independent shared artifacts: the Phase 5 files, the required environment variables, and the
-     * static overlay validation.
+     * Generates the mode-independent shared artifacts: the base artifact files, the required environment variables,
+     * and the static overlay validation.
      *
      * @param request artifact generation request.
      * @return shared artifacts every mode composes its package from.
@@ -294,9 +294,9 @@ public class DeploymentPackageService {
     /**
      * Applies mode-specific technical dispositions and requirements: the local-docker mode gains its package-only
      * requirements, and a technical model gains its technical-selection metadata. The rewritten report replaces the
-     * Phase 5 report file, so the report metadata and the returned package report always agree.
+     * base report file, so the report metadata and the returned package report always agree.
      *
-     * @param shared shared artifacts with the Phase 5 report.
+     * @param shared shared artifacts with the base report.
      * @param deploymentMode resolved deployment mode.
      * @return shared artifacts carrying the mode-specific report.
      */
@@ -340,7 +340,7 @@ public class DeploymentPackageService {
     /**
      * Adds the controlled local-docker Jenkins warning when applicable.
      *
-     * @param report Phase 5 report.
+     * @param report base generation report.
      * @param metadata technical metadata.
      * @param deploymentMode resolved deployment mode.
      * @param selection resolved technical selection.
@@ -376,7 +376,7 @@ public class DeploymentPackageService {
     /**
      * Replaces the package report file only when technical metadata is present. Curated-model bytes remain untouched.
      *
-     * @param filesByPath Phase 5 files keyed by path.
+     * @param filesByPath base artifact files keyed by path.
      * @param report report to record.
      */
     private void replaceGenerationReport(Map<String, GeneratedArtifactFile> filesByPath, GenerationReport report) {
@@ -386,7 +386,7 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Composes the local Docker runtime package (Phase 6, Layer 1) from the shared artifacts. The output is guarded
+     * Composes the local Docker runtime package from the shared artifacts. The output is guarded
      * byte-for-byte by a recorded fixture; deliberate content changes must re-baseline that fixture.
      *
      * @param shared shared generation results.
@@ -542,7 +542,7 @@ public class DeploymentPackageService {
      * declares no supported runtime modes and no database, and its readiness makes the configuration-only nature
      * explicit.
      *
-     * @param report Phase 5 generation report, source of the model/profile references.
+     * @param report base generation report, source of the model/profile references.
      * @param requiredEnvVars environment variables the overlay references.
      * @return dev-ide package manifest.
      */
@@ -599,7 +599,7 @@ public class DeploymentPackageService {
     /**
      * Builds the package manifest for the local-repo runtime layer.
      *
-     * @param report Phase 5 generation report, source of the model/profile references.
+     * @param report base generation report, source of the model/profile references.
      * @param packagePaths all package file paths, in order.
      * @param requiredEnvVars environment variables the overlay references.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
@@ -695,7 +695,7 @@ public class DeploymentPackageService {
      *
      * @param overlayContent generated YAML overlay content.
      * @param requiredEnvVars environment variables declared in {@code .env.example}.
-     * @param report Phase 5 generation report.
+     * @param report base generation report.
      * @param fileCount number of files in the package.
      * @param staticValidation static overlay validation result against the Artemis config key catalog.
      * @param stackContent generated technical stack, or {@code null}.

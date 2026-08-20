@@ -14,8 +14,8 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationEx
  *
  * <p>
  * The rule set is data, not logic: technical mappings select a complete ICL or Jenkins list. The curated-model
- * fallback retains one base list and one list for selections containing a CI-dependent feature. The fallback reuses
- * the Phase 6 finding that Hyperion (like Programming) hard-requires a CI trigger bean at runtime.
+ * fallback retains one base list and one list for selections containing a CI-dependent feature, because Hyperion
+ * (like Programming) hard-requires a CI trigger bean at runtime.
  *
  * <p>
  * The profile <em>order</em> is semantic, not cosmetic, and mirrors the run configurations the Artemis repository

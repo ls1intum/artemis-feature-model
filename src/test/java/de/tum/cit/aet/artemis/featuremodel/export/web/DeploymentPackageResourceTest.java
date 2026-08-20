@@ -92,7 +92,7 @@ class DeploymentPackageResourceTest {
     }
 
     @Test
-    void previewReturnsPhase5AndPhase6Files() throws Exception {
+    void previewReturnsConfigurationArtifactsAndRuntimePackageFiles() throws Exception {
         mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON).content("{\"selectedFeatureIds\":" + MINIMAL + "}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").exists())
                 .andExpect(jsonPath("$.files[*].path", hasItem("config/application-feature-model.yml")))

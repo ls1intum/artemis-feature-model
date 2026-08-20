@@ -16,7 +16,7 @@ public record GenerationMessage(String severity, String featureId, String parame
     /** Severity for neutral notes that do not affect deployment readiness. */
     public static final String INFO = "info";
 
-    /** Severity reserved for blocking failures; generation throws before producing a report in this phase. */
+    /** Severity reserved for blocking failures; generation throws before producing a report, so reports stay error-free. */
     public static final String ERROR = "error";
 
     /**

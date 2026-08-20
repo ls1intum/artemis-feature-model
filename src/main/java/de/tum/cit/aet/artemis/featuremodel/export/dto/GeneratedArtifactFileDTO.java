@@ -4,7 +4,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 
 /**
  * Preview DTO for a single generated artifact file. The preview carries the full textual content because generated
- * files are small in this phase.
+ * files are small.
  *
  * @param path relative path inside the artifact package.
  * @param contentType MIME type of the file.

@@ -20,9 +20,9 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageServi
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimePackageConstants;
 
 /**
- * REST endpoints for the Phase 6 local runtime deployment package. The package reuses the Phase 5 configuration
- * artifacts and enriches them with runtime templates, helper scripts, and metadata; the same controlled errors as the
- * Phase 5 artifact endpoints apply (invalid selection, unknown profile).
+ * REST endpoints for the deployment package. The package reuses the generated configuration artifacts and enriches
+ * them with runtime templates, helper scripts, and metadata; the same controlled errors as the configuration artifact
+ * endpoints apply (invalid selection, unknown profile).
  */
 @RestController
 @RequestMapping("/api/feature-model/deployment-package")
