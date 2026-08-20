@@ -20,7 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactE
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotProvenance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapshotValidator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.FeatureModelSnapshotValidator;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedWorkflow;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;

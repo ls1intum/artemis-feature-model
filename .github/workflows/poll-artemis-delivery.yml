@@ -1,11 +1,11 @@
 name: Artemis delivery poller
 
-# Stage 1 delivery trigger: resolves the tracking Artemis ref once at job start (or takes an explicitly supplied
+# Delivery trigger: resolves the tracking Artemis ref once at job start (or takes an explicitly supplied
 # immutable SHA), short-circuits when the identity is already published, publishes through the reusable publication
 # workflow, and opens the delivery auto-PR containing the classpath fixture refresh, the validation-pin bump, and the
 # guided-workflow coverage summary.
 #
-# Stage 2 input contract (documented, Artemis-side implementation out of scope): an Artemis-side event invokes
+# Input contract (documented, Artemis-side implementation out of scope): an Artemis-side event invokes
 # `repository_dispatch` with event type `artemis-commit` and client payload `{"artemis_sha": "<full-40-hex-sha>"}`.
 # The payload SHA enters the same explicit-SHA path as a manual dispatch; the schedule remains as a fallback.
 on:

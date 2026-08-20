@@ -1,6 +1,6 @@
 name: Static config validation
 
-# A1 CI gate: statically validate the generated configuration overlay against the
+# CI gate: statically validate the generated configuration overlay against the
 # Artemis config key catalog without booting Artemis. Scoped to the working branch
 # and manual dispatch on purpose; the general CI workflow covers other branches.
 on:

@@ -8,8 +8,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotBundleContract;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapshotValidator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.FeatureModelSnapshotValidator;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -23,10 +24,6 @@ public final class FeatureModelFixtureRefreshCli {
     private static final String OPTION_SNAPSHOT_PATH = "snapshot-path";
 
     private static final String OPTION_RESOURCE_DIR = "resource-dir";
-
-    private static final String SNAPSHOT_MODEL_FILE = "feature-model.json";
-
-    private static final String SNAPSHOT_CATALOG_FILE = "config-key-catalog.json";
 
     private static final String FIXTURE_MODEL_FILE = "functional-feature-model.json";
 
@@ -50,8 +47,8 @@ public final class FeatureModelFixtureRefreshCli {
             Path resourceDirectory = requiredPath(options, OPTION_RESOURCE_DIR);
 
             SnapshotValidationResult validation = new FeatureModelSnapshotValidator(new ObjectMapper()).validate(snapshotPath);
-            boolean modelChanged = copyIfChanged(snapshotPath.resolve(SNAPSHOT_MODEL_FILE), resourceDirectory.resolve(FIXTURE_MODEL_FILE));
-            boolean catalogChanged = copyIfChanged(snapshotPath.resolve(SNAPSHOT_CATALOG_FILE), resourceDirectory.resolve(FIXTURE_CATALOG_FILE));
+            boolean modelChanged = copyIfChanged(snapshotPath.resolve(SnapshotBundleContract.SNAPSHOT_MODEL_FILE), resourceDirectory.resolve(FIXTURE_MODEL_FILE));
+            boolean catalogChanged = copyIfChanged(snapshotPath.resolve(SnapshotBundleContract.SNAPSHOT_CATALOG_FILE), resourceDirectory.resolve(FIXTURE_CATALOG_FILE));
             boolean provenanceChanged = writeProvenanceIfChanged(resourceDirectory.resolve(FIXTURE_PROVENANCE_FILE), validation);
 
             System.out.println("snapshotId=" + validation.snapshotId());

@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.SnapshotValidationResult;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.FeatureModelSnapshotValidator;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.FeatureModelSnapshotValidator;
 import tools.jackson.databind.ObjectMapper;
 
 /** Command-line boundary of pure offline snapshot validation. */

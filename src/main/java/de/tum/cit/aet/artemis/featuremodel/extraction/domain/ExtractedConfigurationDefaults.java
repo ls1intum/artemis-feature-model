@@ -7,8 +7,8 @@ import java.util.Map;
 
 /**
  * Configuration defaults persisted under {@code scan/config-defaults.json}. The {@code errors} field remains in this
- * artifact for Stage 1 byte compatibility; orchestration collects the same diagnostics through the source-scan
- * result envelope.
+ * artifact for byte compatibility of the persisted scan contract; orchestration collects the same diagnostics
+ * through the source-scan result envelope.
  *
  * @param occurrencesByKey occurrences per dotted key; per key ordered by preferred file, then sorted path.
  * @param errors per-file YAML parse diagnostics retained in the existing JSON contract.

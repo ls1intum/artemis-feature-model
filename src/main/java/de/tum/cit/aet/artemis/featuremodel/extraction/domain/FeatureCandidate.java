@@ -1,8 +1,8 @@
 package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 
 /**
- * One extracted feature candidate. Candidates are discovery output only: they never enter the curated model in this
- * phase, and namespaced ids keep the anchor kind explicit.
+ * One extracted feature candidate. Candidates are discovery output only: they never enter the generated model
+ * without a manifest include decision, and namespaced ids keep the anchor kind explicit.
  *
  * @param id namespaced candidate id, for example {@code module:iris}, {@code toggle:Exports},
  *            {@code profile:localci}, or {@code infra:mysql}.

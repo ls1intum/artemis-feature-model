@@ -3,7 +3,7 @@ package de.tum.cit.aet.artemis.featuremodel.extraction;
 import java.nio.file.Path;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.DockerSnapshotContext;
-import de.tum.cit.aet.artemis.featuremodel.extraction.service.DockerSnapshotContextStager;
+import de.tum.cit.aet.artemis.featuremodel.extraction.snapshot.DockerSnapshotContextStager;
 import tools.jackson.databind.ObjectMapper;
 
 /** Command-line entry point for staging one validated snapshot as a Docker named context. */
