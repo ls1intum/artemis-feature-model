@@ -137,6 +137,56 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for a selection state the pinned Ansible collection cannot express.
+     *
+     * @param featureId feature whose selection state is inexpressible.
+     * @param detail missing-variable or scope reason from the binding catalog.
+     * @return unsupported remote-ansible feature exception.
+     */
+    public static ArtifactGenerationException remoteAnsibleUnsupportedFeature(String featureId, String detail) {
+        String message = "Cannot generate a remote-ansible package: feature '" + featureId + "' is not expressible with the pinned collection. " + detail;
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for an active-model feature the Ansible binding catalog does not classify. This
+     * is the run-time coverage gate: a model ahead of the application's catalog is refused instead of silently
+     * under-configured.
+     *
+     * @param featureId unclassified feature id.
+     * @param catalogVersion binding catalog version.
+     * @param collectionPin binding catalog collection pin.
+     * @return unclassified remote-ansible feature exception.
+     */
+    public static ArtifactGenerationException remoteAnsibleUnclassifiedFeature(String featureId, int catalogVersion, String collectionPin) {
+        String message = "Cannot generate a remote-ansible package: Ansible binding catalog v" + catalogVersion + " @ collection pin " + collectionPin
+                + " does not classify feature '" + featureId + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNCLASSIFIED_FEATURE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a remote-ansible selection without a required technical choice.
+     *
+     * @param axis technical axis label.
+     * @return missing technical-choice exception.
+     */
+    public static ArtifactGenerationException remoteAnsibleMissingTechnicalChoice(String axis) {
+        String message = "Cannot generate a remote-ansible package: the selection resolves no " + axis + " choice.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_MISSING_TECHNICAL_CHOICE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates a bad-request exception for a remote environment component supplied on a non-remote deployment mode.
+     *
+     * @param deploymentMode resolved deployment mode of the request.
+     * @return not-applicable remote environment exception.
+     */
+    public static ArtifactGenerationException remoteEnvironmentNotApplicable(String deploymentMode) {
+        String message = "The remoteEnvironment request component applies only to deployment mode 'remote-ansible', not to '" + deploymentMode + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ENVIRONMENT_NOT_APPLICABLE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Returns the stable error code for this failure.
      *
      * @return error code.
