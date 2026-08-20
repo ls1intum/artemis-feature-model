@@ -1,0 +1,14 @@
+[artemislocal]
+artemis.192.168.252.2.nip.io
+
+[artemistests:children]
+artemislocal
+
+[artemistests_common_config:children]
+artemislocal
+
+[artemistests_mysql:children]
+artemislocal
+
+[artemistests_local_vc_ci:children]
+artemislocal

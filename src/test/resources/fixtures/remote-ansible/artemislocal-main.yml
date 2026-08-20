@@ -1,0 +1,3 @@
+---
+var_testserver_name: "artemis-local"
+var_server_hostname: "artemis.192.168.252.2.nip.io"

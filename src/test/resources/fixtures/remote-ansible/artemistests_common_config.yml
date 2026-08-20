@@ -1,0 +1,38 @@
+---
+node_id: 1
+is_testserver: true
+artemis_server_url: "https://{{ var_server_hostname }}"
+artemis_email: "artemis-local@thesis.invalid"
+
+artemis_version: develop
+artemis_branch: develop
+
+artemis_internal_admin_user: artemis_admin
+artemis_passkey_enabled: true
+artemis_repo_basepath: "/opt/artemis/data"
+artemis_tmp_directory: "/tmp"
+
+artemis_ssh_key_password:
+artemis_ssh_key_path:
+artemis_ssh_key_name: "id_ecdsa"
+artemis_ssh_priv_key_value: ""
+
+use_docker: true
+
+artemis_operator_name: "Artemis Feature Model Thesis Lab"
+artemis_operator_admin_name: "Junting Ning"
+
+artemis_global_search_enabled: true
+
+artemis_rate_limit:
+  account_management_rpm: 5
+  authentication_rpm: 30
+
+artemis_telemetry_enabled: false
+
+artemis_create_deployment_user: false
+
+proxy_ssl_certificate_path: "/opt/lab-certs/fullchain.pem"
+proxy_ssl_certificate_key_path: "/opt/lab-certs/privkey.pem"
+
+push_notification_relay:

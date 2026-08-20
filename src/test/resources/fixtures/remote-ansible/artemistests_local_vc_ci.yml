@@ -1,0 +1,19 @@
+---
+version_control:
+  localvc:
+    url: "{{ artemis_server_url }}"
+    ssh_key_path: /opt/artemis/data/artemis/ssh-keys
+    use_version_control_access_token: true
+    build_agent_use_ssh: true
+    ssh_url: "ssh://git@{{ var_server_hostname }}:7921/"
+    build_agent_git_credentials:
+      user: "artemis-build-agent"
+      password: "{{ lookup('hashi_vault', 'kv/data/artemis/test/artemis-local').get('build_agent_git_password') }}"
+
+artemis_ssh_key_path: "/tmp"
+
+continuous_integration:
+  localci:
+    url: "{{ artemis_server_url }}"
+    is_core_node: true
+    is_build_agent: true
