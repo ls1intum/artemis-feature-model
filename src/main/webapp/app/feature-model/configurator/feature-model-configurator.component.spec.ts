@@ -780,6 +780,28 @@ describe('FeatureModelConfiguratorComponent', () => {
         downloadRequest.flush(new Blob(['zip-bytes']));
     });
 
+    it('switches to the remote-ansible target and sends only the deployment mode with the download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('admin-consumable');
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button.textContent).toContain('Ansible deployment package');
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        const requestBody = downloadRequest.request.body as { deploymentMode?: string; remoteEnvironment?: unknown; selectedFeatureIds: string[] };
+        expect(requestBody.deploymentMode).toBe('remote-ansible');
+        // The client never collects environment fields; the package downloads in its placeholder form.
+        expect(requestBody.remoteEnvironment).toBeUndefined();
+        expect(requestBody.selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
     it('disables the runtime package download while the selection is invalid', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);

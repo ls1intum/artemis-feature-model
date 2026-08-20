@@ -37,8 +37,10 @@ const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deploym
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
 const DEPLOYMENT_PACKAGE_FILE_NAME = 'artemis-feature-model-deployment-package.zip';
 const DEV_IDE_PACKAGE_FILE_NAME = 'artemis-feature-model-dev-ide-package.zip';
+const REMOTE_ANSIBLE_PACKAGE_FILE_NAME = 'artemis-feature-model-remote-ansible-package.zip';
 const LOCAL_DOCKER_DEPLOYMENT_MODE = 'local-docker';
 const DEV_IDE_DEPLOYMENT_MODE = 'dev-ide';
+const REMOTE_ANSIBLE_DEPLOYMENT_MODE = 'remote-ansible';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -484,7 +486,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         if (deploymentMode !== LOCAL_DOCKER_DEPLOYMENT_MODE) {
             request.deploymentMode = deploymentMode;
         }
-        const fileName = deploymentMode === DEV_IDE_DEPLOYMENT_MODE ? DEV_IDE_PACKAGE_FILE_NAME : DEPLOYMENT_PACKAGE_FILE_NAME;
+        const fileName = this.deploymentPackageFileName(deploymentMode);
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
         this.featureModelService
@@ -500,6 +502,17 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.deploymentPackageDownloading.set(false);
                 },
             });
+    }
+
+    /** Resolves the download file name of the selected deployment target. */
+    private deploymentPackageFileName(deploymentMode: string): string {
+        if (deploymentMode === DEV_IDE_DEPLOYMENT_MODE) {
+            return DEV_IDE_PACKAGE_FILE_NAME;
+        }
+        if (deploymentMode === REMOTE_ANSIBLE_DEPLOYMENT_MODE) {
+            return REMOTE_ANSIBLE_PACKAGE_FILE_NAME;
+        }
+        return DEPLOYMENT_PACKAGE_FILE_NAME;
     }
 
     /** Resolves a user-facing artifact error message, falling back to a default when none is present. */

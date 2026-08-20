@@ -439,11 +439,28 @@
                             />
                             <span>IntelliJ IDE development setup</span>
                         </label>
+                        <label class="deployment-target-option">
+                            <input
+                                type="radio"
+                                name="deployment-target"
+                                value="remote-ansible"
+                                [checked]="selectedDeploymentMode() === 'remote-ansible'"
+                                (change)="selectDeploymentMode.emit('remote-ansible')"
+                                data-testid="deployment-mode-remote-ansible"
+                            />
+                            <span>Remote server (Ansible)</span>
+                        </label>
                     </fieldset>
                     @if (selectedDeploymentMode() === 'dev-ide') {
                         <p class="artifact-demo-note" data-testid="deployment-package-note">
                             A configuration-only package for developers: the configuration artifacts above plus a generated IntelliJ run configuration whose Spring
                             profiles match your selection, and a short setup README. Nothing is deployed; you run Artemis from your own local checkout.
+                        </p>
+                    } @else if (selectedDeploymentMode() === 'remote-ansible') {
+                        <p class="artifact-demo-note" data-testid="deployment-package-note">
+                            An admin-consumable Ansible package for deploying your selection to a remote server: generated inventory values, a pinned collection
+                            reference, a playbook, and a preflight script. It contains no credentials and deploys nothing itself; a server administrator completes
+                            the environment values and runs it.
                         </p>
                     } @else {
                         <p class="artifact-demo-note" data-testid="deployment-package-note">
@@ -463,7 +480,9 @@
                                 ? 'Preparing ZIP...'
                                 : selectedDeploymentMode() === 'dev-ide'
                                   ? 'Download IDE setup package'
-                                  : 'Download Docker runtime package'
+                                  : selectedDeploymentMode() === 'remote-ansible'
+                                    ? 'Download Ansible deployment package'
+                                    : 'Download Docker runtime package'
                         }}
                     </button>
                     @if (!isValid()) {
