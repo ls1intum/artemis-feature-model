@@ -36,6 +36,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrity
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ActiveProfilesDeriver;
+import de.tum.cit.aet.artemis.featuremodel.export.service.AnsibleBindingCatalogLoader;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactGenerationService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactMappingResolverTest;
@@ -45,6 +46,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeSourceRe
 import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.RemoteAnsibleValuesWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeStackWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RemoteImageStackWriter;
@@ -83,7 +85,7 @@ class DeploymentPackageResourceTest {
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,
                 new TechnicalSelectionResolver(), new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
                 new RuntimeStackWriter(), new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
-                new EnvExampleWriter(), new ArtemisRuntimeSourceResolver(
+                new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(), new ArtemisRuntimeSourceResolver(
                         new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader, objectMapper).load(),
                         new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
         DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());

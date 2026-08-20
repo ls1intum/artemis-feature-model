@@ -27,6 +27,9 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationMessage;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GenerationReport;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteAnsibleEmissionPlan;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteReadinessReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeCheck;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RuntimeChecksReport;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.StaticConfigValidationReport;
@@ -106,6 +109,12 @@ public class DeploymentPackageService {
     /** Package type recorded in the dev-ide manifest; the package is configuration-only and contains no runtime. */
     static final String DEV_IDE_PACKAGE_TYPE = "dev-ide-configuration-package";
 
+    /** Layered readiness of the remote-ansible package. */
+    static final String REMOTE_READINESS_FILE = "metadata/remote-readiness.json";
+
+    /** Every vault reference of the remote-ansible package: path, field, and consuming variable. */
+    static final String VAULT_REFERENCES_FILE = "metadata/vault-references.json";
+
     private static final String CONTENT_TYPE_YAML = "application/x-yaml";
 
     private static final String CONTENT_TYPE_JSON = "application/json";
@@ -148,6 +157,8 @@ public class DeploymentPackageService {
 
     private final DevIdeTemplateWriter devIdeTemplateWriter;
 
+    private final RemoteAnsibleValuesWriter remoteAnsibleValuesWriter;
+
     private final EnvExampleWriter envExampleWriter;
 
     private final ArtemisRuntimeSourceResolver runtimeSourceResolver;
@@ -168,6 +179,7 @@ public class DeploymentPackageService {
      * @param scriptWriter writer for the local-docker helper scripts.
      * @param activeProfilesDeriver deriver of the dev-ide {@code ACTIVE_PROFILES} value from the selection.
      * @param devIdeTemplateWriter writer for the dev-ide run configuration XML and README.
+     * @param remoteAnsibleValuesWriter writer for the remote-ansible inventory values and run scaffolding.
      * @param envExampleWriter writer for local-docker environment declarations.
      * @param runtimeSourceResolver resolver for snapshot or classpath Artemis runtime provenance.
      * @param objectMapper Jackson mapper used to serialize the manifest and runtime checks.
@@ -176,8 +188,8 @@ public class DeploymentPackageService {
             DeploymentProfileService deploymentProfileService, TechnicalSelectionResolver technicalSelectionResolver,
             StaticConfigValidationService staticConfigValidationService, RuntimeTemplateWriter templateWriter, RuntimeStackWriter stackWriter,
             RemoteImageStackWriter remoteImageStackWriter, RuntimeScriptWriter scriptWriter, ActiveProfilesDeriver activeProfilesDeriver,
-            DevIdeTemplateWriter devIdeTemplateWriter, EnvExampleWriter envExampleWriter, ArtemisRuntimeSourceResolver runtimeSourceResolver,
-            ObjectMapper objectMapper) {
+            DevIdeTemplateWriter devIdeTemplateWriter, RemoteAnsibleValuesWriter remoteAnsibleValuesWriter, EnvExampleWriter envExampleWriter,
+            ArtemisRuntimeSourceResolver runtimeSourceResolver, ObjectMapper objectMapper) {
         this.artifactGenerationService = artifactGenerationService;
         this.featureModelCatalogService = featureModelCatalogService;
         this.deploymentProfileService = deploymentProfileService;
@@ -189,6 +201,7 @@ public class DeploymentPackageService {
         this.scriptWriter = scriptWriter;
         this.activeProfilesDeriver = activeProfilesDeriver;
         this.devIdeTemplateWriter = devIdeTemplateWriter;
+        this.remoteAnsibleValuesWriter = remoteAnsibleValuesWriter;
         this.envExampleWriter = envExampleWriter;
         this.runtimeSourceResolver = runtimeSourceResolver;
         this.objectMapper = objectMapper;
@@ -234,7 +247,7 @@ public class DeploymentPackageService {
 
         SharedArtifacts shared = generateSharedArtifacts(request);
         shared = applyModeMetadata(shared, deploymentMode);
-        List<GeneratedArtifactFile> files = composeFilesForMode(shared, deploymentMode, requestedDeploymentMode);
+        List<GeneratedArtifactFile> files = composeFilesForMode(shared, deploymentMode, requestedDeploymentMode, request);
 
         log.info("Generated a '{}' deployment package with {} files for profile '{}' with status {}.", deploymentMode, files.size(), shared.report().profileId(),
                 shared.report().status());
@@ -247,13 +260,16 @@ public class DeploymentPackageService {
      * @param shared shared generation results.
      * @param deploymentMode resolved deployment mode.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
+     * @param request artifact generation request carrying mode-specific components.
      * @return ordered package files for the resolved mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the deployment mode is unknown.
      */
-    private List<GeneratedArtifactFile> composeFilesForMode(SharedArtifacts shared, String deploymentMode, String requestedDeploymentMode) {
+    private List<GeneratedArtifactFile> composeFilesForMode(SharedArtifacts shared, String deploymentMode, String requestedDeploymentMode,
+            ArtifactGenerationRequest request) {
         return switch (deploymentMode) {
             case DeploymentModes.LOCAL_DOCKER -> composeLocalDockerFiles(shared, requestedDeploymentMode);
             case DeploymentModes.DEV_IDE -> composeDevIdeFiles(shared);
+            case DeploymentModes.REMOTE_ANSIBLE -> composeRemoteAnsibleFiles(shared, RemoteEnvironmentValues.placeholders());
             default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
         };
     }
@@ -330,7 +346,7 @@ public class DeploymentPackageService {
      */
     private TechnicalSelectionMetadata technicalMetadata(TechnicalSelection selection, String deploymentMode) {
         String databaseDisposition = switch (deploymentMode) {
-            case DeploymentModes.LOCAL_DOCKER -> TechnicalSelectionMetadata.DISPOSITION_APPLIED;
+            case DeploymentModes.LOCAL_DOCKER, DeploymentModes.REMOTE_ANSIBLE -> TechnicalSelectionMetadata.DISPOSITION_APPLIED;
             case DeploymentModes.DEV_IDE -> TechnicalSelectionMetadata.DISPOSITION_NOT_APPLICABLE_DEV_IDE;
             default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
         };
@@ -573,6 +589,91 @@ public class DeploymentPackageService {
         return List.of(PACKAGE_README_FILE, ArtifactGenerationService.OVERLAY_FILE, DEV_IDE_DEMO_ENV_FILE, ArtifactGenerationService.ENV_FILE,
                 DEV_IDE_RUN_CONFIG_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE, ArtifactGenerationService.PROFILE_SUMMARY_FILE,
                 ArtifactGenerationService.REPORT_FILE, MANIFEST_FILE, STATIC_VALIDATION_FILE);
+    }
+
+    /**
+     * Composes the remote-ansible package from the shared artifacts: the inventory files planned by the pure emission
+     * layer, the run scaffolding, and the package metadata. The package contains no overlay and no runtime — it is
+     * the admin-consumable values-and-orchestration counterpart of the upstream values repository. Classification
+     * runs against the active model and fails closed before any file is composed.
+     *
+     * @param shared shared generation results.
+     * @param environment resolved remote environment values.
+     * @return ordered remote-ansible package files.
+     * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if a feature is
+     *             unclassified or a selection state is unsupported.
+     */
+    private List<GeneratedArtifactFile> composeRemoteAnsibleFiles(SharedArtifacts shared, RemoteEnvironmentValues environment) {
+        GenerationReport report = shared.report();
+        FeatureModel model = featureModelCatalogService.loadActiveModel();
+        Set<String> selectedFeatureIds = new LinkedHashSet<>(report.selectedFeatureIds());
+        RemoteAnsibleEmissionPlan plan = remoteAnsibleValuesWriter.plan(model, selectedFeatureIds, environment);
+
+        List<GeneratedArtifactFile> files = new ArrayList<>();
+        files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN,
+                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), plan)));
+        files.add(new GeneratedArtifactFile("requirements.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.requirementsYml()));
+        files.add(new GeneratedArtifactFile("ansible.cfg", CONTENT_TYPE_TEXT, remoteAnsibleValuesWriter.ansibleCfg()));
+        files.add(new GeneratedArtifactFile("playbook.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.playbookYml()));
+        for (RemoteAnsibleEmissionPlan.PlannedFile plannedFile : plan.valuesFiles()) {
+            String contentType = plannedFile.path().endsWith(".yml") ? CONTENT_TYPE_YAML : CONTENT_TYPE_TEXT;
+            files.add(new GeneratedArtifactFile(plannedFile.path(), contentType, plannedFile.content()));
+        }
+        files.add(new GeneratedArtifactFile("preflight.sh", CONTENT_TYPE_SHELL, remoteAnsibleValuesWriter.preflightScript()));
+
+        List<String> packagePaths = new ArrayList<>(files.stream().map(GeneratedArtifactFile::path).toList());
+        packagePaths.addAll(List.of(MANIFEST_FILE, REMOTE_READINESS_FILE, VAULT_REFERENCES_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE));
+
+        files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteAnsibleManifest(report, List.copyOf(packagePaths)))));
+        files.add(new GeneratedArtifactFile(REMOTE_READINESS_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteReadiness(report, plan))));
+        files.add(new GeneratedArtifactFile(VAULT_REFERENCES_FILE, CONTENT_TYPE_JSON, writeJson(plan.vaultReferences())));
+        files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
+        return files;
+    }
+
+    /**
+     * Builds the package manifest for the remote-ansible package, keeping the shared record shape. The package has no
+     * startable runtime, so it declares no supported runtime modes and no required environment variables; the
+     * deployed Artemis version is a deploy-time value inside the generated inventory.
+     *
+     * @param report base generation report, source of the model/profile references.
+     * @param packagePaths all package file paths, in order.
+     * @return remote-ansible package manifest.
+     */
+    private DeploymentPackageManifest buildRemoteAnsibleManifest(GenerationReport report, List<String> packagePaths) {
+        ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(),
+                runtimeSource.imageRepository(), null,
+                "The package deploys the official Artemis image through the pinned Ansible collection; the deployed tag is set by artemis_version in the "
+                        + "generated inventory values.");
+        DeploymentPackageManifest.Database database = selectedDatabase(report, "ansible-managed");
+        TechnicalSelectionMetadata metadata = report.technicalSelection();
+        DeploymentPackageManifest.CiProvider ciProvider = metadata == null || metadata.ciProviderId() == null ? null
+                : new DeploymentPackageManifest.CiProvider(metadata.ciProviderId(), "inventory-membership");
+        DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
+                "Admin-consumable Ansible deployment package: consumable, not deployable. Secrets are vault lookup expressions; run preflight.sh and review "
+                        + "metadata/remote-readiness.json before use.");
+        return new DeploymentPackageManifest(RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_TYPE, RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_VERSION,
+                RuntimePackageConstants.MODE_DEMO, DeploymentModes.REMOTE_ANSIBLE, List.of(),
+                new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
+                new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, ciProvider,
+                report.technicalSelection(), packagePaths, List.of(), readiness);
+    }
+
+    /**
+     * Builds the layered readiness of the remote-ansible package from the emission plan, with dual-axis provenance:
+     * the model identity and the binding-catalog identity version independently.
+     *
+     * @param report base generation report.
+     * @param plan emission plan of the package.
+     * @return layered remote readiness.
+     */
+    private RemoteReadinessReport buildRemoteReadiness(GenerationReport report, RemoteAnsibleEmissionPlan plan) {
+        return new RemoteReadinessReport(RemoteReadinessReport.STATE_PASS, plan.classifications(), RemoteReadinessReport.STATE_PASS,
+                plan.environmentStates(), RemoteReadinessReport.STATE_PASS, RemoteReadinessReport.STATE_PENDING,
+                new RemoteReadinessReport.ModelIdentity(report.modelId(), report.modelVersion()),
+                new RemoteReadinessReport.CatalogIdentity(remoteAnsibleValuesWriter.catalog().catalogVersion(),
+                        remoteAnsibleValuesWriter.catalog().collectionPin()));
     }
 
     /**

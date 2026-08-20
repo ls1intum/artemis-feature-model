@@ -26,6 +26,18 @@ public final class RuntimePackageConstants {
     /** Only supported generation mode; placeholder values are allowed but reported. */
     public static final String MODE_DEMO = "DEMO";
 
+    /** Root directory of the remote-ansible package inside its ZIP. */
+    public static final String REMOTE_ANSIBLE_PACKAGE_ROOT_DIR = "remote-ansible/";
+
+    /** Download file name for the generated remote-ansible package ZIP. */
+    public static final String REMOTE_ANSIBLE_PACKAGE_ZIP_NAME = "artemis-feature-model-remote-ansible-package.zip";
+
+    /** Package type recorded in the remote-ansible manifest. */
+    public static final String REMOTE_ANSIBLE_PACKAGE_TYPE = "remote-ansible-deployment-package";
+
+    /** Package format version recorded in the remote-ansible manifest. */
+    public static final String REMOTE_ANSIBLE_PACKAGE_VERSION = "1.0.0";
+
     /** Runtime mode identifier for the local Artemis repository layer (Layer 1). */
     public static final String RUNTIME_MODE_LOCAL_REPO = "local-repo";
 

@@ -16,7 +16,10 @@ public final class DeploymentModes {
     /** Configuration-only IDE development setup: the overlay plus a generated IntelliJ run configuration. */
     public static final String DEV_IDE = "dev-ide";
 
-    private static final List<String> KNOWN_MODE_IDS = List.of(LOCAL_DOCKER, DEV_IDE);
+    /** Admin-consumable Ansible deployment package for a remote server, generated from the Ansible binding catalog. */
+    public static final String REMOTE_ANSIBLE = "remote-ansible";
+
+    private static final List<String> KNOWN_MODE_IDS = List.of(LOCAL_DOCKER, DEV_IDE, REMOTE_ANSIBLE);
 
     private DeploymentModes() {
     }
