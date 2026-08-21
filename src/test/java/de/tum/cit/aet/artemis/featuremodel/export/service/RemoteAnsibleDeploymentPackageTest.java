@@ -80,7 +80,7 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(content(result, "inventory/hosts")).contains("[artemistests_mysql:children]\nartemistarget")
                 .contains("[artemistests_local_vc_ci:children]\nartemistarget").doesNotContain("artemistests_postgres");
         assertThat(content(result, "requirements.yml")).contains("version: 8977303c560a91be27214509dd07bf6170c97277");
-        assertThat(content(result, "ansible.cfg")).contains("hash_behaviour = merge");
+        assertThat(content(result, "ansible.cfg")).contains("hash_behaviour = merge").contains("[ssh_connection]\npipelining = True");
     }
 
     @Test

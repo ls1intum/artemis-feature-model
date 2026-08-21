@@ -97,10 +97,12 @@ public class RemoteAnsibleValuesWriter {
                 1. Fill in remaining values: %s
                 2. Complete the host line in `inventory/hosts` with your connection details, for example
                    `<host> ansible_user=<user> ansible_ssh_private_key_file=<key>`.
-                3. Install the pinned collection: `ansible-galaxy collection install -r requirements.yml`
+                3. Make sure the target host provides Docker, git, and the `acl` package — the collection installs none
+                   of them, and POSIX ACLs are needed wherever Ansible hands a file to the unprivileged artemis user.
+                4. Install the pinned collection: `ansible-galaxy collection install -r requirements.yml`
                    (plus `ansible-galaxy role install geerlingguy.docker` if your target still needs Docker provisioned).
-                4. Provide secret material (next section).
-                5. Run `./preflight.sh`. It fails fast on unresolved placeholders and syntax problems.
+                5. Provide secret material (next section).
+                6. Run `./preflight.sh`. It fails fast on unresolved placeholders and syntax problems.
 
                 ## Secrets
 
@@ -157,8 +159,11 @@ public class RemoteAnsibleValuesWriter {
     }
 
     /**
-     * Builds the minimal Ansible configuration. {@code hash_behaviour = merge} is load-bearing: the inventory
-     * layering relies on merged dictionaries, so membership changes switch variants without value duplication.
+     * Builds the minimal Ansible configuration. Two settings are load-bearing and mirror the upstream values
+     * repository: {@code hash_behaviour = merge}, because the inventory layering relies on merged dictionaries so
+     * membership changes switch variants without value duplication, and {@code pipelining = True}, because the
+     * collection escalates to the unprivileged artemis user and pipelined modules need no remote temporary files —
+     * without it those tasks fail on targets that lack POSIX ACL support ({@code setfacl}).
      *
      * @return ansible.cfg text.
      */
@@ -170,6 +175,9 @@ public class RemoteAnsibleValuesWriter {
                 display_skipped_hosts = false
                 interpreter_python = auto_silent
                 retry_files_enabled = False
+
+                [ssh_connection]
+                pipelining = True
                 """;
     }
 
