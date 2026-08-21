@@ -2,9 +2,9 @@
   "model" : {
     "id" : "artemis-generated-feature-model",
     "name" : "Artemis Generated Feature Model",
-    "version" : "0.1.0+5eee99d5d62e",
+    "version" : "0.1.0+0a23256e0264",
     "status" : "generated",
-    "sourceCommitSha" : "5eee99d5d62ee667026ae371be0045c0dd208ed1"
+    "sourceCommitSha" : "0a23256e026423b322beacdfa786c5ae371fa64c"
   },
   "features" : [
     {
@@ -62,9 +62,9 @@
         "serverConditionClass" : "LectureEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:158,291",
-          "Constants.java:445,535",
+          "Constants.java:465,555",
           "LectureEnabled.java:13",
-          "admin-feature-toggle.component.ts:127,171",
+          "admin-feature-toggle.component.ts:128,172",
           "app.constants.ts:56",
           "application-core.yml:21",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -109,9 +109,9 @@
         "serverConditionClass" : "TutorialGroupEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:168,294",
-          "Constants.java:450,540",
+          "Constants.java:470,560",
           "TutorialGroupEnabled.java:13",
-          "admin-feature-toggle.component.ts:128,172",
+          "admin-feature-toggle.component.ts:129,173",
           "app.constants.ts:58",
           "application-core.yml:33",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -297,9 +297,9 @@
         "serverConditionClass" : "TextEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:128,282",
-          "Constants.java:430,520",
+          "Constants.java:450,540",
           "TextEnabled.java:13",
-          "admin-feature-toggle.component.ts:124,168",
+          "admin-feature-toggle.component.ts:125,169",
           "app.constants.ts:50",
           "application-core.yml:15",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -344,9 +344,9 @@
         "serverConditionClass" : "ModelingEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:138,285",
-          "Constants.java:435,525",
+          "Constants.java:455,545",
           "ModelingEnabled.java:13",
-          "admin-feature-toggle.component.ts:125,169",
+          "admin-feature-toggle.component.ts:126,170",
           "app.constants.ts:52",
           "application-core.yml:17",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -391,9 +391,9 @@
         "serverConditionClass" : "FileUploadEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:148,288",
-          "Constants.java:440,530",
+          "Constants.java:460,550",
           "FileUploadEnabled.java:13",
-          "admin-feature-toggle.component.ts:126,170",
+          "admin-feature-toggle.component.ts:127,171",
           "app.constants.ts:54",
           "application-core.yml:19",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -459,9 +459,9 @@
         "serverConditionClass" : "ExamEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:108,276",
-          "Constants.java:420,510",
+          "Constants.java:440,530",
           "ExamEnabled.java:13",
-          "admin-feature-toggle.component.ts:122,166",
+          "admin-feature-toggle.component.ts:123,167",
           "app.constants.ts:46",
           "application-core.yml:11",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -506,9 +506,9 @@
         "serverConditionClass" : "PlagiarismEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:118,279",
-          "Constants.java:425,515",
+          "Constants.java:445,535",
           "PlagiarismEnabled.java:13",
-          "admin-feature-toggle.component.ts:123,167",
+          "admin-feature-toggle.component.ts:124,168",
           "app.constants.ts:48",
           "application-core.yml:13",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -554,8 +554,8 @@
         "evidence" : [
           "ArtemisConfigHelper.java:188,309",
           "AthenaEnabled.java:13",
-          "Constants.java:465,565",
-          "admin-feature-toggle.component.ts:131,175",
+          "Constants.java:485,585",
+          "admin-feature-toggle.component.ts:132,176",
           "app.constants.ts:64",
           "application-core.yml:37",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -641,8 +641,8 @@
         "evidence" : [
           "ArtemisConfigHelper.java:68,264",
           "AtlasEnabled.java:13",
-          "Constants.java:400,490",
-          "admin-feature-toggle.component.ts:120,164",
+          "Constants.java:420,510",
+          "admin-feature-toggle.component.ts:121,165",
           "app.constants.ts:40",
           "application-core.yml:3",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -695,9 +695,9 @@
         "serverConditionClass" : "IrisEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:98,273",
-          "Constants.java:415,505",
+          "Constants.java:435,525",
           "IrisEnabled.java:13",
-          "admin-feature-toggle.component.ts:119,163",
+          "admin-feature-toggle.component.ts:120,164",
           "app.constants.ts:44",
           "application-core.yml:9",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -761,9 +761,9 @@
         "serverConditionClass" : "HyperionEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:88,270",
-          "Constants.java:410,500",
+          "Constants.java:430,520",
           "HyperionEnabled.java:13",
-          "admin-feature-toggle.component.ts:121,165",
+          "admin-feature-toggle.component.ts:122,166",
           "app.constants.ts:42",
           "application-core.yml:7",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -847,9 +847,9 @@
         "serverConditionClass" : "LtiEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:178,306",
-          "Constants.java:460,560",
+          "Constants.java:480,580",
           "LtiEnabled.java:13",
-          "admin-feature-toggle.component.ts:130,174",
+          "admin-feature-toggle.component.ts:131,175",
           "app.constants.ts:62",
           "application-core.yml:35",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -896,9 +896,9 @@
         "serverConditionClass" : "TheiaEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:238,321",
-          "Constants.java:370,590",
+          "Constants.java:390,610",
           "TheiaEnabled.java:13",
-          "admin-feature-toggle.component.ts:137,181",
+          "admin-feature-toggle.component.ts:138,182",
           "app.constants.ts:72",
           "application.yml:139",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -954,8 +954,8 @@
         "evidence" : [
           "ApollonEnabled.java:13",
           "ArtemisConfigHelper.java:198,312",
-          "Constants.java:470,570",
-          "admin-feature-toggle.component.ts:132,176",
+          "Constants.java:490,590",
+          "admin-feature-toggle.component.ts:133,177",
           "app.constants.ts:66",
           "application-core.yml:39",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -1010,9 +1010,9 @@
         "serverConditionClass" : "SharingEnabled",
         "evidence" : [
           "ArtemisConfigHelper.java:58,303",
-          "Constants.java:455,555",
+          "Constants.java:475,575",
           "SharingEnabled.java:13",
-          "admin-feature-toggle.component.ts:129,173",
+          "admin-feature-toggle.component.ts:130,174",
           "app.constants.ts:60",
           "application-core.yml:23",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -1204,8 +1204,8 @@
         "springProfile" : "localci",
         "clientConstant" : "PROFILE_LOCALCI",
         "evidence" : [
-          "Constants.java:326",
-          "admin-feature-toggle.component.ts:115",
+          "Constants.java:346",
+          "admin-feature-toggle.component.ts:116",
           "app.constants.ts:95",
           "src/main/resources/config/application-localci.yml",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -1246,8 +1246,8 @@
         "springProfile" : "jenkins",
         "clientConstant" : "PROFILE_JENKINS",
         "evidence" : [
-          "Constants.java:338",
-          "admin-feature-toggle.component.ts:115",
+          "Constants.java:358",
+          "admin-feature-toggle.component.ts:116",
           "app.constants.ts:107",
           "docker/jenkins.yml",
           "src/main/resources/config/application-jenkins.yml",
@@ -1344,7 +1344,7 @@
       "source" : {
         "springProfile" : "localvc",
         "evidence" : [
-          "Constants.java:321",
+          "Constants.java:341",
           "src/main/resources/config/application-localvc.yml"
         ]
       },
