@@ -31,8 +31,6 @@ public class RemoteAnsibleEmissionPlanner {
 
     private static final String GROUP_VARS_DIR = "inventory/group_vars/";
 
-    private static final Set<String> SELECTABLE_KINDS = Set.of("module", "feature");
-
     private static final String RELATION_TYPE_OPTIONAL = "optional";
 
     private static final String VALUE_TOKEN = "{value}";
@@ -104,8 +102,10 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Classifies every selectable feature of the model against the catalog and enforces the fail-closed contract:
-     * unclassified features and inexpressible selection states abort the run before any content is produced.
+     * Classifies every selectable feature of the model (by the node's own {@code selectable} flag, so technical and
+     * runtime-toggle nodes the extraction pipeline may add are covered) against the catalog and enforces the
+     * fail-closed contract: unclassified features and inexpressible selection states abort the run before any content
+     * is produced.
      *
      * @param model active feature model.
      * @param selectedFeatureIds selected feature ids.
@@ -116,7 +116,7 @@ public class RemoteAnsibleEmissionPlanner {
         Set<String> optionalFeatureIds = optionalFeatureIds(model);
         List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> classifications = new ArrayList<>();
         for (FeatureNode feature : model.features()) {
-            if (!SELECTABLE_KINDS.contains(feature.kind())) {
+            if (!feature.selectable()) {
                 continue;
             }
             AnsibleBindingCatalog.FeatureBinding binding = bindingFor(feature.id());
@@ -170,10 +170,17 @@ public class RemoteAnsibleEmissionPlanner {
     private void enforceSupportedState(String featureId, AnsibleBindingCatalog.FeatureBinding binding, boolean selected, boolean optional) {
         String direction = binding.unsupportedWhen() == null ? AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED : binding.unsupportedWhen();
         String detail = binding.missingVariable() == null ? binding.reason() : binding.missingVariable();
-        if (AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED.equals(direction) && selected) {
+        boolean inexpressibleWhenSelected = AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED.equals(direction);
+        boolean inexpressibleWhenDeselected = AnsibleBindingCatalog.UNSUPPORTED_WHEN_DESELECTED.equals(direction);
+        if (!inexpressibleWhenSelected && !inexpressibleWhenDeselected) {
+            // An unknown direction must never pass silently: treat every state of the feature as inexpressible.
+            throw ArtifactGenerationException.remoteAnsibleUnsupportedFeature(featureId,
+                    "The binding catalog declares unknown unsupported direction '" + direction + "'. " + detail);
+        }
+        if (inexpressibleWhenSelected && selected) {
             throw ArtifactGenerationException.remoteAnsibleUnsupportedFeature(featureId, detail);
         }
-        if (AnsibleBindingCatalog.UNSUPPORTED_WHEN_DESELECTED.equals(direction) && optional && !selected) {
+        if (inexpressibleWhenDeselected && optional && !selected) {
             throw ArtifactGenerationException.remoteAnsibleUnsupportedFeature(featureId, detail);
         }
     }

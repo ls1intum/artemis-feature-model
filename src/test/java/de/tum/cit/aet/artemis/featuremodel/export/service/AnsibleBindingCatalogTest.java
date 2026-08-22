@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,8 +29,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 class AnsibleBindingCatalogTest {
 
-    private static final Set<String> SELECTABLE_KINDS = Set.of("module", "feature");
-
     @TempDir
     Path tempDir;
 
@@ -53,7 +50,7 @@ class AnsibleBindingCatalogTest {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
         FeatureModel model = loadClasspathModel();
 
-        List<String> unclassified = model.features().stream().filter(feature -> SELECTABLE_KINDS.contains(feature.kind())).map(FeatureNode::id)
+        List<String> unclassified = model.features().stream().filter(FeatureNode::selectable).map(FeatureNode::id)
                 .filter(featureId -> !isClassified(catalog, featureId)).toList();
 
         assertThat(unclassified).as("selectable features without a binding classification").isEmpty();
@@ -63,7 +60,8 @@ class AnsibleBindingCatalogTest {
     void unknownEmissionKindFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "baseline": [ { "var": "node_id", "emission": "sometimes", "order": 10, "group": 1, "lines": ["node_id: 1"] } ] }
+                  "baseline": [ { "var": "node_id", "emission": "sometimes", "order": 10, "group": 1, "lines": ["node_id: 1"] } ],
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
                 """;
 
         assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown emission kind");
@@ -83,6 +81,7 @@ class AnsibleBindingCatalogTest {
     void unsupportedBindingWithoutReasonFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
                   "features": { "exam": { "binding": "unsupported" } } }
                 """;
 
@@ -93,6 +92,7 @@ class AnsibleBindingCatalogTest {
     void unknownBindingClassificationFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
                   "features": { "iris": { "binding": "maybe" } } }
                 """;
 
@@ -103,12 +103,57 @@ class AnsibleBindingCatalogTest {
     void incompleteValueGatedFieldFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
                   "features": { "hyperion": { "binding": "bound", "gating": "value-gated", "membership": "artemistests_hyperion",
                     "groupVarsFile": "artemistests_hyperion.yml", "prefixLines": ["---"],
                     "gatedFields": [ { "name": "api_key", "line": "" } ] } } }
                 """;
 
         assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("incomplete gated field");
+    }
+
+    @Test
+    void unknownUnsupportedDirectionFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
+                  "features": { "exam": { "binding": "unsupported", "unsupportedWhen": "deselcted", "missingVariable": "x" } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown direction 'deselcted'");
+    }
+
+    @Test
+    void unknownEnvironmentInputFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "environment": [ { "var": "artemis_email", "input": "mail", "file": "common-config", "order": 1, "group": 1, "lines": ["artemis_email: {value}"] } ],
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown input 'mail'");
+    }
+
+    @Test
+    void missingTechnicalAxesFailLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277", "features": {} }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("technical database and ciProvider");
+    }
+
+    @Test
+    void duplicateGroupValuesFileFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
+                  "features": {
+                    "iris": { "binding": "bound", "gating": "presence", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] },
+                    "atlas": { "binding": "bound", "gating": "presence", "membership": "artemistests_atlas", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("declared by more than one bound binding");
     }
 
     @Test

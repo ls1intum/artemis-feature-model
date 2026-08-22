@@ -2,6 +2,7 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,6 +15,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -34,6 +36,9 @@ public class AnsibleBindingCatalogLoader {
 
     private static final Set<String> KNOWN_BINDINGS = Set.of(AnsibleBindingCatalog.BINDING_BOUND, AnsibleBindingCatalog.BINDING_NO_OP,
             AnsibleBindingCatalog.BINDING_UNSUPPORTED);
+
+    private static final Set<String> KNOWN_UNSUPPORTED_DIRECTIONS = Set.of(AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED,
+            AnsibleBindingCatalog.UNSUPPORTED_WHEN_DESELECTED);
 
     private final AnsibleBindingCatalog catalog;
 
@@ -94,8 +99,8 @@ public class AnsibleBindingCatalogLoader {
     }
 
     /**
-     * Validates the shipped catalog: identity fields, known emission and binding kinds, mandatory reasons, and
-     * complete value-gated blocks.
+     * Validates the shipped catalog: identity fields, known emission, binding, and direction kinds, known environment
+     * inputs, mandatory reasons, the technical axes, complete value-gated blocks, and unique group files.
      *
      * @param catalog parsed catalog.
      * @throws FeatureModelLoadException if the catalog is internally inconsistent.
@@ -125,15 +130,50 @@ public class AnsibleBindingCatalogLoader {
             if (!AnsibleBindingCatalog.FILE_COMMON_CONFIG.equals(entry.file()) && !AnsibleBindingCatalog.FILE_TARGET_MAIN.equals(entry.file())) {
                 throw invalid("Environment entry '" + entry.var() + "' declares unknown target file '" + entry.file() + "'.");
             }
+            if (!RemoteEnvironmentValues.INPUT_NAMES.contains(entry.input())) {
+                throw invalid("Environment entry '" + entry.var() + "' declares unknown input '" + entry.input() + "'.");
+            }
         }
         for (AnsibleBindingCatalog.SecretEntry entry : catalog.secrets()) {
             if (isBlank(entry.vaultPath()) || isBlank(entry.vaultField())) {
                 throw invalid("Secret entry '" + entry.var() + "' must declare its vault path and field.");
             }
         }
-        validateBindings("technical database", catalog.technical() == null ? Map.of() : catalog.technical().database());
-        validateBindings("technical ciProvider", catalog.technical() == null ? Map.of() : catalog.technical().ciProvider());
+        if (catalog.technical() == null || catalog.technical().database().isEmpty() || catalog.technical().ciProvider().isEmpty()) {
+            throw invalid("The catalog must declare technical database and ciProvider bindings.");
+        }
+        validateBindings("technical database", catalog.technical().database());
+        validateBindings("technical ciProvider", catalog.technical().ciProvider());
         validateBindings("feature", catalog.features());
+        validateUniqueGroupFiles(catalog);
+    }
+
+    /**
+     * Validates that every bound binding renders a distinct group values file and joins a distinct membership group,
+     * so two bindings can never overwrite each other's file or wire the same group twice.
+     *
+     * @param catalog parsed catalog.
+     * @throws FeatureModelLoadException if a group values file or membership group is declared twice.
+     */
+    private void validateUniqueGroupFiles(AnsibleBindingCatalog catalog) {
+        Set<String> groupVarsFiles = new HashSet<>();
+        Set<String> memberships = new HashSet<>();
+        List<Map<String, AnsibleBindingCatalog.FeatureBinding>> sections = List.of(catalog.technical().database(), catalog.technical().ciProvider(),
+                catalog.features());
+        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : sections) {
+            for (Map.Entry<String, AnsibleBindingCatalog.FeatureBinding> entry : section.entrySet()) {
+                AnsibleBindingCatalog.FeatureBinding binding = entry.getValue();
+                if (!AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding())) {
+                    continue;
+                }
+                if (!groupVarsFiles.add(binding.groupVarsFile())) {
+                    throw invalid("Group values file '" + binding.groupVarsFile() + "' is declared by more than one bound binding ('" + entry.getKey() + "').");
+                }
+                if (!memberships.add(binding.membership())) {
+                    throw invalid("Membership group '" + binding.membership() + "' is declared by more than one bound binding ('" + entry.getKey() + "').");
+                }
+            }
+        }
     }
 
     /**
@@ -160,6 +200,9 @@ public class AnsibleBindingCatalogLoader {
                 case AnsibleBindingCatalog.BINDING_UNSUPPORTED -> {
                     if (isBlank(binding.missingVariable()) && isBlank(binding.reason())) {
                         throw invalid("The unsupported " + section + " binding of '" + featureId + "' must record its missing variable or reason.");
+                    }
+                    if (binding.unsupportedWhen() != null && !KNOWN_UNSUPPORTED_DIRECTIONS.contains(binding.unsupportedWhen())) {
+                        throw invalid("The unsupported " + section + " binding of '" + featureId + "' declares unknown direction '" + binding.unsupportedWhen() + "'.");
                     }
                 }
                 default -> throw invalid("The " + section + " binding of '" + featureId + "' declares unknown classification '" + binding.binding() + "'.");

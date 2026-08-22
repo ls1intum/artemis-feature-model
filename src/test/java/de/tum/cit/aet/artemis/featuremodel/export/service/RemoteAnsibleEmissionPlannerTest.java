@@ -219,6 +219,32 @@ class RemoteAnsibleEmissionPlannerTest {
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("email");
     }
 
+    @Test
+    void unknownUnsupportedDirectionFailsClosedInEveryState() {
+        AnsibleBindingCatalog.FeatureBinding misspelled = new AnsibleBindingCatalog.FeatureBinding(AnsibleBindingCatalog.BINDING_UNSUPPORTED, null, null, null,
+                null, null, null, null, null, "deselcted", "artemis.exam.enabled has no collection variable", null, null);
+        java.util.Map<String, AnsibleBindingCatalog.FeatureBinding> features = new java.util.HashMap<>(catalog.features());
+        features.put("exam", misspelled);
+        RemoteAnsibleEmissionPlanner misspelledPlanner = new RemoteAnsibleEmissionPlanner(new AnsibleBindingCatalog(catalog.catalogVersion(),
+                catalog.collectionPin(), catalog.curationSource(), catalog.baseline(), catalog.environment(), catalog.secrets(), catalog.technical(), features));
+
+        assertThatThrownBy(() -> misspelledPlanner.plan(model, fullSelection(), labEnvironment()))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("exam").hasMessageContaining("unknown unsupported direction 'deselcted'");
+        assertThatThrownBy(() -> misspelledPlanner.plan(model, selectionWithout("exam"), labEnvironment()))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("unknown unsupported direction 'deselcted'");
+    }
+
+    @Test
+    void coverageGateFollowsTheSelectableFlagNotTheNodeKind() {
+        List<FeatureNode> features = new ArrayList<>(model.features());
+        features.add(new FeatureNode("runtime-toggle-x", "Runtime Toggle", "runtime-toggle", true, "A selectable node of a kind the catalog never saw.",
+                "enabled", null));
+        FeatureModel aheadModel = new FeatureModel(model.model(), features, model.relations(), model.constraints());
+
+        assertThatThrownBy(() -> planner.plan(aheadModel, fullSelection(), labEnvironment()))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("runtime-toggle-x");
+    }
+
     private Set<String> fullSelection() {
         return new LinkedHashSet<>(MINIMAL_SELECTION);
     }
