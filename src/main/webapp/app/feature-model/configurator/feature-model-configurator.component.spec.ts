@@ -845,6 +845,26 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).not.toBeNull();
     });
 
+    it('surfaces the server explanation from a blob error body of a deployment package download', async () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const serverMessage = "Cannot generate a remote-ansible package: feature 'exam' is not expressible with the pinned collection.";
+        const errorBody = new Blob([JSON.stringify({ code: 'ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE', message: serverMessage })], {
+            type: 'application/json',
+        });
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL).flush(errorBody, { status: 400, statusText: 'Bad Request' });
+        // Reading the blob body resolves asynchronously; yield to the event loop before checking the rendered message.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')?.textContent).toContain(serverMessage);
+    });
+
     it('still blocks artifact generation for an invalid selection while the section is hidden', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
