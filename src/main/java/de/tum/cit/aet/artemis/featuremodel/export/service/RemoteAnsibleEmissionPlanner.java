@@ -335,14 +335,15 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Renders the lines of an environment entry with its resolved value.
+     * Renders the lines of an environment entry with its resolved value, escaped for the YAML double-quoted scalar
+     * the catalog lines place it in.
      *
      * @param entry environment entry.
      * @param environment resolved environment values.
      * @return rendered lines.
      */
     private List<String> renderEnvironmentLines(AnsibleBindingCatalog.EnvironmentEntry entry, RemoteEnvironmentValues environment) {
-        String value = environment.valueOf(entry.input());
+        String value = RemoteEnvironmentValues.yamlDoubleQuoted(environment.valueOf(entry.input()));
         List<String> rendered = new ArrayList<>();
         for (String line : entry.lines()) {
             rendered.add(line.replace(VALUE_TOKEN, value));

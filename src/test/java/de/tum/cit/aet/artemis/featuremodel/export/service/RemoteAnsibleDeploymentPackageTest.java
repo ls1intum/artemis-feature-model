@@ -208,6 +208,16 @@ class RemoteAnsibleDeploymentPackageTest {
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("remote-ansible");
     }
 
+    @Test
+    void requirementsPinTheArtemisCollectionAndDeclareTheCollectionsItsRolesAndVaultLookupsNeed() {
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+
+        String requirements = content(result, "requirements.yml");
+        assertThat(requirements).contains("version: 8977303c560a91be27214509dd07bf6170c97277").contains("- name: ansible.posix")
+                .contains("- name: community.crypto").contains("- name: community.general").contains("- name: community.hashi_vault");
+        assertThat(content(result, "README.md")).contains("community.hashi_vault.hashi_vault").doesNotContain("ansible.builtin.hashi_vault");
+    }
+
     private RemoteEnvironmentInput labEnvironment() {
         return new RemoteEnvironmentInput("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
                 "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);

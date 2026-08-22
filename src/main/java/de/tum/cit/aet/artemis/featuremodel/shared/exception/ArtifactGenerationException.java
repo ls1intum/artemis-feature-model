@@ -187,6 +187,19 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for a remote environment value that cannot be rendered safely into the
+     * generated inventory.
+     *
+     * @param input remote environment input name.
+     * @param requirement human-readable requirement the value violates.
+     * @return invalid remote environment value exception.
+     */
+    public static ArtifactGenerationException invalidRemoteEnvironmentValue(String input, String requirement) {
+        String message = "Remote environment value '" + input + "' cannot be rendered into the Ansible inventory: " + requirement + ".";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_INVALID_REMOTE_ENVIRONMENT_VALUE", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Returns the stable error code for this failure.
      *
      * @return error code.

@@ -1,6 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
 import java.util.List;
+import java.util.regex.Pattern;
+
+import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
 /**
  * Resolved admin-owned environment values of a remote-ansible generation run. Every input is resolved to either its
@@ -43,6 +46,27 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
 
     /** Inventory group name used when no target name is provided. */
     public static final String DEFAULT_TARGET_GROUP = "artemistarget";
+
+    /** Inventory group every generated target joins; a derived target group must never collide with it. */
+    public static final String RESERVED_GROUP = "artemistests";
+
+    /** Prefix of every wired values group; a derived target group must never collide with one of them. */
+    public static final String RESERVED_GROUP_PREFIX = "artemistests_";
+
+    /** Suffix that disambiguates a derived target group from a reserved group name. */
+    private static final String TARGET_GROUP_SUFFIX = "_target";
+
+    /** Hostname or address token allowed as the inventory host line and inside the server URL. */
+    private static final Pattern HOSTNAME_PATTERN = Pattern.compile("[A-Za-z0-9.:_\\-]+");
+
+    /** Name token allowed where a value enters a Jinja single-quoted string or a vault path segment. */
+    private static final Pattern NAME_PATTERN = Pattern.compile("[A-Za-z0-9._\\-]+");
+
+    /** Jinja delimiters that would make Ansible template a rendered value at run time. */
+    private static final Pattern JINJA_DELIMITER_PATTERN = Pattern.compile("\\{\\{|\\{%|\\{#|\\}\\}|%\\}|#\\}");
+
+    /** Control characters (including line breaks) that would break the single-line rendering. */
+    private static final Pattern CONTROL_CHARACTER_PATTERN = Pattern.compile("[\\p{Cntrl}]");
 
     private static final List<String> PLACEHOLDERS = List.of("REPLACE_ME_TARGET_NAME", "REPLACE_ME_SERVER_HOSTNAME", "REPLACE_ME_OPERATOR_NAME",
             "REPLACE_ME_OPERATOR_ADMIN_NAME", "REPLACE_ME_CONTACT_EMAIL", "REPLACE_ME_TLS_CERTIFICATE_PATH", "REPLACE_ME_TLS_CERTIFICATE_KEY_PATH",
@@ -89,11 +113,50 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
                 orEmpty(certPath), orEmpty(certKeyPath), orEmpty(resolvedVaultServerName));
         List<InputValue> inputs = new java.util.ArrayList<>();
         for (int index = 0; index < INPUT_NAMES.size(); index++) {
+            String input = INPUT_NAMES.get(index);
             String rawValue = rawValues.get(index);
             boolean provided = !rawValue.isBlank();
-            inputs.add(new InputValue(INPUT_NAMES.get(index), provided ? rawValue : PLACEHOLDERS.get(index), provided));
+            if (provided) {
+                validate(input, rawValue);
+            }
+            inputs.add(new InputValue(input, provided ? rawValue : PLACEHOLDERS.get(index), provided));
         }
         return new RemoteEnvironmentValues(targetGroupFor(targetName), List.copyOf(inputs));
+    }
+
+    /**
+     * Validates a provided value against the syntaxes it is rendered into. Every value is rendered on one line and
+     * must not carry Jinja delimiters, because Ansible templates inventory values at run time; the hostname is also
+     * an INI host token, and the target and vault server names enter Jinja single-quoted vault paths.
+     *
+     * @param input input name.
+     * @param value provided value.
+     * @throws ArtifactGenerationException if the value cannot be rendered safely.
+     */
+    private static void validate(String input, String value) {
+        if (CONTROL_CHARACTER_PATTERN.matcher(value).find()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a single line without control characters");
+        }
+        if (JINJA_DELIMITER_PATTERN.matcher(value).find()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must not contain Jinja delimiters such as '{{' or '{%'");
+        }
+        if (INPUT_SERVER_HOSTNAME.equals(input) && !HOSTNAME_PATTERN.matcher(value).matches()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a hostname or address (letters, digits, '.', ':', '_', '-')");
+        }
+        boolean nameInput = INPUT_TARGET_NAME.equals(input) || INPUT_VAULT_SERVER_NAME.equals(input);
+        if (nameInput && !NAME_PATTERN.matcher(value).matches()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a name (letters, digits, '.', '_', '-')");
+        }
+    }
+
+    /**
+     * Escapes a resolved value for use inside a YAML double-quoted scalar.
+     *
+     * @param value resolved value.
+     * @return value with backslashes and double quotes escaped.
+     */
+    public static String yamlDoubleQuoted(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     /**
@@ -154,7 +217,11 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
             return DEFAULT_TARGET_GROUP;
         }
         String group = targetName.toLowerCase().replaceAll("[^a-z0-9_]", "");
-        return group.isBlank() ? DEFAULT_TARGET_GROUP : group;
+        if (group.isBlank()) {
+            return DEFAULT_TARGET_GROUP;
+        }
+        boolean reserved = RESERVED_GROUP.equals(group) || group.startsWith(RESERVED_GROUP_PREFIX);
+        return reserved ? group + TARGET_GROUP_SUFFIX : group;
     }
 
     /**

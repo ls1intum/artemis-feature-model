@@ -85,7 +85,8 @@ public class RemoteAnsibleValuesWriter {
 
                 ## Contents
 
-                - `requirements.yml` — the Ansible collection, pinned to the exact commit the values were curated against.
+                - `requirements.yml` — the Artemis collection pinned to the exact commit the values were curated against,
+                  plus the collections its roles and the vault lookups need.
                 - `ansible.cfg` — minimal run semantics; `hash_behaviour = merge` is required by the inventory layering.
                 - `playbook.yml` — applies the collection's `artemis` and `legal` roles to the `artemistests` group.
                 - `inventory/` — group membership wiring and generated values for the selected variant.
@@ -99,8 +100,10 @@ public class RemoteAnsibleValuesWriter {
                    `<host> ansible_user=<user> ansible_ssh_private_key_file=<key>`.
                 3. Make sure the target host provides Docker, git, and the `acl` package — the collection installs none
                    of them, and POSIX ACLs are needed wherever Ansible hands a file to the unprivileged artemis user.
-                4. Install the pinned collection: `ansible-galaxy collection install -r requirements.yml`
-                   (plus `ansible-galaxy role install geerlingguy.docker` if your target still needs Docker provisioned).
+                4. Install the collections: `ansible-galaxy collection install -r requirements.yml`, and the
+                   `hvac` Python package for the vault lookup (`pip install hvac`); the `ansible` meta-package already
+                   ships the non-Artemis collections. Add `ansible-galaxy role install geerlingguy.docker` if your
+                   target still needs Docker provisioned.
                 5. Provide secret material (next section).
                 6. Run `./preflight.sh`. It fails fast on unresolved placeholders and syntax problems.
 
@@ -108,7 +111,7 @@ public class RemoteAnsibleValuesWriter {
 
                 No secret value — dummy or real — is stored in this package. Every secret is referenced as a
                 `lookup('hashi_vault', …)` expression; `metadata/vault-references.json` lists each referenced path,
-                field, and consuming variable. To use Vault, configure the `ansible.builtin.hashi_vault` lookup
+                field, and consuming variable. To use Vault, configure the `community.hashi_vault.hashi_vault` lookup
                 environment (`ANSIBLE_HASHI_VAULT_ADDR`, `ANSIBLE_HASHI_VAULT_TOKEN` or your auth method) and create
                 the listed secrets.
 
@@ -144,7 +147,8 @@ public class RemoteAnsibleValuesWriter {
     }
 
     /**
-     * Builds the requirements file pinning the collection to the curated commit.
+     * Builds the requirements file: the Artemis collection pinned to the curated commit plus the collections its
+     * roles use, which a collection cannot declare as dependencies itself, and the vault lookup collection.
      *
      * @return requirements YAML text.
      */
@@ -155,6 +159,12 @@ public class RemoteAnsibleValuesWriter {
                   - name: https://github.com/JTNing/artemis-ansible-collection.git
                     type: git
                     version: %s
+                  # Collections the artemis and legal roles use but cannot declare as collection dependencies.
+                  - name: ansible.posix
+                  - name: community.crypto
+                  - name: community.general
+                  # Provides the hashi_vault lookup used for every secret reference (needs the hvac Python package).
+                  - name: community.hashi_vault
                 """.formatted(catalogLoader.catalog().collectionPin());
     }
 

@@ -182,6 +182,43 @@ class RemoteAnsibleEmissionPlannerTest {
         }
     }
 
+    @Test
+    void targetNameCollidingWithAReservedGroupIsDisambiguated() {
+        RemoteEnvironmentValues collidingTarget = RemoteEnvironmentValues.resolve("artemis-tests", "artemis.example.org", null, null, null, null, null, null);
+        RemoteEnvironmentValues collidingPrefix = RemoteEnvironmentValues.resolve("artemistests_mysql", "artemis.example.org", null, null, null, null, null, null);
+
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), collidingTarget);
+
+        assertThat(collidingTarget.targetGroup()).isEqualTo("artemistests_target");
+        assertThat(collidingPrefix.targetGroup()).isEqualTo("artemistests_mysql_target");
+        String hosts = fileContent(plan, RemoteAnsibleEmissionPlanner.HOSTS_FILE);
+        assertThat(hosts).startsWith("[artemistests_target]\n").contains("[artemistests:children]\nartemistests_target\n");
+        assertThat(hosts).doesNotContain("[artemistests:children]\nartemistests\n");
+    }
+
+    @Test
+    void environmentValuesAreEscapedForTheYamlDoubleQuotedScalars() {
+        RemoteEnvironmentValues environment = RemoteEnvironmentValues.resolve("artemis-local", "artemis.example.org", "Ops \"Team\" C:\\\\lab", null,
+                null, null, null, null);
+
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), environment);
+
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_common_config.yml"))
+                .contains("artemis_operator_name: \"Ops \\\"Team\\\" C:\\\\\\\\lab\"");
+    }
+
+    @Test
+    void unsafeEnvironmentValuesAreRejectedWithAControlledFailure() {
+        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", "{{ lookup('pipe', 'id') }}", null, null, null, null, null))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("operatorName").hasMessageContaining("Jinja");
+        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host ansible_user=root", null, null, null, null, null, null))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("serverHostname");
+        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", null, null, null, null, null, "it's"))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("vaultServerName");
+        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", null, null, "a@b\nc", null, null, null))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("email");
+    }
+
     private Set<String> fullSelection() {
         return new LinkedHashSet<>(MINIMAL_SELECTION);
     }
