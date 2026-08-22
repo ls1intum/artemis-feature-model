@@ -48,11 +48,11 @@ import tools.jackson.databind.ObjectMapper;
  * {@link ArtifactGenerationService}, reuses the generated configuration artifact files, and composes them per
  * deployment mode with shared metadata (package manifest, static config validation report) plus mode-specific files.
  * The default mode is {@link DeploymentModes#LOCAL_DOCKER}: package README, demo env file, env README, runtime checks,
- * the local-repo Compose override and its README, and the helper scripts. A default-mode request and an explicit
- * local-docker request produce the same package except for the deployment mode recorded in the manifest; a recorded
- * fixture test guards the package bytes against accidental drift, so deliberate content changes must re-baseline the
- * fixture. The result reuses {@link GeneratedArtifactPackage}: the file list is the full package and its base
- * report gains technical-selection recording only when the active model declares selected structural mappings.
+ * the local-repo Compose override and its README, and the helper scripts. Package composition is deterministic for
+ * the same active model, catalog, profile, and request. A default-mode request and an explicit local-docker request
+ * produce the same package except for the deployment mode recorded in the manifest. The result reuses
+ * {@link GeneratedArtifactPackage}: the file list is the full package and its base report gains technical-selection
+ * recording only when the active model declares selected structural mappings.
  */
 @Service
 public class DeploymentPackageService {
@@ -406,12 +406,11 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Composes the local Docker runtime package from the shared artifacts. The output is guarded
-     * byte-for-byte by a recorded fixture; deliberate content changes must re-baseline that fixture.
+     * Composes the local Docker runtime package deterministically from the shared artifacts.
      *
      * @param shared shared generation results.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request;
-     *            recorded in the manifest only when present so the default manifest stays byte-identical.
+     *            recorded in the manifest only when present so the default manifest omits the mode field.
      * @return ordered local Docker runtime package files.
      */
     private List<GeneratedArtifactFile> composeLocalDockerFiles(SharedArtifacts shared, String requestedDeploymentMode) {

@@ -58,9 +58,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   values appear solely as `${VARIABLE}` placeholders.
 - The deployment package supports an export-time deployment-mode axis (D1+D2):
   `ArtifactGenerationRequest` takes an optional `deploymentMode` (stable string
-  ids in `DeploymentModes`: `local-docker`, `dev-ide`, `remote-ansible`); an omitted mode keeps
-  the local Docker package byte-identical to the pre-axis output (fixture
-  test), while an explicitly chosen mode is recorded in the package manifest.
+  ids in `DeploymentModes`: `local-docker`, `dev-ide`, `remote-ansible`); an
+  omitted mode selects local Docker without recording a deployment mode in the
+  package manifest, while an explicitly chosen mode is recorded. Package
+  generation is deterministic for the same active model, catalog, profile, and
+  request.
   Profiles may declare `supportedDeploymentModes` (absent = all; unknown
   entries warn, never fail loading), and an unsupported or unknown mode yields
   a controlled 400. `DeploymentPackageService` composes packages per mode from
