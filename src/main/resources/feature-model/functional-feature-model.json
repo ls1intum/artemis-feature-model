@@ -2,9 +2,9 @@
   "model" : {
     "id" : "artemis-generated-feature-model",
     "name" : "Artemis Generated Feature Model",
-    "version" : "0.1.0+f4928eea3e49",
+    "version" : "0.1.0+d3cdb13dca5b",
     "status" : "generated",
-    "sourceCommitSha" : "f4928eea3e491cba6e7dad14671ac67ff6f6ec8f"
+    "sourceCommitSha" : "d3cdb13dca5b32f7dd47b06d97956d1523c8447a"
   },
   "features" : [
     {
