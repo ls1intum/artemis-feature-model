@@ -58,10 +58,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   values appear solely as `${VARIABLE}` placeholders.
 - The deployment package supports an export-time deployment-mode axis (D1+D2):
   `ArtifactGenerationRequest` takes an optional `deploymentMode` (stable string
-  ids in `DeploymentModes`: `local-docker`, `dev-ide`); an omitted mode selects
-  local Docker without recording a deployment mode in the package manifest,
-  while an explicitly chosen mode is recorded. Package generation is
-  deterministic for the same active model, catalog, profile, and request.
+  ids in `DeploymentModes`: `local-docker`, `dev-ide`, `remote-ansible`); an
+  omitted mode selects local Docker without recording a deployment mode in the
+  package manifest, while an explicitly chosen mode is recorded. Package
+  generation is deterministic for the same active model, catalog, profile, and
+  request.
   Profiles may declare `supportedDeploymentModes` (absent = all; unknown
   entries warn, never fail loading), and an unsupported or unknown mode yields
   a controlled 400. `DeploymentPackageService` composes packages per mode from
@@ -103,6 +104,26 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   deliberately has no Jenkins service yet, so it carries a prominent warning
   and a failing `jenkins-stack-available` check. The classpath defaults are
   MySQL, integrated code lifecycle, and LocalVC.
+- The `remote-ansible` mode generates an admin-consumable Ansible deployment
+  package: a self-contained mini values repository (pinned collection
+  `requirements.yml`, minimal `ansible.cfg` with `hash_behaviour = merge`,
+  playbook, inventory membership wiring and group values, preflight script)
+  plus remote metadata (`remote-readiness.json`, `vault-references.json`).
+  Values come from the curated Ansible binding catalog
+  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.json`),
+  an application resource in both source modes, versioned by its collection
+  pin — never part of a model snapshot. Every selectable feature must be
+  classified `bound`/`no-op`/`unsupported`; unclassified or inexpressible
+  selections (module reduction, Jenkins) fail closed with a controlled 400
+  naming the catalog identity or missing variable. Secrets appear only as
+  `lookup('hashi_vault', …)` expressions. The optional null-tolerant
+  `remoteEnvironment` request component supplies admin identity values; absent
+  values yield a structurally identical placeholder package
+  (`environmentProvided: pending`), and supplying the component on a
+  non-remote mode is a controlled 400. Golden fixtures derived from the
+  deploy-lab inventory pin the generated values byte-for-byte. The review
+  page offers "Remote server (Ansible)" as a third deployment target sending
+  only `deploymentMode: "remote-ansible"`.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.

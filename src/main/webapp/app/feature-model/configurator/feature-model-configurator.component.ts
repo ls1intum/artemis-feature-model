@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
@@ -28,6 +28,7 @@ import {
     CONFIGURATOR_TUTORIAL_STEPS,
     buildConfiguratorTutorialSeenKey,
 } from './shared/configurator-tutorial';
+import { DEFAULT_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
@@ -35,10 +36,6 @@ const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selecti
 const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please verify that the server is running and try again.';
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deployment package. Please verify that the server is running and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
-const DEPLOYMENT_PACKAGE_FILE_NAME = 'artemis-feature-model-deployment-package.zip';
-const DEV_IDE_PACKAGE_FILE_NAME = 'artemis-feature-model-dev-ide-package.zip';
-const LOCAL_DOCKER_DEPLOYMENT_MODE = 'local-docker';
-const DEV_IDE_DEPLOYMENT_MODE = 'dev-ide';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -74,7 +71,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
-    readonly selectedDeploymentMode = signal<string>(LOCAL_DOCKER_DEPLOYMENT_MODE);
+    readonly selectedDeploymentMode = signal<string>(DEFAULT_DEPLOYMENT_MODE);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -458,8 +455,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.artifactGenerating.set(false);
                 },
                 error: (error: Error) => {
-                    this.artifactErrorMessage.set(this.artifactErrorText(error));
                     this.artifactGenerating.set(false);
+                    this.reportDownloadError(error, DEFAULT_ARTIFACT_ERROR_MESSAGE, this.artifactErrorMessage);
                 },
             });
     }
@@ -481,10 +478,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         const deploymentMode = this.selectedDeploymentMode();
         const request: ArtifactGenerationRequest = { selectedFeatureIds: [...this.selectedFeatureIds()] };
-        if (deploymentMode !== LOCAL_DOCKER_DEPLOYMENT_MODE) {
+        if (deploymentMode !== DEFAULT_DEPLOYMENT_MODE) {
             request.deploymentMode = deploymentMode;
         }
-        const fileName = deploymentMode === DEV_IDE_DEPLOYMENT_MODE ? DEV_IDE_PACKAGE_FILE_NAME : DEPLOYMENT_PACKAGE_FILE_NAME;
+        const fileName = deploymentTargetFor(deploymentMode).fileName;
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
         this.featureModelService
@@ -496,22 +493,34 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.deploymentPackageDownloading.set(false);
                 },
                 error: (error: Error) => {
-                    this.deploymentPackageErrorMessage.set(this.deploymentPackageErrorText(error));
                     this.deploymentPackageDownloading.set(false);
+                    this.reportDownloadError(error, DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE, this.deploymentPackageErrorMessage);
                 },
             });
     }
 
-    /** Resolves a user-facing artifact error message, falling back to a default when none is present. */
-    private artifactErrorText(error: Error): string {
-        const message = error?.message?.trim();
-        return message && message.length > 0 ? message : DEFAULT_ARTIFACT_ERROR_MESSAGE;
-    }
-
-    /** Resolves a user-facing deployment package error message, falling back to a default when none is present. */
-    private deploymentPackageErrorText(error: Error): string {
-        const message = error?.message?.trim();
-        return message && message.length > 0 ? message : DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE;
+    /**
+     * Reports a user-facing error message for a blob download. Blob requests deliver a server error body as a Blob,
+     * which hides the server's explanation (for example why a selection cannot be packaged) behind a bare status text;
+     * such a body is read back asynchronously and its `message` surfaced. Any other error reports the transport
+     * message immediately, falling back to the default.
+     */
+    private reportDownloadError(error: Error, defaultMessage: string, target: WritableSignal<string | undefined>): void {
+        const body = (error as { error?: unknown }).error;
+        const transportMessage = error?.message?.trim();
+        const fallback = transportMessage && transportMessage.length > 0 ? transportMessage : defaultMessage;
+        if (!(body instanceof Blob)) {
+            target.set(fallback);
+            return;
+        }
+        void body
+            .text()
+            .then((text) => {
+                const parsed = JSON.parse(text) as { message?: unknown };
+                const serverMessage = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+                target.set(serverMessage.length > 0 ? serverMessage : fallback);
+            })
+            .catch(() => target.set(fallback));
     }
 
     /** Triggers a browser download for a generated blob without persisting it anywhere on the server. */

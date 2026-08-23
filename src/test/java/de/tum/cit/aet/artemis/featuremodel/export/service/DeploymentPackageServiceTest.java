@@ -63,12 +63,13 @@ class DeploymentPackageServiceTest {
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
+                new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(),
                 runtimeSourceResolver(new SnapshotProperties(dataRoot.toString(), null)), objectMapper);
     }
 
     @Test
-    void includesAllPhase5AndPhase6FilesInOrder() {
+    void includesAllConfigurationArtifactAndRuntimePackageFilesInOrder() {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
         assertThat(result.files()).extracting("path").containsExactly("README.md", "config/application-feature-model.yml", "env/.env.example", "env/.env.demo",
@@ -117,7 +118,7 @@ class DeploymentPackageServiceTest {
     }
 
     /**
-     * CI gate for the static config validation (Workstream A1): the comprehensive reference selection must validate
+     * CI gate for the static config validation: the comprehensive reference selection must validate
      * as PASS, and the report is exported under {@code build/reports/static-config-validation/} so the CI workflow can
      * publish the machine-readable JSON as an artifact.
      */

@@ -11,4 +11,13 @@ public class FeatureModelLoadException extends RuntimeException {
     public FeatureModelLoadException(String message, Throwable cause) {
         super(message, cause);
     }
+
+    /**
+     * Creates an exception for loading failures detected by validation, without an underlying cause.
+     *
+     * @param message exception message.
+     */
+    public FeatureModelLoadException(String message) {
+        super(message);
+    }
 }

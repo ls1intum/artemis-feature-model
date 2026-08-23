@@ -31,7 +31,7 @@ public class ArtifactPackageService {
     private static final LocalDateTime FIXED_ENTRY_TIME = LocalDateTime.of(2020, 1, 1, 1, 0);
 
     /**
-     * Builds the ZIP archive for a generated artifact package under the default Phase 5 root directory.
+     * Builds the ZIP archive for a generated artifact package under the default configuration-artifacts root directory.
      *
      * @param artifactPackage generated artifact package.
      * @return ZIP archive bytes.
@@ -41,7 +41,7 @@ public class ArtifactPackageService {
     }
 
     /**
-     * Builds the ZIP archive for a generated package under a caller-provided root directory. Reused by the Phase 6
+     * Builds the ZIP archive for a generated package under a caller-provided root directory. Reused by the
      * deployment package, which uses a distinct root directory while keeping the same deterministic ordering and fixed
      * entry timestamp.
      *

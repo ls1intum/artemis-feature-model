@@ -64,7 +64,8 @@ class DeploymentPackageDeterminismTest {
         selectedFeatureIds = catalogService.defaultSelectedFeatureIds(catalogService.loadActiveModel());
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
-                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(), new EnvExampleWriter(),
+                new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
+                new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(),
                 runtimeSourceResolver, objectMapper);
     }
 

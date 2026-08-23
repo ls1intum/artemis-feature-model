@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
+import { DEPLOYMENT_TARGETS, deploymentTargetFor } from '../shared/deployment-targets';
 import {
     ConfiguratorScreen,
     DecisionChangeSummary,
@@ -58,6 +59,8 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly deploymentPackageDownloading = input<boolean>(false);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
     readonly selectedDeploymentMode = input.required<string>();
+    readonly deploymentTargets = DEPLOYMENT_TARGETS;
+    readonly selectedDeploymentTarget = computed(() => deploymentTargetFor(this.selectedDeploymentMode()));
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();

@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * Catalog of the Artemis configuration keys the generated overlay is allowed to contain, together with the value type
- * each key accepts. The catalog is a curated classpath resource derived from the Phase 5 parameter alignment audit and
+ * each key accepts. The catalog is a curated classpath resource derived from a parameter alignment audit and
  * re-checked read-only against a pinned Artemis commit; it is the source of truth for the static configuration
  * validation and must be refreshed when Artemis configuration keys change.
  *

@@ -780,6 +780,28 @@ describe('FeatureModelConfiguratorComponent', () => {
         downloadRequest.flush(new Blob(['zip-bytes']));
     });
 
+    it('switches to the remote-ansible target and sends only the deployment mode with the download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-note"]')?.textContent).toContain('admin-consumable');
+        const button = rootEl(fixture).querySelector('[data-testid="download-deployment-package-button"]') as HTMLButtonElement;
+        expect(button.textContent).toContain('Ansible deployment package');
+
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        const requestBody = downloadRequest.request.body as { deploymentMode?: string; remoteEnvironment?: unknown; selectedFeatureIds: string[] };
+        expect(requestBody.deploymentMode).toBe('remote-ansible');
+        // The client never collects environment fields; the package downloads in its placeholder form.
+        expect(requestBody.remoteEnvironment).toBeUndefined();
+        expect(requestBody.selectedFeatureIds).toContain('programming');
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
     it('disables the runtime package download while the selection is invalid', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
@@ -821,6 +843,26 @@ describe('FeatureModelConfiguratorComponent', () => {
         fixture.detectChanges();
 
         expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).not.toBeNull();
+    });
+
+    it('surfaces the server explanation from a blob error body of a deployment package download', async () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const serverMessage = "Cannot generate a remote-ansible package: feature 'exam' is not expressible with the pinned collection.";
+        const errorBody = new Blob([JSON.stringify({ code: 'ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE', message: serverMessage })], {
+            type: 'application/json',
+        });
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL).flush(errorBody, { status: 400, statusText: 'Bad Request' });
+        // Reading the blob body resolves asynchronously; yield to the event loop before checking the rendered message.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')?.textContent).toContain(serverMessage);
     });
 
     it('still blocks artifact generation for an invalid selection while the section is hidden', () => {

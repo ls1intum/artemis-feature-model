@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 /**
  * Package-level metadata serialized into {@code metadata/package-manifest.json}. It records what the deployment
  * package contains, the deployment mode it was generated for, and which runtime modes it supports, so a user (or a
- * later phase) can inspect the package without unzipping and reading every file.
+ * tool) can inspect the package without unzipping and reading every file.
  *
  * <p>
  * The {@link #deploymentMode} field records an explicitly chosen deployment mode and is omitted when the caller relied
@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *
  * @param packageType stable package type identifier.
  * @param packageVersion package format version.
- * @param mode generation mode; only {@code DEMO} in this phase.
+ * @param mode generation mode; only {@code DEMO} is supported.
  * @param deploymentMode explicitly chosen deployment mode id, or {@code null} (omitted) for a default-mode request.
  * @param supportedRuntimeModes runtime modes this package can be started in.
  * @param model active feature model reference.
@@ -134,7 +134,7 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * Readiness flags for the generated package.
      *
      * @param localRuntimeReady whether the package can be used for local runtime validation.
-     * @param productionReady always {@code false} in this phase.
+     * @param productionReady always {@code false}; no generated package is production-ready.
      * @param reason human-readable reason the package is not production-ready.
      */
     public record Readiness(boolean localRuntimeReady, boolean productionReady, String reason) {

@@ -8,6 +8,8 @@ public record FeatureRelation(String parentId, String childId, String relationTy
 
     private static final String RELATION_TYPE_MANDATORY = "mandatory";
 
+    private static final String RELATION_TYPE_OPTIONAL = "optional";
+
     /**
      * Checks whether this relation requires its child whenever the parent path is active.
      *
@@ -16,5 +18,15 @@ public record FeatureRelation(String parentId, String childId, String relationTy
     @JsonIgnore
     public boolean isMandatory() {
         return FeatureRelation.RELATION_TYPE_MANDATORY.equals(relationType);
+    }
+
+    /**
+     * Checks whether this relation makes the child optional under its parent.
+     *
+     * @return true for an optional relation.
+     */
+    @JsonIgnore
+    public boolean isOptional() {
+        return FeatureRelation.RELATION_TYPE_OPTIONAL.equals(relationType);
     }
 }

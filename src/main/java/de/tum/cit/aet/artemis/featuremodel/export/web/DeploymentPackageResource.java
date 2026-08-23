@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentModes;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationResponse;
@@ -20,9 +21,9 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageServi
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimePackageConstants;
 
 /**
- * REST endpoints for the Phase 6 local runtime deployment package. The package reuses the Phase 5 configuration
- * artifacts and enriches them with runtime templates, helper scripts, and metadata; the same controlled errors as the
- * Phase 5 artifact endpoints apply (invalid selection, unknown profile).
+ * REST endpoints for the deployment package. The package reuses the generated configuration artifacts and enriches
+ * them with runtime templates, helper scripts, and metadata; the same controlled errors as the configuration artifact
+ * endpoints apply (invalid selection, unknown profile).
  */
 @RestController
 @RequestMapping("/api/feature-model/deployment-package")
@@ -75,9 +76,12 @@ public class DeploymentPackageResource {
     public ResponseEntity<Resource> download(@RequestBody ArtifactGenerationRequest request) {
         log.debug("REST request to download a deployment package for {} selected feature ids.", request.selectedFeatureIds().size());
         GeneratedArtifactPackage runtimePackage = deploymentPackageService.generate(request);
-        byte[] archive = artifactPackageService.zip(runtimePackage, RuntimePackageConstants.PACKAGE_ROOT_DIR);
+        boolean remoteAnsible = DeploymentModes.REMOTE_ANSIBLE.equals(request.deploymentMode());
+        String rootDir = remoteAnsible ? RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_ROOT_DIR : RuntimePackageConstants.PACKAGE_ROOT_DIR;
+        String zipName = remoteAnsible ? RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_ZIP_NAME : RuntimePackageConstants.PACKAGE_ZIP_NAME;
+        byte[] archive = artifactPackageService.zip(runtimePackage, rootDir);
         log.info("REST response returns a {}-byte deployment package ZIP.", archive.length);
-        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + RuntimePackageConstants.PACKAGE_ZIP_NAME + "\"")
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + zipName + "\"")
                 .contentType(ZIP_MEDIA_TYPE).contentLength(archive.length).body(new ByteArrayResource(archive));
     }
 }

@@ -12,7 +12,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 
 /**
- * Writes the static and near-static text files that turn the Phase 5 configuration artifacts into a local runtime
+ * Writes the static and near-static text files that turn the generated configuration artifacts into a local runtime
  * deployment package: the package README, the demo/README env files, and the Layer 1 (local Artemis repository)
  * Compose override and its README.
  *
