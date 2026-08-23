@@ -28,6 +28,7 @@ import {
     CONFIGURATOR_TUTORIAL_STEPS,
     buildConfiguratorTutorialSeenKey,
 } from './shared/configurator-tutorial';
+import { DEFAULT_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
@@ -35,12 +36,6 @@ const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selecti
 const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please verify that the server is running and try again.';
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deployment package. Please verify that the server is running and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
-const DEPLOYMENT_PACKAGE_FILE_NAME = 'artemis-feature-model-deployment-package.zip';
-const DEV_IDE_PACKAGE_FILE_NAME = 'artemis-feature-model-dev-ide-package.zip';
-const REMOTE_ANSIBLE_PACKAGE_FILE_NAME = 'artemis-feature-model-remote-ansible-package.zip';
-const LOCAL_DOCKER_DEPLOYMENT_MODE = 'local-docker';
-const DEV_IDE_DEPLOYMENT_MODE = 'dev-ide';
-const REMOTE_ANSIBLE_DEPLOYMENT_MODE = 'remote-ansible';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -76,7 +71,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
-    readonly selectedDeploymentMode = signal<string>(LOCAL_DOCKER_DEPLOYMENT_MODE);
+    readonly selectedDeploymentMode = signal<string>(DEFAULT_DEPLOYMENT_MODE);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -483,10 +478,10 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         const deploymentMode = this.selectedDeploymentMode();
         const request: ArtifactGenerationRequest = { selectedFeatureIds: [...this.selectedFeatureIds()] };
-        if (deploymentMode !== LOCAL_DOCKER_DEPLOYMENT_MODE) {
+        if (deploymentMode !== DEFAULT_DEPLOYMENT_MODE) {
             request.deploymentMode = deploymentMode;
         }
-        const fileName = this.deploymentPackageFileName(deploymentMode);
+        const fileName = deploymentTargetFor(deploymentMode).fileName;
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
         this.featureModelService
@@ -502,17 +497,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.reportDownloadError(error, DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE, this.deploymentPackageErrorMessage);
                 },
             });
-    }
-
-    /** Resolves the download file name of the selected deployment target. */
-    private deploymentPackageFileName(deploymentMode: string): string {
-        if (deploymentMode === DEV_IDE_DEPLOYMENT_MODE) {
-            return DEV_IDE_PACKAGE_FILE_NAME;
-        }
-        if (deploymentMode === REMOTE_ANSIBLE_DEPLOYMENT_MODE) {
-            return REMOTE_ANSIBLE_PACKAGE_FILE_NAME;
-        }
-        return DEPLOYMENT_PACKAGE_FILE_NAME;
     }
 
     /**

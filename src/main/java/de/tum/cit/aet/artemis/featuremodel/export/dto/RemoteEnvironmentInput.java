@@ -1,5 +1,8 @@
 package de.tum.cit.aet.artemis.featuremodel.export.dto;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
@@ -29,6 +32,15 @@ public record RemoteEnvironmentInput(String targetName, String serverHostname, S
      * @return resolved environment values.
      */
     public RemoteEnvironmentValues resolve() {
-        return RemoteEnvironmentValues.resolve(targetName, serverHostname, operatorName, operatorAdminName, email, certPath, certKeyPath, vaultServerName);
+        Map<RemoteEnvironmentValues.Input, String> rawInputs = new EnumMap<>(RemoteEnvironmentValues.Input.class);
+        rawInputs.put(RemoteEnvironmentValues.Input.TARGET_NAME, targetName);
+        rawInputs.put(RemoteEnvironmentValues.Input.SERVER_HOSTNAME, serverHostname);
+        rawInputs.put(RemoteEnvironmentValues.Input.OPERATOR_NAME, operatorName);
+        rawInputs.put(RemoteEnvironmentValues.Input.OPERATOR_ADMIN_NAME, operatorAdminName);
+        rawInputs.put(RemoteEnvironmentValues.Input.EMAIL, email);
+        rawInputs.put(RemoteEnvironmentValues.Input.CERT_PATH, certPath);
+        rawInputs.put(RemoteEnvironmentValues.Input.CERT_KEY_PATH, certKeyPath);
+        rawInputs.put(RemoteEnvironmentValues.Input.VAULT_SERVER_NAME, vaultServerName);
+        return RemoteEnvironmentValues.resolve(rawInputs);
     }
 }

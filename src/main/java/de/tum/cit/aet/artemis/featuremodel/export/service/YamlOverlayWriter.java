@@ -130,7 +130,17 @@ public class YamlOverlayWriter {
      * @return double-quoted YAML scalar.
      */
     private String quote(String value) {
-        String escaped = value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\t", "\\t");
+        String escaped = escapeDoubleQuoted(value).replace("\n", "\\n").replace("\t", "\\t");
         return "\"" + escaped + "\"";
+    }
+
+    /**
+     * Escapes the backslashes and double quotes of a value for use inside a YAML double-quoted scalar.
+     *
+     * @param value string value.
+     * @return escaped value, without the surrounding quotes.
+     */
+    static String escapeDoubleQuoted(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

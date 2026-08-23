@@ -1,7 +1,5 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -10,13 +8,14 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
+import de.tum.cit.aet.artemis.featuremodel.shared.util.ClasspathJsonReader;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -34,11 +33,10 @@ public class AnsibleBindingCatalogLoader {
 
     private static final Set<String> KNOWN_EMISSIONS = Set.of(AnsibleBindingCatalog.EMISSION_ALWAYS, AnsibleBindingCatalog.EMISSION_NULL_OVERRIDE);
 
-    private static final Set<String> KNOWN_BINDINGS = Set.of(AnsibleBindingCatalog.BINDING_BOUND, AnsibleBindingCatalog.BINDING_NO_OP,
-            AnsibleBindingCatalog.BINDING_UNSUPPORTED);
-
     private static final Set<String> KNOWN_UNSUPPORTED_DIRECTIONS = Set.of(AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED,
             AnsibleBindingCatalog.UNSUPPORTED_WHEN_DESELECTED);
+
+    private static final List<String> SECTION_LABELS = List.of("technical database", "technical ciProvider", "feature");
 
     private final AnsibleBindingCatalog catalog;
 
@@ -63,7 +61,7 @@ public class AnsibleBindingCatalogLoader {
      * @throws FeatureModelLoadException if the catalog cannot be read, parsed, or validated.
      */
     AnsibleBindingCatalogLoader(ResourceLoader resourceLoader, ObjectMapper objectMapper, String catalogLocation) {
-        this.catalog = loadCatalog(resourceLoader, objectMapper, catalogLocation);
+        this.catalog = ClasspathJsonReader.read(resourceLoader, objectMapper, catalogLocation, AnsibleBindingCatalog.class, "the Ansible binding catalog");
         validate(this.catalog);
         log.info("Loaded Ansible binding catalog v{} for collection pin {} with {} feature bindings.", catalog.catalogVersion(), catalog.collectionPin(),
                 catalog.features().size());
@@ -79,28 +77,8 @@ public class AnsibleBindingCatalogLoader {
     }
 
     /**
-     * Loads and parses the catalog resource.
-     *
-     * @param resourceLoader Spring resource loader.
-     * @param objectMapper Jackson mapper.
-     * @param catalogLocation catalog resource location.
-     * @return parsed catalog.
-     * @throws FeatureModelLoadException if the resource cannot be read or parsed.
-     */
-    private AnsibleBindingCatalog loadCatalog(ResourceLoader resourceLoader, ObjectMapper objectMapper, String catalogLocation) {
-        Resource resource = resourceLoader.getResource(catalogLocation);
-        try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, AnsibleBindingCatalog.class);
-        }
-        catch (IOException | RuntimeException e) {
-            log.error("Could not load the Ansible binding catalog from {}.", catalogLocation, e);
-            throw new FeatureModelLoadException("Could not load the Ansible binding catalog from " + catalogLocation + ".", e);
-        }
-    }
-
-    /**
      * Validates the shipped catalog: identity fields, known emission, binding, and direction kinds, known environment
-     * inputs, mandatory reasons, the technical axes, complete value-gated blocks, and unique group files.
+     * inputs, mandatory reasons, the technical axes, and unique group files.
      *
      * @param catalog parsed catalog.
      * @throws FeatureModelLoadException if the catalog is internally inconsistent.
@@ -116,7 +94,7 @@ public class AnsibleBindingCatalogLoader {
             if (!KNOWN_EMISSIONS.contains(entry.emission())) {
                 throw invalid("Baseline entry '" + entry.var() + "' declares unknown emission kind '" + entry.emission() + "'.");
             }
-            if (AnsibleBindingCatalog.EMISSION_NULL_OVERRIDE.equals(entry.emission()) && isBlank(entry.reason())) {
+            if (AnsibleBindingCatalog.EMISSION_NULL_OVERRIDE.equals(entry.emission()) && !StringUtils.hasText(entry.reason())) {
                 throw invalid("Null-override entry '" + entry.var() + "' must record the collection default it defeats as its reason.");
             }
             if (entry.lines().isEmpty()) {
@@ -124,27 +102,28 @@ public class AnsibleBindingCatalogLoader {
             }
         }
         for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            if (isBlank(entry.input()) || entry.lines().isEmpty()) {
+            if (!StringUtils.hasText(entry.input()) || entry.lines().isEmpty()) {
                 throw invalid("Environment entry '" + entry.var() + "' must declare its input and rendered lines.");
             }
             if (!AnsibleBindingCatalog.FILE_COMMON_CONFIG.equals(entry.file()) && !AnsibleBindingCatalog.FILE_TARGET_MAIN.equals(entry.file())) {
                 throw invalid("Environment entry '" + entry.var() + "' declares unknown target file '" + entry.file() + "'.");
             }
-            if (!RemoteEnvironmentValues.INPUT_NAMES.contains(entry.input())) {
+            if (RemoteEnvironmentValues.Input.byName(entry.input()) == null) {
                 throw invalid("Environment entry '" + entry.var() + "' declares unknown input '" + entry.input() + "'.");
             }
         }
         for (AnsibleBindingCatalog.SecretEntry entry : catalog.secrets()) {
-            if (isBlank(entry.vaultPath()) || isBlank(entry.vaultField())) {
+            if (!StringUtils.hasText(entry.vaultPath()) || !StringUtils.hasText(entry.vaultField())) {
                 throw invalid("Secret entry '" + entry.var() + "' must declare its vault path and field.");
             }
         }
-        if (catalog.technical() == null || catalog.technical().database().isEmpty() || catalog.technical().ciProvider().isEmpty()) {
+        if (catalog.technical().database().isEmpty() || catalog.technical().ciProvider().isEmpty()) {
             throw invalid("The catalog must declare technical database and ciProvider bindings.");
         }
-        validateBindings("technical database", catalog.technical().database());
-        validateBindings("technical ciProvider", catalog.technical().ciProvider());
-        validateBindings("feature", catalog.features());
+        List<Map<String, AnsibleBindingCatalog.FeatureBinding>> sections = catalog.sections();
+        for (int index = 0; index < sections.size(); index++) {
+            validateBindings(SECTION_LABELS.get(index), sections.get(index));
+        }
         validateUniqueGroupFiles(catalog);
     }
 
@@ -158,9 +137,7 @@ public class AnsibleBindingCatalogLoader {
     private void validateUniqueGroupFiles(AnsibleBindingCatalog catalog) {
         Set<String> groupVarsFiles = new HashSet<>();
         Set<String> memberships = new HashSet<>();
-        List<Map<String, AnsibleBindingCatalog.FeatureBinding>> sections = List.of(catalog.technical().database(), catalog.technical().ciProvider(),
-                catalog.features());
-        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : sections) {
+        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : catalog.sections()) {
             for (Map.Entry<String, AnsibleBindingCatalog.FeatureBinding> entry : section.entrySet()) {
                 AnsibleBindingCatalog.FeatureBinding binding = entry.getValue();
                 if (!AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding())) {
@@ -187,32 +164,28 @@ public class AnsibleBindingCatalogLoader {
         for (Map.Entry<String, AnsibleBindingCatalog.FeatureBinding> entry : bindings.entrySet()) {
             String featureId = entry.getKey();
             AnsibleBindingCatalog.FeatureBinding binding = entry.getValue();
-            if (!KNOWN_BINDINGS.contains(binding.binding())) {
-                throw invalid("The " + section + " binding of '" + featureId + "' declares unknown classification '" + binding.binding() + "'.");
-            }
             switch (binding.binding()) {
                 case AnsibleBindingCatalog.BINDING_BOUND -> validateBoundBinding(section, featureId, binding);
                 case AnsibleBindingCatalog.BINDING_NO_OP -> {
-                    if (isBlank(binding.reason())) {
+                    if (!StringUtils.hasText(binding.reason())) {
                         throw invalid("The no-op " + section + " binding of '" + featureId + "' must record its reason.");
                     }
                 }
                 case AnsibleBindingCatalog.BINDING_UNSUPPORTED -> {
-                    if (isBlank(binding.missingVariable()) && isBlank(binding.reason())) {
+                    if (!StringUtils.hasText(binding.missingVariable()) && !StringUtils.hasText(binding.reason())) {
                         throw invalid("The unsupported " + section + " binding of '" + featureId + "' must record its missing variable or reason.");
                     }
                     if (binding.unsupportedWhen() != null && !KNOWN_UNSUPPORTED_DIRECTIONS.contains(binding.unsupportedWhen())) {
                         throw invalid("The unsupported " + section + " binding of '" + featureId + "' declares unknown direction '" + binding.unsupportedWhen() + "'.");
                     }
                 }
-                default -> throw invalid("The " + section + " binding of '" + featureId + "' declares unknown classification '" + binding.binding() + "'.");
+                case null, default -> throw invalid("The " + section + " binding of '" + featureId + "' declares unknown classification '" + binding.binding() + "'.");
             }
         }
     }
 
     /**
-     * Validates a bound binding: rendered content must exist and every gated field of a value-gated block must be
-     * complete, so the shipped catalog can never emit a partial value block.
+     * Validates a bound binding: it must name its membership group and group values file and render content.
      *
      * @param section section label for error messages.
      * @param featureId bound feature id.
@@ -220,34 +193,12 @@ public class AnsibleBindingCatalogLoader {
      * @throws FeatureModelLoadException if the binding is inconsistent.
      */
     private void validateBoundBinding(String section, String featureId, AnsibleBindingCatalog.FeatureBinding binding) {
-        if (isBlank(binding.membership()) || isBlank(binding.groupVarsFile())) {
+        if (!StringUtils.hasText(binding.membership()) || !StringUtils.hasText(binding.groupVarsFile())) {
             throw invalid("The bound " + section + " binding of '" + featureId + "' must declare its membership group and group values file.");
         }
-        boolean valueGated = AnsibleBindingCatalog.GATING_VALUE_GATED.equals(binding.gating());
-        if (valueGated) {
-            List<AnsibleBindingCatalog.GatedField> gatedFields = binding.gatedFields();
-            if (gatedFields.isEmpty()) {
-                throw invalid("The value-gated binding of '" + featureId + "' must declare its gated fields.");
-            }
-            for (AnsibleBindingCatalog.GatedField field : gatedFields) {
-                if (isBlank(field.name()) || isBlank(field.line())) {
-                    throw invalid("The value-gated binding of '" + featureId + "' has an incomplete gated field; the shipped catalog must be complete.");
-                }
-            }
-        }
-        else if (binding.lines().isEmpty()) {
+        if (binding.lines().isEmpty()) {
             throw invalid("The bound " + section + " binding of '" + featureId + "' declares no rendered lines.");
         }
-    }
-
-    /**
-     * Checks whether a string is null or blank.
-     *
-     * @param value string to check.
-     * @return true for null or blank.
-     */
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 
     /**

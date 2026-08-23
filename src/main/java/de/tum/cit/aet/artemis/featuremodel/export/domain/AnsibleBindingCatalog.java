@@ -45,12 +45,6 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     /** Classification of a feature state the pinned collection cannot express. */
     public static final String BINDING_UNSUPPORTED = "unsupported";
 
-    /** Gating of a bound feature whose block is emitted if and only if the feature is selected. */
-    public static final String GATING_PRESENCE = "presence";
-
-    /** Gating of a bound feature whose block is emitted only when every gated field is non-empty. */
-    public static final String GATING_VALUE_GATED = "value-gated";
-
     /** Unsupported direction: deselecting the feature is inexpressible. */
     public static final String UNSUPPORTED_WHEN_DESELECTED = "deselected";
 
@@ -79,7 +73,33 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
         baseline = baseline == null ? List.of() : List.copyOf(baseline);
         environment = environment == null ? List.of() : List.copyOf(environment);
         secrets = secrets == null ? List.of() : List.copyOf(secrets);
+        technical = technical == null ? new TechnicalBindings(null, null) : technical;
         features = features == null ? Map.of() : Map.copyOf(features);
+    }
+
+    /**
+     * Returns the three binding sections in a fixed order: technical database, technical CI provider, features.
+     *
+     * @return binding sections by feature id.
+     */
+    public List<Map<String, FeatureBinding>> sections() {
+        return List.of(technical.database(), technical.ciProvider(), features);
+    }
+
+    /**
+     * Finds the classification of a feature id across the binding sections.
+     *
+     * @param featureId feature id.
+     * @return binding, or {@code null} if the catalog does not classify the feature.
+     */
+    public FeatureBinding bindingFor(String featureId) {
+        for (Map<String, FeatureBinding> section : sections()) {
+            FeatureBinding binding = section.get(featureId);
+            if (binding != null) {
+                return binding;
+            }
+        }
+        return null;
     }
 
     /**
@@ -181,13 +201,9 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      * Classification and binding of one feature or technical choice.
      *
      * @param binding {@link #BINDING_BOUND}, {@link #BINDING_NO_OP}, or {@link #BINDING_UNSUPPORTED}.
-     * @param gating {@link #GATING_PRESENCE} or {@link #GATING_VALUE_GATED} for bound features.
      * @param membership inventory group the target joins when the binding applies.
      * @param groupVarsFile name of the rendered group values file.
-     * @param lines rendered lines of a presence-gated block, emitted verbatim.
-     * @param prefixLines rendered lines before the gated fields of a value-gated block.
-     * @param gatedFields gated fields of a value-gated block; the block is emitted only when all are non-empty.
-     * @param suffixLines rendered lines after the gated fields of a value-gated block.
+     * @param lines rendered lines of the bound block, emitted verbatim when the feature is selected.
      * @param vaultReferences vault references the rendered lines contain.
      * @param unsupportedWhen direction of an unsupported binding: {@link #UNSUPPORTED_WHEN_DESELECTED} or
      *            {@link #UNSUPPORTED_WHEN_SELECTED}.
@@ -196,21 +212,16 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      * @param evidence curation evidence reference.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record FeatureBinding(String binding, String gating, String membership, String groupVarsFile, List<String> lines, List<String> prefixLines,
-            List<GatedField> gatedFields, List<String> suffixLines, List<VaultReference> vaultReferences, String unsupportedWhen, String missingVariable,
-            String reason, String evidence) {
+    public record FeatureBinding(String binding, String membership, String groupVarsFile, List<String> lines, List<VaultReference> vaultReferences,
+            String unsupportedWhen, String missingVariable, String reason, String evidence) {
 
         /**
          * Normalizes nullable collections to immutable empty collections.
          *
          * @param binding classification.
-         * @param gating gating kind.
          * @param membership inventory group.
          * @param groupVarsFile group values file name.
-         * @param lines presence-gated block lines.
-         * @param prefixLines value-gated prefix lines.
-         * @param gatedFields value-gated fields.
-         * @param suffixLines value-gated suffix lines.
+         * @param lines bound block lines.
          * @param vaultReferences contained vault references.
          * @param unsupportedWhen unsupported direction.
          * @param missingVariable missing-variable reason.
@@ -219,21 +230,8 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
          */
         public FeatureBinding {
             lines = lines == null ? List.of() : List.copyOf(lines);
-            prefixLines = prefixLines == null ? List.of() : List.copyOf(prefixLines);
-            gatedFields = gatedFields == null ? List.of() : List.copyOf(gatedFields);
-            suffixLines = suffixLines == null ? List.of() : List.copyOf(suffixLines);
             vaultReferences = vaultReferences == null ? List.of() : List.copyOf(vaultReferences);
         }
-    }
-
-    /**
-     * One gated field of a value-gated block.
-     *
-     * @param name field name inside the value block.
-     * @param line rendered line of the field, emitted verbatim when the block is complete.
-     */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record GatedField(String name, String line) {
     }
 
     /**

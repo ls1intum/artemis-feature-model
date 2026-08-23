@@ -19,7 +19,7 @@ import java.util.List;
  */
 public record RemoteReadinessReport(String selectionValidated, List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> bindingsResolved,
         String valuesGenerated, List<RemoteAnsibleEmissionPlan.EnvironmentState> environmentProvided, String secretsAsReferences, String syntaxValidated,
-        ModelIdentity model, CatalogIdentity bindingCatalog) {
+        ModelIdentity model, RemoteAnsibleEmissionPlan.CatalogIdentity bindingCatalog) {
 
     /** Layer state of a proven generation step. */
     public static final String STATE_PASS = "pass";
@@ -28,37 +28,11 @@ public record RemoteReadinessReport(String selectionValidated, List<RemoteAnsibl
     public static final String STATE_PENDING = "pending";
 
     /**
-     * Normalizes nullable collections to immutable empty lists.
-     *
-     * @param selectionValidated selection layer state.
-     * @param bindingsResolved classification results.
-     * @param valuesGenerated values layer state.
-     * @param environmentProvided environment states.
-     * @param secretsAsReferences secrets layer state.
-     * @param syntaxValidated syntax layer state.
-     * @param model model identity.
-     * @param bindingCatalog binding catalog identity.
-     */
-    public RemoteReadinessReport {
-        bindingsResolved = bindingsResolved == null ? List.of() : List.copyOf(bindingsResolved);
-        environmentProvided = environmentProvided == null ? List.of() : List.copyOf(environmentProvided);
-    }
-
-    /**
      * Identity of the generating model.
      *
      * @param id feature model id.
      * @param version feature model version.
      */
     public record ModelIdentity(String id, String version) {
-    }
-
-    /**
-     * Identity of the binding catalog.
-     *
-     * @param catalogVersion catalog version.
-     * @param collectionPin pinned collection commit the catalog was curated against.
-     */
-    public record CatalogIdentity(int catalogVersion, String collectionPin) {
     }
 }

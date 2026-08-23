@@ -1,13 +1,15 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
 /**
  * Resolved admin-owned environment values of a remote-ansible generation run. Every input is resolved to either its
- * provided value or a deterministic {@code REPLACE_ME_*} placeholder, so a request without environment values yields
+ * provided value or its deterministic {@code REPLACE_ME_*} placeholder, so a request without environment values yields
  * a structurally identical placeholder package. The vault server name may be derived from the target name; the target
  * group is the inventory-group form of the target name.
  *
@@ -15,34 +17,6 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationEx
  * @param inputs resolved inputs in declaration order.
  */
 public record RemoteEnvironmentValues(String targetGroup, List<InputValue> inputs) {
-
-    /** Input name of the target (test-server) name. */
-    public static final String INPUT_TARGET_NAME = "targetName";
-
-    /** Input name of the server hostname. */
-    public static final String INPUT_SERVER_HOSTNAME = "serverHostname";
-
-    /** Input name of the operator name. */
-    public static final String INPUT_OPERATOR_NAME = "operatorName";
-
-    /** Input name of the operator admin name. */
-    public static final String INPUT_OPERATOR_ADMIN_NAME = "operatorAdminName";
-
-    /** Input name of the contact email address. */
-    public static final String INPUT_EMAIL = "email";
-
-    /** Input name of the TLS certificate path. */
-    public static final String INPUT_CERT_PATH = "certPath";
-
-    /** Input name of the TLS certificate key path. */
-    public static final String INPUT_CERT_KEY_PATH = "certKeyPath";
-
-    /** Input name of the vault server name; derived from the target name when absent. */
-    public static final String INPUT_VAULT_SERVER_NAME = "vaultServerName";
-
-    /** All input names in declaration order. */
-    public static final List<String> INPUT_NAMES = List.of(INPUT_TARGET_NAME, INPUT_SERVER_HOSTNAME, INPUT_OPERATOR_NAME, INPUT_OPERATOR_ADMIN_NAME,
-            INPUT_EMAIL, INPUT_CERT_PATH, INPUT_CERT_KEY_PATH, INPUT_VAULT_SERVER_NAME);
 
     /** Inventory group name used when no target name is provided. */
     public static final String DEFAULT_TARGET_GROUP = "artemistarget";
@@ -68,95 +42,95 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
     /** Control characters (including line breaks) that would break the single-line rendering. */
     private static final Pattern CONTROL_CHARACTER_PATTERN = Pattern.compile("[\\p{Cntrl}]");
 
-    private static final List<String> PLACEHOLDERS = List.of("REPLACE_ME_TARGET_NAME", "REPLACE_ME_SERVER_HOSTNAME", "REPLACE_ME_OPERATOR_NAME",
-            "REPLACE_ME_OPERATOR_ADMIN_NAME", "REPLACE_ME_CONTACT_EMAIL", "REPLACE_ME_TLS_CERTIFICATE_PATH", "REPLACE_ME_TLS_CERTIFICATE_KEY_PATH",
-            "REPLACE_ME_VAULT_SERVER_NAME");
+    /**
+     * Remote environment inputs with their request names and placeholders, in declaration order.
+     */
+    public enum Input {
+
+        /** Target (test-server) name. */
+        TARGET_NAME("targetName", "REPLACE_ME_TARGET_NAME"),
+        /** Public server hostname; also the inventory host line. */
+        SERVER_HOSTNAME("serverHostname", "REPLACE_ME_SERVER_HOSTNAME"),
+        /** Operator name. */
+        OPERATOR_NAME("operatorName", "REPLACE_ME_OPERATOR_NAME"),
+        /** Operator admin name. */
+        OPERATOR_ADMIN_NAME("operatorAdminName", "REPLACE_ME_OPERATOR_ADMIN_NAME"),
+        /** Contact email address. */
+        EMAIL("email", "REPLACE_ME_CONTACT_EMAIL"),
+        /** TLS certificate path. */
+        CERT_PATH("certPath", "REPLACE_ME_TLS_CERTIFICATE_PATH"),
+        /** TLS certificate key path. */
+        CERT_KEY_PATH("certKeyPath", "REPLACE_ME_TLS_CERTIFICATE_KEY_PATH"),
+        /** Vault server name; derived from the target name when absent. */
+        VAULT_SERVER_NAME("vaultServerName", "REPLACE_ME_VAULT_SERVER_NAME");
+
+        private final String inputName;
+
+        private final String placeholder;
+
+        Input(String inputName, String placeholder) {
+            this.inputName = inputName;
+            this.placeholder = placeholder;
+        }
+
+        /**
+         * Returns the request-level input name.
+         *
+         * @return input name.
+         */
+        public String inputName() {
+            return inputName;
+        }
+
+        /**
+         * Finds an input by its request-level name.
+         *
+         * @param inputName input name.
+         * @return matching input, or {@code null} if the name is unknown.
+         */
+        public static Input byName(String inputName) {
+            for (Input input : values()) {
+                if (input.inputName.equals(inputName)) {
+                    return input;
+                }
+            }
+            return null;
+        }
+    }
 
     /**
      * One resolved environment input.
      *
-     * @param input input name.
+     * @param input input.
      * @param value resolved value: the provided value or the input's placeholder.
      * @param provided whether the value was provided (directly or derived) instead of a placeholder.
      */
-    public record InputValue(String input, String value, boolean provided) {
-    }
-
-    /**
-     * Normalizes the input list to an immutable list.
-     *
-     * @param targetGroup inventory group name.
-     * @param inputs resolved inputs.
-     */
-    public RemoteEnvironmentValues {
-        inputs = inputs == null ? List.of() : List.copyOf(inputs);
+    public record InputValue(Input input, String value, boolean provided) {
     }
 
     /**
      * Resolves environment values from nullable raw inputs, applying placeholders, deriving the vault server name
      * from the target name when absent, and deriving the inventory group name.
      *
-     * @param targetName target name, or {@code null}/blank.
-     * @param serverHostname server hostname, or {@code null}/blank.
-     * @param operatorName operator name, or {@code null}/blank.
-     * @param operatorAdminName operator admin name, or {@code null}/blank.
-     * @param email contact email, or {@code null}/blank.
-     * @param certPath TLS certificate path, or {@code null}/blank.
-     * @param certKeyPath TLS certificate key path, or {@code null}/blank.
-     * @param vaultServerName vault server name, or {@code null}/blank to derive it from the target name.
+     * @param rawInputs raw input values by input; absent or blank entries resolve to placeholders.
      * @return resolved environment values.
+     * @throws ArtifactGenerationException if a provided value cannot be rendered safely.
      */
-    public static RemoteEnvironmentValues resolve(String targetName, String serverHostname, String operatorName, String operatorAdminName, String email,
-            String certPath, String certKeyPath, String vaultServerName) {
-        String resolvedVaultServerName = isBlank(vaultServerName) ? targetName : vaultServerName;
-        List<String> rawValues = List.of(orEmpty(targetName), orEmpty(serverHostname), orEmpty(operatorName), orEmpty(operatorAdminName), orEmpty(email),
-                orEmpty(certPath), orEmpty(certKeyPath), orEmpty(resolvedVaultServerName));
-        List<InputValue> inputs = new java.util.ArrayList<>();
-        for (int index = 0; index < INPUT_NAMES.size(); index++) {
-            String input = INPUT_NAMES.get(index);
-            String rawValue = rawValues.get(index);
-            boolean provided = !rawValue.isBlank();
+    public static RemoteEnvironmentValues resolve(Map<Input, String> rawInputs) {
+        String targetName = orEmpty(rawInputs.get(Input.TARGET_NAME));
+        List<InputValue> inputs = new ArrayList<>();
+        for (Input input : Input.values()) {
+            String rawValue = orEmpty(rawInputs.get(input));
+            if (input == Input.VAULT_SERVER_NAME && rawValue.isEmpty()) {
+                rawValue = targetName;
+            }
+            boolean provided = !rawValue.isEmpty();
             if (provided) {
                 validate(input, rawValue);
             }
-            inputs.add(new InputValue(input, provided ? rawValue : PLACEHOLDERS.get(index), provided));
+            inputs.add(new InputValue(input, provided ? rawValue : input.placeholder, provided));
         }
         return new RemoteEnvironmentValues(targetGroupFor(targetName), List.copyOf(inputs));
-    }
-
-    /**
-     * Validates a provided value against the syntaxes it is rendered into. Every value is rendered on one line and
-     * must not carry Jinja delimiters, because Ansible templates inventory values at run time; the hostname is also
-     * an INI host token, and the target and vault server names enter Jinja single-quoted vault paths.
-     *
-     * @param input input name.
-     * @param value provided value.
-     * @throws ArtifactGenerationException if the value cannot be rendered safely.
-     */
-    private static void validate(String input, String value) {
-        if (CONTROL_CHARACTER_PATTERN.matcher(value).find()) {
-            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a single line without control characters");
-        }
-        if (JINJA_DELIMITER_PATTERN.matcher(value).find()) {
-            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must not contain Jinja delimiters such as '{{' or '{%'");
-        }
-        if (INPUT_SERVER_HOSTNAME.equals(input) && !HOSTNAME_PATTERN.matcher(value).matches()) {
-            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a hostname or address (letters, digits, '.', ':', '_', '-')");
-        }
-        boolean nameInput = INPUT_TARGET_NAME.equals(input) || INPUT_VAULT_SERVER_NAME.equals(input);
-        if (nameInput && !NAME_PATTERN.matcher(value).matches()) {
-            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(input, "it must be a name (letters, digits, '.', '_', '-')");
-        }
-    }
-
-    /**
-     * Escapes a resolved value for use inside a YAML double-quoted scalar.
-     *
-     * @param value resolved value.
-     * @return value with backslashes and double quotes escaped.
-     */
-    public static String yamlDoubleQuoted(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     /**
@@ -165,59 +139,55 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
      * @return placeholder environment values.
      */
     public static RemoteEnvironmentValues placeholders() {
-        return resolve(null, null, null, null, null, null, null, null);
+        return resolve(Map.of());
     }
 
     /**
      * Returns the resolved value of an input.
      *
-     * @param input input name.
+     * @param input input.
      * @return resolved value.
-     * @throws IllegalArgumentException if the input name is unknown.
      */
-    public String valueOf(String input) {
-        return inputValue(input).value();
+    public String valueOf(Input input) {
+        return inputs.get(input.ordinal()).value();
     }
 
     /**
-     * Checks whether an input was provided instead of resolved to a placeholder.
+     * Validates a provided value against the syntaxes it is rendered into. Every value is rendered on one line and
+     * must not carry Jinja delimiters, because Ansible templates inventory values at run time; the hostname is also
+     * an INI host token, and the target and vault server names enter Jinja single-quoted vault paths.
      *
-     * @param input input name.
-     * @return true when the input was provided or derived.
+     * @param input input.
+     * @param value provided value.
+     * @throws ArtifactGenerationException if the value cannot be rendered safely.
      */
-    public boolean isProvided(String input) {
-        return inputValue(input).provided();
-    }
-
-    /**
-     * Finds a resolved input by name.
-     *
-     * @param input input name.
-     * @return resolved input.
-     * @throws IllegalArgumentException if the input name is unknown.
-     */
-    private InputValue inputValue(String input) {
-        for (InputValue value : inputs) {
-            if (value.input().equals(input)) {
-                return value;
-            }
+    private static void validate(Input input, String value) {
+        String inputName = input.inputName();
+        if (CONTROL_CHARACTER_PATTERN.matcher(value).find()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(inputName, "it must be a single line without control characters");
         }
-        throw new IllegalArgumentException("Unknown remote environment input '" + input + "'.");
+        if (JINJA_DELIMITER_PATTERN.matcher(value).find()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(inputName, "it must not contain Jinja delimiters such as '{{' or '{%'");
+        }
+        if (input == Input.SERVER_HOSTNAME && !HOSTNAME_PATTERN.matcher(value).matches()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(inputName, "it must be a hostname or address (letters, digits, '.', ':', '_', '-')");
+        }
+        boolean nameInput = input == Input.TARGET_NAME || input == Input.VAULT_SERVER_NAME;
+        if (nameInput && !NAME_PATTERN.matcher(value).matches()) {
+            throw ArtifactGenerationException.invalidRemoteEnvironmentValue(inputName, "it must be a name (letters, digits, '.', '_', '-')");
+        }
     }
 
     /**
      * Derives the inventory group name of a target name: lowercase with every character outside {@code [a-z0-9_]}
-     * removed, matching Ansible group naming.
+     * removed, matching Ansible group naming, and disambiguated from the reserved wired groups.
      *
-     * @param targetName target name, or {@code null}/blank for the default group.
+     * @param targetName target name, empty for the default group.
      * @return inventory group name.
      */
     private static String targetGroupFor(String targetName) {
-        if (isBlank(targetName)) {
-            return DEFAULT_TARGET_GROUP;
-        }
         String group = targetName.toLowerCase().replaceAll("[^a-z0-9_]", "");
-        if (group.isBlank()) {
+        if (group.isEmpty()) {
             return DEFAULT_TARGET_GROUP;
         }
         boolean reserved = RESERVED_GROUP.equals(group) || group.startsWith(RESERVED_GROUP_PREFIX);
@@ -225,22 +195,12 @@ public record RemoteEnvironmentValues(String targetGroup, List<InputValue> input
     }
 
     /**
-     * Normalizes a nullable string to an empty string.
+     * Normalizes a nullable string to a stripped string.
      *
      * @param value nullable string.
-     * @return the string, or an empty string.
+     * @return the stripped string, or an empty string.
      */
     private static String orEmpty(String value) {
         return value == null ? "" : value.strip();
-    }
-
-    /**
-     * Checks whether a string is null or blank.
-     *
-     * @param value string to check.
-     * @return true for null or blank.
-     */
-    private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 }

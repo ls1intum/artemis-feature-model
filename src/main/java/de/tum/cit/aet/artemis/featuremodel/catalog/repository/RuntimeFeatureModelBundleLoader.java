@@ -1,7 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.catalog.repository;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -9,7 +8,6 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
@@ -26,6 +24,7 @@ import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowInteg
 import de.tum.cit.aet.artemis.featuremodel.selection.service.GuidedWorkflowProjectionService;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
+import de.tum.cit.aet.artemis.featuremodel.shared.util.ClasspathJsonReader;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -151,13 +150,7 @@ public class RuntimeFeatureModelBundleLoader {
     }
 
     private <T> T readResource(String location, Class<T> type) {
-        Resource resource = resourceLoader.getResource(location);
-        try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, type);
-        }
-        catch (IOException | RuntimeException e) {
-            throw new FeatureModelLoadException("Could not load the complete classpath feature-model bundle from " + location + ".", e);
-        }
+        return ClasspathJsonReader.read(resourceLoader, objectMapper, location, type, "the complete classpath feature-model bundle");
     }
 
     private <T> T readFile(Path directory, String fileName, Class<T> type) throws IOException {

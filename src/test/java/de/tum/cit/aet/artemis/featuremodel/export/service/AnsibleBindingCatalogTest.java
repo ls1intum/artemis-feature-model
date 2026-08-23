@@ -100,19 +100,6 @@ class AnsibleBindingCatalogTest {
     }
 
     @Test
-    void incompleteValueGatedFieldFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "hyperion": { "binding": "bound", "gating": "value-gated", "membership": "artemistests_hyperion",
-                    "groupVarsFile": "artemistests_hyperion.yml", "prefixLines": ["---"],
-                    "gatedFields": [ { "name": "api_key", "line": "" } ] } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("incomplete gated field");
-    }
-
-    @Test
     void unknownUnsupportedDirectionFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
@@ -149,8 +136,8 @@ class AnsibleBindingCatalogTest {
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
                   "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
                   "features": {
-                    "iris": { "binding": "bound", "gating": "presence", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] },
-                    "atlas": { "binding": "bound", "gating": "presence", "membership": "artemistests_atlas", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] } } }
+                    "iris": { "binding": "bound", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] },
+                    "atlas": { "binding": "bound", "membership": "artemistests_atlas", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] } } }
                 """;
 
         assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("declared by more than one bound binding");

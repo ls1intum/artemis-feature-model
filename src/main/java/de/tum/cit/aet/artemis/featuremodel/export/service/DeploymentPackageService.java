@@ -115,6 +115,9 @@ public class DeploymentPackageService {
     /** Every vault reference of the remote-ansible package: path, field, and consuming variable. */
     static final String VAULT_REFERENCES_FILE = "metadata/vault-references.json";
 
+    /** Manifest CI-provider mode of the packages that apply the provider through Spring profiles. */
+    private static final String CI_PROVIDER_MODE_SPRING_PROFILES = "spring-profiles";
+
     private static final String CONTENT_TYPE_YAML = "application/x-yaml";
 
     private static final String CONTENT_TYPE_JSON = "application/json";
@@ -208,20 +211,30 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Shared generation results every deployment mode composes its package from: the base artifact files by path, the
-     * base generation report, the parsed required environment variables, and the static overlay validation.
+     * Shared generation results every deployment mode composes its package from: the active model and validated
+     * selection, the base artifact files by path, the base generation report, and the resolved technical selection.
      *
+     * @param model active feature model.
+     * @param selectedFeatureIds validated selected feature ids in report order.
      * @param report base generation report.
-     * @param baseByPath base artifact files keyed by package path.
+     * @param baseByPath base artifact files keyed by package path; never mutated.
      * @param overlay generated Spring configuration overlay file.
      * @param envExample generated {@code .env.example} file.
-     * @param requiredEnvVars environment variable names the overlay references.
-     * @param staticValidation static overlay validation result against the Artemis config key catalog.
      * @param technicalSelection resolved structural technical mappings.
      */
-    private record SharedArtifacts(GenerationReport report, Map<String, GeneratedArtifactFile> baseByPath, GeneratedArtifactFile overlay,
-            GeneratedArtifactFile envExample, List<String> requiredEnvVars, StaticConfigValidationReport staticValidation,
+    private record SharedArtifacts(FeatureModel model, Set<String> selectedFeatureIds, GenerationReport report,
+            Map<String, GeneratedArtifactFile> baseByPath, GeneratedArtifactFile overlay, GeneratedArtifactFile envExample,
             TechnicalSelection technicalSelection) {
+
+        /**
+         * Copies the shared artifacts with a rewritten report.
+         *
+         * @param rewrittenReport mode-specific report.
+         * @return copied shared artifacts.
+         */
+        SharedArtifacts withReport(GenerationReport rewrittenReport) {
+            return new SharedArtifacts(model, selectedFeatureIds, rewrittenReport, baseByPath, overlay, envExample, technicalSelection);
+        }
     }
 
     /**
@@ -247,10 +260,12 @@ public class DeploymentPackageService {
         if (request.remoteEnvironment() != null && !DeploymentModes.REMOTE_ANSIBLE.equals(deploymentMode)) {
             throw ArtifactGenerationException.remoteEnvironmentNotApplicable(deploymentMode);
         }
+        RemoteEnvironmentValues remoteEnvironment = request.remoteEnvironment() == null ? RemoteEnvironmentValues.placeholders()
+                : request.remoteEnvironment().resolve();
 
         SharedArtifacts shared = generateSharedArtifacts(request);
         shared = applyModeMetadata(shared, deploymentMode);
-        List<GeneratedArtifactFile> files = composeFilesForMode(shared, deploymentMode, requestedDeploymentMode, request);
+        List<GeneratedArtifactFile> files = composeFilesForMode(shared, deploymentMode, requestedDeploymentMode, remoteEnvironment);
 
         log.info("Generated a '{}' deployment package with {} files for profile '{}' with status {}.", deploymentMode, files.size(), shared.report().profileId(),
                 shared.report().status());
@@ -263,17 +278,16 @@ public class DeploymentPackageService {
      * @param shared shared generation results.
      * @param deploymentMode resolved deployment mode.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
-     * @param request artifact generation request carrying mode-specific components.
+     * @param remoteEnvironment resolved remote environment values; placeholders unless the request supplied them.
      * @return ordered package files for the resolved mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the deployment mode is unknown.
      */
     private List<GeneratedArtifactFile> composeFilesForMode(SharedArtifacts shared, String deploymentMode, String requestedDeploymentMode,
-            ArtifactGenerationRequest request) {
+            RemoteEnvironmentValues remoteEnvironment) {
         return switch (deploymentMode) {
             case DeploymentModes.LOCAL_DOCKER -> composeLocalDockerFiles(shared, requestedDeploymentMode);
             case DeploymentModes.DEV_IDE -> composeDevIdeFiles(shared);
-            case DeploymentModes.REMOTE_ANSIBLE -> composeRemoteAnsibleFiles(shared,
-                    request.remoteEnvironment() == null ? RemoteEnvironmentValues.placeholders() : request.remoteEnvironment().resolve());
+            case DeploymentModes.REMOTE_ANSIBLE -> composeRemoteAnsibleFiles(shared, remoteEnvironment);
             default -> throw ArtifactGenerationException.unknownDeploymentMode(deploymentMode);
         };
     }
@@ -290,8 +304,8 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Generates the mode-independent shared artifacts: the base artifact files, the required environment variables,
-     * and the static overlay validation.
+     * Generates the mode-independent shared artifacts: the base artifact files and the resolved technical selection
+     * of the active model.
      *
      * @param request artifact generation request.
      * @return shared artifacts every mode composes its package from.
@@ -306,15 +320,13 @@ public class DeploymentPackageService {
         Map<String, GeneratedArtifactFile> baseByPath = filesByPath(base.files());
         GeneratedArtifactFile overlay = baseByPath.get(ArtifactGenerationService.OVERLAY_FILE);
         GeneratedArtifactFile envExample = baseByPath.get(ArtifactGenerationService.ENV_FILE);
-        List<String> requiredEnvVars = parseEnvNames(envExample.content());
-        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(overlay.content());
-        return new SharedArtifacts(base.report(), baseByPath, overlay, envExample, requiredEnvVars, staticValidation, technicalSelection);
+        return new SharedArtifacts(model, selectedFeatureIds, base.report(), baseByPath, overlay, envExample, technicalSelection);
     }
 
     /**
      * Applies mode-specific technical dispositions and requirements: the local-docker mode gains its package-only
-     * requirements, and a technical model gains its technical-selection metadata. The rewritten report replaces the
-     * base report file, so the report metadata and the returned package report always agree.
+     * requirements, and a technical model gains its technical-selection metadata. Composers serialize the rewritten
+     * report themselves, so the report metadata and the returned package report always agree.
      *
      * @param shared shared artifacts with the base report.
      * @param deploymentMode resolved deployment mode.
@@ -333,12 +345,7 @@ public class DeploymentPackageService {
             TechnicalSelectionMetadata metadata = technicalMetadata(selection, deploymentMode);
             report = reportWithTechnicalSelection(report, metadata, deploymentMode, selection);
         }
-        if (report == shared.report()) {
-            return shared;
-        }
-        replaceGenerationReport(shared.baseByPath(), report);
-        return new SharedArtifacts(report, shared.baseByPath(), shared.overlay(), shared.envExample(), shared.requiredEnvVars(),
-                shared.staticValidation(), selection);
+        return report == shared.report() ? shared : shared.withReport(report);
     }
 
     /**
@@ -394,18 +401,6 @@ public class DeploymentPackageService {
     }
 
     /**
-     * Replaces the package report file only when technical metadata is present. Curated-model bytes remain untouched.
-     *
-     * @param filesByPath base artifact files keyed by path.
-     * @param report report to record.
-     */
-    private void replaceGenerationReport(Map<String, GeneratedArtifactFile> filesByPath, GenerationReport report) {
-        GeneratedArtifactFile current = filesByPath.get(ArtifactGenerationService.REPORT_FILE);
-        GeneratedArtifactFile replacement = new GeneratedArtifactFile(current.path(), current.contentType(), writeJson(report));
-        filesByPath.put(replacement.path(), replacement);
-    }
-
-    /**
      * Composes the local Docker runtime package deterministically from the shared artifacts.
      *
      * @param shared shared generation results.
@@ -421,6 +416,7 @@ public class DeploymentPackageService {
         boolean technicalStack = !selection.isEmpty();
         TechnicalSelection runtimeSelection = localDockerRuntimeSelection(selection);
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForLocalDocker();
+        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(shared.overlay().content());
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
                 runtimeSource);
@@ -432,7 +428,7 @@ public class DeploymentPackageService {
         List<String> packagePaths = packageFilePaths(technicalStack);
         String manifestJson = writeJson(buildManifest(report, packagePaths, requiredEnvVars, requestedDeploymentMode, runtimeSource));
         String checksJson = writeJson(buildRuntimeChecks(shared.overlay().content(), requiredEnvVars, report, packagePaths.size(),
-                shared.staticValidation(), stackContent, manifestJson));
+                staticValidation, stackContent, manifestJson));
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, packageReadme));
@@ -442,10 +438,10 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(ENV_README_FILE, CONTENT_TYPE_MARKDOWN, templateWriter.envReadme()));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
         files.add(shared.baseByPath().get(ArtifactGenerationService.PROFILE_SUMMARY_FILE));
-        files.add(shared.baseByPath().get(ArtifactGenerationService.REPORT_FILE));
+        files.add(new GeneratedArtifactFile(ArtifactGenerationService.REPORT_FILE, CONTENT_TYPE_JSON, writeJson(report)));
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
         files.add(new GeneratedArtifactFile(RUNTIME_CHECKS_FILE, CONTENT_TYPE_JSON, checksJson));
-        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(shared.staticValidation())));
+        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(staticValidation)));
         if (technicalStack) {
             files.add(new GeneratedArtifactFile(TECHNICAL_STACK_FILE, CONTENT_TYPE_YAML, stackContent));
         }
@@ -536,11 +532,13 @@ public class DeploymentPackageService {
      */
     private List<GeneratedArtifactFile> composeDevIdeFiles(SharedArtifacts shared) {
         GenerationReport report = shared.report();
+        List<String> requiredEnvVars = parseEnvNames(shared.envExample().content());
+        StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(shared.overlay().content());
         String activeProfiles = activeProfilesDeriver.deriveActiveProfiles(report.selectedFeatureIds(), shared.technicalSelection().springProfileTokens());
         String readme = devIdeTemplateWriter.devIdeReadme(report.modelId(), report.modelVersion(), report.profileId(), activeProfiles,
-                shared.requiredEnvVars(), shared.technicalSelection());
+                requiredEnvVars, shared.technicalSelection());
         String runConfigurationXml = devIdeTemplateWriter.runConfigurationXml(activeProfiles);
-        String manifestJson = writeJson(buildDevIdeManifest(report, shared.requiredEnvVars()));
+        String manifestJson = writeJson(buildDevIdeManifest(report, requiredEnvVars));
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN, readme));
@@ -550,9 +548,9 @@ public class DeploymentPackageService {
         files.add(new GeneratedArtifactFile(DEV_IDE_RUN_CONFIG_FILE, CONTENT_TYPE_XML, runConfigurationXml));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
         files.add(shared.baseByPath().get(ArtifactGenerationService.PROFILE_SUMMARY_FILE));
-        files.add(shared.baseByPath().get(ArtifactGenerationService.REPORT_FILE));
+        files.add(new GeneratedArtifactFile(ArtifactGenerationService.REPORT_FILE, CONTENT_TYPE_JSON, writeJson(report)));
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, manifestJson));
-        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(shared.staticValidation())));
+        files.add(new GeneratedArtifactFile(STATIC_VALIDATION_FILE, CONTENT_TYPE_JSON, writeJson(staticValidation)));
         return files;
     }
 
@@ -574,7 +572,7 @@ public class DeploymentPackageService {
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
                 "Configuration-only package for IDE development; generated in DEMO mode and never resolves real secrets.");
         DeploymentPackageManifest.Database database = selectedDatabase(report, "developer-managed");
-        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report);
+        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report, CI_PROVIDER_MODE_SPRING_PROFILES);
         return new DeploymentPackageManifest(DEV_IDE_PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
                 DeploymentModes.DEV_IDE, List.of(), new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
                 new DeploymentPackageManifest.ProfileRef(report.profileId(), report.profileVersion()), runtimeInfo, database, ciProvider,
@@ -608,9 +606,7 @@ public class DeploymentPackageService {
      */
     private List<GeneratedArtifactFile> composeRemoteAnsibleFiles(SharedArtifacts shared, RemoteEnvironmentValues environment) {
         GenerationReport report = shared.report();
-        FeatureModel model = featureModelCatalogService.loadActiveModel();
-        Set<String> selectedFeatureIds = new LinkedHashSet<>(report.selectedFeatureIds());
-        RemoteAnsibleEmissionPlan plan = remoteAnsibleValuesWriter.plan(model, selectedFeatureIds, environment);
+        RemoteAnsibleEmissionPlan plan = remoteAnsibleValuesWriter.plan(shared.model(), shared.selectedFeatureIds(), environment);
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN,
@@ -650,9 +646,7 @@ public class DeploymentPackageService {
                 "The package deploys the official Artemis image through the pinned Ansible collection; the deployed tag is set by artemis_version in the "
                         + "generated inventory values.");
         DeploymentPackageManifest.Database database = selectedDatabase(report, "ansible-managed");
-        TechnicalSelectionMetadata metadata = report.technicalSelection();
-        DeploymentPackageManifest.CiProvider ciProvider = metadata == null || metadata.ciProviderId() == null ? null
-                : new DeploymentPackageManifest.CiProvider(metadata.ciProviderId(), "inventory-membership");
+        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report, "inventory-membership");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
                 "Admin-consumable Ansible deployment package: consumable, not deployable. Secrets are vault lookup expressions; run preflight.sh and review "
                         + "metadata/remote-readiness.json before use.");
@@ -674,9 +668,7 @@ public class DeploymentPackageService {
     private RemoteReadinessReport buildRemoteReadiness(GenerationReport report, RemoteAnsibleEmissionPlan plan) {
         return new RemoteReadinessReport(RemoteReadinessReport.STATE_PASS, plan.classifications(), RemoteReadinessReport.STATE_PASS,
                 plan.environmentStates(), RemoteReadinessReport.STATE_PASS, RemoteReadinessReport.STATE_PENDING,
-                new RemoteReadinessReport.ModelIdentity(report.modelId(), report.modelVersion()),
-                new RemoteReadinessReport.CatalogIdentity(remoteAnsibleValuesWriter.catalog().catalogVersion(),
-                        remoteAnsibleValuesWriter.catalog().collectionPin()));
+                new RemoteReadinessReport.ModelIdentity(report.modelId(), report.modelVersion()), plan.bindingCatalog());
     }
 
     /**
@@ -716,7 +708,7 @@ public class DeploymentPackageService {
         if (database == null) {
             database = new DeploymentPackageManifest.Database(RuntimePackageConstants.DATABASE_TYPE, "local-container");
         }
-        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report);
+        DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report, CI_PROVIDER_MODE_SPRING_PROFILES);
         boolean jenkinsSelected = ciProvider != null && "jenkins".equals(ciProvider.type());
         DeploymentPackageManifest.Readiness readiness = localDockerReadiness(jenkinsSelected);
         return new DeploymentPackageManifest(RuntimePackageConstants.PACKAGE_TYPE, RuntimePackageConstants.PACKAGE_VERSION, RuntimePackageConstants.MODE_DEMO,
@@ -769,14 +761,15 @@ public class DeploymentPackageService {
      * Reads the selected CI provider from technical metadata.
      *
      * @param report generation report.
+     * @param mode how the package applies the provider.
      * @return selected CI provider, or {@code null}.
      */
-    private DeploymentPackageManifest.CiProvider selectedCiProvider(GenerationReport report) {
+    private DeploymentPackageManifest.CiProvider selectedCiProvider(GenerationReport report, String mode) {
         TechnicalSelectionMetadata metadata = report.technicalSelection();
         if (metadata == null || metadata.ciProviderId() == null) {
             return null;
         }
-        return new DeploymentPackageManifest.CiProvider(metadata.ciProviderId(), "spring-profiles");
+        return new DeploymentPackageManifest.CiProvider(metadata.ciProviderId(), mode);
     }
 
     /**

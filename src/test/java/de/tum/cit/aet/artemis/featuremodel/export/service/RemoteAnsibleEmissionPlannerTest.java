@@ -20,14 +20,15 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrity
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteAnsibleEmissionPlan;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
+import de.tum.cit.aet.artemis.featuremodel.export.dto.RemoteEnvironmentInput;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Unit tests of the pure remote-ansible emission-plan layer: one test per emission semantics, including the
- * five-state value-gated contract, the rendered null-override assertion, membership wiring for both database choices
- * and the iris on/off states, and the fail-closed behavior for unsupported and unclassified features.
+ * Unit tests of the pure remote-ansible emission-plan layer: one test per emission semantics, including the rendered
+ * null-override assertion, membership wiring for both database choices and the iris on/off states, and the fail-closed
+ * behavior for unsupported and unclassified features.
  */
 class RemoteAnsibleEmissionPlannerTest {
 
@@ -96,22 +97,6 @@ class RemoteAnsibleEmissionPlannerTest {
         assertThat(fileContent(postgresPlan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_postgres:children]\nartemislocal")
                 .doesNotContain("artemistests_mysql");
         assertThat(fileContent(postgresPlan, "inventory/group_vars/artemistests_postgres.yml")).contains("artemis_database_type: postgresql");
-    }
-
-    @Test
-    void valueGatedBlockIsEmittedOnlyWhenComplete() {
-        AnsibleBindingCatalog.FeatureBinding complete = valueGatedBinding(List.of(field("api_key", "    api_key: \"a\""), field("endpoint", "    endpoint: \"b\"")));
-        AnsibleBindingCatalog.FeatureBinding undefinedFields = valueGatedBinding(null);
-        AnsibleBindingCatalog.FeatureBinding nullField = valueGatedBinding(List.of(field("api_key", null)));
-        AnsibleBindingCatalog.FeatureBinding emptyBlock = valueGatedBinding(List.of());
-        AnsibleBindingCatalog.FeatureBinding partiallyEmpty = valueGatedBinding(List.of(field("api_key", "    api_key: \"a\""), field("endpoint", " ")));
-
-        assertThat(planner.valueGatedBlockLines(complete)).containsExactly("---", "artemis_hyperion_enabled: true", "    api_key: \"a\"",
-                "    endpoint: \"b\"", "    temperature: 1.0");
-        assertThat(planner.valueGatedBlockLines(undefinedFields)).isEmpty();
-        assertThat(planner.valueGatedBlockLines(nullField)).isEmpty();
-        assertThat(planner.valueGatedBlockLines(emptyBlock)).isEmpty();
-        assertThat(planner.valueGatedBlockLines(partiallyEmpty)).isEmpty();
     }
 
     @Test
@@ -184,8 +169,8 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void targetNameCollidingWithAReservedGroupIsDisambiguated() {
-        RemoteEnvironmentValues collidingTarget = RemoteEnvironmentValues.resolve("artemis-tests", "artemis.example.org", null, null, null, null, null, null);
-        RemoteEnvironmentValues collidingPrefix = RemoteEnvironmentValues.resolve("artemistests_mysql", "artemis.example.org", null, null, null, null, null, null);
+        RemoteEnvironmentValues collidingTarget = environment("artemis-tests", "artemis.example.org", null, null, null, null, null, null);
+        RemoteEnvironmentValues collidingPrefix = environment("artemistests_mysql", "artemis.example.org", null, null, null, null, null, null);
 
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), collidingTarget);
 
@@ -198,7 +183,7 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void environmentValuesAreEscapedForTheYamlDoubleQuotedScalars() {
-        RemoteEnvironmentValues environment = RemoteEnvironmentValues.resolve("artemis-local", "artemis.example.org", "Ops \"Team\" C:\\\\lab", null,
+        RemoteEnvironmentValues environment = environment("artemis-local", "artemis.example.org", "Ops \"Team\" C:\\\\lab", null,
                 null, null, null, null);
 
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), environment);
@@ -209,20 +194,20 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void unsafeEnvironmentValuesAreRejectedWithAControlledFailure() {
-        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", "{{ lookup('pipe', 'id') }}", null, null, null, null, null))
+        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", "{{ lookup('pipe', 'id') }}", null, null, null, null, null))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("operatorName").hasMessageContaining("Jinja");
-        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host ansible_user=root", null, null, null, null, null, null))
+        assertThatThrownBy(() -> environment("artemis-local", "host ansible_user=root", null, null, null, null, null, null))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("serverHostname");
-        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", null, null, null, null, null, "it's"))
+        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", null, null, null, null, null, "it's"))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("vaultServerName");
-        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("artemis-local", "host.example.org", null, null, "a@b\nc", null, null, null))
+        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", null, null, "a@b\nc", null, null, null))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("email");
     }
 
     @Test
     void unknownUnsupportedDirectionFailsClosedInEveryState() {
         AnsibleBindingCatalog.FeatureBinding misspelled = new AnsibleBindingCatalog.FeatureBinding(AnsibleBindingCatalog.BINDING_UNSUPPORTED, null, null, null,
-                null, null, null, null, null, "deselcted", "artemis.exam.enabled has no collection variable", null, null);
+                null, "deselcted", "artemis.exam.enabled has no collection variable", null, null);
         java.util.Map<String, AnsibleBindingCatalog.FeatureBinding> features = new java.util.HashMap<>(catalog.features());
         features.put("exam", misspelled);
         RemoteAnsibleEmissionPlanner misspelledPlanner = new RemoteAnsibleEmissionPlanner(new AnsibleBindingCatalog(catalog.catalogVersion(),
@@ -256,18 +241,13 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     private RemoteEnvironmentValues labEnvironment() {
-        return RemoteEnvironmentValues.resolve("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
+        return environment("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
                 "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);
     }
 
-    private AnsibleBindingCatalog.FeatureBinding valueGatedBinding(List<AnsibleBindingCatalog.GatedField> gatedFields) {
-        return new AnsibleBindingCatalog.FeatureBinding(AnsibleBindingCatalog.BINDING_BOUND, AnsibleBindingCatalog.GATING_VALUE_GATED, "artemistests_hyperion",
-                "artemistests_hyperion.yml", null, List.of("---", "artemis_hyperion_enabled: true"), gatedFields, List.of("    temperature: 1.0"), null, null,
-                null, null, null);
-    }
-
-    private AnsibleBindingCatalog.GatedField field(String name, String line) {
-        return new AnsibleBindingCatalog.GatedField(name, line);
+    private RemoteEnvironmentValues environment(String targetName, String serverHostname, String operatorName, String operatorAdminName, String email,
+            String certPath, String certKeyPath, String vaultServerName) {
+        return new RemoteEnvironmentInput(targetName, serverHostname, operatorName, operatorAdminName, email, certPath, certKeyPath, vaultServerName).resolve();
     }
 
     private String fileContent(RemoteAnsibleEmissionPlan plan, String path) {

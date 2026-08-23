@@ -22,7 +22,9 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues
 @Component
 public class RemoteAnsibleValuesWriter {
 
-    private final AnsibleBindingCatalogLoader catalogLoader;
+    private final AnsibleBindingCatalog catalog;
+
+    private final RemoteAnsibleEmissionPlanner planner;
 
     /**
      * Creates the writer over the loaded binding catalog.
@@ -30,16 +32,8 @@ public class RemoteAnsibleValuesWriter {
      * @param catalogLoader fail-closed loader of the Ansible binding catalog.
      */
     public RemoteAnsibleValuesWriter(AnsibleBindingCatalogLoader catalogLoader) {
-        this.catalogLoader = catalogLoader;
-    }
-
-    /**
-     * Returns the loaded binding catalog.
-     *
-     * @return Ansible binding catalog.
-     */
-    public AnsibleBindingCatalog catalog() {
-        return catalogLoader.catalog();
+        this.catalog = catalogLoader.catalog();
+        this.planner = new RemoteAnsibleEmissionPlanner(catalog);
     }
 
     /**
@@ -53,7 +47,7 @@ public class RemoteAnsibleValuesWriter {
      *             unclassified or a selection state is unsupported.
      */
     public RemoteAnsibleEmissionPlan plan(FeatureModel model, Set<String> selectedFeatureIds, RemoteEnvironmentValues environment) {
-        return new RemoteAnsibleEmissionPlanner(catalogLoader.catalog()).plan(model, selectedFeatureIds, environment);
+        return planner.plan(model, selectedFeatureIds, environment);
     }
 
     /**
@@ -66,7 +60,6 @@ public class RemoteAnsibleValuesWriter {
      * @return README markdown text.
      */
     public String packageReadme(String modelId, String modelVersion, String profileId, RemoteAnsibleEmissionPlan plan) {
-        AnsibleBindingCatalog catalog = catalogLoader.catalog();
         long pendingInputs = plan.environmentStates().stream().filter(state -> RemoteAnsibleEmissionPlan.ENVIRONMENT_PENDING.equals(state.status())).count();
         String environmentNote = pendingInputs == 0
                 ? "All environment values were provided at generation time."
@@ -165,7 +158,7 @@ public class RemoteAnsibleValuesWriter {
                   - name: community.general
                   # Provides the hashi_vault lookup used for every secret reference (needs the hvac Python package).
                   - name: community.hashi_vault
-                """.formatted(catalogLoader.catalog().collectionPin());
+                """.formatted(catalog.collectionPin());
     }
 
     /**
@@ -201,7 +194,7 @@ public class RemoteAnsibleValuesWriter {
         return """
                 ---
                 - name: Setup
-                  hosts: artemistests
+                  hosts: %s
 
                   roles:
                     - role: ls1intum.artemis.artemis
@@ -211,7 +204,7 @@ public class RemoteAnsibleValuesWriter {
 
                     - role: ls1intum.artemis.legal
                       tags: legal
-                """;
+                """.formatted(RemoteEnvironmentValues.RESERVED_GROUP);
     }
 
     /**

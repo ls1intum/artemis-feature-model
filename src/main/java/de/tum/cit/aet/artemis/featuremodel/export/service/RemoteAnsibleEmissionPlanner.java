@@ -1,9 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
@@ -27,11 +27,12 @@ import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationEx
 public class RemoteAnsibleEmissionPlanner {
 
     /** Package path of the inventory hosts file. */
-    public static final String HOSTS_FILE = "inventory/hosts";
+    static final String HOSTS_FILE = "inventory/hosts";
 
     private static final String GROUP_VARS_DIR = "inventory/group_vars/";
 
-    private static final String RELATION_TYPE_OPTIONAL = "optional";
+    /** Wired values group every generated target joins besides the technical and feature groups. */
+    private static final String COMMON_CONFIG_GROUP = RemoteEnvironmentValues.RESERVED_GROUP_PREFIX + "common_config";
 
     private static final String VALUE_TOKEN = "{value}";
 
@@ -70,17 +71,17 @@ public class RemoteAnsibleEmissionPlanner {
         String targetGroup = environment.targetGroup();
         List<RemoteAnsibleEmissionPlan.PlannedFile> files = new ArrayList<>();
         List<RemoteAnsibleEmissionPlan.PlannedVaultReference> vaultReferences = new ArrayList<>();
-        List<SelectedBoundFeature> boundFeatures = selectedBoundFeatures(model, selectedFeatureIds);
+        List<AnsibleBindingCatalog.FeatureBinding> boundFeatures = selectedBoundFeatures(model, selectedFeatureIds);
 
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(HOSTS_FILE, hostsContent(targetGroup, environment, databaseBinding, ciBinding, boundFeatures)));
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + targetGroup + "/main.yml", targetMainContent(environment)));
         String secretsPath = GROUP_VARS_DIR + targetGroup + "/secrets.yml";
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(secretsPath, targetSecretsContent(environment)));
-        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + "artemistests_common_config.yml", commonConfigContent(environment)));
+        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + COMMON_CONFIG_GROUP + ".yml", commonConfigContent(environment)));
         files.add(plannedGroupFile(databaseBinding, environment));
         files.add(plannedGroupFile(ciBinding, environment));
-        for (SelectedBoundFeature boundFeature : boundFeatures) {
-            files.add(plannedGroupFile(boundFeature.binding(), environment));
+        for (AnsibleBindingCatalog.FeatureBinding boundFeature : boundFeatures) {
+            files.add(plannedGroupFile(boundFeature, environment));
         }
 
         for (AnsibleBindingCatalog.SecretEntry secret : catalog.secrets()) {
@@ -88,17 +89,19 @@ public class RemoteAnsibleEmissionPlanner {
                     secret.vaultField(), secret.var(), secretsPath));
         }
         collectVaultReferences(ciBinding, environment, vaultReferences);
-        for (SelectedBoundFeature boundFeature : boundFeatures) {
-            collectVaultReferences(boundFeature.binding(), environment, vaultReferences);
+        for (AnsibleBindingCatalog.FeatureBinding boundFeature : boundFeatures) {
+            collectVaultReferences(boundFeature, environment, vaultReferences);
         }
 
         List<RemoteAnsibleEmissionPlan.EnvironmentState> environmentStates = new ArrayList<>();
         for (RemoteEnvironmentValues.InputValue input : environment.inputs()) {
-            environmentStates.add(new RemoteAnsibleEmissionPlan.EnvironmentState(input.input(),
+            environmentStates.add(new RemoteAnsibleEmissionPlan.EnvironmentState(input.input().inputName(),
                     input.provided() ? RemoteAnsibleEmissionPlan.ENVIRONMENT_PROVIDED : RemoteAnsibleEmissionPlan.ENVIRONMENT_PENDING));
         }
 
-        return new RemoteAnsibleEmissionPlan(targetGroup, files, vaultReferences, classifications, environmentStates);
+        RemoteAnsibleEmissionPlan.CatalogIdentity catalogIdentity = new RemoteAnsibleEmissionPlan.CatalogIdentity(catalog.catalogVersion(),
+                catalog.collectionPin());
+        return new RemoteAnsibleEmissionPlan(targetGroup, files, vaultReferences, classifications, environmentStates, catalogIdentity);
     }
 
     /**
@@ -112,14 +115,14 @@ public class RemoteAnsibleEmissionPlanner {
      * @return classification results in model order.
      * @throws ArtifactGenerationException if a feature is unclassified or a selection state is unsupported.
      */
-    public List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> classify(FeatureModel model, Set<String> selectedFeatureIds) {
+    private List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> classify(FeatureModel model, Set<String> selectedFeatureIds) {
         Set<String> optionalFeatureIds = optionalFeatureIds(model);
         List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> classifications = new ArrayList<>();
         for (FeatureNode feature : model.features()) {
             if (!feature.selectable()) {
                 continue;
             }
-            AnsibleBindingCatalog.FeatureBinding binding = bindingFor(feature.id());
+            AnsibleBindingCatalog.FeatureBinding binding = catalog.bindingFor(feature.id());
             if (binding == null) {
                 throw ArtifactGenerationException.remoteAnsibleUnclassifiedFeature(feature.id(), catalog.catalogVersion(), catalog.collectionPin());
             }
@@ -130,31 +133,6 @@ public class RemoteAnsibleEmissionPlanner {
             classifications.add(new RemoteAnsibleEmissionPlan.FeatureClassificationResult(feature.id(), binding.binding(), selected));
         }
         return classifications;
-    }
-
-    /**
-     * Emits a value-gated block: every declared gated field must be non-empty, otherwise nothing is emitted. This
-     * mirrors the collection's template guard, which drops the whole block unless all fields are set.
-     *
-     * @param binding value-gated feature binding.
-     * @return rendered block lines, or an empty list when any gated field is missing or blank.
-     */
-    public List<String> valueGatedBlockLines(AnsibleBindingCatalog.FeatureBinding binding) {
-        List<AnsibleBindingCatalog.GatedField> gatedFields = binding.gatedFields();
-        if (gatedFields.isEmpty()) {
-            return List.of();
-        }
-        for (AnsibleBindingCatalog.GatedField field : gatedFields) {
-            if (field.line() == null || field.line().isBlank()) {
-                return List.of();
-            }
-        }
-        List<String> lines = new ArrayList<>(binding.prefixLines());
-        for (AnsibleBindingCatalog.GatedField field : gatedFields) {
-            lines.add(field.line());
-        }
-        lines.addAll(binding.suffixLines());
-        return List.copyOf(lines);
     }
 
     /**
@@ -186,24 +164,6 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Finds the classification of a feature id across the feature and technical sections.
-     *
-     * @param featureId feature id.
-     * @return binding, or {@code null} if the catalog does not classify the feature.
-     */
-    private AnsibleBindingCatalog.FeatureBinding bindingFor(String featureId) {
-        AnsibleBindingCatalog.FeatureBinding binding = catalog.features().get(featureId);
-        if (binding != null) {
-            return binding;
-        }
-        binding = catalog.technical().database().get(featureId);
-        if (binding != null) {
-            return binding;
-        }
-        return catalog.technical().ciProvider().get(featureId);
-    }
-
-    /**
      * Resolves the selected feature id of one technical axis.
      *
      * @param model active feature model.
@@ -223,26 +183,19 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Collects the selected bound functional features with their emitted blocks, in model order. A value-gated
-     * feature whose block resolves to nothing is skipped entirely (no file, no membership).
+     * Collects the bindings of the selected bound functional features, in model order.
      *
      * @param model active feature model.
      * @param selectedFeatureIds selected feature ids.
-     * @return selected bound features that emit a group values file.
+     * @return bound bindings of the selected features.
      */
-    private List<SelectedBoundFeature> selectedBoundFeatures(FeatureModel model, Set<String> selectedFeatureIds) {
-        List<SelectedBoundFeature> boundFeatures = new ArrayList<>();
+    private List<AnsibleBindingCatalog.FeatureBinding> selectedBoundFeatures(FeatureModel model, Set<String> selectedFeatureIds) {
+        List<AnsibleBindingCatalog.FeatureBinding> boundFeatures = new ArrayList<>();
         for (FeatureNode feature : model.features()) {
-            if (!selectedFeatureIds.contains(feature.id())) {
-                continue;
-            }
             AnsibleBindingCatalog.FeatureBinding binding = catalog.features().get(feature.id());
-            if (binding == null || !AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding())) {
-                continue;
-            }
-            List<String> lines = AnsibleBindingCatalog.GATING_VALUE_GATED.equals(binding.gating()) ? valueGatedBlockLines(binding) : binding.lines();
-            if (!lines.isEmpty()) {
-                boundFeatures.add(new SelectedBoundFeature(feature.id(), binding, lines));
+            boolean bound = binding != null && AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding());
+            if (bound && selectedFeatureIds.contains(feature.id())) {
+                boundFeatures.add(binding);
             }
         }
         return boundFeatures;
@@ -256,18 +209,19 @@ public class RemoteAnsibleEmissionPlanner {
      * @param environment resolved environment values.
      * @param databaseBinding selected database binding.
      * @param ciBinding selected CI-provider binding.
-     * @param boundFeatures selected bound features that emit files.
+     * @param boundFeatures bindings of the selected bound features.
      * @return rendered hosts content.
      */
     private String hostsContent(String targetGroup, RemoteEnvironmentValues environment, AnsibleBindingCatalog.FeatureBinding databaseBinding,
-            AnsibleBindingCatalog.FeatureBinding ciBinding, List<SelectedBoundFeature> boundFeatures) {
-        List<String> memberships = new ArrayList<>(List.of("artemistests", "artemistests_common_config", databaseBinding.membership(), ciBinding.membership()));
-        for (SelectedBoundFeature boundFeature : boundFeatures) {
-            memberships.add(boundFeature.binding().membership());
+            AnsibleBindingCatalog.FeatureBinding ciBinding, List<AnsibleBindingCatalog.FeatureBinding> boundFeatures) {
+        List<String> memberships = new ArrayList<>(List.of(RemoteEnvironmentValues.RESERVED_GROUP, COMMON_CONFIG_GROUP, databaseBinding.membership(),
+                ciBinding.membership()));
+        for (AnsibleBindingCatalog.FeatureBinding boundFeature : boundFeatures) {
+            memberships.add(boundFeature.membership());
         }
         StringBuilder content = new StringBuilder();
         content.append('[').append(targetGroup).append("]\n");
-        content.append(environment.valueOf(RemoteEnvironmentValues.INPUT_SERVER_HOSTNAME)).append('\n');
+        content.append(environment.valueOf(RemoteEnvironmentValues.Input.SERVER_HOSTNAME)).append('\n');
         for (String membership : new LinkedHashSet<>(memberships)) {
             content.append('\n').append('[').append(membership).append(":children]\n").append(targetGroup).append('\n');
         }
@@ -326,7 +280,7 @@ public class RemoteAnsibleEmissionPlanner {
                 entries.add(new CommonConfigEntry(entry.order(), entry.group(), renderEnvironmentLines(entry, environment)));
             }
         }
-        entries.sort(java.util.Comparator.comparingInt(CommonConfigEntry::order));
+        entries.sort(Comparator.comparingInt(CommonConfigEntry::order));
 
         List<String> lines = new ArrayList<>();
         lines.add("---");
@@ -350,7 +304,7 @@ public class RemoteAnsibleEmissionPlanner {
      * @return rendered lines.
      */
     private List<String> renderEnvironmentLines(AnsibleBindingCatalog.EnvironmentEntry entry, RemoteEnvironmentValues environment) {
-        String value = RemoteEnvironmentValues.yamlDoubleQuoted(environment.valueOf(entry.input()));
+        String value = YamlOverlayWriter.escapeDoubleQuoted(environment.valueOf(RemoteEnvironmentValues.Input.byName(entry.input())));
         List<String> rendered = new ArrayList<>();
         for (String line : entry.lines()) {
             rendered.add(line.replace(VALUE_TOKEN, value));
@@ -366,9 +320,8 @@ public class RemoteAnsibleEmissionPlanner {
      * @return planned group values file.
      */
     private RemoteAnsibleEmissionPlan.PlannedFile plannedGroupFile(AnsibleBindingCatalog.FeatureBinding binding, RemoteEnvironmentValues environment) {
-        List<String> lines = AnsibleBindingCatalog.GATING_VALUE_GATED.equals(binding.gating()) ? valueGatedBlockLines(binding) : binding.lines();
         List<String> rendered = new ArrayList<>();
-        for (String line : lines) {
+        for (String line : binding.lines()) {
             rendered.add(resolveVaultServerName(line, environment));
         }
         return new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + binding.groupVarsFile(), String.join("\n", rendered));
@@ -397,7 +350,7 @@ public class RemoteAnsibleEmissionPlanner {
      * @return text with the token replaced.
      */
     private String resolveVaultServerName(String text, RemoteEnvironmentValues environment) {
-        return text.replace(VAULT_SERVER_NAME_TOKEN, environment.valueOf(RemoteEnvironmentValues.INPUT_VAULT_SERVER_NAME));
+        return text.replace(VAULT_SERVER_NAME_TOKEN, environment.valueOf(RemoteEnvironmentValues.Input.VAULT_SERVER_NAME));
     }
 
     /**
@@ -409,21 +362,11 @@ public class RemoteAnsibleEmissionPlanner {
     private Set<String> optionalFeatureIds(FeatureModel model) {
         Set<String> optionalIds = new LinkedHashSet<>();
         for (FeatureRelation relation : model.relations()) {
-            if (RELATION_TYPE_OPTIONAL.equals(relation.relationType())) {
+            if (relation.isOptional()) {
                 optionalIds.add(relation.childId());
             }
         }
         return optionalIds;
-    }
-
-    /**
-     * One selected bound functional feature with its emitted block.
-     *
-     * @param featureId feature id.
-     * @param binding bound binding.
-     * @param lines emitted block lines.
-     */
-    private record SelectedBoundFeature(String featureId, AnsibleBindingCatalog.FeatureBinding binding, List<String> lines) {
     }
 
     /**

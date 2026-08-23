@@ -13,9 +13,10 @@ import java.util.List;
  * @param vaultReferences vault references contained in the rendered files, in file order.
  * @param classifications per-feature classification results in model order.
  * @param environmentStates per-input environment states in input declaration order.
+ * @param bindingCatalog identity of the binding catalog the plan was produced with.
  */
 public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> valuesFiles, List<PlannedVaultReference> vaultReferences,
-        List<FeatureClassificationResult> classifications, List<EnvironmentState> environmentStates) {
+        List<FeatureClassificationResult> classifications, List<EnvironmentState> environmentStates, CatalogIdentity bindingCatalog) {
 
     /** Environment state of a provided (or derived) input. */
     public static final String ENVIRONMENT_PROVIDED = "provided";
@@ -31,6 +32,7 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
      * @param vaultReferences contained vault references.
      * @param classifications per-feature classification results.
      * @param environmentStates per-input environment states.
+     * @param bindingCatalog binding catalog identity.
      */
     public RemoteAnsibleEmissionPlan {
         valuesFiles = valuesFiles == null ? List.of() : List.copyOf(valuesFiles);
@@ -76,5 +78,14 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
      * @param status {@link #ENVIRONMENT_PROVIDED} or {@link #ENVIRONMENT_PENDING}.
      */
     public record EnvironmentState(String input, String status) {
+    }
+
+    /**
+     * Identity of the binding catalog: its version and the pinned collection commit it was curated against.
+     *
+     * @param catalogVersion catalog version.
+     * @param collectionPin pinned collection commit.
+     */
+    public record CatalogIdentity(int catalogVersion, String collectionPin) {
     }
 }

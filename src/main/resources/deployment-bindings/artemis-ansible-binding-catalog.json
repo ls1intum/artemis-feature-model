@@ -85,7 +85,6 @@
     "plagiarism": { "binding": "unsupported", "unsupportedWhen": "deselected", "missingVariable": "artemis.plagiarism.enabled has no collection variable at the pinned commit; the collection provides no module off-switch, so a deployment cannot disable this module." },
     "iris": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_iris",
       "groupVarsFile": "artemistests_iris.yml",
       "lines": ["---", "iris:", "  url: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/pyris-test').get('url') }}\"", "  secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/pyris-test').get('secret') }}\""],
@@ -97,7 +96,6 @@
     },
     "athena": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_athena",
       "groupVarsFile": "artemistests_athena.yml",
       "lines": ["---", "athena:", "  url: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/athena').get('url') }}\"", "  secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/athena').get('secret') }}\""],
@@ -109,7 +107,6 @@
     },
     "atlas": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_atlas",
       "groupVarsFile": "artemistests_atlas.yml",
       "lines": ["---", "atlas:", "  enabled: true"],
@@ -117,26 +114,18 @@
     },
     "hyperion": {
       "binding": "bound",
-      "gating": "value-gated",
       "membership": "artemistests_hyperion",
       "groupVarsFile": "artemistests_hyperion.yml",
-      "prefixLines": ["---", "artemis_hyperion_enabled: true", "", "spring_ai:", "  azure_openai:"],
-      "gatedFields": [
-        { "name": "api_key", "line": "    api_key: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_api_key') }}\"" },
-        { "name": "endpoint", "line": "    endpoint: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_endpoint') }}\"" },
-        { "name": "deployment_name", "line": "    deployment_name: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_deployment_name') }}\"" }
-      ],
-      "suffixLines": ["    temperature: 1.0"],
+      "lines": ["---", "artemis_hyperion_enabled: true", "", "spring_ai:", "  azure_openai:", "    api_key: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_api_key') }}\"", "    endpoint: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_endpoint') }}\"", "    deployment_name: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_deployment_name') }}\"", "    temperature: 1.0"],
       "vaultReferences": [
         { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_api_key", "consumer": "spring_ai.azure_openai.api_key" },
         { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_endpoint", "consumer": "spring_ai.azure_openai.endpoint" },
         { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_deployment_name", "consumer": "spring_ai.azure_openai.deployment_name" }
       ],
-      "evidence": "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty; value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
+      "evidence": "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty, which the complete block satisfies; value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
     },
     "lti": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_lti",
       "groupVarsFile": "artemistests_lti.yml",
       "lines": ["---", "lti:", "  oauth_secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/lti').get('oauth_secret') }}\""],
@@ -147,7 +136,6 @@
     },
     "theia": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_theia",
       "groupVarsFile": "artemistests_theia.yml",
       "lines": ["---", "theia:", "  portal_url: https://theia-staging.artemis.cit.tum.de", "", "  images:", "    java:", "      Java-17: \"java-17-latest\"", "    c:", "      C: \"c-latest\"", "    javascript:", "      Javascript: \"javascript-latest\"", "    ocaml:", "      Ocaml: \"ocaml-latest\"", "    python:", "      Python: \"python-latest\"", "    rust:", "      Rust: \"rust-latest\""],
@@ -155,7 +143,6 @@
     },
     "apollon": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_apollon",
       "groupVarsFile": "artemistests_apollon.yml",
       "lines": ["---", "apollon_url: https://apollon.aet.cit.tum.de"],
@@ -163,7 +150,6 @@
     },
     "sharing": {
       "binding": "bound",
-      "gating": "presence",
       "membership": "artemistests_sharing",
       "groupVarsFile": "artemistests_sharing.yml",
       "lines": ["---", "sharing:", "  url: \"https://dev-exchange.codeability-austria.uibk.ac.at/\"", "  apikey: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/sharing').get('apikey') }}\"", "  actionname: \"Export to Artemis@{{ var_server_hostname }}\""],
