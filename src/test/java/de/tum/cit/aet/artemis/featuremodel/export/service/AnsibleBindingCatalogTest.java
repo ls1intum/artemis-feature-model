@@ -41,7 +41,7 @@ class AnsibleBindingCatalogTest {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
         assertThat(catalog.catalogVersion()).isEqualTo(1);
-        assertThat(catalog.collectionPin()).isEqualTo("8977303c560a91be27214509dd07bf6170c97277");
+        assertThat(catalog.collectionPin()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(catalog.curationSource()).contains("transformation-table.md");
     }
 

@@ -100,11 +100,28 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
-    void moduleReductionSelectionFailsClosedNamingTheMissingVariable() {
-        assertThatThrownBy(() -> planner.plan(model, selectionWithout("exam"), labEnvironment()))
-                .isInstanceOf(ArtifactGenerationException.class)
-                .hasMessageContaining("exam")
-                .hasMessageContaining("artemis.exam.enabled has no collection variable at the pinned commit");
+    void deselectedModuleEmitsItsWithoutGroupFileAndMembership() {
+        RemoteAnsibleEmissionPlan reduced = planner.plan(model, selectionWithout("exam"), labEnvironment());
+        RemoteAnsibleEmissionPlan full = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(reduced, "inventory/group_vars/artemistests_without_exam.yml")).isEqualTo("---\nartemis_modules:\n  exam: false");
+        assertThat(fileContent(reduced, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_exam:children]\nartemislocal");
+        assertThat(reduced.classifications()).anySatisfy(classification -> {
+            assertThat(classification.featureId()).isEqualTo("exam");
+            assertThat(classification.classification()).isEqualTo(AnsibleBindingCatalog.BINDING_BOUND);
+            assertThat(classification.selected()).isFalse();
+        });
+        assertThat(filePaths(full)).noneMatch(path -> path.contains("artemistests_without_"));
+        assertThat(fileContent(full, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).doesNotContain("artemistests_without_");
+    }
+
+    @Test
+    void deselectedFileUploadMapsToTheUnhyphenatedArtemisModuleKey() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("file-upload"), labEnvironment());
+
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_without_fileupload.yml"))
+                .isEqualTo("---\nartemis_modules:\n  fileupload: false");
+        assertThat(fileContent(plan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_fileupload:children]\nartemislocal");
     }
 
     @Test

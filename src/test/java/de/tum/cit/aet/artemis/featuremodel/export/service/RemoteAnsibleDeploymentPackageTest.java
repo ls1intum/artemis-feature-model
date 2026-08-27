@@ -79,7 +79,7 @@ class RemoteAnsibleDeploymentPackageTest {
                 "metadata/vault-references.json", "metadata/selected-features.json");
         assertThat(content(result, "inventory/hosts")).contains("[artemistests_mysql:children]\nartemistarget")
                 .contains("[artemistests_local_vc_ci:children]\nartemistarget").doesNotContain("artemistests_postgres");
-        assertThat(content(result, "requirements.yml")).contains("version: 8977303c560a91be27214509dd07bf6170c97277");
+        assertThat(content(result, "requirements.yml")).contains("version: fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(content(result, "ansible.cfg")).contains("hash_behaviour = merge").contains("[ssh_connection]\npipelining = True");
     }
 
@@ -114,14 +114,15 @@ class RemoteAnsibleDeploymentPackageTest {
     }
 
     @Test
-    void moduleReductionSelectionFailsClosedWithoutProducingAPackage() {
+    void moduleReductionComposesTheWithoutGroupFileAndMembership() {
         List<String> reduced = new ArrayList<>(FULL_MYSQL_SELECTION);
         reduced.remove("exam");
 
-        assertThatThrownBy(() -> service.generate(remoteRequest(reduced)))
-                .isInstanceOf(ArtifactGenerationException.class)
-                .hasMessageContaining("exam")
-                .hasMessageContaining("artemis.exam.enabled has no collection variable at the pinned commit");
+        GeneratedArtifactPackage result = service.generate(remoteRequest(reduced));
+
+        assertThat(result.files()).extracting("path").contains("inventory/group_vars/artemistests_without_exam.yml");
+        assertThat(content(result, "inventory/group_vars/artemistests_without_exam.yml")).isEqualTo("---\nartemis_modules:\n  exam: false");
+        assertThat(content(result, "inventory/hosts")).contains("[artemistests_without_exam:children]\nartemistarget");
     }
 
     @Test
@@ -164,7 +165,7 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(readiness.get("bindingsResolved").isArray()).isTrue();
         assertThat(readiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("pending"));
         assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(1);
-        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("8977303c560a91be27214509dd07bf6170c97277");
+        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }
 
@@ -213,7 +214,7 @@ class RemoteAnsibleDeploymentPackageTest {
         GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
 
         String requirements = content(result, "requirements.yml");
-        assertThat(requirements).contains("version: 8977303c560a91be27214509dd07bf6170c97277").contains("- name: ansible.posix")
+        assertThat(requirements).contains("version: fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e").contains("- name: ansible.posix")
                 .contains("- name: community.crypto").contains("- name: community.general").contains("- name: community.hashi_vault");
         assertThat(content(result, "README.md")).contains("community.hashi_vault.hashi_vault").doesNotContain("ansible.builtin.hashi_vault");
     }

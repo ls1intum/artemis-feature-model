@@ -80,6 +80,16 @@ class RemoteAnsibleGoldenFixtureTest {
     }
 
     @Test
+    void reducedVariantReproducesTheLabWithoutGroupValuesByteForByte() {
+        List<String> selection = FULL_MYSQL_SELECTION.stream().filter(id -> !"exam".equals(id) && !"tutorialgroup".equals(id)).toList();
+
+        GeneratedArtifactPackage result = service.generate(labRequest(selection));
+
+        assertFixtureMatch(result, "inventory/group_vars/artemistests_without_exam.yml", "artemistests_without_exam.yml");
+        assertFixtureMatch(result, "inventory/group_vars/artemistests_without_tutorialgroup.yml", "artemistests_without_tutorialgroup.yml");
+    }
+
+    @Test
     void postgresVariantReproducesTheInertLabPostgresValuesByteForByte() {
         List<String> selection = FULL_MYSQL_SELECTION.stream().map(id -> "mysql".equals(id) ? "postgresql" : id).toList();
 

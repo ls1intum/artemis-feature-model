@@ -36,5 +36,12 @@ Additionally, the two lab-only header comment lines of
 `artemistests_common_config.yml` (referencing the lab's evidence documents) are
 not part of the generated output and were stripped during derivation.
 
+The `artemistests_without_exam.yml` and `artemistests_without_tutorialgroup.yml`
+fixtures are the lab's tracked module-toggle group files (added with the
+collection-fork validation evidence, state as of lab commit `2040df8`): the
+hand-written values of the reduced variant validated on the lab VM against the
+fork's `artemis_modules` off-switches
+(`evidence/collection-fork-validation-2026-08-25.md`).
+
 Updating these fixtures is a deliberate, reviewed act: re-derive from the lab
 inventory and record the new lab commit here.
