@@ -152,10 +152,20 @@ class RemoteAnsibleEmissionPlannerTest {
 
         assertThat(plan.vaultReferences()).anySatisfy(reference -> {
             assertThat(reference.path()).isEqualTo("kv/data/artemis/test/artemis-local");
-            assertThat(reference.field()).isEqualTo("build_agent_git_password");
-            assertThat(reference.consumer()).isEqualTo("version_control.localvc.build_agent_git_credentials.password");
+            assertThat(reference.field()).isEqualTo("db_password");
+            assertThat(reference.consumer()).isEqualTo("artemis_database_password");
         });
         assertThat(plan.vaultReferences()).noneMatch(reference -> reference.path().contains("{vaultServerName}"));
+    }
+
+    @Test
+    void noBuildAgentCredentialsAreEmittedOnALocalCiNode() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(plan.vaultReferences()).noneMatch(reference -> "build_agent_git_password".equals(reference.field()));
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_local_vc_ci.yml"))
+                .doesNotContain("build_agent_git_credentials")
+                .contains("build_agent_use_ssh: true");
     }
 
     @Test

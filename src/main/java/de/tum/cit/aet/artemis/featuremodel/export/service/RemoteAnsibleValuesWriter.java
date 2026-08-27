@@ -111,9 +111,9 @@ public class RemoteAnsibleValuesWriter {
                 Without Vault, replace the lookup expressions in the generated values files with values you manage
                 yourself, following the ownership of each value:
 
-                - **Deployment-internal secrets** (database password, internal admin password, JWT secret, build-agent
-                  Git password): both ends live inside this deployment, so self-generated random values are fully
-                  functional (for example `openssl rand -base64 48`; use `openssl rand -base64 64` for the JWT secret).
+                - **Deployment-internal secrets** (database password, internal admin password, JWT secret): both ends
+                  live inside this deployment, so self-generated random values are fully functional (for example
+                  `openssl rand -base64 48`; use `openssl rand -base64 64` for the JWT secret).
                 - **Integration secrets** (Iris, Athena, LTI, Sharing, Hyperion): these authenticate against an
                   external service and must come from that service's operator.
                 - **Identity values** (hostname, operator identity, certificate paths): admin-owned inputs, already

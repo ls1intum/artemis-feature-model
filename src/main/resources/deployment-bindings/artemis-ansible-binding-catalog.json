@@ -1,7 +1,7 @@
 {
   "catalogVersion": 1,
   "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-  "curationSource": "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645",
+  "curationSource": "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8",
   "baseline": [
     { "var": "node_id", "emission": "always", "order": 10, "group": 1, "lines": ["node_id: 1"], "evidence": "Node 1 carries the scheduling Spring profile." },
     { "var": "is_testserver", "emission": "always", "order": 20, "group": 1, "lines": ["is_testserver: true"] },
@@ -57,11 +57,8 @@
         "binding": "bound",
         "membership": "artemistests_local_vc_ci",
         "groupVarsFile": "artemistests_local_vc_ci.yml",
-        "lines": ["---", "version_control:", "  localvc:", "    url: \"{{ artemis_server_url }}\"", "    ssh_key_path: /opt/artemis/data/artemis/ssh-keys", "    use_version_control_access_token: true", "    build_agent_use_ssh: true", "    ssh_url: \"ssh://git@{{ var_server_hostname }}:7921/\"", "    build_agent_git_credentials:", "      user: \"artemis-build-agent\"", "      password: \"{{ lookup('hashi_vault', 'kv/data/artemis/test/{vaultServerName}').get('build_agent_git_password') }}\"", "", "artemis_ssh_key_path: \"/tmp\"", "", "continuous_integration:", "  localci:", "    url: \"{{ artemis_server_url }}\"", "    is_core_node: true", "    is_build_agent: true"],
-        "vaultReferences": [
-          { "path": "kv/data/artemis/test/{vaultServerName}", "field": "build_agent_git_password", "consumer": "version_control.localvc.build_agent_git_credentials.password" }
-        ],
-        "evidence": "Single node is core and build agent; build_agent_git_credentials is required by the BuildAgentGitPasswordValidator on develop and overrides the image-shipped example password."
+        "lines": ["---", "version_control:", "  localvc:", "    url: \"{{ artemis_server_url }}\"", "    ssh_key_path: /opt/artemis/data/artemis/ssh-keys", "    use_version_control_access_token: true", "    build_agent_use_ssh: true", "    ssh_url: \"ssh://git@{{ var_server_hostname }}:7921/\"", "", "artemis_ssh_key_path: \"/tmp\"", "", "continuous_integration:", "  localci:", "    url: \"{{ artemis_server_url }}\"", "    is_core_node: true", "    is_build_agent: true"],
+        "evidence": "Single node is core and build agent; a local-CI node must not configure the shared build_agent_git_credentials pair (LocalVCBuildAgentCredentialsValidator refuses startup since Artemis develop 2026-08-25), build agents authenticate per job via SSH keys or clone tokens, with build_agent_use_ssh selecting the SSH path."
       },
       "jenkins": {
         "binding": "unsupported",

@@ -2,12 +2,18 @@
 
 These fixtures are derived from the tracked hand-written inventory of the
 `artemis-feature-model-deploy-lab` repository at commit
-`2d0385ff089e304abb523a23daa524683413a741` ("minimal setup with lab values",
-2026-08-15) **including its 2026-08-15 uncommitted working-tree deltas**
-(`build_agent_git_credentials` in `artemistests_local_vc_ci.yml`; see the lab's
-`evidence/incident-2026-08-15-build-agent-git-password.md` and transformation
-table section 10). Every disposition behind these values was verified on the
-live lab VM; see `evidence/transformation-table.md` in the lab repository.
+`2040df8` ("Close out module-toggle validation: pin the fork patch and drop
+the refused build-agent credentials", 2026-08-27). That commit carries the
+2026-08-26 removal of the `build_agent_git_credentials` block from
+`artemistests_local_vc_ci.yml`: Artemis develop reversed the build-agent
+credential contract on 2026-08-25 (`LocalVCBuildAgentCredentialsValidator`
+refuses the shared pair on a node running local CI), so the previously
+required block became a startup refusal. See the lab's
+`evidence/incident-2026-08-26-build-agent-credentials-refused.md` (and its
+mirror `evidence/incident-2026-08-15-build-agent-git-password.md` for the
+retired contract these fixtures used to bake in). Every disposition behind
+these values was verified on the live lab VM; see
+`evidence/transformation-table.md` in the lab repository.
 
 Deliberate deltas versus the lab's tracked files, per the two defined delta
 classes of the composer design:
@@ -15,9 +21,10 @@ classes of the composer design:
 1. Secret material: the lab keeps generated dummy values in an untracked
    `artemislocal/secrets.yml` and references them via indirection variables;
    the generated package emits Vault lookup expressions instead. This affects
-   `artemislocal-secrets.yml` (package-own expectation) and exactly one line of
-   `artemistests_local_vc_ci.yml` (`build_agent_git_credentials.password`:
-   `{{ lab_build_agent_git_password }}` in the lab, a `hashi_vault` lookup here).
+   `artemislocal-secrets.yml` (package-own expectation). The lab's
+   `artemistests_local_vc_ci.yml` additionally retains the removed
+   `build_agent_git_credentials` block as commented-out incident history;
+   the generated file omits it entirely.
 2. Package-only content with no lab counterpart is asserted by its own
    expectations, not by lab diff (`hosts` in this directory reflects the
    generated wiring: the host line comes from the environment input, and only
