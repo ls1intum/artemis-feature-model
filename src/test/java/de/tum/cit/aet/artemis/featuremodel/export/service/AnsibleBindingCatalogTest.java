@@ -111,6 +111,30 @@ class AnsibleBindingCatalogTest {
     }
 
     @Test
+    void unknownBoundGatingFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
+                  "features": { "exam": { "binding": "bound", "gating": "deslected", "membership": "artemistests_without_exam",
+                    "groupVarsFile": "artemistests_without_exam.yml", "lines": ["---"] } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown gating 'deslected'");
+    }
+
+    @Test
+    void gatingOnATechnicalBindingFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "bound", "gating": "deselected", "membership": "artemistests_mysql",
+                    "groupVarsFile": "artemistests_mysql.yml", "lines": ["---"] } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("must not declare a gating");
+    }
+
+    @Test
     void unknownEnvironmentInputFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
