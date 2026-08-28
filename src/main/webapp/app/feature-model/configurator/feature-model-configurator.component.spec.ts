@@ -479,38 +479,36 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(reason?.textContent).not.toContain('pyris-secret');
     });
 
-    it('hides Apollon until Modeling is selected and removes it when Modeling is deselected', () => {
+    it('offers every option of a step regardless of the template, leaving requires gaps to validation', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock, buildResponseWithApollonConstraint(), buildWorkflowWithApollonOption());
         clickByTestId(fixture, 'template-card-minimal-teaching-setup');
         flushValidation(httpMock, validResult());
         clickByTestId(fixture, 'start-workflow');
-        fixture.componentInstance.onJumpToStep(2);
+
+        const stepIndex = (id: string) => fixture.componentInstance.decisionSteps().findIndex((step) => step.id === id);
+        fixture.componentInstance.onJumpToStep(stepIndex('ai-and-integrations'));
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-apollon"]')).toBeNull();
-
-        fixture.componentInstance.onJumpToStep(1);
-        fixture.detectChanges();
-        clickByTestId(fixture, 'option-card-enable-written-exercise-types');
-        flushValidation(httpMock, validResult());
-        fixture.componentInstance.onJumpToStep(2);
-        fixture.detectChanges();
-
+        // Modeling is not part of this template, but Apollon is still offered rather than silently hidden.
+        expect(fixture.componentInstance.selectedFeatureIds().has('modeling')).toBe(false);
         expect(rootEl(fixture).querySelector('[data-testid="option-card-enable-apollon"]')).not.toBeNull();
 
         clickByTestId(fixture, 'option-card-enable-apollon');
         const apollonBody = flushValidation(httpMock, validResult());
-        expect(apollonBody.selectedFeatureIds).toContain('modeling');
         expect(apollonBody.selectedFeatureIds).toContain('apollon');
+        expect(apollonBody.selectedFeatureIds).not.toContain('modeling');
 
-        fixture.componentInstance.onJumpToStep(1);
+        // Deselecting Modeling no longer drops Apollon behind the user's back; validation reports the gap.
+        fixture.componentInstance.onJumpToStep(stepIndex('exercise-types'));
         fixture.detectChanges();
+        clickByTestId(fixture, 'option-card-enable-written-exercise-types');
+        flushValidation(httpMock, validResult());
         clickByTestId(fixture, 'option-card-enable-written-exercise-types');
         const deselectedBody = flushValidation(httpMock, validResult());
 
         expect(deselectedBody.selectedFeatureIds).not.toContain('modeling');
-        expect(deselectedBody.selectedFeatureIds).not.toContain('apollon');
+        expect(deselectedBody.selectedFeatureIds).toContain('apollon');
     });
 
     it('renders validation feedback after selection changes', () => {
