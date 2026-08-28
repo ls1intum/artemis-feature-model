@@ -74,13 +74,6 @@
                         }
                     </ul>
                 }
-                @if (template.warnings.length > 0) {
-                    <div class="warning-list mt-3">
-                        @for (warning of template.warnings; track warning) {
-                            <p class="mb-0">{{ warning }}</p>
-                        }
-                    </div>
-                }
             </aside>
         }
 

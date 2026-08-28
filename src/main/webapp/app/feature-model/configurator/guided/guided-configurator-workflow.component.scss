@@ -239,13 +239,6 @@
     color: var(--bs-warning);
 }
 
-.warning-list {
-    padding: 0.65rem 0.75rem;
-    border-left: 0.25rem solid var(--bs-warning);
-    background: var(--bs-warning-bg-subtle);
-    color: var(--bs-warning-text-emphasis);
-}
-
 /* One status language for the decision aside and the review verdict. */
 .status-strip {
     display: flex;
