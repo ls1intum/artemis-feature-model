@@ -214,22 +214,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             }))
             .filter((group) => group.features.length > 0);
     });
-    /**
-     * Combines template-level warnings with the teacher-facing warnings of the currently selected guided options.
-     * Raw capability ids are intentionally not surfaced here; they stay in the advanced tree/debug view.
-     */
-    readonly workflowWarnings = computed<string[]>(() => {
-        const warnings = new Set<string>();
-        for (const warning of this.selectedTemplate()?.warnings ?? []) {
-            warnings.add(warning);
-        }
-        for (const option of this.selectedOptions()) {
-            for (const warning of option.warnings) {
-                warnings.add(warning);
-            }
-        }
-        return [...warnings];
-    });
     readonly hasValidationResult = computed(() => this.validationResult() !== undefined);
     readonly isValid = computed(() => this.validationResult()?.valid ?? false);
     readonly violations = computed(() => this.validationResult()?.violations ?? []);
@@ -673,22 +657,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return map;
     }
 
-    /** Returns the selected option objects so downstream summaries can read warnings and capability metadata. */
-    private selectedOptions(): GuidedDecisionOption[] {
-        const selected = this.selectedDecisionOptionIds();
-        const options: GuidedDecisionOption[] = [];
-        for (const step of this.decisionSteps()) {
-            for (const decision of step.decisions) {
-                const selectedIds = selected.get(decision.id) ?? new Set<string>();
-                for (const option of decision.options) {
-                    if (selectedIds.has(option.id)) {
-                        options.push(option);
-                    }
-                }
-            }
-        }
-        return options;
-    }
 
     /** Evaluates visibility against the selection that would exist after applying the option. */
     private isOptionVisible(option: GuidedDecisionOption, selectedFeatureIds: ReadonlySet<string>): boolean {

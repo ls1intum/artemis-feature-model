@@ -48,7 +48,6 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly optionAvailabilityById = input.required<ReadonlyMap<string, OptionAvailability>>();
     readonly profileDependentFeatures = input.required<FeatureAvailability[]>();
     readonly reconciliationNote = input<string | undefined>(undefined);
-    readonly workflowWarnings = input.required<string[]>();
     readonly localizedViolations = input.required<LocalizedViolation[]>();
     readonly localizedWarnings = input.required<LocalizedWarning[]>();
     readonly validationLoading = input.required<boolean>();
@@ -88,7 +87,7 @@ export class GuidedConfiguratorWorkflowComponent {
     });
 
     /** Blocking findings gate the export, so the review page counts them separately from advisory ones. */
-    readonly reviewWarningCount = computed(() => this.workflowWarnings().length + this.localizedWarnings().length);
+    readonly reviewWarningCount = computed(() => this.localizedWarnings().length);
     readonly reviewNoteCount = computed(() => this.profileDependentFeatures().length + (this.reconciliationNote() ? 1 : 0));
     readonly hasReviewFindings = computed(() => this.localizedViolations().length > 0 || this.reviewWarningCount() > 0 || this.reviewNoteCount() > 0);
     readonly exportBlocked = computed(() => !this.isValid() || this.validationLoading());
@@ -153,10 +152,6 @@ export class GuidedConfiguratorWorkflowComponent {
         return 'Available';
     }
 
-    /** Option-level warnings belong with the other caveats rather than in a block of their own. */
-    optionCaveats(option: GuidedDecisionOption): string[] {
-        return [...option.thingsToKnow, ...option.warnings];
-    }
 
     /** A decision step is complete once the user has moved past it, and all of them are once review is open. */
     isStepDone(index: number): boolean {

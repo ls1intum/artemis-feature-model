@@ -248,12 +248,12 @@
                                 type="button"
                                 class="info-tab"
                                 [class.info-tab--active]="infoTab() === 'caveats'"
-                                [class.info-tab--warn]="optionCaveats(option).length > 0"
+                                [class.info-tab--warn]="option.thingsToKnow.length > 0"
                                 role="tab"
                                 [attr.aria-selected]="infoTab() === 'caveats'"
                                 (click)="onSelectInfoTab('caveats')"
                             >
-                                Things to know<span class="count-pill">{{ optionCaveats(option).length }}</span>
+                                Things to know<span class="count-pill">{{ option.thingsToKnow.length }}</span>
                             </button>
                         </div>
 
@@ -281,9 +281,9 @@
                                 }
                             }
                             @case ('caveats') {
-                                @if (optionCaveats(option).length > 0) {
+                                @if (option.thingsToKnow.length > 0) {
                                     <ul class="info-list info-list--warn">
-                                        @for (item of optionCaveats(option); track item) {
+                                        @for (item of option.thingsToKnow; track item) {
                                             <li>{{ item }}</li>
                                         }
                                     </ul>
@@ -351,7 +351,9 @@
             } @else if (hasValidationResult()) {
                 <strong>{{ isValid() ? 'Configuration is valid.' : 'Configuration is invalid.' }}</strong>
                 <span class="ms-auto small">
-                    {{ localizedViolations().length }} blocking · {{ reviewWarningCount() }} warnings · {{ reviewNoteCount() }} notes
+                    {{ localizedViolations().length }} blocking ·
+                    {{ reviewWarningCount() }} warning{{ reviewWarningCount() === 1 ? '' : 's' }} ·
+                    {{ reviewNoteCount() }} note{{ reviewNoteCount() === 1 ? '' : 's' }}
                 </span>
             } @else {
                 <strong>Validation has not completed yet.</strong>
@@ -514,12 +516,6 @@
 
                     @if (reviewWarningCount() > 0) {
                         <ul class="list-unstyled mb-0" data-testid="warning-summary">
-                            @for (warning of workflowWarnings(); track warning) {
-                                <li class="issue issue--warning">
-                                    <span class="issue__severity">Warning</span>
-                                    <span>{{ warning }}</span>
-                                </li>
-                            }
                             @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
                                 <li class="issue issue--warning">
                                     <span class="issue__severity">Warning</span>
