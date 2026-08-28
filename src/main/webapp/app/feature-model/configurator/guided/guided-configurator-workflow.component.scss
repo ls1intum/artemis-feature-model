@@ -119,9 +119,13 @@
     border-color: var(--bs-primary);
 }
 
-.template-card--active,
-.option-card--selected {
+.template-card--active {
     background: var(--bs-primary-bg-subtle);
+}
+
+/* Selected option: a blue frame with an outer ring, plus the green badge in the top-right corner. */
+.option-card--selected {
+    box-shadow: 0 0 0 0.15rem var(--bs-primary-bg-subtle);
 }
 
 .template-card__meta {
@@ -130,17 +134,22 @@
     font-size: 0.82rem;
 }
 
-/* The check box carries the selected state; the card no longer needs a "Selected" badge. */
+/* A column, so a card stretched to its row's height leaves the slack at the bottom rather than
+   spreading it across the content and stretching the chips. */
 .option-card {
-    display: grid;
-    grid-template-columns: 1.15rem 1fr;
-    gap: 0.3rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
     padding: 0.8rem 0.9rem;
     color: inherit;
     text-align: left;
-    /* Rows keep their natural height: without this, a card stretched to its row's height spreads the
-       slack across its grid rows and the chips stretch with them. */
-    align-content: start;
+}
+
+.option-card__topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
 }
 
 .option-card--unavailable,
@@ -149,37 +158,6 @@
     color: var(--bs-secondary-color);
     cursor: not-allowed;
     box-shadow: none;
-}
-
-.option-card__check {
-    grid-row: 1 / span 4;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.15rem;
-    height: 1.15rem;
-    margin-top: 0.1rem;
-    border: 1.5px solid var(--bs-border-color);
-    border-radius: var(--bs-border-radius-sm);
-    background: var(--bs-body-bg);
-    color: transparent;
-}
-
-.option-card__check svg {
-    width: 0.8rem;
-    height: 0.8rem;
-}
-
-.option-card__check--on {
-    border-color: var(--bs-primary);
-    background: var(--bs-primary);
-    color: var(--bs-white);
-}
-
-.option-card--unavailable .option-card__check {
-    border-style: dashed;
-    background: transparent;
-    color: var(--bs-secondary-color);
 }
 
 .decision-screen,
