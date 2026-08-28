@@ -10,7 +10,7 @@ name: Artemis delivery poller
 # The payload SHA enters the same explicit-SHA path as a manual dispatch; the schedule remains as a fallback.
 on:
   schedule:
-    - cron: '23 4 * * *'
+    - cron: '23 4 * * 1,4'
   workflow_dispatch:
     inputs:
       artemis_sha:
