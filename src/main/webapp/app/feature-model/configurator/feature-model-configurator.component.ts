@@ -97,7 +97,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         if (!template) {
             return [];
         }
-        return this.visibleDecisionStepsForTemplate(template, this.selectedFeatureIds());
+        return this.decisionStepsForTemplate(template);
     });
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
     readonly guidedOptions = computed<GuidedDecisionOption[]>(() => this.decisionSteps().flatMap((step) => step.decisions.flatMap((decision) => decision.options)));
@@ -113,11 +113,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             }
         }
         return ids;
-    });
-    readonly progressPercent = computed(() => {
-        const stepCount = this.decisionSteps().length + 2;
-        const current = this.screen() === 'templates' || this.screen() === 'tree' ? 1 : this.screen() === 'review' ? stepCount : this.activeStepIndex() + 2;
-        return Math.round((current / stepCount) * 100);
     });
     readonly selectedCount = computed(() => this.selectedFeatureIds().size);
     readonly featureNamesById = computed<ReadonlyMap<string, string>>(() => {
@@ -164,18 +159,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const dependent = (this.availability()?.features ?? []).filter((feature) => feature.profileDependent && selected.has(feature.featureId));
         return [...dependent].sort((left, right) => Number(left.available) - Number(right.available));
     });
-    readonly requiresTargetsBySource = computed<ReadonlyMap<string, ReadonlySet<string>>>(() => {
-        const targetsBySource = new Map<string, Set<string>>();
-        for (const constraint of this.response()?.constraints ?? []) {
-            if (constraint.type !== 'requires' || !constraint.source || !constraint.target) {
-                continue;
-            }
-            const targets = targetsBySource.get(constraint.source) ?? new Set<string>();
-            targets.add(constraint.target);
-            targetsBySource.set(constraint.source, targets);
-        }
-        return new Map([...targetsBySource].map(([source, targets]) => [source, new Set(targets)]));
-    });
     readonly focusedOption = computed<GuidedDecisionOption | undefined>(() => {
         const focused = this.focusedOptionId();
         const currentStep = this.activeStep();
@@ -197,6 +180,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                         decisionId: decision.id,
                         question: decision.question,
                         selectedOptions: decision.options.filter((option) => current.has(option.id)).map((option) => option.label),
+                        baselineOptions: decision.options.filter((option) => baseline.has(option.id)).map((option) => option.label),
                     });
                 }
             }
@@ -217,22 +201,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     .filter((feature) => selected.has(feature.id)),
             }))
             .filter((group) => group.features.length > 0);
-    });
-    /**
-     * Combines template-level warnings with the teacher-facing warnings of the currently selected guided options.
-     * Raw capability ids are intentionally not surfaced here; they stay in the advanced tree/debug view.
-     */
-    readonly workflowWarnings = computed<string[]>(() => {
-        const warnings = new Set<string>();
-        for (const warning of this.selectedTemplate()?.warnings ?? []) {
-            warnings.add(warning);
-        }
-        for (const option of this.selectedOptions()) {
-            for (const warning of option.warnings) {
-                warnings.add(warning);
-            }
-        }
-        return [...warnings];
     });
     readonly hasValidationResult = computed(() => this.validationResult() !== undefined);
     readonly isValid = computed(() => this.validationResult()?.valid ?? false);
@@ -284,7 +252,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             return;
         }
         const selected = this.initialSelectionForTemplate(template);
-        const optionIdsByDecision = this.inferSelectedDecisionOptions(selected, this.visibleDecisionStepsForTemplate(template, selected));
+        const optionIdsByDecision = this.inferSelectedDecisionOptions(selected, this.decisionStepsForTemplate(template));
         this.profileReconciliationNote.set(undefined);
         this.selectedTemplateId.set(template.id);
         this.selectedFeatureIds.set(selected);
@@ -411,7 +379,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
 
         optionIdsByDecision.set(decision.id, currentOptionIds);
-        this.removeHiddenOptionSelections(nextSelection, optionIdsByDecision);
         this.selectedDecisionOptionIds.set(optionIdsByDecision);
         this.selectedFeatureIds.set(nextSelection);
         this.runValidation();
@@ -424,7 +391,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     onReplaceSelection(nextSelection: ReadonlySet<string>): void {
         const { selection, removed } = this.withoutCapabilityUnavailableFeatures(nextSelection);
         const inferred = cloneDecisionOptionMap(this.inferSelectedDecisionOptions(selection));
-        this.removeHiddenOptionSelections(selection, inferred);
         this.selectedFeatureIds.set(selection);
         this.selectedDecisionOptionIds.set(inferred);
         this.focusedOptionId.set(this.firstOptionIdForCurrentFlow(inferred));
@@ -640,20 +606,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return steps.filter((step) => step.decisions.length > 0).sort((left, right) => left.order - right.order);
     }
 
-    /** Hides options that would select a feature while leaving one of its requires constraints unsatisfied. */
-    private visibleDecisionStepsForTemplate(template: UseCaseTemplate, selectedFeatureIds: ReadonlySet<string>): GuidedWorkflowStep[] {
-        return this.decisionStepsForTemplate(template)
-            .map((step) => ({
-                ...step,
-                decisions: step.decisions
-                    .map((decision) => ({
-                        ...decision,
-                        options: decision.options.filter((option) => this.isOptionVisible(option, selectedFeatureIds)),
-                    }))
-                    .filter((decision) => decision.options.length > 0),
-            }))
-            .filter((step) => step.decisions.length > 0);
-    }
 
     /** Infers guided option checkmarks from feature ids, used for template defaults and tree-driven edits. */
     private inferSelectedDecisionOptions(
@@ -677,57 +629,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         return map;
     }
 
-    /** Returns the selected option objects so downstream summaries can read warnings and capability metadata. */
-    private selectedOptions(): GuidedDecisionOption[] {
-        const selected = this.selectedDecisionOptionIds();
-        const options: GuidedDecisionOption[] = [];
-        for (const step of this.decisionSteps()) {
-            for (const decision of step.decisions) {
-                const selectedIds = selected.get(decision.id) ?? new Set<string>();
-                for (const option of decision.options) {
-                    if (selectedIds.has(option.id)) {
-                        options.push(option);
-                    }
-                }
-            }
-        }
-        return options;
-    }
 
-    /** Evaluates visibility against the selection that would exist after applying the option. */
-    private isOptionVisible(option: GuidedDecisionOption, selectedFeatureIds: ReadonlySet<string>): boolean {
-        const candidateSelection = new Set(selectedFeatureIds);
-        applyOptionSelection(candidateSelection, option);
-        for (const sourceFeatureId of option.selects) {
-            const requiredTargetIds = this.requiresTargetsBySource().get(sourceFeatureId) ?? new Set<string>();
-            for (const targetFeatureId of requiredTargetIds) {
-                if (!candidateSelection.has(targetFeatureId)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
 
-    /** Drops selected guided options that became hidden after another option removed a required feature. */
-    private removeHiddenOptionSelections(nextSelection: Set<string>, optionIdsByDecision: Map<string, ReadonlySet<string>>): void {
-        const template = this.selectedTemplate();
-        if (!template) {
-            return;
-        }
-        for (const step of this.decisionStepsForTemplate(template)) {
-            for (const decision of step.decisions) {
-                const selectedIds = new Set(optionIdsByDecision.get(decision.id) ?? []);
-                for (const option of decision.options) {
-                    if (selectedIds.has(option.id) && !this.isOptionVisible(option, nextSelection)) {
-                        selectedIds.delete(option.id);
-                        removeOptionSelection(nextSelection, option);
-                    }
-                }
-                optionIdsByDecision.set(decision.id, selectedIds);
-            }
-        }
-    }
 
     /** Chooses a sensible focused option after a full-flow selection change. */
     private firstOptionIdForCurrentFlow(optionIdsByDecision: ReadonlyMap<string, ReadonlySet<string>>): string | undefined {

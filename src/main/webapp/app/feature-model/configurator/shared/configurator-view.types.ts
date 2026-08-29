@@ -41,6 +41,8 @@ export interface DecisionChangeSummary {
     decisionId: string;
     question: string;
     selectedOptions: string[];
+    /** Option labels the active template preset, so the review page can show the change as a diff. */
+    baselineOptions: string[];
 }
 
 export interface DecisionOptionToggle {

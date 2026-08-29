@@ -193,3 +193,80 @@ function matchesNode(node: FeatureTreeNode, needle: string): boolean {
     const name = node.feature.name.toLowerCase();
     return id.includes(needle) || name.includes(needle);
 }
+
+/**
+ * Human-readable name for a feature kind. Unknown kinds are passed through so a model that adds one
+ * still renders something meaningful.
+ *
+ * @param kind Raw `kind` value from a feature.
+ */
+export function formatFeatureKind(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'Root';
+        case 'group':
+            return 'Group';
+        case 'module':
+            return 'Module';
+        case 'feature':
+            return 'Feature';
+        default:
+            return kind;
+    }
+}
+
+/**
+ * Display label for a feature. `kind` describes the node shape, so on its own it labels the technical
+ * leaves "Feature" even though the functional modules are features too. The technical ones are told
+ * apart by `category`, not by `kind`: a future functional node of kind `feature` still reads "Feature".
+ *
+ * @param kind Raw `kind` value from a feature.
+ * @param category Raw `category` value from the same feature.
+ */
+export function featureKindLabel(kind: string, category: string): string {
+    if (kind === 'feature' && category === 'technical') {
+        return 'Infrastructure';
+    }
+    return formatFeatureKind(kind);
+}
+
+/**
+ * Human-readable name for a feature category. Unknown categories are passed through.
+ *
+ * @param category Raw `category` value from a feature.
+ */
+export function formatFeatureCategory(category: string): string {
+    switch (category) {
+        case 'functional':
+            return 'Functional';
+        case 'technical':
+            return 'Technical';
+        case 'capability':
+            return 'Capability';
+        case 'derived':
+            return 'Derived';
+        default:
+            return category;
+    }
+}
+
+/**
+ * Modifier class for the shared `.fm-kind-dot` primitive. Single source for the tree rows, the kind
+ * legend, and the details header, so a colour can never mean two different kinds.
+ *
+ * @param kind Raw `kind` value from a feature.
+ */
+export function featureKindDotClass(kind: string): string {
+    switch (kind) {
+        case 'root':
+            return 'fm-kind-dot--root';
+        case 'group':
+            return 'fm-kind-dot--group';
+        case 'module':
+            return 'fm-kind-dot--module';
+        case 'feature':
+            return 'fm-kind-dot--feature';
+        default:
+            return '';
+    }
+}

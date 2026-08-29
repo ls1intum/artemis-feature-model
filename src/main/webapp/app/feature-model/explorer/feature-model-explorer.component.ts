@@ -3,7 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { collectExpandableNodeIds, countTreeNodes, filterTreeByQuery, findNodeById } from '../core/feature-model-tree.utils';
+import {
+    collectExpandableNodeIds,
+    countTreeNodes,
+    featureKindDotClass,
+    featureKindLabel,
+    filterTreeByQuery,
+    findNodeById,
+    formatFeatureCategory,
+} from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 import { FeatureModelSnapshotsComponent } from './feature-model-snapshots.component';
@@ -12,6 +20,18 @@ import { FeatureModelTreeNodeComponent } from './feature-model-tree-node.compone
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify that the server is running and try again.';
 
 export type ExplorerViewMode = 'list' | 'diagram';
+
+/** Fixed display order for the kind legend; kinds outside it keep their model order at the end. */
+const KIND_ORDER = ['root', 'group', 'module', 'feature'];
+
+export interface KindLegendEntry {
+    /** Identity of the rendered swatch: one entry per dot colour and label pair. */
+    key: string;
+    kind: string;
+    label: string;
+    dotClass: string;
+    hollow: boolean;
+}
 
 @Component({
     selector: 'fm-feature-model-explorer',
@@ -31,6 +51,8 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly searchQuery = signal<string>('');
     readonly selectedFeatureId = signal<string | undefined>(undefined);
     readonly viewMode = signal<ExplorerViewMode>('list');
+    /** Keeps the maintainer-only source metadata collapsed until it is asked for. */
+    readonly sourceExpanded = signal<boolean>(false);
     private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
 
     readonly model = computed(() => this.response()?.model);
@@ -89,7 +111,34 @@ export class FeatureModelExplorerComponent implements OnInit {
         return Boolean(id && defaults.includes(id));
     });
     readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedNode()?.feature.defaultState ?? null));
-    readonly relationBadgeClass = computed(() => relationBadgeClass(this.selectedIncomingRelation()?.relationType));
+    /**
+     * Legend built from what the rows actually render: one entry per dot colour and label pair present in
+     * the loaded model. A swatch is drawn hollow only when every feature behind it is structural, so it can
+     * never show a fill the rows do not.
+     */
+    readonly kindLegend = computed<KindLegendEntry[]>(() => {
+        const selectableByKey = new Map<string, { entry: KindLegendEntry; anySelectable: boolean }>();
+        for (const feature of this.response()?.features ?? []) {
+            const label = featureKindLabel(feature.kind, feature.category);
+            const key = `${feature.kind}|${label}`;
+            const seen = selectableByKey.get(key);
+            if (seen) {
+                seen.anySelectable ||= feature.selectable;
+                continue;
+            }
+            selectableByKey.set(key, {
+                entry: { key, kind: feature.kind, label, dotClass: featureKindDotClass(feature.kind), hollow: false },
+                anySelectable: feature.selectable,
+            });
+        }
+        return [...selectableByKey.values()]
+            .map(({ entry, anySelectable }) => ({ ...entry, hollow: !anySelectable }))
+            .sort((left, right) => kindRank(left.kind) - kindRank(right.kind));
+    });
+    readonly hasStructuralKinds = computed(() => this.kindLegend().some((entry) => entry.hollow));
+    readonly selectedKindLabel = computed(() => featureKindLabel(this.selectedNode()?.feature.kind ?? '', this.selectedNode()?.feature.category ?? ''));
+    readonly selectedCategoryLabel = computed(() => formatFeatureCategory(this.selectedNode()?.feature.category ?? ''));
+    readonly selectedKindDotClass = computed(() => featureKindDotClass(this.selectedNode()?.feature.kind ?? ''));
 
     ngOnInit(): void {
         this.featureModelService
@@ -147,6 +196,10 @@ export class FeatureModelExplorerComponent implements OnInit {
 
     onSetViewMode(mode: ExplorerViewMode): void {
         this.viewMode.set(mode);
+    }
+
+    onToggleSourceMetadata(): void {
+        this.sourceExpanded.update((expanded) => !expanded);
     }
 
     /**
@@ -211,15 +264,7 @@ function defaultStateBadgeClass(state: string | null): string {
     }
 }
 
-function relationBadgeClass(relationType: string | undefined): string {
-    switch (relationType) {
-        case 'mandatory':
-            return 'text-bg-primary';
-        case 'optional':
-            return 'text-bg-warning';
-        case 'group':
-            return 'text-bg-info';
-        default:
-            return 'text-bg-light border';
-    }
+function kindRank(kind: string): number {
+    const index = KIND_ORDER.indexOf(kind);
+    return index === -1 ? KIND_ORDER.length : index;
 }

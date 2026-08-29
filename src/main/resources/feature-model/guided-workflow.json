@@ -70,8 +70,7 @@
         "artifact-generation"
       ],
       "consequences": [
-        "Keeps programming exercises enabled for code-based assignments.",
-        "Leaves EduIDE as an explicit follow-up decision because it depends on deployment support."
+        "Keeps programming exercises enabled for code-based assignments."
       ],
       "warnings": [
         "Programming exercise execution still depends on CI and VCS infrastructure outside this functional model."
@@ -179,8 +178,7 @@
         "artifact-generation"
       ],
       "consequences": [
-        "Enables AI and adaptive learning features that can enrich feedback and tutoring.",
-        "Introduces external service and secret-reference requirements for later deployment profile validation."
+        "Enables AI and adaptive learning features that can enrich feedback and tutoring."
       ],
       "warnings": [
         "AI options are only usable when the selected deployment profile provides the required services."

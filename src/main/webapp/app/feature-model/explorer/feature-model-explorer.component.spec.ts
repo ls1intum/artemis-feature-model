@@ -51,6 +51,15 @@ function clickToggle(fixture: ComponentFixture<FeatureModelExplorerComponent>, f
     fixture.detectChanges();
 }
 
+function expandSourceMetadata(fixture: ComponentFixture<FeatureModelExplorerComponent>): void {
+    const toggle = rootElement(fixture).querySelector('[data-testid="details-source-toggle"]');
+    if (!toggle) {
+        throw new Error('Source metadata disclosure not found.');
+    }
+    (toggle as HTMLElement).click();
+    fixture.detectChanges();
+}
+
 function setSearch(fixture: ComponentFixture<FeatureModelExplorerComponent>, value: string): void {
     const input = rootElement(fixture).querySelector('[data-testid="search-input"]') as HTMLInputElement | null;
     if (!input) {
@@ -89,10 +98,16 @@ describe('FeatureModelExplorerComponent', () => {
         const heading = rootElement(fixture).querySelector('.explorer-title h1');
         expect(heading?.textContent).toContain('Artemis Functional Feature Tree');
 
-        const stats = rootElement(fixture).querySelector('.explorer-stats')?.textContent ?? '';
-        expect(stats).toContain('24 features');
-        expect(stats).toContain('23 relations');
-        expect(stats).toContain('0 constraints');
+        const stats = Array.from(rootElement(fixture).querySelectorAll('.explorer-stat')).map((stat) => ({
+            value: stat.querySelector('.explorer-stat__value')?.textContent?.trim(),
+            label: stat.querySelector('.explorer-stat__label')?.textContent?.trim(),
+        }));
+        expect(stats).toEqual([
+            { value: '24', label: 'Features' },
+            { value: '23', label: 'Relations' },
+            { value: '0', label: 'Constraints' },
+            { value: '13', label: 'Default on' },
+        ]);
     });
 
     it('renders the full 24-node tree when every branch is expanded', () => {
@@ -141,6 +156,7 @@ describe('FeatureModelExplorerComponent', () => {
 
         clickToggle(fixture, 'teaching-and-content');
         clickRow(fixture, 'lecture');
+        expandSourceMetadata(fixture);
 
         const name = fixture.nativeElement.querySelector('[data-testid="details-name"]');
         const id = fixture.nativeElement.querySelector('[data-testid="details-id"]');
@@ -351,6 +367,7 @@ describe('FeatureModelExplorerComponent', () => {
         fixture.detectChanges();
 
         expect(rootElement(fixture).querySelector('[data-testid="details-name"]')?.textContent).toContain('Lecture');
+        expandSourceMetadata(fixture);
         expect(rootElement(fixture).querySelector('[data-testid="details-config-key"]')?.textContent).toContain('artemis.lecture.enabled');
 
         const listToggle = rootElement(fixture).querySelector('[data-testid="view-list"]') as HTMLButtonElement | null;

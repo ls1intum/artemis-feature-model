@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     collectAllNodeIds,
     collectAncestorIds,
+    featureKindLabel,
+    formatFeatureCategory,
     collectExpandableNodeIds,
     countTreeNodes,
     filterTreeByQuery,
@@ -147,5 +149,32 @@ describe('feature-model-tree.utils', () => {
         expect(collectAncestorIds(null, new Set(['programming'])).size).toBe(0);
         expect(collectAncestorIds(buildSampleTree(), new Set<string>()).size).toBe(0);
         expect(collectAncestorIds(buildSampleTree(), new Set(['nonsense'])).size).toBe(0);
+    });
+});
+
+describe('featureKindLabel', () => {
+    it('labels the technical leaves Infrastructure so "Feature" does not imply the modules are not features', () => {
+        expect(featureKindLabel('feature', 'technical')).toBe('Infrastructure');
+        expect(featureKindLabel('module', 'functional')).toBe('Module');
+        expect(featureKindLabel('group', 'technical')).toBe('Group');
+        expect(featureKindLabel('root', 'derived')).toBe('Root');
+    });
+
+    it('keys the label on the category, so a functional node of kind feature stays a Feature', () => {
+        expect(featureKindLabel('feature', 'functional')).toBe('Feature');
+    });
+
+    it('passes unknown kinds through', () => {
+        expect(featureKindLabel('experimental', 'functional')).toBe('experimental');
+    });
+});
+
+describe('formatFeatureCategory', () => {
+    it('capitalises the known categories and passes anything else through', () => {
+        expect(formatFeatureCategory('technical')).toBe('Technical');
+        expect(formatFeatureCategory('functional')).toBe('Functional');
+        expect(formatFeatureCategory('derived')).toBe('Derived');
+        expect(formatFeatureCategory('capability')).toBe('Capability');
+        expect(formatFeatureCategory('speculative')).toBe('speculative');
     });
 });
