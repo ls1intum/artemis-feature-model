@@ -121,7 +121,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   bound bindings (`gating: deselected`) that emit one
   `artemistests_without_<key>` group per switched-off module through the
   pinned fork's `artemis_modules` off-switches, with `file-upload` mapping to
-  the unhyphenated Artemis key `fileupload`. Secrets appear only as
+  the unhyphenated Artemis key `fileupload`. The atlas integration is
+  deselection-gated for the same reason: its image-shipped default is enabled,
+  so deselection emits an explicit `atlas.enabled: false` group
+  (`artemistests_without_atlas`) while selection emits nothing. Secrets appear
+  only as
   `lookup('hashi_vault', …)` expressions. The optional null-tolerant
   `remoteEnvironment` request component supplies admin identity values; absent
   values yield a structurally identical placeholder package

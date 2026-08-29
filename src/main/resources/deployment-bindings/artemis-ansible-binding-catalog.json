@@ -104,10 +104,11 @@
     },
     "atlas": {
       "binding": "bound",
-      "membership": "artemistests_atlas",
-      "groupVarsFile": "artemistests_atlas.yml",
-      "lines": ["---", "atlas:", "  enabled: true"],
-      "evidence": "Guard in artemis.env.j2: atlas is defined; value shape from the upstream artemistests_atlas.yml. The nested atlasml block is deliberately not emitted."
+      "gating": "deselected",
+      "membership": "artemistests_without_atlas",
+      "groupVarsFile": "artemistests_without_atlas.yml",
+      "lines": ["---", "atlas:", "  enabled: false"],
+      "evidence": "artemis.atlas.enabled defaults to true in the image-shipped application-core.yml, so an absent atlas variable leaves the module enabled and the explicit false is the only off-switch (guard in artemis.env.j2: atlas is defined). A selected atlas needs no values because the image default already enables it. The nested atlasml block is deliberately not emitted; its image default is disabled."
     },
     "hyperion": {
       "binding": "bound",

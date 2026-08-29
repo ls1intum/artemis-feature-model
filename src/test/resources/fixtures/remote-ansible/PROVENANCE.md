@@ -43,5 +43,12 @@ hand-written values of the reduced variant validated on the lab VM against the
 fork's `artemis_modules` off-switches
 (`evidence/collection-fork-validation-2026-08-25.md`).
 
+The `artemistests_without_atlas` section of `hosts` has no lab counterpart:
+`artemis.atlas.enabled` defaults to true inside the Artemis image, so a
+selection without atlas must emit an explicit off-switch, while the
+hand-written lab inventory (which predates the selection semantics) simply
+runs with the image default. The group's values file is asserted by its own
+package expectation, not by lab diff.
+
 Updating these fixtures is a deliberate, reviewed act: re-derive from the lab
 inventory and record the new lab commit here.

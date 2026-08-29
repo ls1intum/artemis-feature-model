@@ -12,3 +12,6 @@ artemislocal
 
 [artemistests_local_vc_ci:children]
 artemislocal
+
+[artemistests_without_atlas:children]
+artemislocal

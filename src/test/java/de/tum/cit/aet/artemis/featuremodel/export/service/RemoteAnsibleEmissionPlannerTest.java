@@ -116,6 +116,17 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
+    void deselectedAtlasEmitsTheExplicitOffSwitchAndSelectedAtlasEmitsNothing() {
+        RemoteAnsibleEmissionPlan withoutAtlas = planner.plan(model, selectionWithout("atlas"), labEnvironment());
+        RemoteAnsibleEmissionPlan withAtlas = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(withoutAtlas, "inventory/group_vars/artemistests_without_atlas.yml")).isEqualTo("---\natlas:\n  enabled: false");
+        assertThat(fileContent(withoutAtlas, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_atlas:children]\nartemislocal");
+        assertThat(filePaths(withAtlas)).noneMatch(path -> path.contains("atlas"));
+        assertThat(fileContent(withAtlas, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).doesNotContain("atlas");
+    }
+
+    @Test
     void deselectedFileUploadMapsToTheUnhyphenatedArtemisModuleKey() {
         RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("file-upload"), labEnvironment());
 
