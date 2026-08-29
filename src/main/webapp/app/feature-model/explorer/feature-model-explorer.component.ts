@@ -3,7 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { collectExpandableNodeIds, countTreeNodes, featureKindDotClass, filterTreeByQuery, findNodeById, formatFeatureKind } from '../core/feature-model-tree.utils';
+import {
+    collectExpandableNodeIds,
+    countTreeNodes,
+    featureKindDotClass,
+    featureKindLabel,
+    filterTreeByQuery,
+    findNodeById,
+    formatFeatureCategory,
+} from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 import { FeatureModelSnapshotsComponent } from './feature-model-snapshots.component';
@@ -17,6 +25,8 @@ export type ExplorerViewMode = 'list' | 'diagram';
 const KIND_ORDER = ['root', 'group', 'module', 'feature'];
 
 export interface KindLegendEntry {
+    /** Identity of the rendered swatch: one entry per dot colour and label pair. */
+    key: string;
     kind: string;
     label: string;
     dotClass: string;
@@ -102,26 +112,32 @@ export class FeatureModelExplorerComponent implements OnInit {
     });
     readonly defaultStateBadgeClass = computed(() => defaultStateBadgeClass(this.selectedNode()?.feature.defaultState ?? null));
     /**
-     * Legend built from the kinds the loaded model actually contains, using the same dot mapping the tree
-     * rows use. A kind is drawn hollow only when every feature of that kind is structural, so a swatch can
+     * Legend built from what the rows actually render: one entry per dot colour and label pair present in
+     * the loaded model. A swatch is drawn hollow only when every feature behind it is structural, so it can
      * never show a fill the rows do not.
      */
     readonly kindLegend = computed<KindLegendEntry[]>(() => {
-        const selectableByKind = new Map<string, boolean>();
+        const selectableByKey = new Map<string, { entry: KindLegendEntry; anySelectable: boolean }>();
         for (const feature of this.response()?.features ?? []) {
-            selectableByKind.set(feature.kind, (selectableByKind.get(feature.kind) ?? false) || feature.selectable);
+            const label = featureKindLabel(feature.kind, feature.category);
+            const key = `${feature.kind}|${label}`;
+            const seen = selectableByKey.get(key);
+            if (seen) {
+                seen.anySelectable ||= feature.selectable;
+                continue;
+            }
+            selectableByKey.set(key, {
+                entry: { key, kind: feature.kind, label, dotClass: featureKindDotClass(feature.kind), hollow: false },
+                anySelectable: feature.selectable,
+            });
         }
-        return [...selectableByKind.entries()]
-            .map(([kind, anySelectable]) => ({
-                kind,
-                label: formatFeatureKind(kind),
-                dotClass: featureKindDotClass(kind),
-                hollow: !anySelectable,
-            }))
+        return [...selectableByKey.values()]
+            .map(({ entry, anySelectable }) => ({ ...entry, hollow: !anySelectable }))
             .sort((left, right) => kindRank(left.kind) - kindRank(right.kind));
     });
     readonly hasStructuralKinds = computed(() => this.kindLegend().some((entry) => entry.hollow));
-    readonly selectedKindLabel = computed(() => formatFeatureKind(this.selectedNode()?.feature.kind ?? ''));
+    readonly selectedKindLabel = computed(() => featureKindLabel(this.selectedNode()?.feature.kind ?? '', this.selectedNode()?.feature.category ?? ''));
+    readonly selectedCategoryLabel = computed(() => formatFeatureCategory(this.selectedNode()?.feature.category ?? ''));
     readonly selectedKindDotClass = computed(() => featureKindDotClass(this.selectedNode()?.feature.kind ?? ''));
 
     ngOnInit(): void {

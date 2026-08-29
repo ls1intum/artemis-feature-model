@@ -216,6 +216,41 @@ export function formatFeatureKind(kind: string): string {
 }
 
 /**
+ * Display label for a feature. `kind` describes the node shape, so on its own it labels the technical
+ * leaves "Feature" even though the functional modules are features too. The technical ones are told
+ * apart by `category`, not by `kind`: a future functional node of kind `feature` still reads "Feature".
+ *
+ * @param kind Raw `kind` value from a feature.
+ * @param category Raw `category` value from the same feature.
+ */
+export function featureKindLabel(kind: string, category: string): string {
+    if (kind === 'feature' && category === 'technical') {
+        return 'Infrastructure';
+    }
+    return formatFeatureKind(kind);
+}
+
+/**
+ * Human-readable name for a feature category. Unknown categories are passed through.
+ *
+ * @param category Raw `category` value from a feature.
+ */
+export function formatFeatureCategory(category: string): string {
+    switch (category) {
+        case 'functional':
+            return 'Functional';
+        case 'technical':
+            return 'Technical';
+        case 'capability':
+            return 'Capability';
+        case 'derived':
+            return 'Derived';
+        default:
+            return category;
+    }
+}
+
+/**
  * Modifier class for the shared `.fm-kind-dot` primitive. Single source for the tree rows, the kind
  * legend, and the details header, so a colour can never mean two different kinds.
  *

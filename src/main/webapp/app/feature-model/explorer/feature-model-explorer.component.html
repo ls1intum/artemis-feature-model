@@ -124,7 +124,7 @@
             <aside class="tree-panel fm-surface" aria-label="Feature tree">
                 @if (isListView()) {
                     <p class="kind-legend" aria-hidden="true">
-                        @for (entry of kindLegend(); track entry.kind) {
+                        @for (entry of kindLegend(); track entry.key) {
                             <span><i class="fm-kind-dot {{ entry.dotClass }}" [class.fm-kind-dot--hollow]="entry.hollow"></i>{{ entry.label }}</span>
                         }
                         @if (hasStructuralKinds()) {
@@ -179,6 +179,9 @@
                     <dl class="details-grid">
                         <dt>Kind</dt>
                         <dd>{{ selectedKindLabel() }}</dd>
+
+                        <dt>Category</dt>
+                        <dd data-testid="details-category">{{ selectedCategoryLabel() }}</dd>
 
                         <dt>Selectable</dt>
                         <dd>{{ node.feature.selectable ? 'Yes' : 'No — structural node' }}</dd>

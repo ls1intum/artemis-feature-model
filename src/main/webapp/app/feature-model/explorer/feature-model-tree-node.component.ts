@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, forwardRef, input, output } from '@angular/core';
 
-import { featureKindDotClass, formatFeatureKind } from '../core/feature-model-tree.utils';
+import { featureKindDotClass, featureKindLabel } from '../core/feature-model-tree.utils';
 import { FeatureTreeNode } from '../core/feature-model.types';
 
 @Component({
@@ -32,7 +32,7 @@ export class FeatureModelTreeNodeComponent {
     readonly kindDotClass = computed(() => featureKindDotClass(this.node().feature.kind));
     /** Accessible name for the colour dot; it carries kind and selectability, which no longer have badges. */
     readonly kindTitle = computed(() => {
-        const kind = formatFeatureKind(this.node().feature.kind);
+        const kind = featureKindLabel(this.node().feature.kind, this.node().feature.category);
         return this.isStructural() ? `${kind} · structural` : kind;
     });
 
