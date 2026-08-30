@@ -71,7 +71,7 @@ public class RemoteAnsibleEmissionPlanner {
         String targetGroup = environment.targetGroup();
         List<RemoteAnsibleEmissionPlan.PlannedFile> files = new ArrayList<>();
         List<RemoteAnsibleEmissionPlan.PlannedVaultReference> vaultReferences = new ArrayList<>();
-        List<AnsibleBindingCatalog.FeatureBinding> boundFeatures = selectedBoundFeatures(model, selectedFeatureIds);
+        List<AnsibleBindingCatalog.FeatureBinding> boundFeatures = emittedBoundFeatures(model, selectedFeatureIds);
 
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(HOSTS_FILE, hostsContent(targetGroup, environment, databaseBinding, ciBinding, boundFeatures)));
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + targetGroup + "/main.yml", targetMainContent(environment)));
@@ -183,18 +183,23 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Collects the bindings of the selected bound functional features, in model order.
+     * Collects the bindings of the bound functional features the selection emits, in model order: presence-gated
+     * bindings when their feature is selected, deselection-gated bindings (the collection's module off-switches) when
+     * their feature is not.
      *
      * @param model active feature model.
      * @param selectedFeatureIds selected feature ids.
-     * @return bound bindings of the selected features.
+     * @return bound bindings the selection emits.
      */
-    private List<AnsibleBindingCatalog.FeatureBinding> selectedBoundFeatures(FeatureModel model, Set<String> selectedFeatureIds) {
+    private List<AnsibleBindingCatalog.FeatureBinding> emittedBoundFeatures(FeatureModel model, Set<String> selectedFeatureIds) {
         List<AnsibleBindingCatalog.FeatureBinding> boundFeatures = new ArrayList<>();
         for (FeatureNode feature : model.features()) {
             AnsibleBindingCatalog.FeatureBinding binding = catalog.features().get(feature.id());
-            boolean bound = binding != null && AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding());
-            if (bound && selectedFeatureIds.contains(feature.id())) {
+            if (binding == null || !AnsibleBindingCatalog.BINDING_BOUND.equals(binding.binding())) {
+                continue;
+            }
+            boolean selected = selectedFeatureIds.contains(feature.id());
+            if (binding.emittedWhenDeselected() != selected) {
                 boundFeatures.add(binding);
             }
         }
@@ -209,7 +214,7 @@ public class RemoteAnsibleEmissionPlanner {
      * @param environment resolved environment values.
      * @param databaseBinding selected database binding.
      * @param ciBinding selected CI-provider binding.
-     * @param boundFeatures bindings of the selected bound features.
+     * @param boundFeatures bound bindings the selection emits.
      * @return rendered hosts content.
      */
     private String hostsContent(String targetGroup, RemoteEnvironmentValues environment, AnsibleBindingCatalog.FeatureBinding databaseBinding,

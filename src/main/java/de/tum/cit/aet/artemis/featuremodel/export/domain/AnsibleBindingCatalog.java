@@ -45,6 +45,9 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     /** Classification of a feature state the pinned collection cannot express. */
     public static final String BINDING_UNSUPPORTED = "unsupported";
 
+    /** Gating of a bound feature binding that is emitted when the feature is deselected instead of selected. */
+    public static final String GATING_DESELECTED = "deselected";
+
     /** Unsupported direction: deselecting the feature is inexpressible. */
     public static final String UNSUPPORTED_WHEN_DESELECTED = "deselected";
 
@@ -201,9 +204,12 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      * Classification and binding of one feature or technical choice.
      *
      * @param binding {@link #BINDING_BOUND}, {@link #BINDING_NO_OP}, or {@link #BINDING_UNSUPPORTED}.
+     * @param gating emission gating of a bound feature binding: {@code null} for the presence-gated default (emitted
+     *            when the feature is selected) or {@link #GATING_DESELECTED} (emitted when the feature is deselected,
+     *            the shape of the collection's module off-switches).
      * @param membership inventory group the target joins when the binding applies.
      * @param groupVarsFile name of the rendered group values file.
-     * @param lines rendered lines of the bound block, emitted verbatim when the feature is selected.
+     * @param lines rendered lines of the bound block, emitted verbatim when the gating applies.
      * @param vaultReferences vault references the rendered lines contain.
      * @param unsupportedWhen direction of an unsupported binding: {@link #UNSUPPORTED_WHEN_DESELECTED} or
      *            {@link #UNSUPPORTED_WHEN_SELECTED}.
@@ -212,13 +218,14 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      * @param evidence curation evidence reference.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record FeatureBinding(String binding, String membership, String groupVarsFile, List<String> lines, List<VaultReference> vaultReferences,
-            String unsupportedWhen, String missingVariable, String reason, String evidence) {
+    public record FeatureBinding(String binding, String gating, String membership, String groupVarsFile, List<String> lines,
+            List<VaultReference> vaultReferences, String unsupportedWhen, String missingVariable, String reason, String evidence) {
 
         /**
          * Normalizes nullable collections to immutable empty collections.
          *
          * @param binding classification.
+         * @param gating emission gating of a bound feature binding.
          * @param membership inventory group.
          * @param groupVarsFile group values file name.
          * @param lines bound block lines.
@@ -231,6 +238,15 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
         public FeatureBinding {
             lines = lines == null ? List.of() : List.copyOf(lines);
             vaultReferences = vaultReferences == null ? List.of() : List.copyOf(vaultReferences);
+        }
+
+        /**
+         * Returns whether the binding is emitted when its feature is deselected instead of selected.
+         *
+         * @return {@code true} for a deselection-gated binding.
+         */
+        public boolean emittedWhenDeselected() {
+            return GATING_DESELECTED.equals(gating);
         }
     }
 

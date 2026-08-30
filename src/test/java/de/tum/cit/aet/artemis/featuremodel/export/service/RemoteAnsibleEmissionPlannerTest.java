@@ -100,11 +100,39 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
-    void moduleReductionSelectionFailsClosedNamingTheMissingVariable() {
-        assertThatThrownBy(() -> planner.plan(model, selectionWithout("exam"), labEnvironment()))
-                .isInstanceOf(ArtifactGenerationException.class)
-                .hasMessageContaining("exam")
-                .hasMessageContaining("artemis.exam.enabled has no collection variable at the pinned commit");
+    void deselectedModuleEmitsItsWithoutGroupFileAndMembership() {
+        RemoteAnsibleEmissionPlan reduced = planner.plan(model, selectionWithout("exam"), labEnvironment());
+        RemoteAnsibleEmissionPlan full = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(reduced, "inventory/group_vars/artemistests_without_exam.yml")).isEqualTo("---\nartemis_modules:\n  exam: false");
+        assertThat(fileContent(reduced, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_exam:children]\nartemislocal");
+        assertThat(reduced.classifications()).anySatisfy(classification -> {
+            assertThat(classification.featureId()).isEqualTo("exam");
+            assertThat(classification.classification()).isEqualTo(AnsibleBindingCatalog.BINDING_BOUND);
+            assertThat(classification.selected()).isFalse();
+        });
+        assertThat(filePaths(full)).noneMatch(path -> path.contains("artemistests_without_"));
+        assertThat(fileContent(full, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).doesNotContain("artemistests_without_");
+    }
+
+    @Test
+    void deselectedAtlasEmitsTheExplicitOffSwitchAndSelectedAtlasEmitsNothing() {
+        RemoteAnsibleEmissionPlan withoutAtlas = planner.plan(model, selectionWithout("atlas"), labEnvironment());
+        RemoteAnsibleEmissionPlan withAtlas = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(withoutAtlas, "inventory/group_vars/artemistests_without_atlas.yml")).isEqualTo("---\natlas:\n  enabled: false");
+        assertThat(fileContent(withoutAtlas, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_atlas:children]\nartemislocal");
+        assertThat(filePaths(withAtlas)).noneMatch(path -> path.contains("atlas"));
+        assertThat(fileContent(withAtlas, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).doesNotContain("atlas");
+    }
+
+    @Test
+    void deselectedFileUploadMapsToTheUnhyphenatedArtemisModuleKey() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("file-upload"), labEnvironment());
+
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_without_fileupload.yml"))
+                .isEqualTo("---\nartemis_modules:\n  fileupload: false");
+        assertThat(fileContent(plan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_fileupload:children]\nartemislocal");
     }
 
     @Test
@@ -152,10 +180,20 @@ class RemoteAnsibleEmissionPlannerTest {
 
         assertThat(plan.vaultReferences()).anySatisfy(reference -> {
             assertThat(reference.path()).isEqualTo("kv/data/artemis/test/artemis-local");
-            assertThat(reference.field()).isEqualTo("build_agent_git_password");
-            assertThat(reference.consumer()).isEqualTo("version_control.localvc.build_agent_git_credentials.password");
+            assertThat(reference.field()).isEqualTo("db_password");
+            assertThat(reference.consumer()).isEqualTo("artemis_database_password");
         });
         assertThat(plan.vaultReferences()).noneMatch(reference -> reference.path().contains("{vaultServerName}"));
+    }
+
+    @Test
+    void noBuildAgentCredentialsAreEmittedOnALocalCiNode() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(plan.vaultReferences()).noneMatch(reference -> "build_agent_git_password".equals(reference.field()));
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_local_vc_ci.yml"))
+                .doesNotContain("build_agent_git_credentials")
+                .contains("build_agent_use_ssh: true");
     }
 
     @Test
@@ -207,7 +245,7 @@ class RemoteAnsibleEmissionPlannerTest {
     @Test
     void unknownUnsupportedDirectionFailsClosedInEveryState() {
         AnsibleBindingCatalog.FeatureBinding misspelled = new AnsibleBindingCatalog.FeatureBinding(AnsibleBindingCatalog.BINDING_UNSUPPORTED, null, null, null,
-                null, "deselcted", "artemis.exam.enabled has no collection variable", null, null);
+                null, null, "deselcted", "artemis.exam.enabled has no collection variable", null, null);
         java.util.Map<String, AnsibleBindingCatalog.FeatureBinding> features = new java.util.HashMap<>(catalog.features());
         features.put("exam", misspelled);
         RemoteAnsibleEmissionPlanner misspelledPlanner = new RemoteAnsibleEmissionPlanner(new AnsibleBindingCatalog(catalog.catalogVersion(),

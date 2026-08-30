@@ -185,7 +185,9 @@ public class AnsibleBindingCatalogLoader {
     }
 
     /**
-     * Validates a bound binding: it must name its membership group and group values file and render content.
+     * Validates a bound binding: it must name its membership group and group values file, render content, and carry
+     * a known gating. Deselection gating is a feature-section semantics; the technical axes are selection-resolved
+     * xor choices and must stay presence-gated.
      *
      * @param section section label for error messages.
      * @param featureId bound feature id.
@@ -198,6 +200,12 @@ public class AnsibleBindingCatalogLoader {
         }
         if (binding.lines().isEmpty()) {
             throw invalid("The bound " + section + " binding of '" + featureId + "' declares no rendered lines.");
+        }
+        if (binding.gating() != null && !AnsibleBindingCatalog.GATING_DESELECTED.equals(binding.gating())) {
+            throw invalid("The bound " + section + " binding of '" + featureId + "' declares unknown gating '" + binding.gating() + "'.");
+        }
+        if (binding.gating() != null && section.startsWith("technical")) {
+            throw invalid("The bound " + section + " binding of '" + featureId + "' must not declare a gating; technical choices are selection-resolved.");
         }
     }
 

@@ -112,10 +112,20 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   Values come from the curated Ansible binding catalog
   (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.json`),
   an application resource in both source modes, versioned by its collection
-  pin — never part of a model snapshot. Every selectable feature must be
-  classified `bound`/`no-op`/`unsupported`; unclassified or inexpressible
-  selections (module reduction, Jenkins) fail closed with a controlled 400
-  naming the catalog identity or missing variable. Secrets appear only as
+  pin (a commit of the `JTNing/artemis-ansible-collection` fork branch
+  `feature-model/module-toggles`) — never part of a model snapshot. Every
+  selectable feature must be classified `bound`/`no-op`/`unsupported`;
+  unclassified or inexpressible selections (Jenkins) fail closed with a
+  controlled 400 naming the catalog identity or missing variable. Module
+  reduction is expressible: the seven module features are deselection-gated
+  bound bindings (`gating: deselected`) that emit one
+  `artemistests_without_<key>` group per switched-off module through the
+  pinned fork's `artemis_modules` off-switches, with `file-upload` mapping to
+  the unhyphenated Artemis key `fileupload`. The atlas integration is
+  deselection-gated for the same reason: its image-shipped default is enabled,
+  so deselection emits an explicit `atlas.enabled: false` group
+  (`artemistests_without_atlas`) while selection emits nothing. Secrets appear
+  only as
   `lookup('hashi_vault', …)` expressions. The optional null-tolerant
   `remoteEnvironment` request component supplies admin identity values; absent
   values yield a structurally identical placeholder package
