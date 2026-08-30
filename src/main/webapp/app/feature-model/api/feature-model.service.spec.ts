@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from '../core/artifact-generation.types';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
 import { SnapshotSummary } from '../core/snapshot.types';
@@ -192,5 +193,48 @@ describe('FeatureModelService', () => {
         expect(request.request.responseType).toBe('blob');
         request.flush(blob);
         expect(received).toBe(blob);
+    });
+
+    it('issues a POST request to /api/feature-model/deployment-package/publish with the target identity', () => {
+        let received: DeploymentPackagePublishResponse | undefined;
+
+        service
+            .publishDeploymentPackage({ selectedFeatureIds: ['programming'], deploymentMode: 'remote-ansible', remoteEnvironment: { targetName: 'artemis-remote' } })
+            .subscribe((value) => {
+                received = value;
+            });
+
+        const request = httpMock.expectOne('/api/feature-model/deployment-package/publish');
+        expect(request.request.method).toBe('POST');
+        expect((request.request.body as { remoteEnvironment?: { targetName: string } }).remoteEnvironment).toEqual({ targetName: 'artemis-remote' });
+        const response: DeploymentPackagePublishResponse = {
+            repositoryUrl: 'https://github.com/example/deployments.git',
+            branch: 'deployment',
+            targetDirectory: 'deployments/artemis-remote/package',
+            commitSha: 'abcdef1234567890',
+            commitUrl: 'https://github.com/example/deployments/commit/abcdef1234567890',
+            upToDate: false,
+        };
+        request.flush(response);
+        expect(received).toEqual(response);
+    });
+
+    it('issues a GET request to /api/feature-model/deployment-package/publish-target', () => {
+        let received: DeploymentPackagePublishTarget | undefined;
+
+        service.loadDeploymentPackagePublishTarget().subscribe((value) => {
+            received = value;
+        });
+
+        const request = httpMock.expectOne('/api/feature-model/deployment-package/publish-target');
+        expect(request.request.method).toBe('GET');
+        const target: DeploymentPackagePublishTarget = {
+            configured: true,
+            repositoryUrl: 'https://github.com/example/deployments.git',
+            branch: 'deployment',
+            targetDirectoryRoot: 'deployments',
+        };
+        request.flush(target);
+        expect(received).toEqual(target);
     });
 });

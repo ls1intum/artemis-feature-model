@@ -453,6 +453,24 @@
                     </fieldset>
                     <p class="mt-2 mb-0 small text-body-secondary" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
 
+                    @if (remoteTargetSelected()) {
+                        <div class="mt-2 mb-2">
+                            <label class="form-label small fw-semibold mb-1" for="fm-deployment-target-name">Target name</label>
+                            <input
+                                id="fm-deployment-target-name"
+                                type="text"
+                                class="form-control form-control-sm"
+                                [value]="deploymentTargetName()"
+                                (input)="onDeploymentTargetNameInput($event)"
+                                placeholder="for example artemis-remote"
+                                data-testid="deployment-target-name-input"
+                            />
+                            <p class="mt-1 mb-0 small text-body-secondary">
+                                Names the inventory target group; publishing also routes the package to this target's repository directory.
+                            </p>
+                        </div>
+                    }
+
                     <button
                         type="button"
                         class="btn btn-primary w-100"
@@ -462,6 +480,36 @@
                     >
                         {{ deploymentPackageDownloading() ? 'Preparing ZIP...' : selectedDeploymentTarget().downloadLabel }}
                     </button>
+
+                    @if (remoteTargetSelected() && publishActionAvailable()) {
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary w-100 mt-2"
+                            [disabled]="exportBlocked() || deploymentPackagePublishing() || deploymentPackageDownloading()"
+                            (click)="publishAndDownloadDeploymentPackage.emit()"
+                            data-testid="publish-deployment-package-button"
+                        >
+                            {{ deploymentPackagePublishing() ? 'Publishing...' : 'Publish and download' }}
+                        </button>
+                        <p class="mt-1 mb-0 small text-body-secondary" data-testid="publish-destination">Publishes to {{ publishDestination() }}</p>
+                    }
+
+                    @if (deploymentPackagePublishResult(); as publishResult) {
+                        <div class="alert alert-success mt-2 mb-0" role="status" data-testid="publish-result">
+                            @if (publishResult.upToDate) {
+                                The deployment repository is already up to date (commit <code>{{ publishResultShortSha() }}</code>).
+                            } @else if (publishResult.commitUrl) {
+                                Published as commit
+                                <a [href]="publishResult.commitUrl" target="_blank" rel="noopener">{{ publishResultShortSha() }}</a>.
+                            } @else {
+                                Published as commit <code>{{ publishResultShortSha() }}</code>.
+                            }
+                        </div>
+                    }
+
+                    @if (deploymentPackagePublishErrorMessage(); as publishError) {
+                        <div class="alert alert-danger mt-2 mb-0" role="alert" data-testid="publish-error">{{ publishError }}</div>
+                    }
 
                     @if (exportBlocked()) {
                         <p class="mt-2 mb-0 small text-danger-emphasis" data-testid="deployment-package-invalid-note">

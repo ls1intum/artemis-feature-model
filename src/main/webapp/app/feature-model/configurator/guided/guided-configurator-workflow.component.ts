@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
 
+import { DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from '../../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
-import { DEPLOYMENT_TARGETS, deploymentTargetFor } from '../shared/deployment-targets';
+import { DEPLOYMENT_TARGETS, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from '../shared/deployment-targets';
 import {
     ConfiguratorScreen,
     DecisionChangeSummary,
@@ -60,8 +61,26 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly deploymentPackageDownloading = input<boolean>(false);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
     readonly selectedDeploymentMode = input.required<string>();
+    readonly deploymentTargetName = input<string>('');
+    readonly publishTarget = input<DeploymentPackagePublishTarget | undefined>(undefined);
+    readonly deploymentPackagePublishing = input<boolean>(false);
+    readonly deploymentPackagePublishResult = input<DeploymentPackagePublishResponse | undefined>(undefined);
+    readonly deploymentPackagePublishErrorMessage = input<string | undefined>(undefined);
     readonly deploymentTargets = DEPLOYMENT_TARGETS;
     readonly selectedDeploymentTarget = computed(() => deploymentTargetFor(this.selectedDeploymentMode()));
+    readonly remoteTargetSelected = computed(() => this.selectedDeploymentMode() === REMOTE_DEPLOYMENT_MODE);
+    /** Directory-name form of the target name, mirroring the server-side sanitization for the destination preview. */
+    readonly sanitizedTargetDirectoryName = computed(() => this.deploymentTargetName().trim().toLowerCase().replace(/[^a-z0-9-]/g, ''));
+    /** The publish action needs a configured deployment repository and a routable target name. */
+    readonly publishActionAvailable = computed(() => (this.publishTarget()?.configured ?? false) && this.sanitizedTargetDirectoryName().length > 0);
+    readonly publishDestination = computed(() => {
+        const target = this.publishTarget();
+        if (!target?.configured) {
+            return '';
+        }
+        return `${target.repositoryUrl}@${target.branch}/${target.targetDirectoryRoot}/${this.sanitizedTargetDirectoryName()}`;
+    });
+    readonly publishResultShortSha = computed(() => this.deploymentPackagePublishResult()?.commitSha.slice(0, 7) ?? '');
 
     readonly selectTemplate = output<string>();
     readonly startWorkflow = output<void>();
@@ -76,7 +95,9 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly openTree = output<void>();
     readonly generateArtifacts = output<void>();
     readonly downloadDeploymentPackage = output<void>();
+    readonly publishAndDownloadDeploymentPackage = output<void>();
     readonly selectDeploymentMode = output<string>();
+    readonly deploymentTargetNameChange = output<string>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 
@@ -116,6 +137,10 @@ export class GuidedConfiguratorWorkflowComponent {
 
     onSelectInfoTab(tab: OptionInfoTab): void {
         this.infoTab.set(tab);
+    }
+
+    onDeploymentTargetNameInput(event: Event): void {
+        this.deploymentTargetNameChange.emit((event.target as HTMLInputElement).value);
     }
 
     isOptionSelected(decision: GuidedDecision, option: GuidedDecisionOption): boolean {
