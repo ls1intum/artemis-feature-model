@@ -16,6 +16,16 @@ artemis:
     runtime:
       source-commit: f4428ab20bab3595d4c51a420c2004bf0a6afbe3
       image-digest: latest
+    # Deployment repository publishing stays disabled unless a local run configures it explicitly. The access token
+    # is never a property: it is read only from the FM_DEPLOYMENT_REPO_TOKEN environment variable.
+    deployment-repository:
+      enabled: false
+      repository-url:
+      branch: main
+      target-directory-root: deployments
+      expected-visibility:
+      author-name: artemis-feature-model composer
+      author-email: feature-model@thesis.invalid
 
 logging:
   level:
