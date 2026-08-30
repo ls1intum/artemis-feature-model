@@ -1,44 +1,57 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 
 /**
- * Deterministic emission plan of a remote-ansible generation run: the rendered inventory files, every vault reference
- * they contain, the per-feature classification results, and the per-input environment states. The plan is produced by
- * a pure function over the active model, the selection, the binding catalog, and the resolved environment values; it
- * contains no timestamps and no secret values.
+ * Deterministic emission plan of a remote-ansible generation run: the rendered inventory files, every environment
+ * reference they contain, and the per-feature classification results. The plan is produced by a pure function over
+ * the active model, the selection, the binding catalog, and the resolved target identity; it contains no timestamps
+ * and no secret or environment values.
  *
  * @param targetGroup inventory group name of the deployment target.
  * @param valuesFiles rendered inventory files in package order.
- * @param vaultReferences vault references contained in the rendered files, in file order.
+ * @param envReferences environment references contained in the rendered files, in file order.
  * @param classifications per-feature classification results in model order.
- * @param environmentStates per-input environment states in input declaration order.
  * @param bindingCatalog identity of the binding catalog the plan was produced with.
  */
-public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> valuesFiles, List<PlannedVaultReference> vaultReferences,
-        List<FeatureClassificationResult> classifications, List<EnvironmentState> environmentStates, CatalogIdentity bindingCatalog) {
+public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> valuesFiles, List<PlannedEnvReference> envReferences,
+        List<FeatureClassificationResult> classifications, CatalogIdentity bindingCatalog) {
 
-    /** Environment state of a provided (or derived) input. */
-    public static final String ENVIRONMENT_PROVIDED = "provided";
+    /** Environment-reference kind of an admin-owned identity value. */
+    public static final String ENV_KIND_IDENTITY = "identity";
 
-    /** Environment state of an input resolved to a placeholder. */
-    public static final String ENVIRONMENT_PENDING = "pending";
+    /** Environment-reference kind of a secret-class value. */
+    public static final String ENV_KIND_SECRET = "secret";
 
     /**
      * Normalizes nullable collections to immutable empty lists.
      *
      * @param targetGroup inventory group name.
      * @param valuesFiles rendered inventory files.
-     * @param vaultReferences contained vault references.
+     * @param envReferences contained environment references.
      * @param classifications per-feature classification results.
-     * @param environmentStates per-input environment states.
      * @param bindingCatalog binding catalog identity.
      */
     public RemoteAnsibleEmissionPlan {
         valuesFiles = valuesFiles == null ? List.of() : List.copyOf(valuesFiles);
-        vaultReferences = vaultReferences == null ? List.of() : List.copyOf(vaultReferences);
+        envReferences = envReferences == null ? List.of() : List.copyOf(envReferences);
         classifications = classifications == null ? List.of() : List.copyOf(classifications);
-        environmentStates = environmentStates == null ? List.of() : List.copyOf(environmentStates);
+    }
+
+    /**
+     * Derives the sorted, de-duplicated environment-variable names the rendered files reference. This is the
+     * fail-closed input of the shipped preflight env gate and the readiness environment section.
+     *
+     * @return sorted required environment-variable names.
+     */
+    public List<String> requiredEnvironmentVariables() {
+        TreeSet<String> names = new TreeSet<>();
+        for (PlannedEnvReference reference : envReferences) {
+            names.add(reference.envVar());
+        }
+        return new ArrayList<>(names);
     }
 
     /**
@@ -51,14 +64,14 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
     }
 
     /**
-     * One vault reference contained in a rendered file.
+     * One environment reference contained in a rendered file.
      *
-     * @param path resolved vault path.
-     * @param field field name inside the vault secret.
+     * @param envVar user-provisioned environment-variable name.
      * @param consumer collection variable path that consumes the resolved value.
      * @param file package-relative path of the file containing the reference.
+     * @param kind {@link #ENV_KIND_SECRET} or {@link #ENV_KIND_IDENTITY}.
      */
-    public record PlannedVaultReference(String path, String field, String consumer, String file) {
+    public record PlannedEnvReference(String envVar, String consumer, String file, String kind) {
     }
 
     /**
@@ -69,15 +82,6 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
      * @param selected whether the feature is part of the selection.
      */
     public record FeatureClassificationResult(String featureId, String classification, boolean selected) {
-    }
-
-    /**
-     * Environment state of one remote environment input.
-     *
-     * @param input input name.
-     * @param status {@link #ENVIRONMENT_PROVIDED} or {@link #ENVIRONMENT_PENDING}.
-     */
-    public record EnvironmentState(String input, String status) {
     }
 
     /**

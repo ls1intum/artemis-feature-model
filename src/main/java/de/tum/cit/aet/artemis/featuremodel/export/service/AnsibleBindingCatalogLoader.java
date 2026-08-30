@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
-import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
 import de.tum.cit.aet.artemis.featuremodel.shared.util.ClasspathJsonReader;
 import tools.jackson.databind.ObjectMapper;
@@ -35,6 +35,9 @@ public class AnsibleBindingCatalogLoader {
 
     private static final Set<String> KNOWN_UNSUPPORTED_DIRECTIONS = Set.of(AnsibleBindingCatalog.UNSUPPORTED_WHEN_SELECTED,
             AnsibleBindingCatalog.UNSUPPORTED_WHEN_DESELECTED);
+
+    /** Shape of a user-provisioned environment-variable name. */
+    private static final Pattern ENV_VAR_PATTERN = Pattern.compile("[A-Z][A-Z0-9_]*");
 
     private static final List<String> SECTION_LABELS = List.of("technical database", "technical ciProvider", "feature");
 
@@ -77,8 +80,9 @@ public class AnsibleBindingCatalogLoader {
     }
 
     /**
-     * Validates the shipped catalog: identity fields, known emission, binding, and direction kinds, known environment
-     * inputs, mandatory reasons, the technical axes, and unique group files.
+     * Validates the shipped catalog: identity fields, known emission, binding, and direction kinds, declared
+     * environment-variable names and their rendered lookup expressions, mandatory reasons, the technical axes, and
+     * unique group files.
      *
      * @param catalog parsed catalog.
      * @throws FeatureModelLoadException if the catalog is internally inconsistent.
@@ -102,20 +106,19 @@ public class AnsibleBindingCatalogLoader {
             }
         }
         for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            if (!StringUtils.hasText(entry.input()) || entry.lines().isEmpty()) {
-                throw invalid("Environment entry '" + entry.var() + "' must declare its input and rendered lines.");
+            validateEnvVarName("Environment entry", entry.var(), entry.envVar());
+            if (entry.lines().isEmpty()) {
+                throw invalid("Environment entry '" + entry.var() + "' declares no rendered lines.");
             }
             if (!AnsibleBindingCatalog.FILE_COMMON_CONFIG.equals(entry.file()) && !AnsibleBindingCatalog.FILE_TARGET_MAIN.equals(entry.file())) {
                 throw invalid("Environment entry '" + entry.var() + "' declares unknown target file '" + entry.file() + "'.");
             }
-            if (RemoteEnvironmentValues.Input.byName(entry.input()) == null) {
-                throw invalid("Environment entry '" + entry.var() + "' declares unknown input '" + entry.input() + "'.");
+            if (!containsEnvLookup(entry.lines(), entry.envVar())) {
+                throw invalid("Environment entry '" + entry.var() + "' does not render the environment lookup of '" + entry.envVar() + "'.");
             }
         }
         for (AnsibleBindingCatalog.SecretEntry entry : catalog.secrets()) {
-            if (!StringUtils.hasText(entry.vaultPath()) || !StringUtils.hasText(entry.vaultField())) {
-                throw invalid("Secret entry '" + entry.var() + "' must declare its vault path and field.");
-            }
+            validateEnvVarName("Secret entry", entry.var(), entry.envVar());
         }
         if (catalog.technical().database().isEmpty() || catalog.technical().ciProvider().isEmpty()) {
             throw invalid("The catalog must declare technical database and ciProvider bindings.");
@@ -207,6 +210,40 @@ public class AnsibleBindingCatalogLoader {
         if (binding.gating() != null && section.startsWith("technical")) {
             throw invalid("The bound " + section + " binding of '" + featureId + "' must not declare a gating; technical choices are selection-resolved.");
         }
+        for (AnsibleBindingCatalog.EnvReference reference : binding.envReferences()) {
+            validateEnvVarName("The bound " + section + " binding of '" + featureId + "'", reference.consumer(), reference.envVar());
+            if (!containsEnvLookup(binding.lines(), reference.envVar())) {
+                throw invalid("The bound " + section + " binding of '" + featureId + "' declares environment reference '" + reference.envVar()
+                        + "' but does not render its lookup.");
+            }
+        }
+    }
+
+    /**
+     * Validates a declared user-provisioned environment-variable name.
+     *
+     * @param owner owning entry label for error messages.
+     * @param entryName entry or consumer name for error messages.
+     * @param envVar declared environment-variable name.
+     * @throws FeatureModelLoadException if the name is absent or not an uppercase environment-variable token.
+     */
+    private void validateEnvVarName(String owner, String entryName, String envVar) {
+        if (!StringUtils.hasText(envVar) || !ENV_VAR_PATTERN.matcher(envVar).matches()) {
+            throw invalid(owner + " '" + entryName + "' must declare an uppercase environment-variable name.");
+        }
+    }
+
+    /**
+     * Checks whether one of the rendered lines embeds the environment lookup expression of a variable name, so a
+     * declared reference can never drift from the emitted bytes.
+     *
+     * @param lines rendered lines.
+     * @param envVar environment-variable name.
+     * @return whether a line contains the lookup expression.
+     */
+    private boolean containsEnvLookup(List<String> lines, String envVar) {
+        String lookup = RemoteAnsibleEmissionPlanner.envLookup(envVar);
+        return lines.stream().anyMatch(line -> line.contains(lookup));
     }
 
     /**

@@ -76,7 +76,7 @@ class RemoteAnsibleDeploymentPackageTest {
                 "inventory/group_vars/artemistarget/main.yml", "inventory/group_vars/artemistarget/secrets.yml",
                 "inventory/group_vars/artemistests_common_config.yml", "inventory/group_vars/artemistests_mysql.yml",
                 "inventory/group_vars/artemistests_local_vc_ci.yml", "inventory/group_vars/artemistests_without_atlas.yml", "preflight.sh",
-                "metadata/package-manifest.json", "metadata/remote-readiness.json", "metadata/vault-references.json", "metadata/selected-features.json");
+                "metadata/package-manifest.json", "metadata/remote-readiness.json", "metadata/env-references.json", "metadata/selected-features.json");
         assertThat(content(result, "inventory/hosts")).contains("[artemistests_mysql:children]\nartemistarget")
                 .contains("[artemistests_local_vc_ci:children]\nartemistarget").contains("[artemistests_without_atlas:children]\nartemistarget")
                 .doesNotContain("artemistests_postgres");
@@ -111,7 +111,9 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(addedPaths).containsExactly("inventory/group_vars/artemistests_iris.yml");
         assertThat(content(irisVariant, "inventory/hosts")).contains("[artemistests_iris:children]\nartemistarget");
         assertThat(content(irisVariant, "inventory/group_vars/artemistests_iris.yml"))
-                .contains("url: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/pyris-test').get('url') }}\"");
+                .contains("url: \"{{ lookup('ansible.builtin.env', 'IRIS_URL') }}\"");
+        assertThat(content(irisVariant, "preflight.sh")).contains("IRIS_URL").contains("IRIS_SECRET");
+        assertThat(content(base, "preflight.sh")).doesNotContain("IRIS_URL");
     }
 
     @Test
@@ -164,40 +166,61 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(readiness.get("secretsAsReferences").asString()).isEqualTo("pass");
         assertThat(readiness.get("syntaxValidated").asString()).isEqualTo("pending");
         assertThat(readiness.get("bindingsResolved").isArray()).isTrue();
-        assertThat(readiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("pending"));
-        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(1);
+        List<String> requiredNames = new ArrayList<>();
+        for (JsonNode name : readiness.get("requiredEnvironmentVariables")) {
+            requiredNames.add(name.asString());
+        }
+        assertThat(requiredNames).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST");
+        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(2);
         assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }
 
     @Test
-    void noGeneratedByteContainsASecretValueChannel() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(withExtra(FULL_MYSQL_SELECTION, "iris", "hyperion")));
+    void noGeneratedByteContainsAValueChannelOrBakedEnvironmentValue() {
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_MYSQL_SELECTION, "iris", "hyperion"), null, null,
+                "remote-ansible", labEnvironment()));
 
-        String secretsFile = content(result, "inventory/group_vars/artemistarget/secrets.yml");
+        String secretsFile = content(result, "inventory/group_vars/artemislocal/secrets.yml");
         assertThat(secretsFile.lines().filter(line -> line.contains(":") && !line.startsWith("#") && !line.equals("---")))
-                .allMatch(line -> line.contains("lookup('hashi_vault'"));
+                .allMatch(line -> line.contains("lookup('ansible.builtin.env'"));
         for (GeneratedArtifactFile file : result.files()) {
-            assertThat(file.content()).as("file %s", file.path()).doesNotContain("secrets.example");
+            assertThat(file.content()).as("file %s", file.path())
+                    .doesNotContain("secrets.example")
+                    .doesNotContain("hashi_vault")
+                    .doesNotContain("REPLACE_ME_")
+                    .doesNotContain("nip.io")
+                    .doesNotContain("thesis.invalid")
+                    .doesNotContain("Junting");
         }
     }
 
     @Test
-    void environmentInputYieldsSameStructureWithValuesInsteadOfPlaceholders() {
-        GeneratedArtifactPackage placeholderPackage = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+    void targetNameOnlyChangesTheTargetGroupNaming() {
+        GeneratedArtifactPackage defaultPackage = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
         GeneratedArtifactPackage labPackage = service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "remote-ansible",
                 labEnvironment()));
 
-        List<String> placeholderPaths = placeholderPackage.files().stream().map(GeneratedArtifactFile::path)
+        List<String> renamedDefaultPaths = defaultPackage.files().stream().map(GeneratedArtifactFile::path)
                 .map(path -> path.replace("artemistarget", "artemislocal")).toList();
-        assertThat(labPackage.files().stream().map(GeneratedArtifactFile::path).toList()).isEqualTo(placeholderPaths);
+        assertThat(labPackage.files().stream().map(GeneratedArtifactFile::path).toList()).isEqualTo(renamedDefaultPaths);
         assertThat(content(labPackage, "inventory/group_vars/artemislocal/main.yml"))
-                .isEqualTo("---\nvar_testserver_name: \"artemis-local\"\nvar_server_hostname: \"artemis.192.168.252.2.nip.io\"");
-        assertThat(content(placeholderPackage, "inventory/group_vars/artemistarget/main.yml")).contains("REPLACE_ME_TARGET_NAME");
-        JsonNode labReadiness = objectMapper.readTree(content(labPackage, "metadata/remote-readiness.json"));
-        assertThat(labReadiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("provided"));
-        JsonNode placeholderReadiness = objectMapper.readTree(content(placeholderPackage, "metadata/remote-readiness.json"));
-        assertThat(placeholderReadiness.get("environmentProvided")).allSatisfy(state -> assertThat(state.get("status").asString()).isEqualTo("pending"));
+                .isEqualTo(content(defaultPackage, "inventory/group_vars/artemistarget/main.yml"));
+        assertThat(content(labPackage, "inventory/hosts")).startsWith("[artemislocal]\n\n");
+        assertThat(content(defaultPackage, "inventory/hosts")).startsWith("[artemistarget]\n\n");
+    }
+
+    @Test
+    void preflightEmbedsTheRequiredEnvironmentVariableGate() {
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+
+        String preflight = content(result, "preflight.sh");
+        JsonNode readiness = objectMapper.readTree(content(result, "metadata/remote-readiness.json"));
+        for (JsonNode name : readiness.get("requiredEnvironmentVariables")) {
+            assertThat(preflight).contains("\n" + name.asString() + "\n");
+        }
+        assertThat(preflight).contains("is not set or is empty").contains("--syntax-check");
+        assertThat(preflight.indexOf("required environment variables")).isLessThan(preflight.indexOf("--syntax-check"));
     }
 
     @Test
@@ -211,18 +234,17 @@ class RemoteAnsibleDeploymentPackageTest {
     }
 
     @Test
-    void requirementsPinTheArtemisCollectionAndDeclareTheCollectionsItsRolesAndVaultLookupsNeed() {
+    void requirementsPinTheArtemisCollectionAndDeclareTheCollectionsItsRolesNeed() {
         GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
 
         String requirements = content(result, "requirements.yml");
         assertThat(requirements).contains("version: fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e").contains("- name: ansible.posix")
-                .contains("- name: community.crypto").contains("- name: community.general").contains("- name: community.hashi_vault");
-        assertThat(content(result, "README.md")).contains("community.hashi_vault.hashi_vault").doesNotContain("ansible.builtin.hashi_vault");
+                .contains("- name: community.crypto").contains("- name: community.general").doesNotContain("hashi_vault");
+        assertThat(content(result, "README.md")).contains("lookup('ansible.builtin.env', …)").contains("env-references.json");
     }
 
     private RemoteEnvironmentInput labEnvironment() {
-        return new RemoteEnvironmentInput("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
-                "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);
+        return new RemoteEnvironmentInput("artemis-local");
     }
 
     private ArtifactGenerationRequest remoteRequest(List<String> selection) {

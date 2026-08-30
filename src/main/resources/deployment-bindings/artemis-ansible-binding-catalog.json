@@ -1,7 +1,7 @@
 {
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "collectionPin": "fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e",
-  "curationSource": "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles",
+  "curationSource": "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names taken verbatim from the user-provisioned mapping of 2026-08-29 (devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt)",
   "baseline": [
     { "var": "node_id", "emission": "always", "order": 10, "group": 1, "lines": ["node_id: 1"], "evidence": "Node 1 carries the scheduling Spring profile." },
     { "var": "is_testserver", "emission": "always", "order": 20, "group": 1, "lines": ["is_testserver: true"] },
@@ -24,18 +24,18 @@
     { "var": "push_notification_relay", "emission": "null-override", "order": 240, "group": 12, "lines": ["push_notification_relay:"], "reason": "The collection defaults this variable to the hermes-prod relay; removing the key resurrects the default, so an explicit null is the only off-switch." }
   ],
   "environment": [
-    { "var": "var_testserver_name", "input": "targetName", "file": "target-main", "order": 10, "group": 1, "lines": ["var_testserver_name: \"{value}\""], "reason": "Host identity; single maintenance point for the target name." },
-    { "var": "var_server_hostname", "input": "serverHostname", "file": "target-main", "order": 20, "group": 1, "lines": ["var_server_hostname: \"{value}\""], "reason": "Single maintenance point for the server hostname (server URL and LocalVC ssh_url derive from it)." },
-    { "var": "artemis_email", "input": "email", "file": "common-config", "order": 40, "group": 1, "lines": ["artemis_email: \"{value}\""], "reason": "Admin-owned contact address." },
-    { "var": "artemis_operator_name", "input": "operatorName", "file": "common-config", "order": 160, "group": 6, "lines": ["artemis_operator_name: \"{value}\""], "reason": "INFO_OPERATORNAME is unguarded in artemis.env.j2 and therefore mandatory." },
-    { "var": "artemis_operator_admin_name", "input": "operatorAdminName", "file": "common-config", "order": 170, "group": 6, "lines": ["artemis_operator_admin_name: \"{value}\""], "reason": "INFO_OPERATORADMINNAME is unguarded in artemis.env.j2 and therefore mandatory." },
-    { "var": "proxy_ssl_certificate_path", "input": "certPath", "file": "common-config", "order": 220, "group": 11, "lines": ["proxy_ssl_certificate_path: \"{value}\""], "reason": "nginx bind-mounts the certificate file; the path is admin-owned." },
-    { "var": "proxy_ssl_certificate_key_path", "input": "certKeyPath", "file": "common-config", "order": 230, "group": 11, "lines": ["proxy_ssl_certificate_key_path: \"{value}\""], "reason": "nginx bind-mounts the key file; the path is admin-owned." }
+    { "var": "var_testserver_name", "envVar": "TESTSERVER_NAME", "file": "target-main", "order": 10, "group": 1, "lines": ["var_testserver_name: \"{{ lookup('ansible.builtin.env', 'TESTSERVER_NAME') }}\""], "reason": "Host identity; supplied by the execution environment so the package bakes no environment value." },
+    { "var": "var_server_hostname", "envVar": "SERVER_HOSTNAME", "file": "target-main", "order": 20, "group": 1, "lines": ["var_server_hostname: \"{{ lookup('ansible.builtin.env', 'SERVER_HOSTNAME') }}\""], "reason": "Single maintenance point for the server hostname (server URL and LocalVC ssh_url derive from it lazily, so the env lookup propagates)." },
+    { "var": "artemis_email", "envVar": "ARTEMIS_EMAIL_TEST", "file": "common-config", "order": 40, "group": 1, "lines": ["artemis_email: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}\""], "reason": "Admin-owned contact address; the collection's mail-from split evaluates the lookup lazily." },
+    { "var": "artemis_operator_name", "envVar": "ARTEMIS_OPERATOR_NAME", "file": "common-config", "order": 160, "group": 6, "lines": ["artemis_operator_name: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}\""], "reason": "INFO_OPERATORNAME is unguarded in artemis.env.j2 and therefore mandatory." },
+    { "var": "artemis_operator_admin_name", "envVar": "ARTEMIS_OPERATOR_ADMIN_NAME", "file": "common-config", "order": 170, "group": 6, "lines": ["artemis_operator_admin_name: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_ADMIN_NAME') }}\""], "reason": "INFO_OPERATORADMINNAME is unguarded in artemis.env.j2 and therefore mandatory." },
+    { "var": "proxy_ssl_certificate_path", "envVar": "PROXY_SSL_CERTIFICATE_PATH", "file": "common-config", "order": 220, "group": 11, "lines": ["proxy_ssl_certificate_path: \"{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_PATH') }}\""], "reason": "nginx bind-mounts the certificate file; the path is admin-owned." },
+    { "var": "proxy_ssl_certificate_key_path", "envVar": "PROXY_SSL_CERTIFICATE_KEY_PATH", "file": "common-config", "order": 230, "group": 11, "lines": ["proxy_ssl_certificate_key_path: \"{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_KEY_PATH') }}\""], "reason": "nginx bind-mounts the key file; the path is admin-owned." }
   ],
   "secrets": [
-    { "var": "artemis_database_password", "vaultPath": "kv/data/artemis/test/{vaultServerName}", "vaultField": "db_password", "evidence": "Deployment-internal contract value; both ends are owned by the deployment." },
-    { "var": "artemis_internal_admin_password", "vaultPath": "kv/data/artemis/test/{vaultServerName}", "vaultField": "internal_admin", "evidence": "Deployment-internal contract value; doubles as the artemis_admin login password." },
-    { "var": "artemis_jhipster_jwt", "vaultPath": "kv/data/artemis/test/{vaultServerName}", "vaultField": "jhipster_jwt", "evidence": "Deployment-internal contract value; format constraint: long base64 value." }
+    { "var": "artemis_database_password", "envVar": "ARTEMIS_DATABASE_PASSWORD", "evidence": "Deployment-internal contract value; both ends are owned by the deployment. Must stay stable across deploys of a target: a database applies credentials only on first initialization." },
+    { "var": "artemis_internal_admin_password", "envVar": "ARTEMIS_INTERNAL_ADMIN_PASSWORD", "evidence": "Deployment-internal contract value; doubles as the artemis_admin login password." },
+    { "var": "artemis_jhipster_jwt", "envVar": "ARTEMIS_JHIPSTER_JWT", "evidence": "Deployment-internal contract value; format constraint: long base64 value." }
   ],
   "technical": {
     "database": {
@@ -84,10 +84,10 @@
       "binding": "bound",
       "membership": "artemistests_iris",
       "groupVarsFile": "artemistests_iris.yml",
-      "lines": ["---", "iris:", "  url: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/pyris-test').get('url') }}\"", "  secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/pyris-test').get('secret') }}\""],
-      "vaultReferences": [
-        { "path": "kv/data/artemis/common/pyris-test", "field": "url", "consumer": "iris.url" },
-        { "path": "kv/data/artemis/common/pyris-test", "field": "secret", "consumer": "iris.secret" }
+      "lines": ["---", "iris:", "  url: \"{{ lookup('ansible.builtin.env', 'IRIS_URL') }}\"", "  secret: \"{{ lookup('ansible.builtin.env', 'IRIS_SECRET') }}\""],
+      "envReferences": [
+        { "envVar": "IRIS_URL", "consumer": "iris.url" },
+        { "envVar": "IRIS_SECRET", "consumer": "iris.secret" }
       ],
       "evidence": "Guard in artemis.env.j2: iris is defined and is not none; value shape from the upstream artemistests_iris.yml (iris block only, without the upstream nebula bundling)."
     },
@@ -95,12 +95,12 @@
       "binding": "bound",
       "membership": "artemistests_athena",
       "groupVarsFile": "artemistests_athena.yml",
-      "lines": ["---", "athena:", "  url: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/athena').get('url') }}\"", "  secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/athena').get('secret') }}\""],
-      "vaultReferences": [
-        { "path": "kv/data/artemis/common/athena", "field": "url", "consumer": "athena.url" },
-        { "path": "kv/data/artemis/common/athena", "field": "secret", "consumer": "athena.secret" }
+      "lines": ["---", "athena:", "  url: \"{{ lookup('ansible.builtin.env', 'ATHENA_URL') }}\"", "  secret: \"{{ lookup('ansible.builtin.env', 'ATHENA_SECRET') }}\""],
+      "envReferences": [
+        { "envVar": "ATHENA_URL", "consumer": "athena.url" },
+        { "envVar": "ATHENA_SECRET", "consumer": "athena.secret" }
       ],
-      "evidence": "Guard in artemis.env.j2: athena is defined, fields url and secret; no upstream inventory example exists, so the vault path follows the kv/data/artemis/common/<service> convention."
+      "evidence": "Guard in artemis.env.j2: athena is defined, fields url and secret; no upstream inventory example exists, so the value shape follows the iris block convention."
     },
     "atlas": {
       "binding": "bound",
@@ -114,23 +114,23 @@
       "binding": "bound",
       "membership": "artemistests_hyperion",
       "groupVarsFile": "artemistests_hyperion.yml",
-      "lines": ["---", "artemis_hyperion_enabled: true", "", "spring_ai:", "  azure_openai:", "    api_key: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_api_key') }}\"", "    endpoint: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_endpoint') }}\"", "    deployment_name: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/hyperion').get('azure_openai_deployment_name') }}\"", "    temperature: 1.0"],
-      "vaultReferences": [
-        { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_api_key", "consumer": "spring_ai.azure_openai.api_key" },
-        { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_endpoint", "consumer": "spring_ai.azure_openai.endpoint" },
-        { "path": "kv/data/artemis/common/hyperion", "field": "azure_openai_deployment_name", "consumer": "spring_ai.azure_openai.deployment_name" }
+      "lines": ["---", "artemis_hyperion_enabled: true", "", "spring_ai:", "  azure_openai:", "    api_key: \"{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_API_KEY') }}\"", "    endpoint: \"{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_ENDPOINT') }}\"", "    deployment_name: \"{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_DEPLOYMENT_NAME') }}\"", "    temperature: 1.0"],
+      "envReferences": [
+        { "envVar": "AZURE_OPENAI_API_KEY", "consumer": "spring_ai.azure_openai.api_key" },
+        { "envVar": "AZURE_OPENAI_ENDPOINT", "consumer": "spring_ai.azure_openai.endpoint" },
+        { "envVar": "AZURE_OPENAI_DEPLOYMENT_NAME", "consumer": "spring_ai.azure_openai.deployment_name" }
       ],
-      "evidence": "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty, which the complete block satisfies; value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
+      "evidence": "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty; an unset variable would fail that guard silently, which is why the preflight env gate refuses missing or empty values first. Value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
     },
     "lti": {
       "binding": "bound",
       "membership": "artemistests_lti",
       "groupVarsFile": "artemistests_lti.yml",
-      "lines": ["---", "lti:", "  oauth_secret: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/lti').get('oauth_secret') }}\""],
-      "vaultReferences": [
-        { "path": "kv/data/artemis/common/lti", "field": "oauth_secret", "consumer": "lti.oauth_secret" }
+      "lines": ["---", "lti:", "  oauth_secret: \"{{ lookup('ansible.builtin.env', 'LTI_OAUTH_SECRET') }}\""],
+      "envReferences": [
+        { "envVar": "LTI_OAUTH_SECRET", "consumer": "lti.oauth_secret" }
       ],
-      "evidence": "Guard in artemis.env.j2: lti is defined; value shape and vault path from the admin sample (dropped there as a minimal-variant block)."
+      "evidence": "Guard in artemis.env.j2: lti is defined; value shape from the admin sample (dropped there as a minimal-variant block)."
     },
     "theia": {
       "binding": "bound",
@@ -150,9 +150,9 @@
       "binding": "bound",
       "membership": "artemistests_sharing",
       "groupVarsFile": "artemistests_sharing.yml",
-      "lines": ["---", "sharing:", "  url: \"https://dev-exchange.codeability-austria.uibk.ac.at/\"", "  apikey: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/sharing').get('apikey') }}\"", "  actionname: \"Export to Artemis@{{ var_server_hostname }}\""],
-      "vaultReferences": [
-        { "path": "kv/data/artemis/common/sharing", "field": "apikey", "consumer": "sharing.apikey" }
+      "lines": ["---", "sharing:", "  url: \"https://dev-exchange.codeability-austria.uibk.ac.at/\"", "  apikey: \"{{ lookup('ansible.builtin.env', 'SHARING_APIKEY') }}\"", "  actionname: \"Export to Artemis@{{ var_server_hostname }}\""],
+      "envReferences": [
+        { "envVar": "SHARING_APIKEY", "consumer": "sharing.apikey" }
       ],
       "evidence": "Guard in artemis.env.j2: sharing is defined, fields url, apikey, and actionname; value shape from the commented reference block in the upstream artemistests_common_config.yml, with the action name pointed at this target's hostname."
     }

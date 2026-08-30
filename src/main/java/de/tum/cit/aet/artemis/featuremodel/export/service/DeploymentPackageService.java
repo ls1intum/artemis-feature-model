@@ -112,8 +112,8 @@ public class DeploymentPackageService {
     /** Layered readiness of the remote-ansible package. */
     static final String REMOTE_READINESS_FILE = "metadata/remote-readiness.json";
 
-    /** Every vault reference of the remote-ansible package: path, field, and consuming variable. */
-    static final String VAULT_REFERENCES_FILE = "metadata/vault-references.json";
+    /** Every environment reference of the remote-ansible package: variable, consumer, file, and kind. */
+    static final String ENV_REFERENCES_FILE = "metadata/env-references.json";
 
     /** Manifest CI-provider mode of the packages that apply the provider through Spring profiles. */
     private static final String CI_PROVIDER_MODE_SPRING_PROFILES = "spring-profiles";
@@ -260,7 +260,7 @@ public class DeploymentPackageService {
         if (request.remoteEnvironment() != null && !DeploymentModes.REMOTE_ANSIBLE.equals(deploymentMode)) {
             throw ArtifactGenerationException.remoteEnvironmentNotApplicable(deploymentMode);
         }
-        RemoteEnvironmentValues remoteEnvironment = request.remoteEnvironment() == null ? RemoteEnvironmentValues.placeholders()
+        RemoteEnvironmentValues remoteEnvironment = request.remoteEnvironment() == null ? RemoteEnvironmentValues.defaultTarget()
                 : request.remoteEnvironment().resolve();
 
         SharedArtifacts shared = generateSharedArtifacts(request);
@@ -278,7 +278,7 @@ public class DeploymentPackageService {
      * @param shared shared generation results.
      * @param deploymentMode resolved deployment mode.
      * @param requestedDeploymentMode explicitly requested deployment mode id, or {@code null} for a default request.
-     * @param remoteEnvironment resolved remote environment values; placeholders unless the request supplied them.
+     * @param remoteEnvironment resolved target identity; the default target group unless the request supplied one.
      * @return ordered package files for the resolved mode.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the deployment mode is unknown.
      */
@@ -599,7 +599,7 @@ public class DeploymentPackageService {
      * runs against the active model and fails closed before any file is composed.
      *
      * @param shared shared generation results.
-     * @param environment resolved remote environment values.
+     * @param environment resolved target identity.
      * @return ordered remote-ansible package files.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if a feature is
      *             unclassified or a selection state is unsupported.
@@ -610,7 +610,7 @@ public class DeploymentPackageService {
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN,
-                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), plan)));
+                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId())));
         files.add(new GeneratedArtifactFile("requirements.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.requirementsYml()));
         files.add(new GeneratedArtifactFile("ansible.cfg", CONTENT_TYPE_TEXT, remoteAnsibleValuesWriter.ansibleCfg()));
         files.add(new GeneratedArtifactFile("playbook.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.playbookYml()));
@@ -618,14 +618,15 @@ public class DeploymentPackageService {
             String contentType = plannedFile.path().endsWith(".yml") ? CONTENT_TYPE_YAML : CONTENT_TYPE_TEXT;
             files.add(new GeneratedArtifactFile(plannedFile.path(), contentType, plannedFile.content()));
         }
-        files.add(new GeneratedArtifactFile("preflight.sh", CONTENT_TYPE_SHELL, remoteAnsibleValuesWriter.preflightScript()));
+        files.add(new GeneratedArtifactFile("preflight.sh", CONTENT_TYPE_SHELL,
+                remoteAnsibleValuesWriter.preflightScript(plan.requiredEnvironmentVariables())));
 
         List<String> packagePaths = new ArrayList<>(files.stream().map(GeneratedArtifactFile::path).toList());
-        packagePaths.addAll(List.of(MANIFEST_FILE, REMOTE_READINESS_FILE, VAULT_REFERENCES_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE));
+        packagePaths.addAll(List.of(MANIFEST_FILE, REMOTE_READINESS_FILE, ENV_REFERENCES_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE));
 
         files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteAnsibleManifest(report, List.copyOf(packagePaths)))));
         files.add(new GeneratedArtifactFile(REMOTE_READINESS_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteReadiness(report, plan))));
-        files.add(new GeneratedArtifactFile(VAULT_REFERENCES_FILE, CONTENT_TYPE_JSON, writeJson(plan.vaultReferences())));
+        files.add(new GeneratedArtifactFile(ENV_REFERENCES_FILE, CONTENT_TYPE_JSON, writeJson(plan.envReferences())));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
         return files;
     }
@@ -648,8 +649,8 @@ public class DeploymentPackageService {
         DeploymentPackageManifest.Database database = selectedDatabase(report, "ansible-managed");
         DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report, "inventory-membership");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
-                "Admin-consumable Ansible deployment package: consumable, not deployable. Secrets are vault lookup expressions; run preflight.sh and review "
-                        + "metadata/remote-readiness.json before use.");
+                "Admin-consumable Ansible deployment package: consumable, not deployable. Environment and secret values are environment lookup expressions; "
+                        + "run preflight.sh and review metadata/remote-readiness.json before use.");
         return new DeploymentPackageManifest(RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_TYPE, RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_VERSION,
                 RuntimePackageConstants.MODE_DEMO, DeploymentModes.REMOTE_ANSIBLE, List.of(),
                 new DeploymentPackageManifest.ModelRef(report.modelId(), report.modelVersion()),
@@ -667,7 +668,7 @@ public class DeploymentPackageService {
      */
     private RemoteReadinessReport buildRemoteReadiness(GenerationReport report, RemoteAnsibleEmissionPlan plan) {
         return new RemoteReadinessReport(RemoteReadinessReport.STATE_PASS, plan.classifications(), RemoteReadinessReport.STATE_PASS,
-                plan.environmentStates(), RemoteReadinessReport.STATE_PASS, RemoteReadinessReport.STATE_PENDING,
+                plan.requiredEnvironmentVariables(), RemoteReadinessReport.STATE_PASS, RemoteReadinessReport.STATE_PENDING,
                 new RemoteReadinessReport.ModelIdentity(report.modelId(), report.modelVersion()), plan.bindingCatalog());
     }
 

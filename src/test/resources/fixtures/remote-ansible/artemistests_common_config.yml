@@ -2,7 +2,7 @@
 node_id: 1
 is_testserver: true
 artemis_server_url: "https://{{ var_server_hostname }}"
-artemis_email: "artemis-local@thesis.invalid"
+artemis_email: "{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}"
 
 artemis_version: develop
 artemis_branch: develop
@@ -19,8 +19,8 @@ artemis_ssh_priv_key_value: ""
 
 use_docker: true
 
-artemis_operator_name: "Artemis Feature Model Thesis Lab"
-artemis_operator_admin_name: "Junting Ning"
+artemis_operator_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}"
+artemis_operator_admin_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_ADMIN_NAME') }}"
 
 artemis_global_search_enabled: true
 
@@ -32,7 +32,7 @@ artemis_telemetry_enabled: false
 
 artemis_create_deployment_user: false
 
-proxy_ssl_certificate_path: "/opt/lab-certs/fullchain.pem"
-proxy_ssl_certificate_key_path: "/opt/lab-certs/privkey.pem"
+proxy_ssl_certificate_path: "{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_PATH') }}"
+proxy_ssl_certificate_key_path: "{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_KEY_PATH') }}"
 
 push_notification_relay:

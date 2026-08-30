@@ -20,15 +20,14 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrity
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteAnsibleEmissionPlan;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
-import de.tum.cit.aet.artemis.featuremodel.export.dto.RemoteEnvironmentInput;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Unit tests of the pure remote-ansible emission-plan layer: one test per emission semantics, including the rendered
- * null-override assertion, membership wiring for both database choices and the iris on/off states, and the fail-closed
- * behavior for unsupported and unclassified features.
+ * null-override assertion, the environment-lookup rendering, membership wiring for both database choices and the iris
+ * on/off states, and the fail-closed behavior for unsupported and unclassified features.
  */
 class RemoteAnsibleEmissionPlannerTest {
 
@@ -71,6 +70,39 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
+    void identityValuesAreRenderedAsEnvironmentLookups() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(plan, "inventory/group_vars/artemislocal/main.yml"))
+                .isEqualTo("---\nvar_testserver_name: \"{{ lookup('ansible.builtin.env', 'TESTSERVER_NAME') }}\"\n"
+                        + "var_server_hostname: \"{{ lookup('ansible.builtin.env', 'SERVER_HOSTNAME') }}\"");
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_common_config.yml"))
+                .contains("artemis_email: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}\"")
+                .contains("artemis_operator_name: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}\"")
+                .contains("proxy_ssl_certificate_key_path: \"{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_KEY_PATH') }}\"");
+    }
+
+    @Test
+    void secretsAreRenderedAsEnvironmentLookups() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(fileContent(plan, "inventory/group_vars/artemislocal/secrets.yml"))
+                .contains("artemis_database_password: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_DATABASE_PASSWORD') }}\"")
+                .contains("artemis_internal_admin_password: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_INTERNAL_ADMIN_PASSWORD') }}\"")
+                .contains("artemis_jhipster_jwt: \"{{ lookup('ansible.builtin.env', 'ARTEMIS_JHIPSTER_JWT') }}\"");
+    }
+
+    @Test
+    void hostsTargetGroupSectionIsEmpty() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        String hosts = fileContent(plan, RemoteAnsibleEmissionPlanner.HOSTS_FILE);
+        assertThat(hosts).startsWith("[artemislocal]\n\n[artemistests:children]\nartemislocal\n");
+        assertThat(hosts.lines().filter(line -> !line.isEmpty() && !line.startsWith("[")))
+                .as("every non-section line wires the target group").allMatch("artemislocal"::equals);
+    }
+
+    @Test
     void presenceGatedFeatureEmitsBlockAndMembershipOnlyWhenSelected() {
         RemoteAnsibleEmissionPlan withIris = planner.plan(model, fullSelection(), labEnvironment());
         RemoteAnsibleEmissionPlan withoutIris = planner.plan(model, selectionWithout("iris"), labEnvironment());
@@ -78,7 +110,7 @@ class RemoteAnsibleEmissionPlannerTest {
         assertThat(filePaths(withIris)).contains("inventory/group_vars/artemistests_iris.yml");
         assertThat(fileContent(withIris, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_iris:children]\nartemislocal");
         assertThat(fileContent(withIris, "inventory/group_vars/artemistests_iris.yml"))
-                .contains("iris:").contains("lookup('hashi_vault', 'kv/data/artemis/common/pyris-test')");
+                .contains("iris:").contains("url: \"{{ lookup('ansible.builtin.env', 'IRIS_URL') }}\"");
         assertThat(filePaths(withoutIris)).doesNotContain("inventory/group_vars/artemistests_iris.yml");
         assertThat(fileContent(withoutIris, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).doesNotContain("artemistests_iris");
     }
@@ -161,54 +193,73 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
-    void providedEnvironmentValuesAreRenderedAndPlaceholdersOtherwise() {
-        RemoteAnsibleEmissionPlan labPlan = planner.plan(model, fullSelection(), labEnvironment());
-        RemoteAnsibleEmissionPlan placeholderPlan = planner.plan(model, fullSelection(), RemoteEnvironmentValues.placeholders());
+    void envReferencesAreCollectedWithConsumerFileAndKind() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
 
-        assertThat(fileContent(labPlan, "inventory/group_vars/artemislocal/main.yml"))
-                .isEqualTo("---\nvar_testserver_name: \"artemis-local\"\nvar_server_hostname: \"artemis.192.168.252.2.nip.io\"");
-        assertThat(fileContent(labPlan, "inventory/group_vars/artemislocal/secrets.yml"))
-                .contains("artemis_database_password: \"{{ lookup('hashi_vault', 'kv/data/artemis/test/artemis-local').get('db_password') }}\"");
-        assertThat(fileContent(placeholderPlan, "inventory/group_vars/artemistarget/main.yml")).contains("var_testserver_name: \"REPLACE_ME_TARGET_NAME\"");
-        assertThat(placeholderPlan.environmentStates()).allMatch(state -> RemoteAnsibleEmissionPlan.ENVIRONMENT_PENDING.equals(state.status()));
-        assertThat(labPlan.environmentStates()).allMatch(state -> RemoteAnsibleEmissionPlan.ENVIRONMENT_PROVIDED.equals(state.status()));
+        assertThat(plan.envReferences()).anySatisfy(reference -> {
+            assertThat(reference.envVar()).isEqualTo("ARTEMIS_DATABASE_PASSWORD");
+            assertThat(reference.consumer()).isEqualTo("artemis_database_password");
+            assertThat(reference.file()).isEqualTo("inventory/group_vars/artemislocal/secrets.yml");
+            assertThat(reference.kind()).isEqualTo(RemoteAnsibleEmissionPlan.ENV_KIND_SECRET);
+        });
+        assertThat(plan.envReferences()).anySatisfy(reference -> {
+            assertThat(reference.envVar()).isEqualTo("TESTSERVER_NAME");
+            assertThat(reference.consumer()).isEqualTo("var_testserver_name");
+            assertThat(reference.file()).isEqualTo("inventory/group_vars/artemislocal/main.yml");
+            assertThat(reference.kind()).isEqualTo(RemoteAnsibleEmissionPlan.ENV_KIND_IDENTITY);
+        });
+        assertThat(plan.envReferences()).anySatisfy(reference -> {
+            assertThat(reference.envVar()).isEqualTo("IRIS_SECRET");
+            assertThat(reference.consumer()).isEqualTo("iris.secret");
+            assertThat(reference.file()).isEqualTo("inventory/group_vars/artemistests_iris.yml");
+            assertThat(reference.kind()).isEqualTo(RemoteAnsibleEmissionPlan.ENV_KIND_SECRET);
+        });
     }
 
     @Test
-    void vaultReferencesAreCollectedWithResolvedPaths() {
+    void envReferencesFollowTheEmittedBindings() {
+        RemoteAnsibleEmissionPlan withoutIris = planner.plan(model, selectionWithout("iris"), labEnvironment());
+
+        assertThat(withoutIris.envReferences()).noneMatch(reference -> reference.envVar().startsWith("IRIS_"));
+        assertThat(withoutIris.requiredEnvironmentVariables()).doesNotContain("IRIS_URL", "IRIS_SECRET");
+    }
+
+    @Test
+    void requiredEnvironmentVariablesAreSortedAndDeduplicated() {
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
 
-        assertThat(plan.vaultReferences()).anySatisfy(reference -> {
-            assertThat(reference.path()).isEqualTo("kv/data/artemis/test/artemis-local");
-            assertThat(reference.field()).isEqualTo("db_password");
-            assertThat(reference.consumer()).isEqualTo("artemis_database_password");
-        });
-        assertThat(plan.vaultReferences()).noneMatch(reference -> reference.path().contains("{vaultServerName}"));
+        List<String> names = plan.requiredEnvironmentVariables();
+        assertThat(names).isSorted().doesNotHaveDuplicates();
+        assertThat(names).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "AZURE_OPENAI_API_KEY", "SHARING_APIKEY");
     }
 
     @Test
     void noBuildAgentCredentialsAreEmittedOnALocalCiNode() {
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
 
-        assertThat(plan.vaultReferences()).noneMatch(reference -> "build_agent_git_password".equals(reference.field()));
+        assertThat(plan.envReferences()).noneMatch(reference -> reference.consumer().contains("build_agent_git"));
         assertThat(fileContent(plan, "inventory/group_vars/artemistests_local_vc_ci.yml"))
                 .doesNotContain("build_agent_git_credentials")
                 .contains("build_agent_use_ssh: true");
     }
 
     @Test
-    void noPlannedFileContainsASecretValueOrPlaceholderLeak() {
+    void noPlannedFileContainsAValueChannelOrPlaceholder() {
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
 
         for (RemoteAnsibleEmissionPlan.PlannedFile file : plan.valuesFiles()) {
-            assertThat(file.content()).as("file %s", file.path()).doesNotContain("{value}").doesNotContain("{vaultServerName}");
+            assertThat(file.content()).as("file %s", file.path())
+                    .doesNotContain("hashi_vault")
+                    .doesNotContain("REPLACE_ME_")
+                    .doesNotContain("{value}")
+                    .doesNotContain("{vaultServerName}");
         }
     }
 
     @Test
     void targetNameCollidingWithAReservedGroupIsDisambiguated() {
-        RemoteEnvironmentValues collidingTarget = environment("artemis-tests", "artemis.example.org", null, null, null, null, null, null);
-        RemoteEnvironmentValues collidingPrefix = environment("artemistests_mysql", "artemis.example.org", null, null, null, null, null, null);
+        RemoteEnvironmentValues collidingTarget = RemoteEnvironmentValues.resolve("artemis-tests");
+        RemoteEnvironmentValues collidingPrefix = RemoteEnvironmentValues.resolve("artemistests_mysql");
 
         RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), collidingTarget);
 
@@ -220,26 +271,11 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     @Test
-    void environmentValuesAreEscapedForTheYamlDoubleQuotedScalars() {
-        RemoteEnvironmentValues environment = environment("artemis-local", "artemis.example.org", "Ops \"Team\" C:\\\\lab", null,
-                null, null, null, null);
-
-        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), environment);
-
-        assertThat(fileContent(plan, "inventory/group_vars/artemistests_common_config.yml"))
-                .contains("artemis_operator_name: \"Ops \\\"Team\\\" C:\\\\\\\\lab\"");
-    }
-
-    @Test
-    void unsafeEnvironmentValuesAreRejectedWithAControlledFailure() {
-        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", "{{ lookup('pipe', 'id') }}", null, null, null, null, null))
-                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("operatorName").hasMessageContaining("Jinja");
-        assertThatThrownBy(() -> environment("artemis-local", "host ansible_user=root", null, null, null, null, null, null))
-                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("serverHostname");
-        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", null, null, null, null, null, "it's"))
-                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("vaultServerName");
-        assertThatThrownBy(() -> environment("artemis-local", "host.example.org", null, null, "a@b\nc", null, null, null))
-                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("email");
+    void absentTargetNameResolvesToTheDefaultGroupAndUnsafeNamesAreRejected() {
+        assertThat(RemoteEnvironmentValues.defaultTarget().targetGroup()).isEqualTo("artemistarget");
+        assertThat(RemoteEnvironmentValues.resolve("  ").targetGroup()).isEqualTo("artemistarget");
+        assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("bad name {{ lookup"))
+                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("targetName");
     }
 
     @Test
@@ -279,13 +315,7 @@ class RemoteAnsibleEmissionPlannerTest {
     }
 
     private RemoteEnvironmentValues labEnvironment() {
-        return environment("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab", "Junting Ning",
-                "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);
-    }
-
-    private RemoteEnvironmentValues environment(String targetName, String serverHostname, String operatorName, String operatorAdminName, String email,
-            String certPath, String certKeyPath, String vaultServerName) {
-        return new RemoteEnvironmentInput(targetName, serverHostname, operatorName, operatorAdminName, email, certPath, certKeyPath, vaultServerName).resolve();
+        return RemoteEnvironmentValues.resolve("artemis-local");
     }
 
     private String fileContent(RemoteAnsibleEmissionPlan plan, String path) {
