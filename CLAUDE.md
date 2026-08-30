@@ -108,7 +108,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   package: a self-contained mini values repository (pinned collection
   `requirements.yml`, minimal `ansible.cfg` with `hash_behaviour = merge`,
   playbook, inventory membership wiring and group values, preflight script)
-  plus remote metadata (`remote-readiness.json`, `vault-references.json`).
+  plus remote metadata (`remote-readiness.json`, `env-references.json`).
   Values come from the curated Ansible binding catalog
   (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.json`),
   an application resource in both source modes, versioned by its collection
@@ -124,16 +124,42 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   the unhyphenated Artemis key `fileupload`. The atlas integration is
   deselection-gated for the same reason: its image-shipped default is enabled,
   so deselection emits an explicit `atlas.enabled: false` group
-  (`artemistests_without_atlas`) while selection emits nothing. Secrets appear
-  only as
-  `lookup('hashi_vault', …)` expressions. The optional null-tolerant
-  `remoteEnvironment` request component supplies admin identity values; absent
-  values yield a structurally identical placeholder package
-  (`environmentProvided: pending`), and supplying the component on a
-  non-remote mode is a controlled 400. Golden fixtures derived from the
-  deploy-lab inventory pin the generated values byte-for-byte. The review
-  page offers "Remote server (Ansible)" as a third deployment target sending
-  only `deploymentMode: "remote-ansible"`.
+  (`artemistests_without_atlas`) while selection emits nothing. The package
+  bakes no environment value at all: every identity and secret value is
+  emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
+  user-provisioned environment-variable names (7 identity plus 12
+  secret-class names; a mapping-conformance test pins the catalog's name set
+  to them verbatim), the target-group section of `inventory/hosts` stays
+  empty (the connection line is execution-environment-owned), and the
+  shipped `preflight.sh` fails closed on any unset or empty referenced
+  variable before the syntax check. The `remoteEnvironment` request
+  component reduces to an optional `targetName` naming the inventory target
+  group; supplying the component on a non-remote mode is a controlled 400.
+  Fixtures split into two classes: structural files stay identical to the
+  lab's tracked inventory, value-bearing files are package-own expectations
+  (see the fixture `PROVENANCE.md`). The review page offers "Remote server
+  (Ansible)" as a third deployment target sending
+  `deploymentMode: "remote-ansible"` plus the typed target name.
+- Deployment repository publishing commits the generated remote-ansible
+  package to a Git deployment repository:
+  `POST /api/feature-model/deployment-package/publish` generates through the
+  exact same service path as the download (byte parity is test-guarded) and
+  pushes `deployments/<target>/package/**` wholesale to the configured
+  branch via JGit — fresh shallow single-branch clone, no commit when the
+  tree is unchanged, never a force push, up to three retries from a fresh
+  clone when the remote advances concurrently.
+  `GET /api/feature-model/deployment-package/publish-target` reports the
+  destination. Configuration lives under
+  `artemis.feature-model.deployment-repository` (committed defaults keep
+  publishing disabled); the token comes only from the
+  `FM_DEPLOYMENT_REPO_TOKEN` environment variable and is never logged or
+  serialized, and a declared `expected-visibility` is verified against the
+  GitHub API before the first push of a process lifetime. Controlled errors
+  use the `PUBLISH_*` code family. The review page adds a
+  localStorage-persisted target-name field and a "Publish and download"
+  action for the remote target, rendered only when the publish target is
+  configured and a target name is present; a publish failure still delivers
+  the download.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
