@@ -24,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentRepositoryPublishResult;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentRepositoryPublishException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Offline publish-flow tests against {@code file://} bare repositories: branch bootstrap from the default head with
@@ -128,7 +129,7 @@ class DeploymentRepositoryPublisherTest {
 
     @Test
     void rejectedPushIsRetriedOnTopOfTheConcurrentCommitWithBothCommitsIntact() throws Exception {
-        DeploymentRepositoryPublisher racingPublisher = new DeploymentRepositoryPublisher(enabledProperties(), name -> null) {
+        DeploymentRepositoryPublisher racingPublisher = new DeploymentRepositoryPublisher(enabledProperties(), new ObjectMapper(), name -> null) {
 
             private boolean advanced;
 
@@ -180,6 +181,41 @@ class DeploymentRepositoryPublisherTest {
     }
 
     @Test
+    void gitHubVisibilityMismatchRefusesThePublishBeforeAnyPush() {
+        DeploymentRepositoryProperties gitHubProperties = new DeploymentRepositoryProperties(true, "https://github.com/example/deployments.git",
+                "deployment", null, "public", null, null);
+        DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(gitHubProperties, new ObjectMapper(), name -> "token-present-marker") {
+
+            @Override
+            protected String fetchGitHubVisibility() {
+                return "private";
+            }
+        };
+
+        assertThatThrownBy(() -> publisher.publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
+                .isInstanceOfSatisfying(DeploymentRepositoryPublishException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("PUBLISH_VISIBILITY_MISMATCH"))
+                .hasMessageContaining("'private'").hasMessageContaining("'public'");
+    }
+
+    @Test
+    void fileRemoteSkipsTheGitHubVisibilityCheck() throws Exception {
+        DeploymentRepositoryProperties fileProperties = new DeploymentRepositoryProperties(true, remoteUrl, "deployment", null, "public", null, null);
+        DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(fileProperties, new ObjectMapper(), name -> null) {
+
+            @Override
+            protected String fetchGitHubVisibility() {
+                throw new IllegalStateException("The visibility check must not run for a file remote.");
+            }
+        };
+
+        DeploymentRepositoryPublishResult result = publisher.publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
+
+        assertThat(result.upToDate()).isFalse();
+        assertThat(remoteHead("deployment")).isEqualTo(result.commitSha());
+    }
+
+    @Test
     void missingOrUnroutableTargetNameIsRefused() {
         DeploymentRepositoryPublisher publisher = publisher(enabledProperties());
 
@@ -225,7 +261,7 @@ class DeploymentRepositoryPublisherTest {
     }
 
     private DeploymentRepositoryPublisher publisher(DeploymentRepositoryProperties properties) {
-        return new DeploymentRepositoryPublisher(properties, name -> null);
+        return new DeploymentRepositoryPublisher(properties, new ObjectMapper(), name -> null);
     }
 
     private List<GeneratedArtifactFile> packageFiles(String marker) {

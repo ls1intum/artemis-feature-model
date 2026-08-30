@@ -2,6 +2,10 @@ package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +37,8 @@ import org.springframework.stereotype.Component;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentRepositoryPublishResult;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentRepositoryPublishException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Publishes a generated deployment package as a commit to the configured deployment repository. One publish is a
@@ -59,31 +65,41 @@ public class DeploymentRepositoryPublisher {
 
     private static final int MAX_PUSH_ATTEMPTS = 3;
 
+    private static final String GITHUB_REMOTE_PREFIX = "https://github.com/";
+
     private final DeploymentRepositoryProperties properties;
+
+    private final ObjectMapper objectMapper;
 
     private final UnaryOperator<String> environmentReader;
 
     /** Serializes publishes within this instance; cross-instance safety rests on the atomic push alone. */
     private final Object publishLock = new Object();
 
+    /** Whether the github.com visibility expectation was verified in this process lifetime. */
+    private volatile boolean visibilityVerified;
+
     /**
      * Creates the publisher against the process environment.
      *
      * @param properties deployment repository configuration.
+     * @param objectMapper Jackson mapper used to parse the GitHub repository-visibility response.
      */
     @Autowired
-    public DeploymentRepositoryPublisher(DeploymentRepositoryProperties properties) {
-        this(properties, System::getenv);
+    public DeploymentRepositoryPublisher(DeploymentRepositoryProperties properties, ObjectMapper objectMapper) {
+        this(properties, objectMapper, System::getenv);
     }
 
     /**
      * Creates the publisher with a caller-provided environment reader; used by tests.
      *
      * @param properties deployment repository configuration.
+     * @param objectMapper Jackson mapper used to parse the GitHub repository-visibility response.
      * @param environmentReader environment variable reader.
      */
-    DeploymentRepositoryPublisher(DeploymentRepositoryProperties properties, UnaryOperator<String> environmentReader) {
+    DeploymentRepositoryPublisher(DeploymentRepositoryProperties properties, ObjectMapper objectMapper, UnaryOperator<String> environmentReader) {
         this.properties = properties;
+        this.objectMapper = objectMapper;
         this.environmentReader = environmentReader;
     }
 
@@ -95,6 +111,34 @@ public class DeploymentRepositoryPublisher {
      */
     public boolean isConfigured() {
         return configurationGap() == null;
+    }
+
+    /**
+     * Requires publishing to be fully configured.
+     *
+     * @throws DeploymentRepositoryPublishException if publishing is disabled or incompletely configured.
+     */
+    public void requireConfigured() {
+        String gap = configurationGap();
+        if (gap != null) {
+            throw DeploymentRepositoryPublishException.notConfigured(gap);
+        }
+    }
+
+    /**
+     * Derives the sanitized target directory name of a target name: lowercase with every character outside
+     * {@code [a-z0-9-]} removed.
+     *
+     * @param targetName raw target name.
+     * @return sanitized target directory name.
+     * @throws DeploymentRepositoryPublishException if the target name is absent or sanitizes to nothing.
+     */
+    public String sanitizedTargetName(String targetName) {
+        String sanitized = targetName == null ? "" : targetName.strip().toLowerCase().replaceAll("[^a-z0-9-]", "");
+        if (sanitized.isEmpty()) {
+            throw DeploymentRepositoryPublishException.requiresTargetName();
+        }
+        return sanitized;
     }
 
     /**
@@ -115,11 +159,7 @@ public class DeploymentRepositoryPublisher {
      * @throws DeploymentRepositoryPublishException if the target name is absent or sanitizes to nothing.
      */
     public String targetDirectoryFor(String targetName) {
-        String sanitized = targetName == null ? "" : targetName.strip().toLowerCase().replaceAll("[^a-z0-9-]", "");
-        if (sanitized.isEmpty()) {
-            throw DeploymentRepositoryPublishException.requiresTargetName();
-        }
-        return properties.targetDirectoryRoot() + "/" + sanitized + "/" + PACKAGE_DIRECTORY_NAME;
+        return properties.targetDirectoryRoot() + "/" + sanitizedTargetName(targetName) + "/" + PACKAGE_DIRECTORY_NAME;
     }
 
     /**
@@ -135,11 +175,9 @@ public class DeploymentRepositoryPublisher {
      *             remote refuses the credential, or every push attempt is rejected.
      */
     public DeploymentRepositoryPublishResult publish(String targetName, List<GeneratedArtifactFile> files, String commitMessage) {
-        String gap = configurationGap();
-        if (gap != null) {
-            throw DeploymentRepositoryPublishException.notConfigured(gap);
-        }
+        requireConfigured();
         String targetDirectory = targetDirectoryFor(targetName);
+        verifyExpectedVisibility();
         synchronized (publishLock) {
             String lastRejection = "the push was rejected";
             for (int attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
@@ -231,6 +269,69 @@ public class DeploymentRepositoryPublisher {
      */
     protected void beforePush(int attempt) {
         // Intentionally empty: the production publisher pushes immediately.
+    }
+
+    /**
+     * Verifies the declared visibility of a {@code github.com} deployment repository once per process lifetime, so a
+     * publish never lands in a repository the operator does not think they are publishing to. The check runs only for
+     * {@code github.com} remotes with a declared expectation; other remotes (including {@code file://} test remotes)
+     * skip it.
+     *
+     * @throws DeploymentRepositoryPublishException if the actual visibility differs from the expectation or cannot be
+     *             determined.
+     */
+    private void verifyExpectedVisibility() {
+        if (visibilityVerified) {
+            return;
+        }
+        String expected = properties.expectedVisibility();
+        if (!properties.repositoryUrl().startsWith(GITHUB_REMOTE_PREFIX) || expected == null || expected.isBlank()) {
+            visibilityVerified = true;
+            return;
+        }
+        String actual = fetchGitHubVisibility();
+        if (!expected.equalsIgnoreCase(actual)) {
+            throw DeploymentRepositoryPublishException.visibilityMismatch(expected, actual);
+        }
+        visibilityVerified = true;
+    }
+
+    /**
+     * Reads the actual visibility of the configured {@code github.com} repository from the GitHub API. The request
+     * authenticates with the token; failure messages never contain it.
+     *
+     * @return actual repository visibility, for example {@code public} or {@code private}.
+     * @throws DeploymentRepositoryPublishException if the visibility cannot be determined.
+     */
+    protected String fetchGitHubVisibility() {
+        String repositoryPath = properties.repositoryUrl().substring(GITHUB_REMOTE_PREFIX.length());
+        if (repositoryPath.endsWith(".git")) {
+            repositoryPath = repositoryPath.substring(0, repositoryPath.length() - ".git".length());
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/" + repositoryPath))
+                .header("Accept", "application/vnd.github+json").header("Authorization", "Bearer " + environmentReader.apply(TOKEN_ENV_VAR)).GET().build();
+        try {
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw DeploymentRepositoryPublishException.visibilityMismatch(properties.expectedVisibility(),
+                        "unknown; the GitHub API answered HTTP " + response.statusCode());
+            }
+            JsonNode repository = objectMapper.readTree(response.body());
+            JsonNode visibility = repository.get("visibility");
+            if (visibility == null) {
+                return repository.path("private").asBoolean(false) ? "private" : "public";
+            }
+            return visibility.asString();
+        }
+        catch (IOException e) {
+            throw DeploymentRepositoryPublishException.visibilityMismatch(properties.expectedVisibility(),
+                    "unknown; the GitHub API could not be reached");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw DeploymentRepositoryPublishException.visibilityMismatch(properties.expectedVisibility(),
+                    "unknown; the GitHub API request was interrupted");
+        }
     }
 
     /**
