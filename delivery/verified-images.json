@@ -36,6 +36,15 @@
       "sourceCommit": "aa3848ce7ad39cb9b3b383b777d4833b06bc3a4e",
       "promotedBy": "JTNing",
       "runId": 32641961158
+    },
+    {
+      "digest": "sha256:03480b733daac4404fb70cc78b6dadf3d59495b0c3c1e84715d8bbf8e54d5291",
+      "snapshotId": "generated-7d88cb69e01f-083a56804aee",
+      "artemisCommit": "7d88cb69e01f98b0b3d93f6c04ef55826e19de7d",
+      "manifestDigest": "sha256:083a56804aee3cfac330001df731f7cce6bead4721e3156c31bedd48eb672190",
+      "sourceCommit": "0e3053af5ae192c0041eb0fff6d2be8d5d0bfcb8",
+      "promotedBy": "JTNing",
+      "runId": 33389967439
     }
   ]
 }
