@@ -20,8 +20,8 @@ artemis:
     # is never a property: it is read only from the FM_DEPLOYMENT_REPO_TOKEN environment variable.
     deployment-repository:
       enabled: false
-      repository-url:
-      branch: main
+      repository-url: https://github.com/JTNing/artemis-feature-model-deploy-lab/
+      branch: deployment
       target-directory-root: deployments
       expected-visibility:
       author-name: artemis-feature-model composer
