@@ -122,6 +122,16 @@
       ],
       "evidence": "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty, which the complete block satisfies; value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
     },
+    "deimos": {
+      "binding": "bound",
+      "membership": "artemistests_deimos",
+      "groupVarsFile": "artemistests_deimos.yml",
+      "lines": ["---", "deimos:", "  llm:", "    base_url: https://logos.aet.cit.tum.de/v1", "    api_key: \"{{ lookup('hashi_vault', 'kv/data/artemis/common/deimos').get('api_key') }}\"", "    model: openai/gpt-oss-120b", "    completions_path: /chat/completions", "    temperature: 0.3"],
+      "vaultReferences": [
+        { "path": "kv/data/artemis/common/deimos", "field": "api_key", "consumer": "deimos.llm.api_key" }
+      ],
+      "evidence": "Guard in artemis.env.j2: deimos is defined renders ARTEMIS_DEIMOS_ENABLED='true' plus the five llm values; artemis.deimos.enabled defaults to false in the image-shipped application-core.yml, so absence is off. Value shape from the deimos block of the upstream artemistests_common_config.yml (ls1intum/artemis-ansible at cca6f51), with the api key as a vault lookup following the kv/data/artemis/common/<service> convention. The LLM endpoint is an external service the admin should review."
+    },
     "lti": {
       "binding": "bound",
       "membership": "artemistests_lti",
