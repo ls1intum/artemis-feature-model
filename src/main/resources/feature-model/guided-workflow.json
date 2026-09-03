@@ -541,6 +541,30 @@
                 "Hyperion requires administrator setup for AI services.",
                 "Generated or suggested content should still be reviewed by instructors."
               ]
+            },
+            {
+              "id": "enable-deimos",
+              "status": "published",
+              "label": "Deimos",
+              "description": "Enable Deimos to screen programming exercise submissions for attacks on the build infrastructure.",
+              "selects": [
+                "deimos"
+              ],
+              "deselects": [],
+              "warnings": [],
+              "enabledOutcome": [
+                "Instructors can screen the submission histories of programming exercise participations for signs of malicious intent against the build infrastructure, for a whole course or a single exercise.",
+                "Flagged participations are reported by email with the model's rationale and direct links, so suspicious behavior no longer looks like just another failing submission."
+              ],
+              "recommendedWhen": [
+                "Your course runs programming exercises whose student code executes on shared build infrastructure.",
+                "You want an automated first pass that points reviewers to suspicious participations, for example after a deadline."
+              ],
+              "thingsToKnow": [
+                "Deimos requires administrator setup of a language model endpoint, and portions of student source code are sent to that endpoint for analysis.",
+                "A flag is a machine-generated pointer for human review, not evidence of misconduct, and Deimos is not a plagiarism check.",
+                "Runs are started manually, the completion email is the only output, and Artemis keeps no record of past analyses."
+              ]
             }
           ]
         },
