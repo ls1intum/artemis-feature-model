@@ -3,10 +3,11 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 import java.util.List;
 
 /**
- * Final semantics of one included candidate after annotation-over-manifest precedence is applied.
+ * Final semantics of one member: the id its membership declaration carries and the modeling judgments of its manifest
+ * entry.
  *
  * @param candidateId namespaced extraction candidate id.
- * @param id curated model id.
+ * @param id feature id.
  * @param group group placement, or null.
  * @param parent direct parent placement, or null.
  * @param kind model kind.
@@ -20,11 +21,11 @@ import java.util.List;
  * @param name explicit name override, or null to use extracted i18n.
  * @param description explicit description override, or null to use extracted i18n.
  * @param documentationUrl explicit documentation link override, or null to use extracted admin-page data.
- * @param semanticSource {@code manifest} or {@code annotation}.
+ * @param membershipSource {@code annotation}, {@code provisional}, or {@code technical}.
  */
 public record ResolvedFeatureScope(String candidateId, String id, String group, String parent, String kind, String optionality, String category,
         String defaultState, Integer order, List<String> requiresCapabilities, List<String> providesCapabilities,
-        List<FeatureScopeManifest.MappingHint> artifactMappings, String name, String description, String documentationUrl, String semanticSource) {
+        List<FeatureScopeManifest.MappingHint> artifactMappings, String name, String description, String documentationUrl, String membershipSource) {
 
     /**
      * Normalizes capability and mapping collections to immutable lists.

@@ -17,7 +17,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.MappingHint;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
@@ -220,19 +220,19 @@ class GeneratedModelAssemblerTest {
     }
 
     private FeatureScopeManifest manifest() {
-        List<IncludeEntry> declarations = List.of(declaration("module:alpha", "alpha", "alpha-group"),
-                declaration("infra:tech-a", "tech-a", "tech-group"), declaration("infra:tech-b", "tech-b", "tech-group"));
+        List<FeatureEntry> declarations = List.of(declaration("alpha", "alpha-group"), declaration("tech-a", "tech-group"),
+                declaration("tech-b", "tech-group"));
         List<ConceptualNode> conceptualNodes = List.of(new ConceptualNode("root", null, "root", null, null, null, null, "Root", null),
                 new ConceptualNode("alpha-group", "root", "group", null, null, null, 1, "Alpha Group", null),
                 new ConceptualNode("always-on", "alpha-group", "module", "mandatory", null, null, 2, "Always On", null),
                 new ConceptualNode("tech-group", "root", "group", null, "technical", "alternative", 2, "Tech Group", null));
         List<ConstraintEntry> constraints = List.of(new ConstraintEntry("tech-a-excludes-tech-b", "excludes", "tech-a", "tech-b", "Exactly one tech."));
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, declarations, List.of(), conceptualNodes, constraints,
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, declarations, List.of(), List.of(), List.of(), conceptualNodes, constraints,
                 List.of(), List.of());
     }
 
-    private IncludeEntry declaration(String anchor, String id, String group) {
-        return new IncludeEntry(anchor, id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
+    private FeatureEntry declaration(String id, String group) {
+        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
     }
 
     private List<ResolvedFeatureScope> includes() {

@@ -20,8 +20,8 @@ import java.util.Map;
 public record ExtractionReport(int schemaVersion, String status, String artemisCommit, String manifestDigest, CurationReport curation,
         Map<String, String> codes, Map<String, Integer> severityCounts, Map<String, Integer> codeCounts, List<ReportItem> items) {
 
-    /** Current report schema. */
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    /** Current report schema; version 2 added the membership source of curation decisions and the unmodeled state. */
+    public static final int CURRENT_SCHEMA_VERSION = 2;
 
     /** Passing delivery verdict. */
     public static final String STATUS_PASS = "pass";

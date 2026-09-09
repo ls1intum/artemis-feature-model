@@ -69,11 +69,11 @@ class ExtractionPipelineCharacterizationTest {
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
             Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("model/generated-feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("model/manifest-conformance-report.json", "c72f79baee5b0552bb16c7ef4bab16bbfdd9bae4c377f9d357ee2d13e241d7b8"),
-            Map.entry("model/model-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("model/model-result.json", "3c198c42378a43e02ea5af028b12df4025be33826b07744b069d8fa69b9a01ec"),
-            Map.entry("report/extraction-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
-            Map.entry("report/index.html", "aeda17a128abde99bc6f146b706e56eee9437cc040dc7dcbd3e5c7318c35a2d5"),
+            Map.entry("model/manifest-conformance-report.json", "f7a086cdb413aaade1f2741d900c247742c504ced028c5dbea982ed7e0ad5ef3"),
+            Map.entry("model/model-diagnostics.json", "49607fd5246c692c3232e1c8a91dda86bc860a026bd5a42e43d655a67f250c72"),
+            Map.entry("model/model-result.json", "28480a0b23c1500e11dd0d06fef88332817a45f64fb39952e87768b1715f597e"),
+            Map.entry("report/extraction-report.json", "dd41168b54609c30d04159c8dde6bf97ae8cbf0de2dcaca803871de82331da8a"),
+            Map.entry("report/index.html", "2c4b6d3ffec331baa160bda329a4566522c70be0b443b58ea93c78d1767d4cdb"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "f9ef321499b67c416f3b4bdcaeb67862a735560ec5c5ef894f27a4314b5b4cc0"),
@@ -82,13 +82,13 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "fc66d48cef6815e5425718dbfb02b00c9ba08a0faecd5ec84b73f459c6db62f0"),
-            Map.entry("snapshot/checksums.txt", "52ed44ace90f3de4ba6066e87233bfc7c3489e57394ea13d315788d38039900e"),
+            Map.entry("snapshot/checksums.txt", "92df6b918617128887f289f944086cdb10a633aac63293ff7f94fe2f89277ab2"),
             Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
             Map.entry("snapshot/feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("snapshot/generation-report.json", "3260f4aba66d6ef2088d732cea41d8a94b22188eeb7d7e6da823fee1d72cbea9"),
+            Map.entry("snapshot/generation-report.json", "dd41168b54609c30d04159c8dde6bf97ae8cbf0de2dcaca803871de82331da8a"),
             Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
-            Map.entry("snapshot/metadata.json", "fcb059a6e620241630c5d0d2afc416357ccf15d98c320ecf12534833a5caaaf7"),
-            Map.entry("snapshot/provenance.json", "9fbf242e4daf3e5ef2d0956da9adb0c887dda437a6a92fde02764fca41cd9546"),
+            Map.entry("snapshot/metadata.json", "e67c6be86d0b11b3514c172e352a220082f191e2d334b1dcd07793d396d83a32"),
+            Map.entry("snapshot/provenance.json", "03677fd52213da2983b0cc9d5c9a8a135c3e20c59479b4c23f2e4830da9d8b76"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
@@ -166,7 +166,8 @@ class ExtractionPipelineCharacterizationTest {
 
         ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
                 ExtractionReport.class);
-        assertThat(reportCodes(report)).contains(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY);
+        assertThat(reportCodes(report)).contains(ReportItem.CODE_CLIENT_SERVER_MIRROR_MISMATCH, ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY,
+                ReportItem.CODE_PROVISIONAL_MEMBERSHIP);
         assertThat(reportCodes(report)).doesNotContain(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.codes()).containsKey(ReportItem.CODE_EXTRACTOR_ERROR);
         assertThat(report.artemisCommit()).isEqualTo(DERIVED_COMMIT);
@@ -382,6 +383,28 @@ class ExtractionPipelineCharacterizationTest {
         assertThatThrownBy(() -> new WorkflowStageService(OBJECT_MAPPER).run(incompleteManifest, this::fixtureSource))
                 .isInstanceOf(ExtractionArtifactException.class)
                 .hasMessageContaining("manifest incomplete");
+    }
+
+    @Test
+    void anUnmodeledAnchorOnlyInformsAndTheRunStillPublishes() throws Exception {
+        FeatureExtractionInputs unmodeledManifest = withManifest(FIXTURE_INPUTS.resolve("manifest-with-unmodeled-anchor.yml"));
+
+        runScan(unmodeledManifest);
+        ModelStageService.Summary summary = new ModelStageService(OBJECT_MAPPER).run(unmodeledManifest, this::fixtureSource);
+        new WorkflowStageService(OBJECT_MAPPER).run(unmodeledManifest, this::fixtureSource);
+        new PackageStageService(OBJECT_MAPPER, PINNED_REPOSITORY_COMMIT).run(unmodeledManifest, this::fixtureSource);
+
+        assertThat(summary.curationCounts()).containsEntry("include", 1).containsEntry("exclude", 13).containsEntry("undeclared", 0).containsEntry("unmodeled", 1);
+        ExtractionReport report = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.reportDirectory().resolve(ExtractionArtifactStore.EXTRACTION_REPORT_FILE)),
+                ExtractionReport.class);
+        assertThat(report.status()).isEqualTo(ExtractionReport.STATUS_PASS);
+        assertThat(report.items()).anySatisfy(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_UNMODELED_ANCHOR);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO);
+            assertThat(item.subject()).isEqualTo("module:delta");
+        });
+        assertThat(layout.snapshotDirectory()).isDirectory();
+        assertThat(Files.readString(layout.reportDirectory().resolve(ExtractionArtifactStore.HTML_REPORT_FILE))).contains("Unmodeled anchors", "module:delta");
     }
 
     @Test
