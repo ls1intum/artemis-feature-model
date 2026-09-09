@@ -1,9 +1,11 @@
-manifestVersion: 3
-include:
+manifestVersion: 4
+provisional:
   - anchor: module:alpha
     id: alpha-feature
+features:
+  - id: alpha-feature
     group: fixture-root
-exclude:
+notModeled:
   - { anchor: infra:mysql, reason: test-fixture }
   - { anchor: infra:postgres, reason: test-fixture }
   - { anchor: module:beta, reason: test-fixture }

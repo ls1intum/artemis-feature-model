@@ -1,56 +1,74 @@
-manifestVersion: 3
-# Since manifest version 3 this file carries curation content only. The Artemis source revision is derived from the
-# verified checkout HEAD at run time, and the runtime image reference lives in delivery/artemis-runtime-image.json.
+manifestVersion: 4
+# Since manifest version 4 membership of a functional feature is declared in Artemis source by the @ArtemisFeature
+# annotation on its condition class; this file carries the modeling judgments. The Artemis source revision is derived
+# from the verified checkout HEAD at run time, and the runtime image reference lives in delivery/artemis-runtime-image.json.
+#
+# Sections:
+#   provisional     membership for anchors whose annotation has not landed in upstream Artemis; once the annotation
+#                   resolves to the same candidate the annotation wins and the entry is reported as redundant.
+#   features        modeling semantics of every member keyed by feature id: placement, order, optionality, category,
+#                   default state, required capabilities, artifact-mapping hints, and prose overrides.
+#   technical       maintainer-only technical and infrastructure members; they have no Java anchor an annotation could
+#                   sit on, so the entry carries anchor, id, and semantics together.
+#   notModeled      deliberate exclusions with a reason. A module anchor Artemis itself presents as a feature blocks
+#                   the run until it is annotated, declared provisional, or listed here; other undecided anchors are
+#                   reported as information only.
+#   conceptualNodes, constraints, ignoredRelations, renames: hierarchy scaffolding and relation decisions, unchanged.
 
-# Membership mirrors the curated classpath model, including the deliberately introduced E3 technical subtree: the
-# include list carries the anchored curated modules and the first technical features, and every other candidate is
-# excluded with a documented reason. Entries with reason `deferred` are candidates the extraction surfaced that stay
-# out only until the generated model reaches parity with the curated model; moving one back is a single-entry change.
-# Optionality, category, default state, relation order, and artifact-mapping hints are modeling judgments code cannot
-# express, so they are declared here and carried into the generated model.
+provisional:
+  # The 16 functional modules of the curated model. Each entry is removed once upstream Artemis carries
+  # @ArtemisFeature(id = "<id>") on the anchor's condition class.
+  - { anchor: module:lecture, id: lecture }
+  - { anchor: module:tutorialgroup, id: tutorialgroup }
+  - { anchor: module:text, id: text }
+  - { anchor: module:modeling, id: modeling }
+  - { anchor: module:fileupload, id: file-upload }
+  - { anchor: module:exam, id: exam }
+  - { anchor: module:plagiarism, id: plagiarism }
+  - { anchor: module:athena, id: athena }
+  - { anchor: module:atlas, id: atlas }
+  - { anchor: module:iris, id: iris }
+  - { anchor: module:hyperion, id: hyperion }
+  - { anchor: module:lti, id: lti }
+  - { anchor: module:theia, id: theia }
+  - { anchor: module:apollon, id: apollon }
+  - { anchor: module:sharing, id: sharing }
+  - { anchor: module:deimos, id: deimos }
 
-include:
-  # Functional module anchors represented in the curated model, all optional like their curated relations.
-  # The enabled-key artifact mapping is auto-derived from the scanned *_ENABLED_PROPERTY_NAME configuration key;
-  # profile-parameter mappings beyond it are declared per entry, mirroring the curated mapping shapes.
+features:
+  # Functional modules represented in the curated model, all optional like their curated relations. The enabled-key
+  # artifact mapping is auto-derived from the scanned *_ENABLED_PROPERTY_NAME configuration key; environment mappings
+  # beyond it are declared per entry, mirroring the curated mapping shapes.
 
-  - anchor: module:lecture
-    id: lecture
+  - id: lecture
     group: teaching-and-content
     order: 1
 
-  - anchor: module:tutorialgroup
-    id: tutorialgroup
+  - id: tutorialgroup
     group: teaching-and-content
     order: 2
 
-  - anchor: module:text
-    id: text
+  - id: text
     group: exercise-system
     order: 4
 
-  - anchor: module:modeling
-    id: modeling
+  - id: modeling
     group: exercise-system
     order: 5
 
-  - anchor: module:fileupload
-    id: file-upload
+  - id: file-upload
     group: exercise-system
     order: 6
 
-  - anchor: module:exam
-    id: exam
+  - id: exam
     group: assessment-and-integrity
     order: 1
 
-  - anchor: module:plagiarism
-    id: plagiarism
+  - id: plagiarism
     group: assessment-and-integrity
     order: 2
 
-  - anchor: module:athena
-    id: athena
+  - id: athena
     group: assessment-and-integrity
     order: 3
     requiresCapabilities: [athena-service, athena-secret]
@@ -58,15 +76,13 @@ include:
       - { target: application-feature-model.yml, path: artemis.athena.url, source: environment }
       - { target: application-feature-model.yml, path: artemis.athena.secret, source: environment, secret: true }
 
-  - anchor: module:atlas
-    id: atlas
+  - id: atlas
     group: adaptive-learning-and-ai
     order: 1
     artifactMappings:
       - { target: application-feature-model.yml, path: artemis.atlas.chat-model, source: environment }
 
-  - anchor: module:iris
-    id: iris
+  - id: iris
     group: adaptive-learning-and-ai
     order: 2
     requiresCapabilities: [pyris-service, pyris-secret]
@@ -74,8 +90,7 @@ include:
       - { target: application-feature-model.yml, path: artemis.iris.url, source: environment }
       - { target: application-feature-model.yml, path: artemis.iris.secret-token, source: environment, secret: true }
 
-  - anchor: module:hyperion
-    id: hyperion
+  - id: hyperion
     group: adaptive-learning-and-ai
     order: 3
     requiresCapabilities: [hyperion-service]
@@ -83,30 +98,26 @@ include:
       - { target: application-feature-model.yml, path: spring.ai.openai.api-key, source: environment, secret: true }
       - { target: application-feature-model.yml, path: spring.ai.openai.base-url, source: environment }
 
-  - anchor: module:lti
-    id: lti
+  - id: lti
     group: platform-integrations
     order: 1
     requiresCapabilities: [lti-platform-registration]
 
-  - anchor: module:theia
-    id: theia
+  - id: theia
     group: platform-integrations
     order: 2
     requiresCapabilities: [theia-service]
     artifactMappings:
       - { target: application-feature-model.yml, path: artemis.theia.portal-url, source: environment }
 
-  - anchor: module:apollon
-    id: apollon
+  - id: apollon
     group: platform-integrations
     order: 3
     requiresCapabilities: [apollon-conversion-service]
     artifactMappings:
       - { target: application-feature-model.yml, path: artemis.apollon.conversion-service-url, source: environment }
 
-  - anchor: module:sharing
-    id: sharing
+  - id: sharing
     group: platform-integrations
     order: 4
     requiresCapabilities: [sharing-platform-registration, sharing-secret]
@@ -114,13 +125,13 @@ include:
       - { target: application-feature-model.yml, path: artemis.sharing.serverurl, source: environment }
       - { target: application-feature-model.yml, path: artemis.sharing.apikey, source: environment, secret: true }
 
-  - anchor: module:deimos
-    id: deimos
+  - id: deimos
     group: adaptive-learning-and-ai
     artifactMappings:
         - {target: application-feature-model.yml, path: artemis.deimos.llm.base-url, source: environment}
         - {target: application-feature-model.yml, path: artemis.deimos.llm.api-key, source: environment, secret: true}
 
+technical:
   # Technical variability introduced deliberately in E3: database and CI provider xor groups plus the fixed localvc
   # baseline. Technical features are maintainer-only, never teacher-facing, and their structural mappings describe the
   # Spring profile token contribution and the Docker compose stack choice rather than overlay configuration keys.
@@ -196,7 +207,7 @@ include:
     artifactMappings:
       - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: localvc }
 
-exclude:
+notModeled:
   # Module-level discoveries that are policy details or backing infrastructure.
 
   - anchor: module:passkey-admin
@@ -432,8 +443,8 @@ constraints:
     description: A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive.
 
 ignoredRelations:
-  # Relation evidence between two included features that deliberately does not become a constraint. Every relation
-  # candidate the scan finds between included features needs a decision; ignoring one is written down with its reason.
+  # Relation evidence between two members that deliberately does not become a constraint. Every relation candidate the
+  # scan finds between members needs a decision; ignoring one is written down with its reason.
 
   - id: relation:LectureWithIrisEnabled
     rationale: >-

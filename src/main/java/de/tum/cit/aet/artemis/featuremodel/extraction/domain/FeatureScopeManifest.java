@@ -3,25 +3,31 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 import java.util.List;
 
 /**
- * Curation manifest for extracted Artemis candidates. It carries curation content only: its include and exclude
- * entries decide membership, conceptual nodes provide model scaffolding without claiming a source anchor, and
- * cross-tree constraints declare the relations the generated model enforces beyond the hierarchy. The Artemis source
- * revision is derived from the verified checkout — a file cannot pin the commit that contains it — and the runtime
- * image reference is delivery configuration, so neither identity lives here since manifest version 3.
+ * Curation manifest for extracted Artemis candidates, schema version 4. Membership of a functional feature is declared
+ * by the {@code @ArtemisFeature} annotation in Artemis source, or by a {@code provisional} entry while that annotation
+ * has not landed upstream; {@code technical} entries declare the maintainer-only features without a Java anchor;
+ * {@code notModeled} entries record the deliberate exclusions. Every modeling judgment of a member (placement, order,
+ * optionality, category, capabilities, artifact-mapping hints, prose overrides) lives in its {@code features} entry,
+ * keyed by feature id. Conceptual nodes provide hierarchy without a source anchor, and cross-tree constraints declare
+ * the relations the generated model enforces beyond the hierarchy. The Artemis source revision is derived from the
+ * verified checkout and the runtime image reference is delivery configuration, so neither identity lives here.
  *
  * @param manifestVersion manifest schema version.
- * @param include explicitly included candidates.
- * @param exclude explicitly excluded candidates.
+ * @param features modeling semantics of every member, keyed by id.
+ * @param provisional manifest-carried membership for anchors whose annotation has not landed upstream.
+ * @param technical manifest-declared technical and infrastructure members.
+ * @param notModeled explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
  * @param constraints declared cross-tree constraints of the generated model.
- * @param ignoredRelations relation candidates between included features that deliberately stay unenforced.
+ * @param ignoredRelations relation candidates between members that deliberately stay unenforced.
  * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
-public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> include, List<ExcludeEntry> exclude,
-        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations, List<RenameEntry> renames) {
+public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> features, List<ProvisionalEntry> provisional, List<TechnicalEntry> technical,
+        List<NotModeledEntry> notModeled, List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations,
+        List<RenameEntry> renames) {
 
     /** Current manifest schema version. */
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 4;
 
     /** Optionality of a feature whose selection is enforced by validation and rendered as a filled circle. */
     public static final String OPTIONALITY_MANDATORY = "mandatory";
@@ -29,7 +35,7 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
     /** Optionality of a feature users may freely select or deselect; the default when not declared. */
     public static final String OPTIONALITY_OPTIONAL = "optional";
 
-    /** Category of course-facing functional features; the default for included module candidates. */
+    /** Category of course-facing functional features; the default for module members. */
     public static final String CATEGORY_FUNCTIONAL = "functional";
 
     /** Category of maintainer-facing technical features that never enter the teacher surface. */
@@ -42,8 +48,10 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
      * Normalizes manifest collections to immutable lists.
      */
     public FeatureScopeManifest {
-        include = include == null ? List.of() : List.copyOf(include);
-        exclude = exclude == null ? List.of() : List.copyOf(exclude);
+        features = features == null ? List.of() : List.copyOf(features);
+        provisional = provisional == null ? List.of() : List.copyOf(provisional);
+        technical = technical == null ? List.of() : List.copyOf(technical);
+        notModeled = notModeled == null ? List.of() : List.copyOf(notModeled);
         conceptualNodes = conceptualNodes == null ? List.of() : List.copyOf(conceptualNodes);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
         ignoredRelations = ignoredRelations == null ? List.of() : List.copyOf(ignoredRelations);
@@ -51,10 +59,10 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
     }
 
     /**
-     * Included candidate plus interim semantics that may later move to {@code @ArtemisFeature}.
+     * Modeling semantics of one member. The entry never grants membership: the id must belong to an annotated anchor,
+     * a provisional entry, or a technical entry.
      *
-     * @param anchor candidate id or canonical source symbol.
-     * @param id curated feature id.
+     * @param id feature id.
      * @param group group placement, or null.
      * @param parent direct parent placement, or null.
      * @param kind feature kind override, or null.
@@ -70,20 +78,41 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
      * @param name explicit name override, or null.
      * @param description explicit description override, or null.
      * @param documentationUrl explicit documentation URL override, or null.
-     * @param rationale documented reason for the scope decision, or null.
+     * @param rationale documented reason for the modeling decision, or null.
      */
-    public record IncludeEntry(String anchor, String id, String group, String parent, String kind, String optionality, String category, String defaultState,
-            Integer order, List<String> requiresCapabilities, List<String> providesCapabilities, List<MappingHint> artifactMappings, String name,
-            String description, String documentationUrl, String rationale) {
+    public record FeatureEntry(String id, String group, String parent, String kind, String optionality, String category, String defaultState, Integer order,
+            List<String> requiresCapabilities, List<String> providesCapabilities, List<MappingHint> artifactMappings, String name, String description,
+            String documentationUrl, String rationale) {
 
         /**
          * Normalizes capability and mapping collections to immutable lists.
          */
-        public IncludeEntry {
+        public FeatureEntry {
             requiresCapabilities = requiresCapabilities == null ? List.of() : List.copyOf(requiresCapabilities);
             providesCapabilities = providesCapabilities == null ? List.of() : List.copyOf(providesCapabilities);
             artifactMappings = artifactMappings == null ? List.of() : List.copyOf(artifactMappings);
         }
+    }
+
+    /**
+     * Manifest-carried membership for an anchor whose {@code @ArtemisFeature} annotation has not landed in upstream
+     * Artemis. Once the annotation resolves to the same candidate the annotation wins and the entry is reported as
+     * redundant.
+     *
+     * @param anchor candidate id or canonical source symbol.
+     * @param id feature id the annotation is expected to declare.
+     */
+    public record ProvisionalEntry(String anchor, String id) {
+    }
+
+    /**
+     * Manifest-declared technical or infrastructure member. Such candidates have no Java symbol an annotation could
+     * sit on, so the entry carries anchor, id, and semantics together.
+     *
+     * @param anchor candidate id or canonical source symbol.
+     * @param feature id and modeling semantics of the member.
+     */
+    public record TechnicalEntry(String anchor, FeatureEntry feature) {
     }
 
     /**
@@ -93,12 +122,12 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
      * @param reason stable reason code; missing values normalize to {@link #EXCLUSION_REASON_UNSPECIFIED}.
      * @param rationale human-readable reasoning for the decision, or null.
      */
-    public record ExcludeEntry(String anchor, String reason, String rationale) {
+    public record NotModeledEntry(String anchor, String reason, String rationale) {
 
         /**
          * Normalizes an omitted reason to the stable report grouping fallback.
          */
-        public ExcludeEntry {
+        public NotModeledEntry {
             reason = reason == null ? EXCLUSION_REASON_UNSPECIFIED : reason;
         }
     }
@@ -136,9 +165,9 @@ public record FeatureScopeManifest(int manifestVersion, List<IncludeEntry> inclu
     }
 
     /**
-     * Relation evidence between two included features that deliberately does not become a constraint. Every relation
-     * candidate needs a decision just like every feature candidate, so ignoring one is written down with its reason
-     * instead of being silently dropped.
+     * Relation evidence between two members that deliberately does not become a constraint. Every relation candidate
+     * needs a decision just like every feature candidate, so ignoring one is written down with its reason instead of
+     * being silently dropped.
      *
      * @param id relation candidate id the decision applies to.
      * @param rationale maintainer-authored reason why the relation stays unenforced.
