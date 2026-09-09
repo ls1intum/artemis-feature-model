@@ -6,74 +6,29 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares feature-model semantics on a canonical Artemis source anchor. The extractor reads this annotation from
- * source code and does not load or execute the annotated Artemis class. Membership remains exclusively controlled by
- * the feature scope manifest.
+ * Declares that the annotated Artemis source anchor is a feature of the feature model and names it. The feature-model
+ * extractor reads this annotation from source code with JavaParser; it never loads the annotated class and never needs
+ * the annotation on its own classpath. Every modeling judgment, such as placement, order, optionality, deployment
+ * capabilities, and user-facing prose, lives in the feature scope manifest of the feature-model repository, keyed by the
+ * declared id. Place it on the {@code *Enabled} Spring condition class of a module, or on a {@code MODULE_FEATURE_*}
+ * constant or {@code Feature} enum constant when no condition class exists; at most one annotation per anchor.
  */
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.TYPE, ElementType.FIELD })
 public @interface ArtemisFeature {
 
     /**
-     * Curated feature id.
+     * Stable kebab-case feature id, unique across all annotated anchors.
      *
-     * @return stable feature-model id.
+     * @return feature id.
      */
     String id();
 
     /**
-     * Curated group placement.
+     * Configuration keys a deployment must supply when the feature is selected. A key declared here has the final word:
+     * the manifest can neither alter nor remove it.
      *
-     * @return group id, or an empty string when not declared.
+     * @return declared configuration keys; empty when the feature declares none.
      */
-    String group() default "";
-
-    /**
-     * Direct parent placement, primarily for runtime-toggle child features.
-     *
-     * @return parent id, or an empty string when not declared.
-     */
-    String parent() default "";
-
-    /**
-     * Feature kind override.
-     *
-     * @return feature kind, or an empty string when inferred from the candidate.
-     */
-    String kind() default "";
-
-    /**
-     * Deployment capabilities required when the feature is selected.
-     *
-     * @return required capability ids.
-     */
-    String[] requiresCapabilities() default {};
-
-    /**
-     * Deployment capabilities supplied by a technical feature.
-     *
-     * @return provided capability ids.
-     */
-    String[] providesCapabilities() default {};
-
-    /**
-     * Explicit display-name override.
-     *
-     * @return display name, or an empty string to use extracted i18n.
-     */
-    String name() default "";
-
-    /**
-     * Explicit description override.
-     *
-     * @return description, or an empty string to use extracted i18n.
-     */
-    String description() default "";
-
-    /**
-     * Explicit documentation-link override.
-     *
-     * @return documentation URL, or an empty string to use extracted admin-page data.
-     */
-    String documentationUrl() default "";
+    ArtemisFeatureConfig[] configuration() default {};
 }

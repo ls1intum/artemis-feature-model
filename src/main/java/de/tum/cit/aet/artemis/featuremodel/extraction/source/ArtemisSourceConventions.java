@@ -131,6 +131,9 @@ public final class ArtemisSourceConventions {
         /** Opt-in extraction annotation simple name. */
         public static final String ARTEMIS_FEATURE_ANNOTATION = "ArtemisFeature";
 
+        /** Simple name of the nested configuration-key annotation of {@code @ArtemisFeature}. */
+        public static final String ARTEMIS_FEATURE_CONFIG_ANNOTATION = "ArtemisFeatureConfig";
+
         private Symbols() {
         }
     }

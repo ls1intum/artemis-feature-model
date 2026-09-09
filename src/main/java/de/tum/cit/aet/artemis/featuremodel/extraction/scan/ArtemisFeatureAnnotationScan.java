@@ -13,6 +13,7 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.ArrayInitializerExpr;
+import com.github.javaparser.ast.expr.BooleanLiteralExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
@@ -20,17 +21,23 @@ import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics.ConfigurationDeclaration;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.repository.ArtemisSourceRepository;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.ArtemisSourceConventions;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.JavaSourceParser;
 import de.tum.cit.aet.artemis.featuremodel.extraction.source.SourceScanResult;
 
-/** Reads {@code @ArtemisFeature} semantics from Java source without loading annotated classes. */
+/** Reads {@code @ArtemisFeature} contract v2 from Java source without loading annotated classes. */
 class ArtemisFeatureAnnotationScan {
 
-    private static final Set<String> ATTRIBUTE_NAMES = Set.of("id", "group", "parent", "kind", "requiresCapabilities", "providesCapabilities", "name", "description",
+    private static final Set<String> ATTRIBUTE_NAMES = Set.of("id", "configuration");
+
+    /** Attributes of contract v1 whose values moved into the manifest {@code features} section. */
+    private static final Set<String> RETIRED_ATTRIBUTES = Set.of("group", "parent", "kind", "requiresCapabilities", "providesCapabilities", "name", "description",
             "documentationUrl");
+
+    private static final Set<String> CONFIG_ATTRIBUTE_NAMES = Set.of("key", "secret");
 
     /**
      * Scans Java files containing the annotation marker.
@@ -99,25 +106,59 @@ class ArtemisFeatureAnnotationScan {
     }
 
     /**
-     * Parses the attribute values of one feature annotation.
+     * Parses the attribute values of one feature annotation. A retired contract-v1 attribute is rejected with a
+     * migration message naming the manifest section that owns the value now.
      *
      * @param annotation parsed annotation expression.
      * @param file checkout-relative path, used in failure messages.
      * @return parsed semantics.
-     * @throws IllegalArgumentException if the annotation uses an unsupported shape or unknown attributes.
+     * @throws IllegalArgumentException if the annotation uses an unsupported shape, a retired attribute, or an
+     *             unknown attribute.
      */
     private ExtractedAnnotationSemantics parseSemantics(AnnotationExpr annotation, String file) {
         if (!(annotation instanceof NormalAnnotationExpr normal)) {
             throw new IllegalArgumentException("@ArtemisFeature in " + file + " must use named attributes.");
+        }
+        List<String> retiredAttributes = normal.getPairs().stream().map(pair -> pair.getNameAsString()).filter(RETIRED_ATTRIBUTES::contains).toList();
+        if (!retiredAttributes.isEmpty()) {
+            throw new IllegalArgumentException("@ArtemisFeature in " + file + " declares the retired attribute(s) " + retiredAttributes
+                    + "; since contract v2 the annotation carries only 'id' and 'configuration'. Declare these values in the manifest 'features' entry of the feature id.");
         }
         List<String> unknownAttributes = normal.getPairs().stream().map(pair -> pair.getNameAsString()).filter(name -> !ATTRIBUTE_NAMES.contains(name)).toList();
         if (!unknownAttributes.isEmpty()) {
             throw new IllegalArgumentException("@ArtemisFeature in " + file + " contains unknown attribute(s): " + unknownAttributes + ".");
         }
         String id = requiredString(normal, "id", file);
-        return new ExtractedAnnotationSemantics(id, optionalString(normal, "group", file), optionalString(normal, "parent", file), optionalString(normal, "kind", file),
-                optionalStringList(normal, "requiresCapabilities", file), optionalStringList(normal, "providesCapabilities", file), optionalString(normal, "name", file),
-                optionalString(normal, "description", file), optionalString(normal, "documentationUrl", file));
+        return new ExtractedAnnotationSemantics(id, parseConfiguration(attribute(normal, "configuration"), file));
+    }
+
+    /**
+     * Parses the nested {@code @ArtemisFeatureConfig} declarations, accepting a single declaration as a one-element
+     * array.
+     *
+     * @param value value expression of the configuration attribute, or null when absent.
+     * @param file checkout-relative path, used in failure messages.
+     * @return declared configuration keys in declaration order.
+     * @throws IllegalArgumentException if a declaration is not a well-formed {@code @ArtemisFeatureConfig}.
+     */
+    private List<ConfigurationDeclaration> parseConfiguration(Expression value, String file) {
+        if (value == null) {
+            return List.of();
+        }
+        List<Expression> values = value instanceof ArrayInitializerExpr array ? array.getValues() : List.of(value);
+        List<ConfigurationDeclaration> declarations = new ArrayList<>();
+        for (Expression item : values) {
+            if (!(item instanceof NormalAnnotationExpr config)
+                    || !ArtemisSourceConventions.Symbols.ARTEMIS_FEATURE_CONFIG_ANNOTATION.equals(config.getName().getIdentifier())) {
+                throw new IllegalArgumentException("@ArtemisFeature attribute 'configuration' in " + file + " must contain @ArtemisFeatureConfig declarations with named attributes.");
+            }
+            List<String> unknownAttributes = config.getPairs().stream().map(pair -> pair.getNameAsString()).filter(name -> !CONFIG_ATTRIBUTE_NAMES.contains(name)).toList();
+            if (!unknownAttributes.isEmpty()) {
+                throw new IllegalArgumentException("@ArtemisFeatureConfig in " + file + " contains unknown attribute(s): " + unknownAttributes + ".");
+            }
+            declarations.add(new ConfigurationDeclaration(requiredString(config, "key", file), optionalBoolean(config, "secret", file)));
+        }
+        return List.copyOf(declarations);
     }
 
     /**
@@ -127,60 +168,34 @@ class ArtemisFeatureAnnotationScan {
      * @param name attribute name.
      * @param file checkout-relative path, used in failure messages.
      * @return attribute value.
-     * @throws IllegalArgumentException if the attribute is absent or blank.
+     * @throws IllegalArgumentException if the attribute is absent, blank, or not a string literal.
      */
     private String requiredString(NormalAnnotationExpr annotation, String name, String file) {
-        String value = optionalString(annotation, name, file);
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("@ArtemisFeature in " + file + " requires a non-blank '" + name + "' attribute.");
+        Expression value = attribute(annotation, name);
+        if (!(value instanceof StringLiteralExpr literal) || literal.getValue().isBlank()) {
+            throw new IllegalArgumentException("@" + annotation.getName().getIdentifier() + " in " + file + " requires a non-blank string literal '" + name + "' attribute.");
         }
-        return value;
+        return literal.getValue();
     }
 
     /**
-     * Reads an optional string attribute, mapping the annotation's empty-string default to null so absent attributes
-     * never override manifest semantics.
+     * Reads an optional boolean attribute.
      *
      * @param annotation parsed annotation.
      * @param name attribute name.
      * @param file checkout-relative path, used in failure messages.
-     * @return attribute value, or null when absent or empty.
-     * @throws IllegalArgumentException if the attribute is present but not a string literal.
+     * @return attribute value, or false when absent.
+     * @throws IllegalArgumentException if the attribute is present but not a boolean literal.
      */
-    private String optionalString(NormalAnnotationExpr annotation, String name, String file) {
+    private boolean optionalBoolean(NormalAnnotationExpr annotation, String name, String file) {
         Expression value = attribute(annotation, name);
         if (value == null) {
-            return null;
+            return false;
         }
-        if (!(value instanceof StringLiteralExpr literal)) {
-            throw new IllegalArgumentException("@ArtemisFeature attribute '" + name + "' in " + file + " must be a string literal.");
+        if (!(value instanceof BooleanLiteralExpr literal)) {
+            throw new IllegalArgumentException("@" + annotation.getName().getIdentifier() + " attribute '" + name + "' in " + file + " must be a boolean literal.");
         }
-        return literal.getValue().isEmpty() ? null : literal.getValue();
-    }
-
-    /**
-     * Reads an optional string-array attribute, accepting a single literal as a one-element array.
-     *
-     * @param annotation parsed annotation.
-     * @param name attribute name.
-     * @param file checkout-relative path, used in failure messages.
-     * @return attribute values, or null when the attribute is absent.
-     * @throws IllegalArgumentException if the attribute contains anything but non-blank string literals.
-     */
-    private List<String> optionalStringList(NormalAnnotationExpr annotation, String name, String file) {
-        Expression value = attribute(annotation, name);
-        if (value == null) {
-            return null;
-        }
-        List<Expression> values = value instanceof ArrayInitializerExpr array ? array.getValues() : List.of(value);
-        List<String> strings = new ArrayList<>();
-        for (Expression item : values) {
-            if (!(item instanceof StringLiteralExpr literal) || literal.getValue().isBlank()) {
-                throw new IllegalArgumentException("@ArtemisFeature attribute '" + name + "' in " + file + " must contain string literals.");
-            }
-            strings.add(literal.getValue());
-        }
-        return List.copyOf(strings);
+        return literal.getValue();
     }
 
     /**

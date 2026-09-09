@@ -3,25 +3,25 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 import java.util.List;
 
 /**
- * Parsed {@code @ArtemisFeature} values. Null optional values mean that the annotation omitted the attribute and
- * therefore cannot override manifest-authored semantics.
+ * Parsed {@code @ArtemisFeature} values of contract v2: the feature id that grants membership and the configuration
+ * keys the Artemis developer declared for the feature.
  *
- * @param id required curated id.
- * @param group group override.
- * @param parent parent override.
- * @param kind kind override.
- * @param requiresCapabilities required capabilities override.
- * @param providesCapabilities provided capabilities override.
- * @param name name override.
- * @param description description override.
- * @param documentationUrl documentation URL override.
+ * @param id required feature id.
+ * @param configuration declared configuration keys in declaration order; empty when the annotation declares none.
  */
-public record ExtractedAnnotationSemantics(String id, String group, String parent, String kind, List<String> requiresCapabilities,
-        List<String> providesCapabilities, String name, String description, String documentationUrl) {
+public record ExtractedAnnotationSemantics(String id, List<ConfigurationDeclaration> configuration) {
 
-    /** Normalizes present capability lists to immutable copies while preserving null for omitted attributes. */
+    /** Normalizes the configuration list to an immutable copy. */
     public ExtractedAnnotationSemantics {
-        requiresCapabilities = requiresCapabilities == null ? null : List.copyOf(requiresCapabilities);
-        providesCapabilities = providesCapabilities == null ? null : List.copyOf(providesCapabilities);
+        configuration = configuration == null ? List.of() : List.copyOf(configuration);
+    }
+
+    /**
+     * One nested {@code @ArtemisFeatureConfig} declaration.
+     *
+     * @param key dotted configuration key.
+     * @param secret whether the value is a secret.
+     */
+    public record ConfigurationDeclaration(String key, boolean secret) {
     }
 }
