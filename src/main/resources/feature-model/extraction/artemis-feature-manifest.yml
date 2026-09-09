@@ -7,7 +7,7 @@ manifestVersion: 4
 #   provisional     membership for anchors whose annotation has not landed in upstream Artemis; once the annotation
 #                   resolves to the same candidate the annotation wins and the entry is reported as redundant.
 #   features        modeling semantics of every member keyed by feature id: placement, order, optionality, category,
-#                   default state, required capabilities, artifact-mapping hints, and prose overrides.
+#                   default state, required capabilities, configuration confirmations, and prose overrides.
 #   technical       maintainer-only technical and infrastructure members; they have no Java anchor an annotation could
 #                   sit on, so the entry carries anchor, id, and semantics together.
 #   notModeled      deliberate exclusions with a reason. A module anchor Artemis itself presents as a feature blocks
@@ -37,8 +37,11 @@ provisional:
 
 features:
   # Functional modules represented in the curated model, all optional like their curated relations. The enabled-key
-  # artifact mapping is auto-derived from the scanned *_ENABLED_PROPERTY_NAME configuration key; environment mappings
-  # beyond it are declared per entry, mirroring the curated mapping shapes.
+  # artifact mapping is auto-derived from the scanned *_ENABLED_PROPERTY_NAME configuration key, and the environment
+  # mappings are derived from guarded Artemis structure: injection sites guarded by the member's condition class,
+  # configuration-property prefixes of such guarded files, and YAML keys under the enabled-key namespace. A
+  # 'configuration' entry only confirms a key derivation cannot see or classify, or rejects a derived key; an
+  # annotation-declared key can never be altered or removed here.
 
   - id: lecture
     group: teaching-and-content
@@ -72,31 +75,29 @@ features:
     group: assessment-and-integrity
     order: 3
     requiresCapabilities: [athena-service, athena-secret]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.athena.url, source: environment }
-      - { target: application-feature-model.yml, path: artemis.athena.secret, source: environment, secret: true }
 
   - id: atlas
     group: adaptive-learning-and-ai
     order: 1
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.atlas.chat-model, source: environment }
+    configuration:
+      # Derivable by prefix but carrying a real default, so the classifier calls it a tunable; the maintainers keep
+      # it a deployment input (Q5 of the requirements decision log).
+      - { key: artemis.atlas.chat-model }
 
   - id: iris
     group: adaptive-learning-and-ai
     order: 2
     requiresCapabilities: [pyris-service, pyris-secret]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.iris.url, source: environment }
-      - { target: application-feature-model.yml, path: artemis.iris.secret-token, source: environment, secret: true }
 
   - id: hyperion
     group: adaptive-learning-and-ai
     order: 3
     requiresCapabilities: [hyperion-service]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: spring.ai.openai.api-key, source: environment, secret: true }
-      - { target: application-feature-model.yml, path: spring.ai.openai.base-url, source: environment }
+    configuration:
+      # Read by the Spring AI auto-configuration, linked to hyperion only by a YAML comment, so derivation cannot see
+      # them. The entries become redundant once the @ArtemisFeature annotation declares the keys upstream.
+      - { key: spring.ai.openai.api-key, secret: true }
+      - { key: spring.ai.openai.base-url }
 
   - id: lti
     group: platform-integrations
@@ -107,29 +108,19 @@ features:
     group: platform-integrations
     order: 2
     requiresCapabilities: [theia-service]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.theia.portal-url, source: environment }
 
   - id: apollon
     group: platform-integrations
     order: 3
     requiresCapabilities: [apollon-conversion-service]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.apollon.conversion-service-url, source: environment }
 
   - id: sharing
     group: platform-integrations
     order: 4
     requiresCapabilities: [sharing-platform-registration, sharing-secret]
-    artifactMappings:
-      - { target: application-feature-model.yml, path: artemis.sharing.serverurl, source: environment }
-      - { target: application-feature-model.yml, path: artemis.sharing.apikey, source: environment, secret: true }
 
   - id: deimos
     group: adaptive-learning-and-ai
-    artifactMappings:
-        - {target: application-feature-model.yml, path: artemis.deimos.llm.base-url, source: environment}
-        - {target: application-feature-model.yml, path: artemis.deimos.llm.api-key, source: environment, secret: true}
 
 technical:
   # Technical variability introduced deliberately in E3: database and CI provider xor groups plus the fixed localvc

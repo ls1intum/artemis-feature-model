@@ -36,7 +36,7 @@ public class FeatureManifestLoader {
             "constraints", "ignoredRelations", "renames");
 
     private static final Set<String> FEATURE_FIELDS = Set.of("id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
-            "requiresCapabilities", "providesCapabilities", "artifactMappings", "configuration", "name", "description", "documentationUrl", "rationale");
+            "requiresCapabilities", "providesCapabilities", "configuration", "name", "description", "documentationUrl", "rationale");
 
     private static final Set<String> PROVISIONAL_FIELDS = Set.of("anchor", "id");
 
@@ -164,6 +164,11 @@ public class FeatureManifestLoader {
         for (Object item : asList(value, "features")) {
             String location = "features[" + index + "]";
             Map<String, Object> entry = asMap(item, location);
+            if (entry.containsKey("artifactMappings")) {
+                throw new FeatureManifestException(location + ".artifactMappings was removed for functional features: the environment mappings are derived "
+                        + "from guarded Artemis structure, so declare only confirmations and exceptions under 'configuration'. Technical entries keep "
+                        + "declaring artifactMappings.");
+            }
             rejectUnknownFields(entry, FEATURE_FIELDS, location);
             entries.add(parseFeatureEntry(entry, location));
             index++;

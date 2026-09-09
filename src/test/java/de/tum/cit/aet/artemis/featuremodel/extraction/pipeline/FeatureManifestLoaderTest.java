@@ -409,57 +409,134 @@ class FeatureManifestLoaderTest {
 
     @Test
     void rejectsTheRetiredProfileValueMappingShape() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - id: alpha
-                    artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.url, valueFromProfile: artemis.alpha.url, requiredWhenSelected: true }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field").hasMessageContaining("valueFromProfile");
+        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, valueFromProfile: artemis.tech.url }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field").hasMessageContaining("valueFromProfile");
     }
 
     @Test
     void rejectsAMappingWithoutASource() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - id: alpha
-                    artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.url }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source");
+        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("source");
     }
 
     @Test
     void rejectsAnUnknownMappingSource() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - id: alpha
-                    artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: profile }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source must be one of");
+        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, source: profile }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("source must be one of");
     }
 
     @Test
     void rejectsASelectionMappingWithoutAnyValue() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - id: alpha
-                    artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.enabled, source: selection }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("selection");
+        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.enabled, source: selection }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("selection");
     }
 
     @Test
     void rejectsAnEnvironmentMappingCarryingASelectionValue() {
+        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, source: environment, valueWhenSelected: on }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("environment");
+    }
+
+    @Test
+    void rejectsArtifactMappingsOnAFeaturesEntryWithAMigrationMessage() {
         assertThatThrownBy(() -> load("""
                 manifestVersion: 4
                 features:
                   - id: alpha
                     artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: environment, valueWhenSelected: on }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("environment");
+                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: environment }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0].artifactMappings was removed for functional features")
+                .hasMessageContaining("derived").hasMessageContaining("'configuration'").hasMessageContaining("Technical entries");
+    }
+
+    @Test
+    void loadsConfigurationEntriesWithDefaultsAndActions() {
+        FeatureScopeManifest manifest = load("""
+                manifestVersion: 4
+                features:
+                  - id: alpha
+                    configuration:
+                      - { key: spring.ai.alpha.api-key, secret: true }
+                      - { key: spring.ai.alpha.base-url }
+                      - { key: artemis.alpha.callback-url, action: exclude }
+                """);
+
+        assertThat(manifest.features()).singleElement().satisfies(entry -> {
+            assertThat(entry.configuration()).hasSize(3);
+            assertThat(entry.configuration().getFirst().secret()).isTrue();
+            assertThat(entry.configuration().getFirst().action()).isNull();
+            assertThat(entry.configuration().get(1).secret()).isNull();
+            assertThat(entry.configuration().getLast().action()).isEqualTo(FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE);
+        });
+    }
+
+    @Test
+    void rejectsAConfigurationEntryWithAnUnknownField() {
+        assertThatThrownBy(() -> featuresWithConfiguration("{ key: artemis.alpha.url, target: application-feature-model.yml }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("configuration[0] contains unknown field(s): target");
+    }
+
+    @Test
+    void rejectsAConfigurationEntryRepeatingAKey() {
+        assertThatThrownBy(() -> featuresWithConfiguration("{ key: artemis.alpha.url }\n      - { key: artemis.alpha.url, secret: true }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("repeats key 'artemis.alpha.url'");
+    }
+
+    @Test
+    void rejectsAConfigurationEntryWithAnUnknownAction() {
+        assertThatThrownBy(() -> featuresWithConfiguration("{ key: artemis.alpha.url, action: veto }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("configuration[0].action must be one of");
+    }
+
+    @Test
+    void rejectsAConfigurationExcludeEntryCarryingASecretFlag() {
+        assertThatThrownBy(() -> featuresWithConfiguration("{ key: artemis.alpha.url, action: exclude, secret: true }"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("a rejected key is never emitted");
+    }
+
+    @Test
+    void rejectsConfigurationOnATechnicalEntry() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 4
+                technical:
+                  - anchor: infra:tech-a
+                    id: tech-a
+                    configuration:
+                      - { key: artemis.tech.url }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0] contains unknown field(s): configuration");
+    }
+
+    /**
+     * Loads a manifest with one technical entry carrying one mapping hint.
+     *
+     * @param mapping inline YAML mapping hint.
+     * @return parsed manifest.
+     */
+    private FeatureScopeManifest technicalWithMapping(String mapping) {
+        return load("""
+                manifestVersion: 4
+                technical:
+                  - anchor: infra:tech-a
+                    id: tech-a
+                    artifactMappings:
+                      - %s
+                """.formatted(mapping));
+    }
+
+    /**
+     * Loads a manifest with one features entry carrying configuration entries.
+     *
+     * @param configuration inline YAML configuration entries, first entry without the list dash.
+     * @return parsed manifest.
+     */
+    private FeatureScopeManifest featuresWithConfiguration(String configuration) {
+        return load("""
+                manifestVersion: 4
+                features:
+                  - id: alpha
+                    configuration:
+                      - %s
+                """.formatted(configuration));
     }
 
     private FeatureScopeManifest load(String yaml) {
