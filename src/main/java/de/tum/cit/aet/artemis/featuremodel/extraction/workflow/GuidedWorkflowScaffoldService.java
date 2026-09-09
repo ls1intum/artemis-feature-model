@@ -10,7 +10,7 @@ import java.util.Set;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 import tools.jackson.core.util.DefaultIndenter;
 import tools.jackson.core.util.DefaultPrettyPrinter;
@@ -20,7 +20,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Keeps the authored guided workflow structurally in sync with the manifest include set without ever touching prose.
+ * Keeps the authored guided workflow structurally in sync with the manifest member set without ever touching prose.
  * The sync is an incremental diff, not a regeneration: covered features cause zero writes, a newly included functional
  * feature gains a {@code draft} stub option with filled wiring and TODO prose that the effective-workflow projection
  * keeps off every client surface until a maintainer publishes it, an orphan reference is flagged but never deleted, and
@@ -124,7 +124,7 @@ public class GuidedWorkflowScaffoldService {
     }
 
     /**
-     * Collects the guided-eligible features: manifest includes and conceptual module nodes that are not technical.
+     * Collects the guided-eligible features: functional features entries and functional conceptual module nodes.
      * Technical features are maintainer-only and never enter the guided teacher surface.
      *
      * @param manifest loaded manifest.
@@ -132,7 +132,7 @@ public class GuidedWorkflowScaffoldService {
      */
     private Map<String, EligibleFeature> eligibleFeatures(FeatureScopeManifest manifest) {
         Map<String, EligibleFeature> eligibleById = new LinkedHashMap<>();
-        for (IncludeEntry entry : manifest.include()) {
+        for (FeatureEntry entry : manifest.features()) {
             if (FeatureScopeManifest.CATEGORY_TECHNICAL.equals(entry.category())) {
                 continue;
             }
@@ -149,14 +149,16 @@ public class GuidedWorkflowScaffoldService {
     }
 
     /**
-     * Collects every feature id the manifest declares, included or conceptual, functional or technical.
+     * Collects every feature id the manifest declares: features, technical, provisional, and conceptual nodes.
      *
      * @param manifest loaded manifest.
      * @return known feature ids.
      */
     private Set<String> knownIds(FeatureScopeManifest manifest) {
         Set<String> knownIds = new LinkedHashSet<>();
-        manifest.include().forEach(entry -> knownIds.add(entry.id()));
+        manifest.features().forEach(entry -> knownIds.add(entry.id()));
+        manifest.technical().forEach(entry -> knownIds.add(entry.feature().id()));
+        manifest.provisional().forEach(entry -> knownIds.add(entry.id()));
         manifest.conceptualNodes().forEach(node -> knownIds.add(node.id()));
         return knownIds;
     }

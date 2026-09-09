@@ -116,9 +116,10 @@ class ExtractionHtmlReportRendererTest {
     }
 
     @Test
-    void rendersTheKindByStateMatrixAndTheSemanticSourceOfIncludedCandidates() {
+    void rendersTheKindByStateMatrixAndTheMembershipSourceOfIncludedCandidates() {
         List<CurationDecision> decisions = List.of(included("module:alpha"), excluded("infra:mysql", "internal-mechanism"),
-                excluded("infra:postgres", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null));
+                excluded("infra:postgres", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null),
+                unmodeled("toggle:RateLimit"));
         ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(decisions), List.of());
 
         String html = render(report);
@@ -126,9 +127,19 @@ class ExtractionHtmlReportRendererTest {
         assertThat(html).contains("<caption>Candidate decisions by kind</caption>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>module-feature</code></th><td class=\"num\">1</td>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>infrastructure</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
-        assertThat(html).contains("<span class=\"tag\">manifest</span>");
+        assertThat(html).contains("<th scope=\"col\">Membership</th>", "<span class=\"tag\">provisional</span>");
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
         assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
+        assertThat(html).contains("Unmodeled anchors <span class=\"count\">1</span>", "toggle:RateLimit");
+    }
+
+    @Test
+    void omitsTheUnmodeledGroupWhenEveryCandidateIsDecided() {
+        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"))), List.of());
+
+        String html = render(report);
+
+        assertThat(html).doesNotContain("Unmodeled anchors");
     }
 
     @Test
@@ -201,9 +212,7 @@ class ExtractionHtmlReportRendererTest {
         Map<String, Map<String, Integer>> countsByKind = new LinkedHashMap<>();
         List<String> undeclaredIds = decisions.stream().filter(decision -> CurationReport.STATE_UNDECLARED.equals(decision.state()))
                 .map(CurationDecision::candidateId).toList();
-        for (String state : List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE, CurationReport.STATE_UNDECLARED)) {
-            stateCounts.put(state, 0);
-        }
+        CurationReport.STATES.forEach(state -> stateCounts.put(state, 0));
         for (CurationDecision decision : decisions) {
             stateCounts.merge(decision.state(), 1, Integer::sum);
             countsByKind.computeIfAbsent(decision.candidateKind(), ignored -> new LinkedHashMap<>(stateCountTemplate())).merge(decision.state(), 1, Integer::sum);
@@ -217,24 +226,27 @@ class ExtractionHtmlReportRendererTest {
      * @return state counts initialized to zero.
      */
     private Map<String, Integer> stateCountTemplate() {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        counts.put(CurationReport.STATE_INCLUDE, 0);
-        counts.put(CurationReport.STATE_EXCLUDE, 0);
-        counts.put(CurationReport.STATE_UNDECLARED, 0);
-        return counts;
+        return CurationReport.zeroStateCounts();
     }
 
     private CurationDecision included(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null, "manifest");
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null,
+                CurationReport.SOURCE_PROVISIONAL);
     }
 
     private CurationDecision excluded(String candidateId, String reason) {
         String kind = candidateId.startsWith("profile:") ? FeatureCandidate.KIND_SPRING_PROFILE
                 : candidateId.startsWith("infra:") ? FeatureCandidate.KIND_INFRASTRUCTURE : FeatureCandidate.KIND_MODULE_FEATURE;
-        return new CurationDecision(candidateId, kind, CurationReport.STATE_EXCLUDE, null, reason, null);
+        return new CurationDecision(candidateId, kind, CurationReport.STATE_EXCLUDE, null, reason, CurationReport.SOURCE_NOT_MODELED);
     }
 
     private CurationDecision undeclared(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_UNDECLARED, null, null, null);
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_UNDECLARED, null, null,
+                CurationReport.SOURCE_UNDECLARED);
+    }
+
+    private CurationDecision unmodeled(String candidateId) {
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_RUNTIME_TOGGLE, CurationReport.STATE_UNMODELED, null, null,
+                CurationReport.SOURCE_UNMODELED);
     }
 }

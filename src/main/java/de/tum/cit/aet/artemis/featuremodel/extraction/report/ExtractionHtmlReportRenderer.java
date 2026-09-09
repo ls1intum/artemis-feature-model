@@ -50,8 +50,7 @@ public class ExtractionHtmlReportRenderer {
             ReportItem.SEVERITY_INFO, "Info");
 
     /** Column order of the candidate decision matrix. */
-    private static final List<String> DECISION_STATES = List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE,
-            CurationReport.STATE_UNDECLARED);
+    private static final List<String> DECISION_STATES = CurationReport.STATES;
 
     /**
      * Preferred row order of the candidate decision matrix, from the most feature-like kind to the most infrastructural
@@ -283,9 +282,10 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders the manifest curation outcome: the kind-by-state matrix, the undeclared candidates that block the run,
-     * and the included and excluded candidates behind disclosures. A run that failed before curation carries no
-     * decisions at all, which is stated instead of being rendered as a complete curation with zero findings.
+     * Renders the membership outcome: the kind-by-state matrix, the undeclared candidates that block the run, the
+     * members grouped by membership source, the excluded candidates, and the informational unmodeled anchors. A run
+     * that failed before curation carries no decisions at all, which is stated instead of being rendered as a complete
+     * curation with zero findings.
      *
      * @param curation manifest curation section of the report.
      * @return candidate decision section markup.
@@ -306,10 +306,11 @@ public class ExtractionHtmlReportRenderer {
         return """
                 <section id="decisions">
                 <h2>Candidate decisions <span class="count">%s</span></h2>
-                %s%s%s%s</section>
+                %s%s%s%s%s</section>
                 """.formatted(decisions.size(), decisionMatrix(curation), undeclaredBlock(decisionsWithState(decisions, CurationReport.STATE_UNDECLARED)),
                 includedGroup(decisionsWithState(decisions, CurationReport.STATE_INCLUDE)),
-                excludedGroup(decisionsWithState(decisions, CurationReport.STATE_EXCLUDE)));
+                excludedGroup(decisionsWithState(decisions, CurationReport.STATE_EXCLUDE)),
+                unmodeledGroup(decisionsWithState(decisions, CurationReport.STATE_UNMODELED)));
     }
 
     /**
@@ -381,14 +382,15 @@ public class ExtractionHtmlReportRenderer {
             return """
                     <div class="callout ok compact">
                     <h3><span class="chip ok">none</span> No undeclared candidates</h3>
-                    <p>Every extracted candidate carries an explicit manifest decision, so curation is complete for this commit.</p>
+                    <p>Every candidate Artemis presents as a feature carries an annotation or a manifest decision, so curation is complete for this commit.</p>
                     </div>
                     """;
         }
         return """
                 <div class="callout bad compact">
                 <h3><span class="chip bad">undeclared</span> Undeclared candidates <span class="count">%s</span></h3>
-                <p>These candidates exist in the pinned Artemis commit but have no manifest decision. The run is blocked until each one is declared.</p>
+                <p>Artemis presents these modules as features, but neither an @ArtemisFeature annotation nor a manifest entry decides about them. \
+                The run is blocked until each one is annotated, declared provisional, or listed in notModeled.</p>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
                 <tbody>
@@ -399,23 +401,23 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders the included candidates, open by default because they are what the run delivers. The semantic source
-     * column states whether the manifest or an annotation supplied the resolved attributes.
+     * Renders the members, open by default because they are what the run delivers. The membership column states
+     * whether an annotation, a provisional entry, or a technical entry declared the membership.
      *
-     * @param included candidates the manifest includes.
+     * @param included members of the generated model.
      * @return included disclosure markup.
      */
     private String includedGroup(List<CurationDecision> included) {
         String rows = renderEach(included, decision -> """
                 <tr><td><code>%s</code></td><td>%s</td><td><code>%s</code></td><td><span class="tag">%s</span></td></tr>
                 """.formatted(escape(decision.candidateId()), escape(decision.candidateKind()), escape(decision.curatedId()),
-                decision.semanticSource() == null ? NOT_AVAILABLE : escape(decision.semanticSource())));
+                decision.membershipSource() == null ? NOT_AVAILABLE : escape(decision.membershipSource())));
         return """
                 <details class="group" open>
                 <summary><span class="chip ok">include</span> Included features <span class="count">%s</span></summary>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th><th scope="col">Generated id</th>\
-                <th scope="col">Semantics from</th></tr></thead>
+                <th scope="col">Membership</th></tr></thead>
                 <tbody>
                 %s</tbody>
                 </table></div>
@@ -470,7 +472,31 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders a candidate identity row shared by the undeclared and excluded tables.
+     * Renders the candidates nobody decided about that Artemis does not present as features. They never block the
+     * run and stay outside the model until someone annotates or declares them; the group is omitted when empty.
+     *
+     * @param unmodeled undecided candidates that are not feature-shaped.
+     * @return unmodeled disclosure markup, empty when there are none.
+     */
+    private String unmodeledGroup(List<CurationDecision> unmodeled) {
+        if (unmodeled.isEmpty()) {
+            return "";
+        }
+        return """
+                <details class="group">
+                <summary><span class="chip info">unmodeled</span> Unmodeled anchors <span class="count">%s</span>\
+                <span class="summary-hint">no decision; informational</span></summary>
+                <div class="scroll-x"><table>
+                <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
+                <tbody>
+                %s</tbody>
+                </table></div>
+                </details>
+                """.formatted(unmodeled.size(), renderEach(unmodeled, this::candidateRow));
+    }
+
+    /**
+     * Renders a candidate identity row shared by the undeclared, excluded, and unmodeled tables.
      *
      * @param decision candidate decision.
      * @return table row markup.
