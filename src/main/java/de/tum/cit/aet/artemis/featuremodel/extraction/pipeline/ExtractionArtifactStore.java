@@ -11,6 +11,7 @@ import java.util.TreeMap;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ArtifactDirectoryOperations;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
@@ -71,6 +72,8 @@ public class ExtractionArtifactStore {
 
     public static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
 
+    public static final String CONFIG_DERIVATION_FILE = "config-derivation.json";
+
     public static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
 
     public static final String MODEL_DIAGNOSTICS_FILE = "model-diagnostics.json";
@@ -126,9 +129,11 @@ public class ExtractionArtifactStore {
      * @param result model envelope.
      * @param generatedModel generated feature model.
      * @param generatedCatalog generated config-key catalog.
+     * @param configDerivation per-member configuration-key resolutions of the assembly.
      * @param items model assembly diagnostics.
      */
-    public record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
+    public record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog,
+            ConfigDerivationReport configDerivation, List<ReportItem> items) {
     }
 
     /**
@@ -229,6 +234,7 @@ public class ExtractionArtifactStore {
         if (outcome.conformance().conformant()) {
             jsonWriter.write(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
             jsonWriter.write(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+            jsonWriter.write(directory.resolve(CONFIG_DERIVATION_FILE), outcome.configDerivation());
             generatedModelDigest = Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE));
             generatedCatalogDigest = Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE));
         }
@@ -286,7 +292,8 @@ public class ExtractionArtifactStore {
 
         FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");
         ArtemisConfigKeyCatalog generatedCatalog = readJson(directory.resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
-        return new LoadedModel(result, generatedModel, generatedCatalog,
+        ConfigDerivationReport configDerivation = readJson(directory.resolve(CONFIG_DERIVATION_FILE), ConfigDerivationReport.class, "model");
+        return new LoadedModel(result, generatedModel, generatedCatalog, configDerivation,
                 List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
     }
 

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -44,6 +45,13 @@ public class ExtractionReportAssembler {
                     "An excluded candidate omitted its optional reason code and is grouped under the stable unspecified fallback."),
             Map.entry(ReportItem.CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING,
                     "An excluded runtime toggle omitted its optional human-readable rationale."),
+            Map.entry(ReportItem.CODE_CONFIG_MAPPING_DERIVED, "A deployment-input mapping was derived from guarded Artemis structure without a declaration."),
+            Map.entry(ReportItem.CODE_CONFIG_MAPPING_TUNABLE_SKIPPED, "A derived configuration-key candidate stays a tunable and is listed instead of emitted."),
+            Map.entry(ReportItem.CODE_CONFIG_MAPPING_REJECTED, "A manifest configuration entry rejects a key, so no mapping is emitted for it."),
+            Map.entry(ReportItem.CODE_MANIFEST_CONFIGURATION_REDUNDANT,
+                    "A manifest configuration entry agrees with an annotation-declared key and can be removed."),
+            Map.entry(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST,
+                    "A manifest configuration entry tries to alter or reject an annotation-declared key; the annotation wins."),
             Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries, annotations, or resolved semantics collide for this scan and need review.")));
 
     /**
@@ -53,11 +61,13 @@ public class ExtractionReportAssembler {
      * @param artemisCommit resolved commit of the scanned checkout.
      * @param manifestDigest digest of the manifest bytes used by the run.
      * @param curation manifest curation section.
+     * @param configDerivation per-member configuration-key resolutions, or null when the run failed before derivation.
      * @param stageItems diagnostics of every stage that ran, in stage order.
      * @param eligible whether all deterministic delivery gates passed.
      * @return assembled report.
      */
-    public ExtractionReport assemble(String artemisCommit, String manifestDigest, CurationReport curation, List<ReportItem> stageItems, boolean eligible) {
+    public ExtractionReport assemble(String artemisCommit, String manifestDigest, CurationReport curation, ConfigDerivationReport configDerivation,
+            List<ReportItem> stageItems, boolean eligible) {
         List<ReportItem> sortedItems = new ArrayList<>(stageItems);
         sortedItems.sort(Comparator.comparing(ReportItem::code).thenComparing(ReportItem::subject).thenComparing(ReportItem::message).thenComparing(ReportItem::severity));
         Map<String, Integer> severityCounts = new TreeMap<>();
@@ -67,7 +77,7 @@ public class ExtractionReportAssembler {
             codeCounts.merge(item.code(), 1, Integer::sum);
         }
         String status = eligible ? ExtractionReport.STATUS_PASS : ExtractionReport.STATUS_FAIL;
-        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, artemisCommit, manifestDigest, curation,
+        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, artemisCommit, manifestDigest, curation, configDerivation,
                 new LinkedHashMap<>(CODE_DOCUMENTATION), severityCounts, codeCounts, List.copyOf(sortedItems));
     }
 }

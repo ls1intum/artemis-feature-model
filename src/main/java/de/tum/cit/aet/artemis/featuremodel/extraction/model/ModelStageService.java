@@ -106,7 +106,8 @@ public class ModelStageService {
         }
         List<ReportItem> items = new ArrayList<>(scan.outcome().items());
         items.addAll(outcome.items());
-        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(), items, false);
+        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(),
+                outcome.configDerivation(), items, false);
         artifactStore.writeReport(context.layout(), report);
     }
 

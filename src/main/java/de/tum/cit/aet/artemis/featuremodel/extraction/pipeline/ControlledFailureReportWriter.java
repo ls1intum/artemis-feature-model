@@ -34,7 +34,8 @@ public class ControlledFailureReportWriter {
         CurationReport curation = new CurationReport(context.manifest().manifestVersion(), context.artemisCommit(), CurationReport.zeroStateCounts(), Map.of(),
                 List.of(), List.of());
         ReportItem item = ReportItem.error(ReportItem.CODE_PIPELINE_ARTIFACT_INVALID, "pipeline", failure.getMessage());
-        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), curation, List.of(item), false);
+        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), curation, null, List.of(item),
+                false);
         artifactStore.writeReport(context.layout(), report);
     }
 }

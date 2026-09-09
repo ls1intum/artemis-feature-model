@@ -67,13 +67,14 @@ class ExtractionPipelineCharacterizationTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final Map<String, String> RECORDED_STAGE_ONE_DIGESTS = Map.ofEntries(
-            Map.entry("model/generated-config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
-            Map.entry("model/generated-feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("model/manifest-conformance-report.json", "f7a086cdb413aaade1f2741d900c247742c504ced028c5dbea982ed7e0ad5ef3"),
-            Map.entry("model/model-diagnostics.json", "49607fd5246c692c3232e1c8a91dda86bc860a026bd5a42e43d655a67f250c72"),
-            Map.entry("model/model-result.json", "b528b915958f187a5beaaba1e2791bf22e110ae01c87071292c72c0a16539212"),
-            Map.entry("report/extraction-report.json", "dd41168b54609c30d04159c8dde6bf97ae8cbf0de2dcaca803871de82331da8a"),
-            Map.entry("report/index.html", "2c4b6d3ffec331baa160bda329a4566522c70be0b443b58ea93c78d1767d4cdb"),
+            Map.entry("model/config-derivation.json", "871313ab7b20c89a25087667596ee7e1ef064ad179c462fc7dcb8163f6fad07c"),
+            Map.entry("model/generated-config-key-catalog.json", "001cc8f7ec8818c84a54be67ff164697e7386558f3aa6f4fe24c375d5d630aca"),
+            Map.entry("model/generated-feature-model.json", "1cb3c601eadd11b1157dca23c8b0e59a659d15312ff9231d5bc484a9ae26553e"),
+            Map.entry("model/manifest-conformance-report.json", "2996a4ee34d15c16e03e84e037a79fa58bfa184de2f275b08082bf741381508d"),
+            Map.entry("model/model-diagnostics.json", "56187bfc7739481138332e84879a7560b89737c225965e3ac52313ae22902815"),
+            Map.entry("model/model-result.json", "2a4b2de667d79c7a0ff42b4b060a68c8b1f53452d2691bc85f2981b879c465a7"),
+            Map.entry("report/extraction-report.json", "00dfad949e5a9cd2b4d9ce99d37d4ebe2c297e8454a9b15c20d4fc0526e28bf3"),
+            Map.entry("report/index.html", "d885a9edf03398470894c9640855a47f705995a89095dbad37faa7af911f37cc"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
             Map.entry("scan/annotations.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
             Map.entry("scan/config-defaults.json", "4973f5af6b899ac2816f8fe6d78a0f1ae8ec284db6df0dc9de02104e6329d1da"),
@@ -83,17 +84,17 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
             Map.entry("scan/scan-result.json", "6d0ac342fae96af6310fd2e80be3e84fad7478694e04a2d5a2bc33e4a36ba2f9"),
-            Map.entry("snapshot/checksums.txt", "92df6b918617128887f289f944086cdb10a633aac63293ff7f94fe2f89277ab2"),
-            Map.entry("snapshot/config-key-catalog.json", "7a080f8415459765a83c5551347390d4252bbde63594786ded298dbaee93e5f5"),
-            Map.entry("snapshot/feature-model.json", "bd84b5a2b7f142486fdfc9d57fa1319034a6df3c3149a3b535051b42999e55a4"),
-            Map.entry("snapshot/generation-report.json", "dd41168b54609c30d04159c8dde6bf97ae8cbf0de2dcaca803871de82331da8a"),
+            Map.entry("snapshot/checksums.txt", "437257b0adc80174352e3855fd77c700bc4e3e041a4ca9b611577e8264f2355e"),
+            Map.entry("snapshot/config-key-catalog.json", "001cc8f7ec8818c84a54be67ff164697e7386558f3aa6f4fe24c375d5d630aca"),
+            Map.entry("snapshot/feature-model.json", "1cb3c601eadd11b1157dca23c8b0e59a659d15312ff9231d5bc484a9ae26553e"),
+            Map.entry("snapshot/generation-report.json", "00dfad949e5a9cd2b4d9ce99d37d4ebe2c297e8454a9b15c20d4fc0526e28bf3"),
             Map.entry("snapshot/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("snapshot/metadata.json", "e67c6be86d0b11b3514c172e352a220082f191e2d334b1dcd07793d396d83a32"),
-            Map.entry("snapshot/provenance.json", "03677fd52213da2983b0cc9d5c9a8a135c3e20c59479b4c23f2e4830da9d8b76"),
+            Map.entry("snapshot/provenance.json", "436e8da00cd74dc3014dde663067f9829d1e5e02948c64107b7fa08fd37739e7"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "692cf4c6cb29afcb6d30a76c0588dc00dea66e1b989f8d3835b7499a9dc3892d"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
-            Map.entry("workflow/workflow-result.json", "8d88af5d3d4f8be0f156c6926eeca78ea7e15b40b4eaf3dc45600a10f8059adc"));
+            Map.entry("workflow/workflow-result.json", "85d1b6ead8b060ee60fb5273f5553e8af17f87bae4fb89d00917414d268242fc"));
 
     @TempDir
     private Path outputRoot;
@@ -138,15 +139,22 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(summary.featureCount()).isEqualTo(2);
         assertThat(summary.relationCount()).isEqualTo(1);
         assertThat(summary.constraintCount()).isZero();
-        assertThat(summary.catalogKeyCount()).isEqualTo(1);
+        assertThat(summary.catalogKeyCount()).isEqualTo(4);
         assertThat(summary.modelIntegrityValid()).isTrue();
 
         FeatureModel generatedModel = OBJECT_MAPPER.readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_MODEL_FILE)),
                 FeatureModel.class);
         assertThat(generatedModel.features()).extracting(FeatureNode::id).containsExactly("fixture-root", "alpha-feature");
+        FeatureNode alphaFeature = generatedModel.features().getLast();
+        assertThat(alphaFeature.artifactMappings()).extracting(mapping -> mapping.path())
+                .as("enabled-key toggle mapping first, then derived non-secret inputs sorted, then derived secret inputs")
+                .containsExactly("artemis.alpha.enabled", "artemis.alpha.connector.endpoint", "artemis.alpha.url", "artemis.alpha.token");
+        assertThat(alphaFeature.artifactMappings().getLast().secret()).isTrue();
         ArtemisConfigKeyCatalog generatedCatalog = OBJECT_MAPPER
                 .readValue(Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.GENERATED_CATALOG_FILE)), ArtemisConfigKeyCatalog.class);
-        assertThat(generatedCatalog.keys()).extracting(ArtemisConfigKeyCatalog.CatalogKey::key).containsExactly("artemis.alpha.enabled");
+        assertThat(generatedCatalog.keys()).extracting(ArtemisConfigKeyCatalog.CatalogKey::key).containsExactly("artemis.alpha.connector.endpoint",
+                "artemis.alpha.enabled", "artemis.alpha.token", "artemis.alpha.url");
+        assertThat(layout.modelDirectory().resolve(ExtractionArtifactStore.CONFIG_DERIVATION_FILE)).isRegularFile();
         ManifestConformanceReport conformance = OBJECT_MAPPER.readValue(
                 Files.readAllBytes(layout.modelDirectory().resolve(ExtractionArtifactStore.MANIFEST_CONFORMANCE_FILE)), ManifestConformanceReport.class);
         assertThat(conformance.status()).isEqualTo(ManifestConformanceReport.STATUS_PASS);

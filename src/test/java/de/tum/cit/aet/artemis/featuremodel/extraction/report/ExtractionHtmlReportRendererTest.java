@@ -9,8 +9,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.ConfigKeyResolution;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.MemberConfigDerivation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -93,7 +97,7 @@ class ExtractionHtmlReportRendererTest {
         List<ReportItem> items = List.of(ReportItem.warning(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "alpha", "First subject."),
                 ReportItem.warning(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "beta", "Second subject."));
         ExtractionReport report = new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, ExtractionReport.STATUS_PASS, COMMIT, MANIFEST_DIGEST,
-                curation(List.of(included("module:alpha"))), Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, meaning),
+                curation(List.of(included("module:alpha"))), null, Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, meaning),
                 Map.of(ReportItem.SEVERITY_WARNING, 2), Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, 2), items);
 
         String html = render(report);
@@ -131,6 +135,36 @@ class ExtractionHtmlReportRendererTest {
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
         assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
         assertThat(html).contains("Unmodeled anchors <span class=\"count\">1</span>", "toggle:RateLimit");
+    }
+
+    @Test
+    void rendersConfigurationKeyResolutionsWithShortEvidenceReferences() {
+        EvidenceItem yamlEvidence = new EvidenceItem("module:alpha", EvidenceItem.KIND_USAGE_CONFIG_YAML,
+                "src/main/resources/config/application-artemis.yml", 42, "artemis.alpha.url", "scanned YAML default");
+        ConfigDerivationReport configDerivation = new ConfigDerivationReport(List.of(
+                new MemberConfigDerivation("alpha-feature", "module:alpha", List.of(
+                        new ConfigKeyResolution("artemis.alpha.url", ConfigDerivationReport.ORIGIN_DERIVED, ConfigDerivationReport.DECISION_DERIVED, false,
+                                List.of(yamlEvidence), null),
+                        new ConfigKeyResolution("artemis.alpha.mode", ConfigDerivationReport.ORIGIN_DERIVED, ConfigDerivationReport.DECISION_SKIPPED, false,
+                                List.of(), null))),
+                new MemberConfigDerivation("beta-feature", "module:beta", List.of())));
+        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"))), configDerivation, List.of());
+
+        String html = render(report);
+
+        assertThat(html).contains("Configuration derivation <span class=\"count\">2</span>", "<code>alpha-feature</code>", "<code>artemis.alpha.url</code>",
+                "<span class=\"tag\">derived</span>", "<span class=\"tag\">skipped</span>", "<code>application-artemis.yml:42</code>");
+        assertThat(html).contains("No configuration keys were declared or derived for: beta-feature.");
+        assertThat(html).doesNotContain("[path]");
+    }
+
+    @Test
+    void statesWhenARunFailedBeforeConfigurationDerivation() {
+        ExtractionReport report = report(ExtractionReport.STATUS_FAIL, curation(List.of()), List.of());
+
+        String html = render(report);
+
+        assertThat(html).contains("did not reach configuration derivation");
     }
 
     @Test
@@ -191,14 +225,27 @@ class ExtractionHtmlReportRendererTest {
      * @return report ready to render.
      */
     private ExtractionReport report(String status, CurationReport curation, List<ReportItem> items) {
+        return report(status, curation, null, items);
+    }
+
+    /**
+     * Builds a report with a configuration-derivation section whose counts are derived from its items.
+     *
+     * @param status overall verdict.
+     * @param curation curation section.
+     * @param configDerivation configuration-derivation section, or null.
+     * @param items diagnostics of the run.
+     * @return report ready to render.
+     */
+    private ExtractionReport report(String status, CurationReport curation, ConfigDerivationReport configDerivation, List<ReportItem> items) {
         Map<String, Integer> severityCounts = new LinkedHashMap<>();
         Map<String, Integer> codeCounts = new LinkedHashMap<>();
         for (ReportItem item : items) {
             severityCounts.merge(item.severity(), 1, Integer::sum);
             codeCounts.merge(item.code(), 1, Integer::sum);
         }
-        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, COMMIT, MANIFEST_DIGEST, curation, Map.of(), severityCounts, codeCounts,
-                items);
+        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, COMMIT, MANIFEST_DIGEST, curation, configDerivation, Map.of(),
+                severityCounts, codeCounts, items);
     }
 
     /**

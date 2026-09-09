@@ -15,8 +15,11 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.MemberConfigDerivation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -111,11 +114,12 @@ public class ExtractionHtmlReportRenderer {
                 </head>
                 <body>
                 %s<main>
-                %s%s%s%s%s</main>
+                %s%s%s%s%s%s</main>
                 </body>
                 </html>
                 """.formatted(escape(title), passed ? FAVICON_PASS : FAVICON_FAIL, stylesheet(), statusBar(report, verdict, passed), summaryTiles(report),
-                findingsSection(report), decisionsSection(report.curation()), releaseDeltaSection(), rawArtifactsSection());
+                findingsSection(report), decisionsSection(report.curation()), configDerivationSection(report.configDerivation()), releaseDeltaSection(),
+                rawArtifactsSection());
     }
 
     /**
@@ -136,7 +140,8 @@ public class ExtractionHtmlReportRenderer {
                 <p class="provenance"><span title="%s">commit <code>%s</code></span><span title="%s">manifest <code>%s</code></span>\
                 <span>manifest v%s</span></p>
                 </div>
-                <nav class="jump"><a href="#findings">Findings</a><a href="#decisions">Decisions</a><a href="#raw">Raw</a></nav>
+                <nav class="jump"><a href="#findings">Findings</a><a href="#decisions">Decisions</a><a href="#configuration">Configuration</a>\
+                <a href="#raw">Raw</a></nav>
                 </header>
                 """.formatted(passed ? "ok" : "bad", escape(verdict), escape(report.artemisCommit()), escape(shortCommit(report.artemisCommit())),
                 escape(report.manifestDigest()), escape(shortDigest(report.manifestDigest())), report.curation().manifestVersion());
@@ -505,6 +510,79 @@ public class ExtractionHtmlReportRenderer {
         return """
                 <tr><td><code>%s</code></td><td>%s</td></tr>
                 """.formatted(escape(decision.candidateId()), escape(decision.candidateKind()));
+    }
+
+    /**
+     * Renders the per-member configuration-key resolutions: every key the precedence merge considered, with its
+     * origin, decision, secret flag, and evidence references. Members without any key resolution are summarized in
+     * one line instead of rendering empty tables. A run that failed before derivation carries no section data, which
+     * is stated explicitly.
+     *
+     * @param configDerivation configuration-derivation section of the report, or null.
+     * @return configuration section markup.
+     */
+    private String configDerivationSection(ConfigDerivationReport configDerivation) {
+        if (configDerivation == null) {
+            return """
+                    <section id="configuration">
+                    <h2>Configuration derivation</h2>
+                    <p class="muted">This run did not reach configuration derivation; the findings above state why.</p>
+                    </section>
+                    """;
+        }
+        List<MemberConfigDerivation> withKeys = configDerivation.members().stream().filter(member -> !member.keys().isEmpty()).toList();
+        List<MemberConfigDerivation> withoutKeys = configDerivation.members().stream().filter(member -> member.keys().isEmpty()).toList();
+        String emptyMembers = withoutKeys.isEmpty() ? "" : """
+                <p class="muted">No configuration keys were declared or derived for: %s.</p>
+                """.formatted(escape(withoutKeys.stream().map(MemberConfigDerivation::featureId).collect(Collectors.joining(", "))));
+        return """
+                <section id="configuration">
+                <h2>Configuration derivation <span class="count">%s</span></h2>
+                <p class="muted">Per functional member, every configuration key the precedence merge considered: declared by the \
+                @ArtemisFeature annotation, confirmed or rejected by the manifest, derived from guarded Artemis structure, or listed as a tunable.</p>
+                %s%s</section>
+                """.formatted(configDerivation.members().size(), renderEach(withKeys, this::memberDerivationGroup), emptyMembers);
+    }
+
+    /**
+     * Renders one member's key resolutions as a collapsible table.
+     *
+     * @param member member key resolutions.
+     * @return nested disclosure markup.
+     */
+    private String memberDerivationGroup(MemberConfigDerivation member) {
+        String rows = renderEach(member.keys(), resolution -> """
+                <tr><td><code>%s</code></td><td><span class="tag">%s</span></td><td><span class="tag">%s</span></td><td>%s</td><td>%s</td><td>%s</td></tr>
+                """.formatted(escape(resolution.key()), escape(resolution.origin()), escape(resolution.decision()), resolution.secret() ? "secret" : "",
+                evidenceReferences(resolution.evidence()), resolution.detail() == null ? "" : escape(resolution.detail())));
+        return """
+                <details class="group nested">
+                <summary><code>%s</code> <span class="count">%s</span></summary>
+                <div class="scroll-x"><table>
+                <thead><tr><th scope="col">Key</th><th scope="col">Origin</th><th scope="col">Decision</th><th scope="col">Secret</th>\
+                <th scope="col">Evidence</th><th scope="col">Note</th></tr></thead>
+                <tbody>
+                %s</tbody>
+                </table></div>
+                </details>
+                """.formatted(escape(member.featureId()), member.keys().size(), rows);
+    }
+
+    /**
+     * Renders evidence items as short file references. Only the file name and line are shown, mirroring the model's
+     * evidence reference style, so the sanitizer never sees a slash-separated path.
+     *
+     * @param evidence evidence items of one key resolution.
+     * @return escaped evidence references separated by spaces.
+     */
+    private String evidenceReferences(List<EvidenceItem> evidence) {
+        return renderEach(evidence, item -> {
+            String fileName = item.file() == null ? "" : item.file().substring(item.file().lastIndexOf('/') + 1);
+            String reference = item.line() == null ? fileName : fileName + ":" + item.line();
+            return """
+                    <code>%s</code>
+                    """.formatted(escape(reference));
+        });
     }
 
     /**
