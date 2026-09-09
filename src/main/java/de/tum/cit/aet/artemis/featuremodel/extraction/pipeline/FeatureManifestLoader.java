@@ -36,7 +36,7 @@ public class FeatureManifestLoader {
             "constraints", "ignoredRelations", "renames");
 
     private static final Set<String> FEATURE_FIELDS = Set.of("id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
-            "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
+            "requiresCapabilities", "providesCapabilities", "artifactMappings", "configuration", "name", "description", "documentationUrl", "rationale");
 
     private static final Set<String> PROVISIONAL_FIELDS = Set.of("anchor", "id");
 
@@ -54,6 +54,11 @@ public class FeatureManifestLoader {
     private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
 
     private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "source", "valueWhenSelected", "valueWhenDeselected", "secret");
+
+    private static final Set<String> CONFIGURATION_FIELDS = Set.of("key", "secret", "action");
+
+    private static final Set<String> CONFIGURATION_ACTION_VALUES = Set.of(FeatureScopeManifest.CONFIGURATION_ACTION_INCLUDE,
+            FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE);
 
     private static final Set<String> MAPPING_SOURCE_VALUES = Set.of(ArtifactMappingSource.SELECTION, ArtifactMappingSource.ENVIRONMENT);
 
@@ -219,8 +224,40 @@ public class FeatureManifestLoader {
                 optionalString(entry, "kind", location), optionality(entry, location), enumeratedString(entry, "category", CATEGORY_VALUES, location),
                 enumeratedString(entry, "defaultState", DEFAULT_STATE_VALUES, location), optionalOrder(entry, location),
                 stringList(entry, "requiresCapabilities", location), stringList(entry, "providesCapabilities", location),
-                parseMappingHints(entry.get("artifactMappings"), location), optionalString(entry, "name", location), optionalString(entry, "description", location),
+                parseMappingHints(entry.get("artifactMappings"), location), parseConfigurationEntries(entry.get("configuration"), location),
+                optionalString(entry, "name", location), optionalString(entry, "description", location),
                 optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location));
+    }
+
+    /**
+     * Parses the configuration-key confirmations and exceptions of a features entry. Keys must be unique within the
+     * entry, the action must be a known one, and an exclude entry may not carry a secret flag, because a rejected key
+     * is never emitted.
+     *
+     * @param value raw YAML value of the configuration field, or null when absent.
+     * @param entryLocation location label of the owning entry.
+     * @return parsed configuration entries in declaration order.
+     * @throws FeatureManifestException if an entry is malformed.
+     */
+    private List<FeatureScopeManifest.ConfigurationEntry> parseConfigurationEntries(Object value, String entryLocation) {
+        List<FeatureScopeManifest.ConfigurationEntry> entries = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        int index = 0;
+        for (Object item : asList(value, entryLocation + ".configuration")) {
+            String location = entryLocation + ".configuration[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, CONFIGURATION_FIELDS, location);
+            String key = requiredString(entry, "key", location);
+            requireUnique(keys, key, location + " repeats key '" + key + "'.");
+            String action = enumeratedString(entry, "action", CONFIGURATION_ACTION_VALUES, location);
+            Boolean secret = optionalBoolean(entry, "secret", location);
+            if (FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE.equals(action) && secret != null) {
+                throw new FeatureManifestException(location + " declares action 'exclude' and a secret flag; a rejected key is never emitted.");
+            }
+            entries.add(new FeatureScopeManifest.ConfigurationEntry(key, secret, action));
+            index++;
+        }
+        return List.copyOf(entries);
     }
 
     /**

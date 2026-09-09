@@ -232,7 +232,7 @@ class GeneratedModelAssemblerTest {
     }
 
     private FeatureEntry declaration(String id, String group) {
-        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
+        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), null, null, null, null);
     }
 
     private List<ResolvedFeatureScope> includes() {
@@ -240,11 +240,11 @@ class GeneratedModelAssemblerTest {
         MappingHint techHint = new MappingHint(".env", "SPRING_PROFILES_ACTIVE", "selection", "tech-a-profile", null, null);
         return List.of(
                 new ResolvedFeatureScope("module:alpha", "alpha", "alpha-group", null, "module", "optional", null, null, 1, List.of("alpha-service"), List.of(),
-                        List.of(alphaHint), null, null, null, "manifest"),
+                        List.of(alphaHint), List.of(), null, null, null, "manifest"),
                 new ResolvedFeatureScope("infra:tech-a", "tech-a", "tech-group", null, "feature", "optional", "technical", "enabled", 1, List.of(),
-                        List.of("tech-capability"), List.of(techHint), "Tech A", "Technical alternative A.", null, "manifest"),
+                        List.of("tech-capability"), List.of(techHint), List.of(), "Tech A", "Technical alternative A.", null, "manifest"),
                 new ResolvedFeatureScope("infra:tech-b", "tech-b", "tech-group", null, "feature", "optional", "technical", "disabled", 2, List.of(), List.of(),
-                        List.of(), "Tech B", "Technical alternative B.", null, "manifest"));
+                        List.of(), List.of(), "Tech B", "Technical alternative B.", null, "manifest"));
     }
 
     private List<FeatureCandidate> candidates() {

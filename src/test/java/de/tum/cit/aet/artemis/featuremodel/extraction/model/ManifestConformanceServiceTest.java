@@ -159,9 +159,9 @@ class ManifestConformanceServiceTest {
      */
     private List<ResolvedFeatureScope> includedFeatures() {
         return List.of(
-                new ResolvedFeatureScope("module:alpha", "alpha", null, "root", "module", "optional", null, null, 1, List.of(), List.of(), List.of(), null, null,
+                new ResolvedFeatureScope("module:alpha", "alpha", null, "root", "module", "optional", null, null, 1, List.of(), List.of(), List.of(), List.of(), null, null,
                         null, CurationReport.SOURCE_ANNOTATION),
-                new ResolvedFeatureScope("module:beta", "beta", null, "root", "module", "optional", null, null, 2, List.of(), List.of(), List.of(), null, null,
+                new ResolvedFeatureScope("module:beta", "beta", null, "root", "module", "optional", null, null, 2, List.of(), List.of(), List.of(), List.of(), null, null,
                         null, CurationReport.SOURCE_ANNOTATION));
     }
 

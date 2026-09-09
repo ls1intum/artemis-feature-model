@@ -65,6 +65,21 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A provisional entry is redundant because the annotation now resolves to the same candidate. */
     public static final String CODE_PROVISIONAL_REDUNDANT = "PROVISIONAL_REDUNDANT";
 
+    /** A deployment-input mapping was derived from guarded Artemis structure without a declaration. */
+    public static final String CODE_CONFIG_MAPPING_DERIVED = "CONFIG_MAPPING_DERIVED";
+
+    /** A derived configuration-key candidate stays a tunable and is listed instead of emitted. */
+    public static final String CODE_CONFIG_MAPPING_TUNABLE_SKIPPED = "CONFIG_MAPPING_TUNABLE_SKIPPED";
+
+    /** A manifest configuration entry rejects a key, so no mapping is emitted for it. */
+    public static final String CODE_CONFIG_MAPPING_REJECTED = "CONFIG_MAPPING_REJECTED";
+
+    /** A manifest configuration entry agrees with an annotation-declared key and can be removed. */
+    public static final String CODE_MANIFEST_CONFIGURATION_REDUNDANT = "MANIFEST_CONFIGURATION_REDUNDANT";
+
+    /** A manifest configuration entry tries to alter or reject an annotation-declared key; the annotation wins. */
+    public static final String CODE_ANNOTATION_OVERRIDES_MANIFEST = "ANNOTATION_OVERRIDES_MANIFEST";
+
     /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 

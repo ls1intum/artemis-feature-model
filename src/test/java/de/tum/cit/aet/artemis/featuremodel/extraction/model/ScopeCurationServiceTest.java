@@ -106,7 +106,7 @@ class ScopeCurationServiceTest {
     @Test
     void technicalEntryGrantsMembershipWithInlineSemantics() {
         FeatureEntry technicalSemantics = new FeatureEntry("tech-a", null, "root", "feature", null, FeatureScopeManifest.CATEGORY_TECHNICAL, "enabled", 1,
-                List.of(), List.of("tech-capability"), List.of(), "Tech A", null, null, null);
+                List.of(), List.of("tech-capability"), List.of(), List.of(), "Tech A", null, null, null);
         FeatureScopeManifest manifest = manifest(List.of(), List.of(), List.of(new TechnicalEntry("infra:tech-a", technicalSemantics)), List.of());
         FeatureCandidate infrastructure = new FeatureCandidate("infra:tech-a", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null,
                 null, null, null, null, null);
@@ -307,7 +307,7 @@ class ScopeCurationServiceTest {
     }
 
     private FeatureEntry feature(String id, String parent, List<String> requiresCapabilities) {
-        return new FeatureEntry(id, null, parent, null, null, null, null, null, requiresCapabilities, List.of(), List.of(), null, null, null, null);
+        return new FeatureEntry(id, null, parent, null, null, null, null, null, requiresCapabilities, List.of(), List.of(), List.of(), null, null, null, null);
     }
 
     private ExtractedAnnotation annotation(String anchor, String id) {

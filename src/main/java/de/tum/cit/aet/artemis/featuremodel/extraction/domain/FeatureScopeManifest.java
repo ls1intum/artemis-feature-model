@@ -44,6 +44,12 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
     /** Stable fallback used when an exclusion deliberately omits its optional reason code. */
     public static final String EXCLUSION_REASON_UNSPECIFIED = "unspecified";
 
+    /** Configuration-entry action confirming or adding a key as a deployment input; the default when not declared. */
+    public static final String CONFIGURATION_ACTION_INCLUDE = "include";
+
+    /** Configuration-entry action rejecting a derived key. */
+    public static final String CONFIGURATION_ACTION_EXCLUDE = "exclude";
+
     /**
      * Normalizes manifest collections to immutable lists.
      */
@@ -74,24 +80,40 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
      * @param order relation order under the parent; null appends after ordered siblings in manifest order.
      * @param requiresCapabilities required deployment capabilities.
      * @param providesCapabilities capabilities supplied by the feature.
-     * @param artifactMappings declared artifact mapping hints beyond the auto-derived enabled-key mapping.
+     * @param artifactMappings declared artifact mapping hints beyond the auto-derived enabled-key mapping; only
+     *            technical entries may declare them, functional features carry {@code configuration} instead.
+     * @param configuration configuration-key confirmations and exceptions applied to the derived mappings.
      * @param name explicit name override, or null.
      * @param description explicit description override, or null.
      * @param documentationUrl explicit documentation URL override, or null.
      * @param rationale documented reason for the modeling decision, or null.
      */
     public record FeatureEntry(String id, String group, String parent, String kind, String optionality, String category, String defaultState, Integer order,
-            List<String> requiresCapabilities, List<String> providesCapabilities, List<MappingHint> artifactMappings, String name, String description,
-            String documentationUrl, String rationale) {
+            List<String> requiresCapabilities, List<String> providesCapabilities, List<MappingHint> artifactMappings, List<ConfigurationEntry> configuration,
+            String name, String description, String documentationUrl, String rationale) {
 
         /**
-         * Normalizes capability and mapping collections to immutable lists.
+         * Normalizes capability, mapping, and configuration collections to immutable lists.
          */
         public FeatureEntry {
             requiresCapabilities = requiresCapabilities == null ? List.of() : List.copyOf(requiresCapabilities);
             providesCapabilities = providesCapabilities == null ? List.of() : List.copyOf(providesCapabilities);
             artifactMappings = artifactMappings == null ? List.of() : List.copyOf(artifactMappings);
+            configuration = configuration == null ? List.of() : List.copyOf(configuration);
         }
+    }
+
+    /**
+     * One configuration-key confirmation or exception of a functional {@code features} entry. An include entry adds
+     * or confirms a key as a deployment input in declaration order; an exclude entry rejects a derived key. An entry
+     * naming a key the {@code @ArtemisFeature} annotation declares can never alter or remove it.
+     *
+     * @param key dotted configuration key.
+     * @param secret whether the value is a secret; null defers to the derived classification.
+     * @param action {@link #CONFIGURATION_ACTION_INCLUDE} or {@link #CONFIGURATION_ACTION_EXCLUDE}; null defaults to
+     *            include.
+     */
+    public record ConfigurationEntry(String key, Boolean secret, String action) {
     }
 
     /**

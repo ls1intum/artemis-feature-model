@@ -223,7 +223,7 @@ class GuidedWorkflowScaffoldServiceTest {
     }
 
     private FeatureEntry include(String id, String group, String name) {
-        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), name, null, null, null);
+        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), name, null, null, null);
     }
 
     private ConceptualNode rootNode() {

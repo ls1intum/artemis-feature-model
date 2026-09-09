@@ -101,9 +101,9 @@ class GeneratedModelValidatorTest {
     private List<ResolvedFeatureScope> includes() {
         return List.of(
                 new ResolvedFeatureScope("module:alpha", "alpha", "alpha-group", null, "module", "optional", null, null, 1, List.of("alpha-service"), List.of(),
-                        List.of(), null, null, null, "manifest"),
+                        List.of(), List.of(), null, null, null, "manifest"),
                 new ResolvedFeatureScope("infra:tech-a", "tech-a", null, "root", "feature", "optional", "technical", "enabled", 2, List.of(),
-                        List.of("tech-capability"), List.of(), "Tech A", null, null, "manifest"));
+                        List.of("tech-capability"), List.of(), List.of(), "Tech A", null, null, "manifest"));
     }
 
 

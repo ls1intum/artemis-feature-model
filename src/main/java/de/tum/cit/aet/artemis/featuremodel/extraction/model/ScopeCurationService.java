@@ -363,7 +363,8 @@ class ScopeCurationService {
         String optionality = semantics.optionality() == null ? FeatureScopeManifest.OPTIONALITY_OPTIONAL : semantics.optionality();
         return new ResolvedFeatureScope(candidate.id(), id, semantics.group(), semantics.parent(), kind(semantics.kind(), candidate), optionality,
                 semantics.category(), semantics.defaultState(), semantics.order(), semantics.requiresCapabilities(), semantics.providesCapabilities(),
-                semantics.artifactMappings(), semantics.name(), semantics.description(), semantics.documentationUrl(), membershipSource);
+                semantics.artifactMappings(), semantics.configuration(), semantics.name(), semantics.description(), semantics.documentationUrl(),
+                membershipSource);
     }
 
     /**
