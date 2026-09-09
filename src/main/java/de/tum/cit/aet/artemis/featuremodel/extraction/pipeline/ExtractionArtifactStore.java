@@ -15,6 +15,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWri
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
@@ -59,6 +60,8 @@ public class ExtractionArtifactStore {
     public static final String ANNOTATIONS_FILE = "annotations.json";
 
     public static final String CONFIG_DEFAULTS_FILE = "config-defaults.json";
+
+    public static final String CONFIG_INJECTIONS_FILE = "config-injections.json";
 
     public static final String SCAN_DIAGNOSTICS_FILE = "scan-diagnostics.json";
 
@@ -167,10 +170,11 @@ public class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
         jsonWriter.write(directory.resolve(ANNOTATIONS_FILE), outcome.annotations());
         jsonWriter.write(directory.resolve(CONFIG_DEFAULTS_FILE), outcome.configDefaults());
+        jsonWriter.write(directory.resolve(CONFIG_INJECTIONS_FILE), outcome.configInjections());
         jsonWriter.write(directory.resolve(SCAN_DIAGNOSTICS_FILE), outcome.items());
 
-        Map<String, String> payloadDigests = digestsOf(directory,
-                List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE, ANNOTATIONS_FILE, CONFIG_DEFAULTS_FILE, SCAN_DIAGNOSTICS_FILE));
+        Map<String, String> payloadDigests = digestsOf(directory, List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE, ANNOTATIONS_FILE,
+                CONFIG_DEFAULTS_FILE, CONFIG_INJECTIONS_FILE, SCAN_DIAGNOSTICS_FILE));
         ScanResult result = new ScanResult(ScanResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, metadata.artemisCommit(), payloadDigests,
                 combinedDigest(payloadDigests));
         jsonWriter.write(directory.resolve(SCAN_RESULT_FILE), result);
@@ -200,6 +204,7 @@ public class ExtractionArtifactStore {
                 List.of(readJson(directory.resolve(RELATION_CANDIDATES_FILE), RelationCandidate[].class, "scan")),
                 List.of(readJson(directory.resolve(ANNOTATIONS_FILE), ExtractedAnnotation[].class, "scan")),
                 readJson(directory.resolve(CONFIG_DEFAULTS_FILE), ExtractedConfigurationDefaults.class, "scan"),
+                List.of(readJson(directory.resolve(CONFIG_INJECTIONS_FILE), ExtractedConfigInjection[].class, "scan")),
                 List.of(readJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), ReportItem[].class, "scan")));
         return new LoadedScan(result, readJson(directory.resolve(SCAN_METADATA_FILE), ScanMetadata.class, "scan"), outcome);
     }

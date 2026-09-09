@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -66,11 +67,13 @@ class FeatureExtractionService {
                 () -> SourceScanResult.success(new UsageEvidenceScan().scan(source)), UsageEvidenceScan.Result.empty());
         SourceScanResult<List<ExtractedAnnotation>> annotationScan = runScan("ArtemisFeature annotations", () -> new ArtemisFeatureAnnotationScan().scan(source),
                 List.of());
+        SourceScanResult<List<ExtractedConfigInjection>> injectionScan = runScan("configuration injection sites",
+                () -> new ConfigInjectionScan().scan(source), List.of());
 
         List<SourceScanResult<?>> scanResults = List.of(constantScan, configHelperScan, conditionScan, serverToggleScan, clientConstantScan,
-                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan);
+                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan, injectionScan);
         appendWholeScannerDiagnostics(scanResults, items);
-        appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan), items);
+        appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan, injectionScan), items);
 
         CandidateAssemblyInput assemblyInput = new CandidateAssemblyInput(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
                 serverToggleScan.facts(), clientConstantScan.facts(), clientToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
@@ -78,7 +81,7 @@ class FeatureExtractionService {
         CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());
         return new ExtractedSourceFacts(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), annotationScan.facts(), yamlScan.facts(),
-                List.copyOf(items));
+                injectionScan.facts(), List.copyOf(items));
     }
 
     /**

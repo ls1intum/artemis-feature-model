@@ -17,8 +17,8 @@ import java.util.Map;
  */
 public record ScanResult(int schemaVersion, String extractorVersion, String artemisCommit, Map<String, String> payloadDigests, String payloadDigest) {
 
-    /** Current schema version of the scan envelope. */
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    /** Current schema version of the scan envelope; version 2 added the config-injections payload. */
+    public static final int CURRENT_SCHEMA_VERSION = 2;
 
     /** Version of the extraction pipeline, recorded in the scan metadata and verified by every downstream stage. */
     public static final String EXTRACTOR_VERSION = "0.4.0";

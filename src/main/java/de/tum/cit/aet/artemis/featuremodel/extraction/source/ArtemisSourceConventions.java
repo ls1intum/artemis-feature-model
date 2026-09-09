@@ -134,6 +134,18 @@ public final class ArtemisSourceConventions {
         /** Simple name of the nested configuration-key annotation of {@code @ArtemisFeature}. */
         public static final String ARTEMIS_FEATURE_CONFIG_ANNOTATION = "ArtemisFeatureConfig";
 
+        /** Spring placeholder injection annotation simple name. */
+        public static final String VALUE_ANNOTATION = "Value";
+
+        /** Spring configuration-properties binding annotation simple name. */
+        public static final String CONFIGURATION_PROPERTIES_ANNOTATION = "ConfigurationProperties";
+
+        /** Spring conditional-bean annotation simple name. */
+        public static final String CONDITIONAL_ANNOTATION = "Conditional";
+
+        /** Spring profile-guard annotation simple name. */
+        public static final String PROFILE_ANNOTATION = "Profile";
+
         private Symbols() {
         }
     }

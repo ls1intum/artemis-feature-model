@@ -10,10 +10,12 @@ import java.util.List;
  * @param relationCandidates relation candidates sorted by id.
  * @param annotations parsed {@code @ArtemisFeature} anchors.
  * @param configDefaults scanned configuration defaults of the checkout.
+ * @param configInjections guarded configuration injection sites per Java file, sorted by file.
  * @param items scan diagnostics, including drift against the curated model.
  */
 public record ExtractedSourceFacts(List<FeatureCandidate> candidates, List<EvidenceItem> evidence, List<RelationCandidate> relationCandidates,
-        List<ExtractedAnnotation> annotations, ExtractedConfigurationDefaults configDefaults, List<ReportItem> items) {
+        List<ExtractedAnnotation> annotations, ExtractedConfigurationDefaults configDefaults, List<ExtractedConfigInjection> configInjections,
+        List<ReportItem> items) {
 
     /** Normalizes every ordered fact collection to an immutable copy. */
     public ExtractedSourceFacts {
@@ -21,6 +23,7 @@ public record ExtractedSourceFacts(List<FeatureCandidate> candidates, List<Evide
         evidence = List.copyOf(evidence);
         relationCandidates = List.copyOf(relationCandidates);
         annotations = List.copyOf(annotations);
+        configInjections = configInjections == null ? List.of() : List.copyOf(configInjections);
         items = List.copyOf(items);
     }
 }
