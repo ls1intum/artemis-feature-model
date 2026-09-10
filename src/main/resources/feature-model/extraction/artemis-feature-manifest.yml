@@ -114,6 +114,13 @@ include:
       - { target: application-feature-model.yml, path: artemis.sharing.serverurl, source: environment }
       - { target: application-feature-model.yml, path: artemis.sharing.apikey, source: environment, secret: true }
 
+  - anchor: module:deimos
+    id: deimos
+    group: adaptive-learning-and-ai
+    artifactMappings:
+        - {target: application-feature-model.yml, path: artemis.deimos.llm.base-url, source: environment}
+        - {target: application-feature-model.yml, path: artemis.deimos.llm.api-key, source: environment, secret: true}
+
   # Technical variability introduced deliberately in E3: database and CI provider xor groups plus the fixed localvc
   # baseline. Technical features are maintainer-only, never teacher-facing, and their structural mappings describe the
   # Spring profile token contribution and the Docker compose stack choice rather than overlay configuration keys.
@@ -283,6 +290,10 @@ exclude:
   - anchor: toggle:TutorSuggestions
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
+  - anchor: toggle:Deimos
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope.
 
   # Spring lifecycle and composition profiles are implementation details, not feature-model candidates. The buildagent
   # profile is part of the integrated-code-lifecycle activation and stays represented through that feature.

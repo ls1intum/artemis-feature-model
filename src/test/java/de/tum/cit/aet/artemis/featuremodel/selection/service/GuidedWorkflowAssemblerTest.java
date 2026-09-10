@@ -2,10 +2,14 @@ package de.tum.cit.aet.artemis.featuremodel.selection.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Comparator;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.FinalReviewGroup;
 import de.tum.cit.aet.artemis.featuremodel.selection.domain.GuidedDecision;
@@ -67,27 +71,38 @@ class GuidedWorkflowAssemblerTest {
 
     @Test
     void derivesReviewGroupMembersFromModelGroupChildren() {
-        GuidedWorkflow enriched = enrichedBundledWorkflow();
+        FeatureModel model = bundledModel();
+        GuidedWorkflow enriched = assembler.enrich(bundledWorkflow(), model);
 
+        // The set of review groups, their order and their titles is authored workflow structure, so it stays pinned.
         assertThat(enriched.finalReviewGroups()).extracting(FinalReviewGroup::id).containsExactly("teaching-and-content", "exercise-system",
                 "assessment-and-integrity", "adaptive-learning-and-ai", "platform-integrations");
         assertThat(enriched.finalReviewGroups()).extracting(FinalReviewGroup::title).containsExactly("Teaching Content", "Exercise Types",
                 "Assessment and Integrity", "AI and Adaptive Learning", "Platform Integrations");
-        assertThat(findReviewGroup(enriched, "teaching-and-content").featureIds()).containsExactly("lecture", "tutorialgroup", "course-workflow",
-                "communication");
-        assertThat(findReviewGroup(enriched, "exercise-system").featureIds()).containsExactly("exercise-common", "programming", "quiz", "text", "modeling",
-                "file-upload");
-        assertThat(findReviewGroup(enriched, "assessment-and-integrity").featureIds()).containsExactly("exam", "plagiarism", "athena");
-        assertThat(findReviewGroup(enriched, "adaptive-learning-and-ai").featureIds()).containsExactly("atlas", "iris", "hyperion");
-        assertThat(findReviewGroup(enriched, "platform-integrations").featureIds()).containsExactly("lti", "theia", "apollon", "sharing");
+
+        // The members are model-derived, so assert the invariant rather than a snapshot that breaks whenever a feature
+        // moves into or out of a group: each group holds exactly the direct children of its model node, in relation order.
+        for (FinalReviewGroup group : enriched.finalReviewGroups()) {
+            assertThat(group.featureIds()).as("members of review group '%s'", group.id())
+                    .containsExactlyElementsOf(orderedChildFeatureIds(model, group.groupNodeId()));
+        }
     }
 
     private GuidedWorkflow enrichedBundledWorkflow() {
-        DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
-        ObjectMapper objectMapper = new ObjectMapper();
-        FeatureModel model = new JsonFeatureModelStore(resourceLoader, objectMapper).loadActiveModel();
-        GuidedWorkflow workflow = new JsonGuidedWorkflowStore(resourceLoader, objectMapper).loadActiveWorkflow();
-        return assembler.enrich(workflow, model);
+        return assembler.enrich(bundledWorkflow(), bundledModel());
+    }
+
+    private FeatureModel bundledModel() {
+        return new JsonFeatureModelStore(new DefaultResourceLoader(), new ObjectMapper()).loadActiveModel();
+    }
+
+    private GuidedWorkflow bundledWorkflow() {
+        return new JsonGuidedWorkflowStore(new DefaultResourceLoader(), new ObjectMapper()).loadActiveWorkflow();
+    }
+
+    private static List<String> orderedChildFeatureIds(FeatureModel model, String parentId) {
+        return model.relations().stream().filter(relation -> relation.parentId().equals(parentId)).sorted(Comparator.comparingInt(FeatureRelation::order))
+                .map(FeatureRelation::childId).toList();
     }
 
     private GuidedDecisionOption findOption(GuidedWorkflow workflow, String optionId) {
@@ -103,8 +118,4 @@ class GuidedWorkflowAssemblerTest {
         throw new AssertionError("Missing guided workflow option '" + optionId + "'.");
     }
 
-    private FinalReviewGroup findReviewGroup(GuidedWorkflow workflow, String reviewGroupId) {
-        return workflow.finalReviewGroups().stream().filter(group -> group.id().equals(reviewGroupId)).findFirst()
-                .orElseThrow(() -> new AssertionError("Missing review group '" + reviewGroupId + "'."));
-    }
 }
