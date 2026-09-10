@@ -151,11 +151,16 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `GET /api/feature-model/deployment-package/publish-target` reports the
   destination. Configuration lives under
   `artemis.feature-model.deployment-repository` (committed defaults keep
-  publishing disabled); the token comes only from the
-  `FM_DEPLOYMENT_REPO_TOKEN` environment variable and is never logged or
-  serialized, and a declared `expected-visibility` is verified against the
-  GitHub API before the first push of a process lifetime. Controlled errors
-  use the `PUBLISH_*` code family. The review page adds a
+  publishing disabled). HTTPS uses the token from
+  `FM_DEPLOYMENT_REPO_TOKEN`; SSH URLs use a repository deploy key and strict
+  host-key checking through the files named by
+  `FM_DEPLOYMENT_REPO_SSH_KEY_PATH` and
+  `FM_DEPLOYMENT_REPO_KNOWN_HOSTS_PATH`. JGit's Apache MINA transport is
+  configured per publish attempt and Bouncy Castle supplies Ed25519 support.
+  Credentials are never logged or serialized, and a declared
+  `expected-visibility` is verified against the GitHub API before the first
+  push of a process lifetime. Controlled errors use the `PUBLISH_*` code
+  family. The review page adds a
   localStorage-persisted target-name field and a "Publish and download"
   action for the remote target, rendered only when the publish target is
   configured and a target name is present; a publish failure still delivers
