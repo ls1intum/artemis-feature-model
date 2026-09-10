@@ -75,7 +75,7 @@ public class DeploymentRepositoryPublishException extends RuntimeException {
     /**
      * Creates the exception for a remote that refused the configured credential.
      *
-     * @param detail token-free transport failure detail.
+     * @param detail credential-free transport failure detail.
      * @return authentication-failed publish exception.
      */
     public static DeploymentRepositoryPublishException authFailed(String detail) {

@@ -11,12 +11,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.TransportConfigCallback;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.eclipse.jgit.lib.Constants;
@@ -29,6 +31,7 @@ import org.eclipse.jgit.transport.PushResult;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
+import org.eclipse.jgit.transport.sshd.SshdSessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,9 +51,9 @@ import tools.jackson.databind.ObjectMapper;
  * three attempts; the retried commit lands on top of the concurrent winner's commit.
  *
  * <p>
- * The access token is read exclusively from the {@code FM_DEPLOYMENT_REPO_TOKEN} environment variable, applied as
- * JGit HTTPS credentials, and never logged, serialized, or embedded in a URL. {@code file://} remotes need no
- * credential, which keeps the full publish flow unit-testable offline.
+ * HTTPS credentials come exclusively from the {@code FM_DEPLOYMENT_REPO_TOKEN} environment variable. SSH remotes use
+ * an explicitly configured deploy key and known-hosts file. Credentials are never logged, serialized, or embedded in
+ * a URL. {@code file://} remotes need no credential, which keeps the full publish flow unit-testable offline.
  */
 @Component
 public class DeploymentRepositoryPublisher {
@@ -65,13 +68,13 @@ public class DeploymentRepositoryPublisher {
 
     private static final int MAX_PUSH_ATTEMPTS = 3;
 
-    private static final String GITHUB_REMOTE_PREFIX = "https://github.com/";
-
     private final DeploymentRepositoryProperties properties;
 
     private final ObjectMapper objectMapper;
 
     private final UnaryOperator<String> environmentReader;
+
+    private final DeploymentRepositorySshTransport sshTransport;
 
     /** Serializes publishes within this instance; cross-instance safety rests on the atomic push alone. */
     private final Object publishLock = new Object();
@@ -101,11 +104,12 @@ public class DeploymentRepositoryPublisher {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.environmentReader = environmentReader;
+        this.sshTransport = new DeploymentRepositorySshTransport(properties.repositoryUrl(), environmentReader);
     }
 
     /**
-     * Checks whether publishing is fully configured: enabled, a repository URL present, and — for an HTTP(S) remote —
-     * the token environment variable set.
+     * Checks whether publishing is fully configured: enabled, a repository URL present, and the credential files or
+     * token required by its transport.
      *
      * @return whether a publish can be attempted.
      */
@@ -207,7 +211,7 @@ public class DeploymentRepositoryPublisher {
         if (isHttpRemote() && !hasToken()) {
             return "the " + TOKEN_ENV_VAR + " environment variable is not set.";
         }
-        return null;
+        return sshTransport.configurationGap();
     }
 
     /**
@@ -222,9 +226,10 @@ public class DeploymentRepositoryPublisher {
      */
     private AttemptOutcome attemptPublish(String targetDirectory, List<GeneratedArtifactFile> files, String commitMessage, int attempt) {
         Path tempDir = createTempDirectory();
-        try {
-            boolean branchExists = remoteBranchExists();
-            try (Git git = cloneRepository(tempDir, branchExists)) {
+        try (SshdSessionFactory sessionFactory = sshTransport.createSessionFactory(tempDir)) {
+            TransportConfigCallback transportCallback = sshTransport.callback(sessionFactory);
+            boolean branchExists = remoteBranchExists(transportCallback);
+            try (Git git = cloneRepository(tempDir, branchExists, transportCallback)) {
                 if (!branchExists) {
                     requireDefaultHead(git);
                     git.checkout().setCreateBranch(true).setName(properties.branch()).call();
@@ -244,7 +249,7 @@ public class DeploymentRepositoryPublisher {
                     commitSha = commit.name();
                 }
                 beforePush(attempt);
-                String rejection = push(git);
+                String rejection = push(git, transportCallback);
                 if (rejection != null) {
                     return AttemptOutcome.retry(rejection);
                 }
@@ -274,8 +279,8 @@ public class DeploymentRepositoryPublisher {
     /**
      * Verifies the declared visibility of a {@code github.com} deployment repository once per process lifetime, so a
      * publish never lands in a repository the operator does not think they are publishing to. The check runs only for
-     * {@code github.com} remotes with a declared expectation; other remotes (including {@code file://} test remotes)
-     * skip it.
+     * {@code github.com} HTTPS or SSH remotes with a declared expectation; other remotes (including {@code file://}
+     * test remotes) skip it.
      *
      * @throws DeploymentRepositoryPublishException if the actual visibility differs from the expectation or cannot be
      *             determined.
@@ -285,7 +290,7 @@ public class DeploymentRepositoryPublisher {
             return;
         }
         String expected = properties.expectedVisibility();
-        if (!properties.repositoryUrl().startsWith(GITHUB_REMOTE_PREFIX) || expected == null || expected.isBlank()) {
+        if (sshTransport.gitHubRepositoryPath() == null || expected == null || expected.isBlank()) {
             visibilityVerified = true;
             return;
         }
@@ -298,20 +303,26 @@ public class DeploymentRepositoryPublisher {
 
     /**
      * Reads the actual visibility of the configured {@code github.com} repository from the GitHub API. The request
-     * authenticates with the token; failure messages never contain it.
+     * uses the token when present. GitHub hides private repositories behind an unauthenticated 404, which is therefore
+     * treated as private when no token is configured. Failure messages never contain the token.
      *
      * @return actual repository visibility, for example {@code public} or {@code private}.
      * @throws DeploymentRepositoryPublishException if the visibility cannot be determined.
      */
     protected String fetchGitHubVisibility() {
-        String repositoryPath = properties.repositoryUrl().substring(GITHUB_REMOTE_PREFIX.length());
-        if (repositoryPath.endsWith(".git")) {
-            repositoryPath = repositoryPath.substring(0, repositoryPath.length() - ".git".length());
+        String repositoryPath = sshTransport.gitHubRepositoryPath();
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/" + repositoryPath))
+                .header("Accept", "application/vnd.github+json");
+        String token = environmentReader.apply(TOKEN_ENV_VAR);
+        if (token != null && !token.isBlank()) {
+            requestBuilder.header("Authorization", "Bearer " + token);
         }
-        HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/" + repositoryPath))
-                .header("Accept", "application/vnd.github+json").header("Authorization", "Bearer " + environmentReader.apply(TOKEN_ENV_VAR)).GET().build();
+        HttpRequest request = requestBuilder.GET().build();
         try {
-            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendGitHubVisibilityRequest(request);
+            if (response.statusCode() == 404 && (token == null || token.isBlank())) {
+                return "private";
+            }
             if (response.statusCode() != 200) {
                 throw DeploymentRepositoryPublishException.visibilityMismatch(properties.expectedVisibility(),
                         "unknown; the GitHub API answered HTTP " + response.statusCode());
@@ -335,16 +346,29 @@ public class DeploymentRepositoryPublisher {
     }
 
     /**
+     * Sends the GitHub repository-visibility request.
+     *
+     * @param request prepared GitHub API request.
+     * @return GitHub API response.
+     * @throws IOException if the API cannot be reached.
+     * @throws InterruptedException if the request is interrupted.
+     */
+    HttpResponse<String> sendGitHubVisibilityRequest(HttpRequest request) throws IOException, InterruptedException {
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
      * Pushes the deployment branch without force.
      *
      * @param git open clone.
+     * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return the remote's rejection message, or {@code null} on success.
      * @throws GitAPIException if the push transport fails.
      */
-    private String push(Git git) throws GitAPIException {
+    private String push(Git git, TransportConfigCallback transportCallback) throws GitAPIException {
         String branchRef = Constants.R_HEADS + properties.branch();
         Iterable<PushResult> results = git.push().setRemote(Constants.DEFAULT_REMOTE_NAME).setRefSpecs(new RefSpec(branchRef + ":" + branchRef))
-                .setCredentialsProvider(credentialsProvider()).call();
+                .setCredentialsProvider(credentialsProvider()).setTransportConfigCallback(transportCallback).call();
         for (PushResult result : results) {
             for (RemoteRefUpdate update : result.getRemoteUpdates()) {
                 if (update.getStatus() != RemoteRefUpdate.Status.OK && update.getStatus() != RemoteRefUpdate.Status.UP_TO_DATE) {
@@ -359,12 +383,14 @@ public class DeploymentRepositoryPublisher {
     /**
      * Checks whether the configured deployment branch exists on the remote.
      *
+     * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return whether the branch exists.
      * @throws GitAPIException if the remote cannot be contacted.
      */
-    private boolean remoteBranchExists() throws GitAPIException {
+    private boolean remoteBranchExists(TransportConfigCallback transportCallback) throws GitAPIException {
         String branchRef = Constants.R_HEADS + properties.branch();
-        for (Ref ref : Git.lsRemoteRepository().setRemote(properties.repositoryUrl()).setHeads(true).setCredentialsProvider(credentialsProvider()).call()) {
+        for (Ref ref : Git.lsRemoteRepository().setRemote(properties.repositoryUrl()).setHeads(true).setCredentialsProvider(credentialsProvider())
+                .setTransportConfigCallback(transportCallback).call()) {
             if (branchRef.equals(ref.getName())) {
                 return true;
             }
@@ -378,12 +404,13 @@ public class DeploymentRepositoryPublisher {
      *
      * @param tempDir clone target directory.
      * @param branchExists whether the deployment branch exists on the remote.
+     * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return open clone.
      * @throws GitAPIException if the clone fails.
      */
-    private Git cloneRepository(Path tempDir, boolean branchExists) throws GitAPIException {
+    private Git cloneRepository(Path tempDir, boolean branchExists, TransportConfigCallback transportCallback) throws GitAPIException {
         CloneCommand clone = Git.cloneRepository().setURI(properties.repositoryUrl()).setDirectory(tempDir.toFile()).setDepth(1)
-                .setCredentialsProvider(credentialsProvider());
+                .setCredentialsProvider(credentialsProvider()).setTransportConfigCallback(transportCallback);
         if (branchExists) {
             clone.setBranchesToClone(List.of(Constants.R_HEADS + properties.branch())).setBranch(properties.branch());
         }
@@ -424,15 +451,25 @@ public class DeploymentRepositoryPublisher {
     }
 
     /**
-     * Maps a transport failure to its controlled publish exception, keeping the message token-free.
+     * Maps a transport failure to its controlled publish exception, keeping the message credential-free.
      *
      * @param exception JGit transport failure.
      * @return controlled publish exception.
      */
-    private DeploymentRepositoryPublishException asControlledTransportFailure(TransportException exception) {
+    DeploymentRepositoryPublishException asControlledTransportFailure(TransportException exception) {
         String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
-        boolean authFailure = message.contains("not authorized") || message.contains("authentication") || message.contains("Authentication");
-        if (isHttpRemote() && authFailure) {
+        String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        boolean httpAuthFailure = isHttpRemote()
+                && (normalizedMessage.contains("not authorized") || normalizedMessage.contains("authentication"));
+        boolean sshAuthFailure = sshTransport.isSshRemote()
+                && (normalizedMessage.contains("auth fail") || normalizedMessage.contains("publickey"));
+        if (sshAuthFailure) {
+            String keyLoadFailure = sshTransport.privateKeyLoadFailure();
+            if (keyLoadFailure != null) {
+                return DeploymentRepositoryPublishException.rejected(keyLoadFailure);
+            }
+        }
+        if (httpAuthFailure || sshAuthFailure) {
             return DeploymentRepositoryPublishException.authFailed(message);
         }
         return DeploymentRepositoryPublishException.rejected(message);

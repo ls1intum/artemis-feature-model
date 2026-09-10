@@ -4,12 +4,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Configuration of the deployment repository publish action. Publishing is disabled unless it is explicitly enabled
- * and a repository URL is configured; the committed defaults keep it off. The access token is deliberately not a
- * configuration property — it is read exclusively from the {@code FM_DEPLOYMENT_REPO_TOKEN} environment variable and
- * never appears in any config file, log line, or response.
+ * and a repository URL is configured; the committed defaults keep it off. HTTPS tokens and SSH key paths are
+ * deliberately not configuration properties — they are read exclusively from environment variables and never expose
+ * credential contents in a config file, log line, or response.
  *
  * @param enabled whether the publish action is enabled.
- * @param repositoryUrl HTTPS or {@code file://} URL of the deployment repository, without any credential.
+ * @param repositoryUrl HTTPS, SSH, or {@code file://} URL of the deployment repository, without any credential.
  * @param branch deployment branch receiving the machine commits.
  * @param targetDirectoryRoot repository directory under which each target's package directory lives.
  * @param expectedVisibility declared visibility of a {@code github.com} repository ({@code public} or
