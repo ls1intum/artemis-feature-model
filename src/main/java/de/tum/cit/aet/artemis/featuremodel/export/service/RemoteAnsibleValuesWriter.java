@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
@@ -16,8 +17,9 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues
  * as-is from the pinned fork commit.
  *
  * <p>
- * All content is deterministic for the same input: no timestamps, fixed ordering, and no secret values — secrets
- * appear exclusively as {@code lookup('hashi_vault', …)} expressions.
+ * All content is deterministic for the same input: no timestamps, fixed ordering, and no environment or secret
+ * values — every admin-owned or secret value appears exclusively as a {@code lookup('ansible.builtin.env', …)}
+ * expression, and the shipped preflight refuses a run with a missing or empty variable.
  */
 @Component
 public class RemoteAnsibleValuesWriter {
@@ -41,7 +43,7 @@ public class RemoteAnsibleValuesWriter {
      *
      * @param model active feature model.
      * @param selectedFeatureIds validated selected feature ids.
-     * @param environment resolved environment values.
+     * @param environment resolved target identity.
      * @return deterministic emission plan.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if a feature is
      *             unclassified or a selection state is unsupported.
@@ -56,14 +58,9 @@ public class RemoteAnsibleValuesWriter {
      * @param modelId active feature model id.
      * @param modelVersion active feature model version.
      * @param profileId active deployment profile id.
-     * @param plan emission plan of the package.
      * @return README markdown text.
      */
-    public String packageReadme(String modelId, String modelVersion, String profileId, RemoteAnsibleEmissionPlan plan) {
-        long pendingInputs = plan.environmentStates().stream().filter(state -> RemoteAnsibleEmissionPlan.ENVIRONMENT_PENDING.equals(state.status())).count();
-        String environmentNote = pendingInputs == 0
-                ? "All environment values were provided at generation time."
-                : pendingInputs + " environment value(s) are still `REPLACE_ME_*` placeholders; fill them in before running the preflight (it fails fast on placeholders).";
+    public String packageReadme(String modelId, String modelVersion, String profileId) {
         return """
                 # Artemis Remote Deployment Package (Ansible)
 
@@ -74,50 +71,68 @@ public class RemoteAnsibleValuesWriter {
                 orchestration for deploying the selected Artemis variant with the pinned
                 `ls1intum.artemis` Ansible collection, but it holds no credentials and connects to nothing.
                 Deployment remains a deliberate admin action on an execution environment that provides SSH access
-                and secret material.
+                and the environment values.
 
                 ## Contents
 
                 - `requirements.yml` — the Artemis collection pinned to the exact commit the values were curated against,
-                  plus the collections its roles and the vault lookups need.
+                  plus the collections its roles need.
                 - `ansible.cfg` — minimal run semantics; `hash_behaviour = merge` is required by the inventory layering.
                 - `playbook.yml` — applies the collection's `artemis` and `legal` roles to the `artemistests` group.
                 - `inventory/` — group membership wiring and generated values for the selected variant.
-                - `preflight.sh` — static checks and `ansible-playbook --syntax-check`; never connects to a host.
-                - `metadata/` — package manifest, layered readiness, every vault reference, and the selected features.
+                - `preflight.sh` — the environment gate, static checks, and `ansible-playbook --syntax-check`; never
+                  connects to a host.
+                - `metadata/` — package manifest, layered readiness, every environment reference, and the selected features.
+
+                ## Environment values
+
+                No environment value — identity or secret, dummy or real — is stored in this package. Every value is
+                referenced as a `lookup('ansible.builtin.env', …)` expression that Ansible resolves on the control
+                node at run time; `metadata/env-references.json` lists each variable with its consuming value and the
+                file referencing it. Provide the variables where the playbook runs:
+
+                - **Locally**: export the full set in the shell before running the preflight and the playbook.
+                - **GitHub Actions** (execution-plane stage): provision the same names as Actions secrets; the
+                  workflow injects them into the run environment.
+
+                Ownership of the values:
+
+                - **Identity values** (`TESTSERVER_NAME`, `SERVER_HOSTNAME`, `ARTEMIS_EMAIL_TEST`, the operator
+                  names, the certificate paths): admin-owned inputs describing the target environment.
+                - **Deployment-internal secrets**: both ends live inside this deployment, so self-generated random
+                  values are fully functional. Generate them once:
+
+                  ```bash
+                  export ARTEMIS_DATABASE_PASSWORD=$(openssl rand -base64 48)
+                  export ARTEMIS_INTERNAL_ADMIN_PASSWORD=$(openssl rand -base64 48)
+                  export ARTEMIS_JHIPSTER_JWT=$(openssl rand -base64 64 | tr -d '\\n')
+                  ```
+
+                - **Integration secrets** (Iris, Athena, LTI, Sharing, Hyperion — when selected): these authenticate
+                  against an external service and must come from that service's operator.
+
+                **Keep the generated set stable.** Store the values once (for example as GitHub Actions secrets) and
+                reuse them for every deploy of the same target: a database applies its credentials only on first
+                initialization, so regenerating `ARTEMIS_DATABASE_PASSWORD` against an existing data volume locks
+                Artemis out with an access-denied loop instead of rotating the password.
+
+                Production note: a secret manager such as HashiCorp Vault stays compatible with this channel —
+                resolve the managed secrets into the environment of the run (or replace the generated lookup
+                expressions with your manager's lookup plugin). The package itself standardizes on plain environment
+                variables and requires no Vault server.
 
                 ## Before running
 
-                1. Fill in remaining values: %s
-                2. Complete the host line in `inventory/hosts` with your connection details, for example
+                1. Add your connection line to the empty target group in `inventory/hosts`, for example
                    `<host> ansible_user=<user> ansible_ssh_private_key_file=<key>`.
-                3. Make sure the target host provides Docker, git, and the `acl` package — the collection installs none
+                2. Make sure the target host provides Docker, git, and the `acl` package — the collection installs none
                    of them, and POSIX ACLs are needed wherever Ansible hands a file to the unprivileged artemis user.
-                4. Install the collections: `ansible-galaxy collection install -r requirements.yml`, and the
-                   `hvac` Python package for the vault lookup (`pip install hvac`); the `ansible` meta-package already
-                   ships the non-Artemis collections. Add `ansible-galaxy role install geerlingguy.docker` if your
-                   target still needs Docker provisioned.
-                5. Provide secret material (next section).
-                6. Run `./preflight.sh`. It fails fast on unresolved placeholders and syntax problems.
-
-                ## Secrets
-
-                No secret value — dummy or real — is stored in this package. Every secret is referenced as a
-                `lookup('hashi_vault', …)` expression; `metadata/vault-references.json` lists each referenced path,
-                field, and consuming variable. To use Vault, configure the `community.hashi_vault.hashi_vault` lookup
-                environment (`ANSIBLE_HASHI_VAULT_ADDR`, `ANSIBLE_HASHI_VAULT_TOKEN` or your auth method) and create
-                the listed secrets.
-
-                Without Vault, replace the lookup expressions in the generated values files with values you manage
-                yourself, following the ownership of each value:
-
-                - **Deployment-internal secrets** (database password, internal admin password, JWT secret): both ends
-                  live inside this deployment, so self-generated random values are fully functional (for example
-                  `openssl rand -base64 48`; use `openssl rand -base64 64` for the JWT secret).
-                - **Integration secrets** (Iris, Athena, LTI, Sharing, Hyperion): these authenticate against an
-                  external service and must come from that service's operator.
-                - **Identity values** (hostname, operator identity, certificate paths): admin-owned inputs, already
-                  materialized in the generated values or left as placeholders.
+                3. Install the collections: `ansible-galaxy collection install -r requirements.yml`; the `ansible`
+                   meta-package already ships the non-Artemis collections. Add `ansible-galaxy role install
+                   geerlingguy.docker` if your target still needs Docker provisioned.
+                4. Export the environment values (previous section).
+                5. Run `./preflight.sh`. It fails fast on a missing or empty environment variable and on syntax
+                   problems.
 
                 ## Deploying
 
@@ -134,14 +149,15 @@ public class RemoteAnsibleValuesWriter {
                 ## Lifecycle boundary
 
                 Generation proved: the selection is valid, every feature is classified against the binding catalog,
-                the values are generated, and secrets appear only as references. It did **not** prove the inventory
-                renders or boots — that is the preflight's and the admin's job. See `metadata/remote-readiness.json`.
-                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin(), environmentNote);
+                the values are generated, and environment values appear only as lookup expressions. It did **not**
+                prove the inventory renders or boots — that is the preflight's and the admin's job. See
+                `metadata/remote-readiness.json`.
+                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin());
     }
 
     /**
      * Builds the requirements file: the Artemis collection pinned to the curated commit plus the collections its
-     * roles use, which a collection cannot declare as dependencies itself, and the vault lookup collection.
+     * roles use, which a collection cannot declare as dependencies itself.
      *
      * @return requirements YAML text.
      */
@@ -156,8 +172,6 @@ public class RemoteAnsibleValuesWriter {
                   - name: ansible.posix
                   - name: community.crypto
                   - name: community.general
-                  # Provides the hashi_vault lookup used for every secret reference (needs the hvac Python package).
-                  - name: community.hashi_vault
                 """.formatted(catalog.collectionPin());
     }
 
@@ -208,22 +222,37 @@ public class RemoteAnsibleValuesWriter {
     }
 
     /**
-     * Builds the preflight script: fail fast on unresolved placeholders, verify the pinned collection is installed,
-     * and run the playbook syntax check. The script never connects to a host and never uses {@code --diff}.
+     * Builds the preflight script: fail fast when a referenced environment variable is unset or empty — the
+     * collection's own variable checks pass an empty string, so this gate is the fail-closed guard of the environment
+     * channel — then verify the pinned collection is installed and run the playbook syntax check. The script never
+     * connects to a host and never applies changes.
      *
+     * @param requiredEnvironmentVariables sorted environment-variable names the generated files reference.
      * @return preflight shell script text.
      */
-    public String preflightScript() {
+    public String preflightScript(List<String> requiredEnvironmentVariables) {
         return """
                 #!/usr/bin/env bash
-                # Preflight for the generated remote-ansible package: static checks and a syntax check
-                # only. This script never connects to a host and never applies changes.
+                # Preflight for the generated remote-ansible package: the environment gate, static checks, and a
+                # syntax check only. This script never connects to a host and never applies changes.
                 set -euo pipefail
                 cd "$(dirname "$0")"
 
-                echo "Checking for unresolved REPLACE_ME_ placeholders..."
-                if grep -rn "REPLACE_ME_" inventory ansible.cfg playbook.yml requirements.yml; then
-                    echo "ERROR: unresolved placeholders found. Fill in the values listed above (see README.md)." >&2
+                # Every environment variable the generated values reference; see metadata/env-references.json.
+                required_environment_variables="
+                %s
+                "
+
+                echo "Checking required environment variables..."
+                missing=0
+                for name in ${required_environment_variables}; do
+                    if [ -z "${!name:-}" ]; then
+                        echo "ERROR: required environment variable ${name} is not set or is empty." >&2
+                        missing=1
+                    fi
+                done
+                if [ "${missing}" -ne 0 ]; then
+                    echo "ERROR: export the values listed above before running the playbook (see README.md)." >&2
                     exit 1
                 fi
 
@@ -237,6 +266,6 @@ public class RemoteAnsibleValuesWriter {
                 ansible-playbook --syntax-check -i inventory/hosts playbook.yml
 
                 echo "Preflight passed. The package is consumable; deployment remains an admin action."
-                """;
+                """.formatted(String.join("\n", requiredEnvironmentVariables));
     }
 }

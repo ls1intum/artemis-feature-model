@@ -1,5 +1,4 @@
 [artemislocal]
-artemis.192.168.252.2.nip.io
 
 [artemistests:children]
 artemislocal

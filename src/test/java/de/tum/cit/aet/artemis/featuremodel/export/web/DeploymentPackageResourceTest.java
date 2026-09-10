@@ -3,6 +3,7 @@ package de.tum.cit.aet.artemis.featuremodel.export.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -17,6 +19,10 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.transport.RefSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,7 +50,10 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeProperties;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtemisRuntimeSourceResolver;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DevIdeTemplateWriter;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackagePublishService;
 import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentPackageService;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentRepositoryProperties;
+import de.tum.cit.aet.artemis.featuremodel.export.service.DeploymentRepositoryPublisher;
 import de.tum.cit.aet.artemis.featuremodel.export.service.EnvExampleWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RemoteAnsibleValuesWriter;
 import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimeScriptWriter;
@@ -64,13 +73,18 @@ class DeploymentPackageResourceTest {
     private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\",\"mysql\","
             + "\"integrated-code-lifecycle\",\"localvc\"]";
 
+    private static final String REMOTE_PUBLISH_BODY = "{\"selectedFeatureIds\":" + MINIMAL
+            + ",\"deploymentMode\":\"remote-ansible\",\"remoteEnvironment\":{\"targetName\":\"artemis-remote\"}}";
+
     @TempDir
     Path dataRoot;
 
     private MockMvc mockMvc;
 
+    private MockMvc unconfiguredMockMvc;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException, GitAPIException {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
         ObjectMapper objectMapper = new ObjectMapper();
         FeatureModelTreeService treeService = new FeatureModelTreeService();
@@ -82,15 +96,43 @@ class DeploymentPackageResourceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
+        AnsibleBindingCatalogLoader catalogLoader = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper);
         DeploymentPackageService deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService,
                 new TechnicalSelectionResolver(), new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(),
                 new RuntimeStackWriter(), new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
-                new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(), new ArtemisRuntimeSourceResolver(
+                new RemoteAnsibleValuesWriter(catalogLoader), new EnvExampleWriter(), new ArtemisRuntimeSourceResolver(
                         new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader, objectMapper).load(),
                         new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
-        DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService());
-        mockMvc = MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
+        mockMvc = mockMvcFor(deploymentPackageService, catalogLoader, objectMapper,
+                new DeploymentRepositoryProperties(true, seededRemoteUrl(), "deployment", null, null, null, null));
+        unconfiguredMockMvc = mockMvcFor(deploymentPackageService, catalogLoader, objectMapper,
+                new DeploymentRepositoryProperties(false, null, null, null, null, null, null));
+    }
+
+    private MockMvc mockMvcFor(DeploymentPackageService deploymentPackageService, AnsibleBindingCatalogLoader catalogLoader, ObjectMapper objectMapper,
+            DeploymentRepositoryProperties repositoryProperties) {
+        DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(repositoryProperties, objectMapper);
+        DeploymentPackagePublishService publishService = new DeploymentPackagePublishService(deploymentPackageService, publisher, catalogLoader);
+        DeploymentPackageResource resource = new DeploymentPackageResource(deploymentPackageService, new ArtifactPackageService(), publishService);
+        return MockMvcBuilders.standaloneSetup(resource).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(), new ResourceHttpMessageConverter()).build();
+    }
+
+    private String seededRemoteUrl() throws IOException, GitAPIException {
+        Path remoteDir = dataRoot.resolve("deployment-repo.git");
+        try (Git remote = Git.init().setBare(true).setInitialBranch("main").setDirectory(remoteDir.toFile()).call()) {
+            assertThat(remote.getRepository().isBare()).isTrue();
+        }
+        String remoteUrl = remoteDir.toUri().toString();
+        Path seedDir = dataRoot.resolve("seed");
+        try (Git seed = Git.init().setInitialBranch("main").setDirectory(seedDir.toFile()).call()) {
+            Files.writeString(seedDir.resolve("README.md"), "# deployment repository\n");
+            seed.add().addFilepattern(".").call();
+            PersonIdent seeder = new PersonIdent("seed", "seed@example.invalid");
+            seed.commit().setMessage("seed default branch").setAuthor(seeder).setCommitter(seeder).setSign(false).call();
+            seed.push().setRemote(remoteUrl).setRefSpecs(new RefSpec("refs/heads/main:refs/heads/main")).call();
+        }
+        return remoteUrl;
     }
 
     @Test
@@ -169,6 +211,58 @@ class DeploymentPackageResourceTest {
                 "artemis-feature-model-deployment-package/config/application-feature-model.yml",
                 "artemis-feature-model-deployment-package/metadata/static-config-validation.json");
         assertThat(names).noneMatch(name -> name.contains("scripts/")).noneMatch(name -> name.contains("deployment/local-repo/"));
+    }
+
+    @Test
+    void publishTargetReportsTheConfiguredDestinationWithoutCredentials() throws Exception {
+        mockMvc.perform(get("/api/feature-model/deployment-package/publish-target")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.configured").value(true)).andExpect(jsonPath("$.branch").value("deployment"))
+                .andExpect(jsonPath("$.targetDirectoryRoot").value("deployments"));
+    }
+
+    @Test
+    void publishTargetReportsAnUnconfiguredInstance() throws Exception {
+        unconfiguredMockMvc.perform(get("/api/feature-model/deployment-package/publish-target")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.configured").value(false));
+    }
+
+    @Test
+    void publishCreatesACommitAndReportsIt() throws Exception {
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON).content(REMOTE_PUBLISH_BODY))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.branch").value("deployment"))
+                .andExpect(jsonPath("$.targetDirectory").value("deployments/artemis-remote/package"))
+                .andExpect(jsonPath("$.commitSha").isNotEmpty()).andExpect(jsonPath("$.upToDate").value(false));
+
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON).content(REMOTE_PUBLISH_BODY))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.upToDate").value(true));
+    }
+
+    @Test
+    void publishRejectsANonRemoteDeploymentModeWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"local-docker\",\"remoteEnvironment\":{\"targetName\":\"artemis-remote\"}}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PUBLISH_WRONG_DEPLOYMENT_MODE"));
+
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + "}")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PUBLISH_WRONG_DEPLOYMENT_MODE"));
+    }
+
+    @Test
+    void publishRejectsAMissingTargetNameWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"remote-ansible\"}")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PUBLISH_REQUIRES_TARGET_NAME"));
+
+        mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"selectedFeatureIds\":" + MINIMAL + ",\"deploymentMode\":\"remote-ansible\",\"remoteEnvironment\":{\"targetName\":\"  \"}}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PUBLISH_REQUIRES_TARGET_NAME"));
+    }
+
+    @Test
+    void publishOnAnUnconfiguredInstanceIsRefused() throws Exception {
+        unconfiguredMockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON).content(REMOTE_PUBLISH_BODY))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PUBLISH_NOT_CONFIGURED"));
     }
 
     private List<String> entryNames(byte[] archive) throws Exception {

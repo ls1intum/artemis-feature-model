@@ -28,11 +28,12 @@ import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTre
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Golden-fixture acceptance of the remote-ansible package: a request with the lab environment values must reproduce
- * the lab's hand-written inventory values byte-for-byte. The fixtures under {@code fixtures/remote-ansible/} are
- * derived from the deploy-lab repository; their provenance and the two deliberate delta classes (secret material as
- * vault lookups; package-only content asserted by its own expectations) are recorded in {@code PROVENANCE.md} next to
- * them. Updating a fixture is a deliberate, reviewed act.
+ * Golden-fixture acceptance of the remote-ansible package: a request with the lab target name must reproduce the
+ * expected inventory bytes exactly. The fixtures under {@code fixtures/remote-ansible/} are derived from the
+ * deploy-lab repository and split into two classes since the environment-channel switch: structural files stay
+ * byte-identical to the lab's tracked files, while value-bearing files are package-own expectations rendering
+ * environment lookup expressions. Provenance and the class split are recorded in {@code PROVENANCE.md} next to the
+ * fixtures. Updating a fixture is a deliberate, reviewed act.
  */
 class RemoteAnsibleGoldenFixtureTest {
 
@@ -100,9 +101,7 @@ class RemoteAnsibleGoldenFixtureTest {
     }
 
     private ArtifactGenerationRequest labRequest(List<String> selection) {
-        RemoteEnvironmentInput environment = new RemoteEnvironmentInput("artemis-local", "artemis.192.168.252.2.nip.io", "Artemis Feature Model Thesis Lab",
-                "Junting Ning", "artemis-local@thesis.invalid", "/opt/lab-certs/fullchain.pem", "/opt/lab-certs/privkey.pem", null);
-        return new ArtifactGenerationRequest(selection, null, null, "remote-ansible", environment);
+        return new ArtifactGenerationRequest(selection, null, null, "remote-ansible", new RemoteEnvironmentInput("artemis-local"));
     }
 
     private void assertFixtureMatch(GeneratedArtifactPackage result, String packagePath, String fixtureName) {

@@ -15,22 +15,34 @@ retired contract these fixtures used to bake in). Every disposition behind
 these values was verified on the live lab VM; see
 `evidence/transformation-table.md` in the lab repository.
 
-Deliberate deltas versus the lab's tracked files, per the two defined delta
-classes of the composer design:
+## Environment-channel evolution (2026-08-30)
 
-1. Secret material: the lab keeps generated dummy values in an untracked
-   `artemislocal/secrets.yml` and references them via indirection variables;
-   the generated package emits Vault lookup expressions instead. This affects
-   `artemislocal-secrets.yml` (package-own expectation). The lab's
-   `artemistests_local_vc_ci.yml` additionally retains the removed
-   `build_agent_git_credentials` block as commented-out incident history;
-   the generated file omits it entirely.
-2. Package-only content with no lab counterpart is asserted by its own
-   expectations, not by lab diff (`hosts` in this directory reflects the
-   generated wiring: the host line comes from the environment input, and only
-   wired group sections are emitted; the lab file additionally keeps empty
-   `artemistests_postgres`/`artemistests_iris` sections and its concrete SSH
-   connection line, which is environment-repository state).
+The package's environment channel moved from baked values and Vault lookup
+expressions to `lookup('ansible.builtin.env', …)` expressions over the
+user-provisioned environment-variable names of
+`devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt`
+(binding catalog v2). This split the fixtures into two classes:
+
+1. **Package-own expectations** — files that carried baked environment
+   values or Vault expressions can no longer match the lab's hand-written
+   values byte-for-byte; the lab files remain historical evidence of the
+   values that booted the lab VM. Affected: `artemislocal-main.yml` and
+   `artemistests_common_config.yml` (identity lines are now env lookups),
+   `artemislocal-secrets.yml` (env lookups instead of Vault lookups), and
+   `hosts` (the target-group section is now empty — a host entry cannot be
+   a lookup, so the connection line is owned by the execution environment;
+   the lab file keeps its concrete SSH connection line plus its inert empty
+   `artemistests_postgres`/`artemistests_iris` sections).
+2. **Structural files** — files that never carried an environment value
+   are unchanged by the switch and keep matching the lab's tracked files at
+   commit `2040df8`: `artemistests_mysql.yml` and
+   `artemistests_postgres.yml` byte-for-byte,
+   `artemistests_local_vc_ci.yml` except the lab's commented-out
+   `build_agent_git_credentials` incident-history block (a pre-existing,
+   documented delta), `artemistests_without_exam.yml` and
+   `artemistests_without_tutorialgroup.yml` line-for-line (the generated
+   files end without a trailing newline), and the group wiring
+   (`:children` sections) of `hosts`.
 
 Additionally, the two lab-only header comment lines of
 `artemistests_common_config.yml` (referencing the lab's evidence documents) are
@@ -50,5 +62,7 @@ hand-written lab inventory (which predates the selection semantics) simply
 runs with the image default. The group's values file is asserted by its own
 package expectation, not by lab diff.
 
-Updating these fixtures is a deliberate, reviewed act: re-derive from the lab
-inventory and record the new lab commit here.
+Updating these fixtures is a deliberate, reviewed act: re-derive the
+structural class from the lab inventory and record the new lab commit here;
+re-derive the package-own class from the binding catalog and the mapping
+file.

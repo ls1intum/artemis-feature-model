@@ -12,6 +12,9 @@ export interface DeploymentTarget {
 /** Mode id of the default target; it is sent without a `deploymentMode` field to keep the pre-mode-axis request shape. */
 export const DEFAULT_DEPLOYMENT_MODE = 'local-docker';
 
+/** Mode id of the remote target; the only target with a target-name field and a publish action. */
+export const REMOTE_DEPLOYMENT_MODE = 'remote-ansible';
+
 /** Deployment targets in picker order; the first entry is the default. */
 export const DEPLOYMENT_TARGETS: readonly DeploymentTarget[] = [
     {

@@ -13,16 +13,16 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * comes from.
  *
  * <p>
- * Rendered lines are emitted verbatim into the generated inventory files. Two substitution tokens are supported:
- * {@code {value}} in environment entry lines (replaced with the resolved environment value) and
- * {@code {vaultServerName}} in lines and vault paths (replaced with the resolved vault server name).
+ * Rendered lines are emitted verbatim into the generated inventory files. No environment value is ever baked into a
+ * line: every admin-owned or secret value is expressed as a {@code lookup('ansible.builtin.env', …)} expression over
+ * the user-provisioned environment-variable names, which the execution environment resolves on the control node.
  *
  * @param catalogVersion catalog format and content version.
  * @param collectionPin commit of the pinned Ansible collection this catalog was curated against.
  * @param curationSource human-readable reference to the curation sources.
  * @param baseline ordered baseline entries of the common configuration values file.
- * @param environment ordered admin-owned identity entries, keyed to environment inputs.
- * @param secrets deployment-internal secret variables rendered as vault lookups in the target secrets file.
+ * @param environment ordered admin-owned identity entries rendered as environment lookups.
+ * @param secrets deployment-internal secret variables rendered as environment lookups in the target secrets file.
  * @param technical bindings of the technical database and CI-provider axes.
  * @param features classification and binding of every selectable functional feature.
  */
@@ -136,25 +136,26 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     }
 
     /**
-     * Admin-owned identity entry whose value comes from the remote environment input or a placeholder.
+     * Admin-owned identity entry whose rendered lines embed the environment lookup expression of its provisioned
+     * variable directly.
      *
      * @param var collection variable name.
-     * @param input remote environment input name supplying the value.
+     * @param envVar user-provisioned environment-variable name supplying the value.
      * @param file {@link #FILE_COMMON_CONFIG} or {@link #FILE_TARGET_MAIN}.
      * @param order rendering position among the entries of the target file.
      * @param group blank-line group id shared with the baseline entries of the same file.
-     * @param lines rendered lines with the {@code {value}} token.
+     * @param lines rendered lines, emitted verbatim, embedding the environment lookup expression.
      * @param reason curation reason.
      * @param evidence curation evidence reference.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record EnvironmentEntry(String var, String input, String file, int order, int group, List<String> lines, String reason, String evidence) {
+    public record EnvironmentEntry(String var, String envVar, String file, int order, int group, List<String> lines, String reason, String evidence) {
 
         /**
          * Normalizes the line list to an immutable list.
          *
          * @param var collection variable name.
-         * @param input environment input name.
+         * @param envVar environment-variable name.
          * @param file target file marker.
          * @param order rendering position.
          * @param group blank-line group id.
@@ -168,15 +169,14 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     }
 
     /**
-     * Deployment-internal secret variable rendered as a vault lookup expression in the target secrets file.
+     * Deployment-internal secret variable rendered as an environment lookup expression in the target secrets file.
      *
      * @param var collection variable name.
-     * @param vaultPath vault path template with the {@code {vaultServerName}} token.
-     * @param vaultField field name inside the vault secret.
+     * @param envVar user-provisioned environment-variable name supplying the value.
      * @param evidence curation evidence reference.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record SecretEntry(String var, String vaultPath, String vaultField, String evidence) {
+    public record SecretEntry(String var, String envVar, String evidence) {
     }
 
     /**
@@ -210,7 +210,7 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      * @param membership inventory group the target joins when the binding applies.
      * @param groupVarsFile name of the rendered group values file.
      * @param lines rendered lines of the bound block, emitted verbatim when the gating applies.
-     * @param vaultReferences vault references the rendered lines contain.
+     * @param envReferences environment references the rendered lines contain.
      * @param unsupportedWhen direction of an unsupported binding: {@link #UNSUPPORTED_WHEN_DESELECTED} or
      *            {@link #UNSUPPORTED_WHEN_SELECTED}.
      * @param missingVariable missing-variable reason of an unsupported feature binding.
@@ -219,7 +219,7 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record FeatureBinding(String binding, String gating, String membership, String groupVarsFile, List<String> lines,
-            List<VaultReference> vaultReferences, String unsupportedWhen, String missingVariable, String reason, String evidence) {
+            List<EnvReference> envReferences, String unsupportedWhen, String missingVariable, String reason, String evidence) {
 
         /**
          * Normalizes nullable collections to immutable empty collections.
@@ -229,7 +229,7 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
          * @param membership inventory group.
          * @param groupVarsFile group values file name.
          * @param lines bound block lines.
-         * @param vaultReferences contained vault references.
+         * @param envReferences contained environment references.
          * @param unsupportedWhen unsupported direction.
          * @param missingVariable missing-variable reason.
          * @param reason curation reason.
@@ -237,7 +237,7 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
          */
         public FeatureBinding {
             lines = lines == null ? List.of() : List.copyOf(lines);
-            vaultReferences = vaultReferences == null ? List.of() : List.copyOf(vaultReferences);
+            envReferences = envReferences == null ? List.of() : List.copyOf(envReferences);
         }
 
         /**
@@ -251,13 +251,12 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     }
 
     /**
-     * One vault reference contained in rendered lines.
+     * One environment reference contained in rendered lines.
      *
-     * @param path vault path, possibly with the {@code {vaultServerName}} token.
-     * @param field field name inside the vault secret.
+     * @param envVar user-provisioned environment-variable name.
      * @param consumer collection variable path that consumes the resolved value.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record VaultReference(String path, String field, String consumer) {
+    public record EnvReference(String envVar, String consumer) {
     }
 }

@@ -91,6 +91,11 @@
                 [deploymentPackageDownloading]="deploymentPackageDownloading()"
                 [deploymentPackageErrorMessage]="deploymentPackageErrorMessage()"
                 [selectedDeploymentMode]="selectedDeploymentMode()"
+                [deploymentTargetName]="deploymentTargetName()"
+                [publishTarget]="publishTarget()"
+                [deploymentPackagePublishing]="deploymentPackagePublishing()"
+                [deploymentPackagePublishResult]="deploymentPackagePublishResult()"
+                [deploymentPackagePublishErrorMessage]="deploymentPackagePublishErrorMessage()"
                 (selectTemplate)="onSelectTemplate($event)"
                 (startWorkflow)="onStartWorkflow()"
                 (returnToTemplates)="onReturnToTemplates()"
@@ -104,7 +109,9 @@
                 (openTree)="onOpenTree()"
                 (generateArtifacts)="onGenerateArtifacts()"
                 (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
+                (publishAndDownloadDeploymentPackage)="onPublishAndDownloadDeploymentPackage()"
                 (selectDeploymentMode)="onSelectDeploymentMode($event)"
+                (deploymentTargetNameChange)="onDeploymentTargetNameChange($event)"
             />
         }
     }

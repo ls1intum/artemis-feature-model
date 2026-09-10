@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { ArtifactGenerationRequest } from '../core/artifact-generation.types';
+import { ArtifactGenerationRequest, DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from '../core/artifact-generation.types';
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability, WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, ValidationResult } from '../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflow, GuidedWorkflowStep, UseCaseTemplate } from '../core/guided-workflow.types';
@@ -28,14 +28,16 @@ import {
     CONFIGURATOR_TUTORIAL_STEPS,
     buildConfiguratorTutorialSeenKey,
 } from './shared/configurator-tutorial';
-import { DEFAULT_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
+import { DEFAULT_DEPLOYMENT_MODE, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
 const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please verify that the server is running and try again.';
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deployment package. Please verify that the server is running and try again.';
+const DEFAULT_PUBLISH_ERROR_MESSAGE = 'Failed to publish the deployment package. Please verify the deployment repository configuration and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
+const DEPLOYMENT_TARGET_NAME_STORAGE_KEY = 'artemis.configurator.deployment.target-name';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -72,6 +74,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
     readonly selectedDeploymentMode = signal<string>(DEFAULT_DEPLOYMENT_MODE);
+    readonly deploymentTargetName = signal<string>('');
+    readonly publishTarget = signal<DeploymentPackagePublishTarget | undefined>(undefined);
+    readonly deploymentPackagePublishing = signal<boolean>(false);
+    readonly deploymentPackagePublishResult = signal<DeploymentPackagePublishResponse | undefined>(undefined);
+    readonly deploymentPackagePublishErrorMessage = signal<string | undefined>(undefined);
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
@@ -233,6 +240,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly localizedWarnings = computed(() => this.warnings().map((warning) => localizeWarning(warning, this.featureNamesById())));
 
     ngOnInit(): void {
+        this.deploymentTargetName.set(this.readStoredDeploymentTargetName());
         forkJoin({
             featureModel: this.featureModelService.loadFeatureModel(),
             guidedWorkflow: this.featureModelService.loadGuidedWorkflow(),
@@ -242,6 +250,14 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             .subscribe({
                 next: ({ featureModel, guidedWorkflow, availability }) => this.handleLoaded(featureModel, guidedWorkflow, availability),
                 error: (error: Error) => this.handleError(error),
+            });
+        // The publish target is informational: a failed probe leaves the publish action hidden without blocking the page.
+        this.featureModelService
+            .loadDeploymentPackagePublishTarget()
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (target) => this.publishTarget.set(target),
+                error: () => this.publishTarget.set(undefined),
             });
     }
 
@@ -431,6 +447,24 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     onSelectDeploymentMode(deploymentMode: string): void {
         this.selectedDeploymentMode.set(deploymentMode);
         this.deploymentPackageErrorMessage.set(undefined);
+        this.deploymentPackagePublishResult.set(undefined);
+        this.deploymentPackagePublishErrorMessage.set(undefined);
+    }
+
+    /** Updates and persists the remote target name; the publish result of a previous target is stale afterwards. */
+    onDeploymentTargetNameChange(targetName: string): void {
+        this.deploymentTargetName.set(targetName);
+        this.deploymentPackagePublishResult.set(undefined);
+        this.deploymentPackagePublishErrorMessage.set(undefined);
+        const storage = this.browserStorage();
+        if (!storage) {
+            return;
+        }
+        try {
+            storage.setItem(DEPLOYMENT_TARGET_NAME_STORAGE_KEY, targetName);
+        } catch {
+            // Browser storage can be disabled; the field remains usable without persistence.
+        }
     }
 
     /**
@@ -442,12 +476,57 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         if (!this.isValid()) {
             return;
         }
+        this.startDeploymentPackageDownload(this.deploymentPackageRequest());
+    }
+
+    /**
+     * Publishes the remote-ansible package to the deployment repository and downloads the same package as a ZIP: two
+     * requests with the same body, byte-identical content by determinism. A publish failure still delivers the
+     * download and surfaces the publish error separately.
+     */
+    onPublishAndDownloadDeploymentPackage(): void {
+        const targetName = this.deploymentTargetName().trim();
+        if (!this.isValid() || this.selectedDeploymentMode() !== REMOTE_DEPLOYMENT_MODE || !this.publishTarget()?.configured || targetName.length === 0) {
+            return;
+        }
+        const request = this.deploymentPackageRequest();
+        this.deploymentPackagePublishing.set(true);
+        this.deploymentPackagePublishResult.set(undefined);
+        this.deploymentPackagePublishErrorMessage.set(undefined);
+        this.featureModelService
+            .publishDeploymentPackage(request)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (result) => {
+                    this.deploymentPackagePublishing.set(false);
+                    this.deploymentPackagePublishResult.set(result);
+                    this.startDeploymentPackageDownload(request);
+                },
+                error: (error: Error) => {
+                    this.deploymentPackagePublishing.set(false);
+                    this.reportPublishError(error);
+                    this.startDeploymentPackageDownload(request);
+                },
+            });
+    }
+
+    /** Builds the deployment package request for the selected target, including the target identity when present. */
+    private deploymentPackageRequest(): ArtifactGenerationRequest {
         const deploymentMode = this.selectedDeploymentMode();
         const request: ArtifactGenerationRequest = { selectedFeatureIds: [...this.selectedFeatureIds()] };
         if (deploymentMode !== DEFAULT_DEPLOYMENT_MODE) {
             request.deploymentMode = deploymentMode;
         }
-        const fileName = deploymentTargetFor(deploymentMode).fileName;
+        const targetName = this.deploymentTargetName().trim();
+        if (deploymentMode === REMOTE_DEPLOYMENT_MODE && targetName.length > 0) {
+            request.remoteEnvironment = { targetName };
+        }
+        return request;
+    }
+
+    /** Starts the deployment package ZIP download for an already-built request. */
+    private startDeploymentPackageDownload(request: ArtifactGenerationRequest): void {
+        const fileName = deploymentTargetFor(this.selectedDeploymentMode()).fileName;
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
         this.featureModelService
@@ -463,6 +542,18 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                     this.reportDownloadError(error, DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE, this.deploymentPackageErrorMessage);
                 },
             });
+    }
+
+    /** Surfaces the server's publish error message; publish errors arrive as parsed JSON, not as a Blob. */
+    private reportPublishError(error: Error): void {
+        const body = (error as { error?: { message?: unknown } }).error;
+        const serverMessage = typeof body?.message === 'string' ? body.message.trim() : '';
+        if (serverMessage.length > 0) {
+            this.deploymentPackagePublishErrorMessage.set(serverMessage);
+            return;
+        }
+        const transportMessage = error?.message?.trim();
+        this.deploymentPackagePublishErrorMessage.set(transportMessage && transportMessage.length > 0 ? transportMessage : DEFAULT_PUBLISH_ERROR_MESSAGE);
     }
 
     /**
@@ -680,9 +771,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const token = ++this.validationToken;
         this.validationLoading.set(true);
         this.validationErrorMessage.set(undefined);
-        // A selection change clears any stale artifact/package error from a previous attempt.
+        // A selection change clears any stale artifact/package/publish state from a previous attempt.
         this.artifactErrorMessage.set(undefined);
         this.deploymentPackageErrorMessage.set(undefined);
+        this.deploymentPackagePublishResult.set(undefined);
+        this.deploymentPackagePublishErrorMessage.set(undefined);
         this.validationService
             .validateSelection(this.selectedFeatureIds())
             .pipe(takeUntilDestroyed(this.destroyRef))
@@ -710,7 +803,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         if (!key) {
             return;
         }
-        const storage = this.tutorialStorage();
+        const storage = this.browserStorage();
         if (!storage) {
             return;
         }
@@ -722,7 +815,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     }
 
     private isTutorialSeen(key: string): boolean {
-        const storage = this.tutorialStorage();
+        const storage = this.browserStorage();
         if (!storage) {
             return false;
         }
@@ -733,8 +826,21 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
     }
 
+    /** Restores the persisted remote target name; storage failures fall back to an empty field. */
+    private readStoredDeploymentTargetName(): string {
+        const storage = this.browserStorage();
+        if (!storage) {
+            return '';
+        }
+        try {
+            return storage.getItem(DEPLOYMENT_TARGET_NAME_STORAGE_KEY) ?? '';
+        } catch {
+            return '';
+        }
+    }
+
     /** Safely accesses localStorage for browsers that block storage or for non-browser render contexts. */
-    private tutorialStorage(): Storage | undefined {
+    private browserStorage(): Storage | undefined {
         if (typeof window === 'undefined') {
             return undefined;
         }

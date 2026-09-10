@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildGuidedWorkflowFixture, buildMvpFeatureModelResponse, buildWorkflowAvailabilityFixture } from '../core/feature-model.test-fixtures';
+import { DeploymentPackagePublishTarget } from '../core/artifact-generation.types';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { Feature, FeatureModelResponse, FeatureTreeNode, ValidationRequest, ValidationResult } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
@@ -16,8 +17,25 @@ const PROFILE_AVAILABILITY_URL = '/api/feature-model/profile-availability';
 const VALIDATE_URL = '/api/feature-model/validate';
 const ARTIFACTS_DOWNLOAD_URL = '/api/feature-model/artifacts/download';
 const DEPLOYMENT_PACKAGE_DOWNLOAD_URL = '/api/feature-model/deployment-package/download';
+const DEPLOYMENT_PACKAGE_PUBLISH_URL = '/api/feature-model/deployment-package/publish';
+const PUBLISH_TARGET_URL = '/api/feature-model/deployment-package/publish-target';
+const TARGET_NAME_STORAGE_KEY = 'artemis.configurator.deployment.target-name';
 const TUTORIAL_SEEN_KEY =
     'artemis.configurator.tutorial.seen:artemis-guided-configuration:0.1.0:artemis-functional-feature-tree:0.1.0';
+
+const UNCONFIGURED_PUBLISH_TARGET: DeploymentPackagePublishTarget = {
+    configured: false,
+    repositoryUrl: null,
+    branch: 'main',
+    targetDirectoryRoot: 'deployments',
+};
+
+const CONFIGURED_PUBLISH_TARGET: DeploymentPackagePublishTarget = {
+    configured: true,
+    repositoryUrl: 'https://github.com/example/deployments.git',
+    branch: 'deployment',
+    targetDirectoryRoot: 'deployments',
+};
 
 function setup(): {
     fixture: ComponentFixture<FeatureModelConfiguratorComponent>;
@@ -51,6 +69,7 @@ function flushInitialLoads(
     response: FeatureModelResponse = buildMvpFeatureModelResponse(),
     workflow: GuidedWorkflow = buildGuidedWorkflowFixture(),
     availability: WorkflowAvailability = buildWorkflowAvailabilityFixture(),
+    publishTarget: DeploymentPackagePublishTarget = UNCONFIGURED_PUBLISH_TARGET,
 ): ValidationRequest {
     fixture.detectChanges();
 
@@ -65,6 +84,10 @@ function flushInitialLoads(
     const availabilityRequest = httpMock.expectOne(PROFILE_AVAILABILITY_URL);
     expect(availabilityRequest.request.method).toBe('GET');
     availabilityRequest.flush(availability);
+
+    const publishTargetRequest = httpMock.expectOne(PUBLISH_TARGET_URL);
+    expect(publishTargetRequest.request.method).toBe('GET');
+    publishTargetRequest.flush(publishTarget);
 
     fixture.detectChanges();
     return flushValidation(httpMock, validResult(response.defaultSelectedFeatureIds));
@@ -82,6 +105,14 @@ function clickByTestId(fixture: ComponentFixture<FeatureModelConfiguratorCompone
     const element = rootEl(fixture).querySelector(`[data-testid="${testId}"]`) as HTMLElement;
     expect(element).not.toBeNull();
     element.click();
+    fixture.detectChanges();
+}
+
+function typeTargetName(fixture: ComponentFixture<FeatureModelConfiguratorComponent>, targetName: string): void {
+    const input = rootEl(fixture).querySelector('[data-testid="deployment-target-name-input"]') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    input.value = targetName;
+    input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 }
 
@@ -264,6 +295,8 @@ describe('FeatureModelConfiguratorComponent', () => {
         httpMock.expectOne(MODEL_URL).flush(buildMvpFeatureModelResponse());
         httpMock.expectOne(PROFILE_AVAILABILITY_URL).flush(buildWorkflowAvailabilityFixture());
         httpMock.expectOne(GUIDED_WORKFLOW_URL).flush('Boom', { status: 500, statusText: 'Server Error' });
+        // A failed publish-target probe only hides the publish action; it never blocks or unblocks the page.
+        httpMock.expectOne(PUBLISH_TARGET_URL).flush('Boom', { status: 500, statusText: 'Server Error' });
         fixture.detectChanges();
 
         expect(rootEl(fixture).querySelector('[data-testid="error-state"]')).not.toBeNull();
@@ -819,10 +852,161 @@ describe('FeatureModelConfiguratorComponent', () => {
         const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
         const requestBody = downloadRequest.request.body as { deploymentMode?: string; remoteEnvironment?: unknown; selectedFeatureIds: string[] };
         expect(requestBody.deploymentMode).toBe('remote-ansible');
-        // The client never collects environment fields; the package downloads in its placeholder form.
+        // Without a typed target name the request omits the target identity; the package uses the default group.
         expect(requestBody.remoteEnvironment).toBeUndefined();
         expect(requestBody.selectedFeatureIds).toContain('programming');
         downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('persists the remote target name and includes it in the download request', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+
+        expect(window.localStorage.getItem(TARGET_NAME_STORAGE_KEY)).toBe('artemis-remote');
+        clickByTestId(fixture, 'download-deployment-package-button');
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        expect((downloadRequest.request.body as { remoteEnvironment?: { targetName: string } }).remoteEnvironment).toEqual({ targetName: 'artemis-remote' });
+        downloadRequest.flush(new Blob(['zip-bytes']));
+    });
+
+    it('restores the persisted remote target name into the field', () => {
+        markTutorialSeen();
+        window.localStorage.setItem(TARGET_NAME_STORAGE_KEY, 'artemis-remote');
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+
+        const input = rootEl(fixture).querySelector('[data-testid="deployment-target-name-input"]') as HTMLInputElement;
+        expect(input.value).toBe('artemis-remote');
+        expect(rootEl(fixture).querySelector('[data-testid="publish-deployment-package-button"]')).not.toBeNull();
+    });
+
+    it('shows the publish action only for the remote target with a configured repository and a target name', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        // The default local Docker target has no target-name field and no publish action.
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-target-name-input"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="publish-deployment-package-button"]')).toBeNull();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-target-name-input"]')).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="publish-deployment-package-button"]')).toBeNull();
+
+        typeTargetName(fixture, 'Artemis Remote');
+        const publishButton = rootEl(fixture).querySelector('[data-testid="publish-deployment-package-button"]');
+        expect(publishButton).not.toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="publish-destination"]')?.textContent)
+            .toContain('https://github.com/example/deployments.git@deployment/deployments/artemisremote');
+    });
+
+    it('hides the publish action on an unconfigured instance even with a target name', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+
+        expect(rootEl(fixture).querySelector('[data-testid="publish-deployment-package-button"]')).toBeNull();
+    });
+
+    it('publishes and downloads with the same request body and renders both results', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+        clickByTestId(fixture, 'publish-deployment-package-button');
+
+        const publishRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_PUBLISH_URL);
+        expect(publishRequest.request.method).toBe('POST');
+        const publishBody = publishRequest.request.body as { deploymentMode?: string; remoteEnvironment?: { targetName: string } };
+        expect(publishBody.deploymentMode).toBe('remote-ansible');
+        expect(publishBody.remoteEnvironment).toEqual({ targetName: 'artemis-remote' });
+        publishRequest.flush({
+            repositoryUrl: 'https://github.com/example/deployments.git',
+            branch: 'deployment',
+            targetDirectory: 'deployments/artemis-remote/package',
+            commitSha: 'abcdef1234567890',
+            commitUrl: 'https://github.com/example/deployments/commit/abcdef1234567890',
+            upToDate: false,
+        });
+        fixture.detectChanges();
+
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        expect(downloadRequest.request.body).toEqual(publishRequest.request.body);
+        downloadRequest.flush(new Blob(['zip-bytes']));
+        fixture.detectChanges();
+
+        const result = rootEl(fixture).querySelector('[data-testid="publish-result"]');
+        expect(result?.textContent).toContain('Published as commit');
+        expect(result?.querySelector('a')?.getAttribute('href')).toBe('https://github.com/example/deployments/commit/abcdef1234567890');
+        expect(result?.textContent).toContain('abcdef1');
+    });
+
+    it('renders the up-to-date notice for an unchanged republish', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+        clickByTestId(fixture, 'publish-deployment-package-button');
+
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_PUBLISH_URL).flush({
+            repositoryUrl: 'https://github.com/example/deployments.git',
+            branch: 'deployment',
+            targetDirectory: 'deployments/artemis-remote/package',
+            commitSha: 'abcdef1234567890',
+            commitUrl: 'https://github.com/example/deployments/commit/abcdef1234567890',
+            upToDate: true,
+        });
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL).flush(new Blob(['zip-bytes']));
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="publish-result"]')?.textContent).toContain('already up to date');
+    });
+
+    it('still downloads after a publish failure and surfaces the publish error separately', () => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildMvpFeatureModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+        clickByTestId(fixture, 'publish-deployment-package-button');
+
+        const serverMessage = 'The deployment repository rejected the publish: the remote refused the ref.';
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_PUBLISH_URL).flush({ code: 'PUBLISH_REJECTED', message: serverMessage },
+            { status: 409, statusText: 'Conflict' });
+        fixture.detectChanges();
+
+        const downloadRequest = httpMock.expectOne(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        downloadRequest.flush(new Blob(['zip-bytes']));
+        fixture.detectChanges();
+
+        expect(rootEl(fixture).querySelector('[data-testid="publish-error"]')?.textContent).toContain(serverMessage);
+        expect(rootEl(fixture).querySelector('[data-testid="publish-result"]')).toBeNull();
     });
 
     it('disables the runtime package download while the selection is invalid', () => {

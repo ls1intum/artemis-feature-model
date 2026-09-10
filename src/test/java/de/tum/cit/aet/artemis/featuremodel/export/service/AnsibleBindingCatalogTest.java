@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,13 +39,48 @@ class AnsibleBindingCatalogTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * The user-provisioned environment-variable names of
+     * {@code devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt} (2026-08-29),
+     * verbatim: the 7 identity values and the 12 secret-class values.
+     */
+    private static final List<String> PROVISIONED_ENV_VAR_NAMES = List.of(
+            "TESTSERVER_NAME", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST", "ARTEMIS_OPERATOR_NAME", "ARTEMIS_OPERATOR_ADMIN_NAME",
+            "PROXY_SSL_CERTIFICATE_PATH", "PROXY_SSL_CERTIFICATE_KEY_PATH",
+            "ARTEMIS_DATABASE_PASSWORD", "ARTEMIS_INTERNAL_ADMIN_PASSWORD", "ARTEMIS_JHIPSTER_JWT",
+            "ATHENA_URL", "ATHENA_SECRET", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT_NAME",
+            "IRIS_URL", "IRIS_SECRET", "LTI_OAUTH_SECRET", "SHARING_APIKEY");
+
     @Test
     void bundledCatalogLoadsWithItsCollectionPinIdentity() {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
-        assertThat(catalog.catalogVersion()).isEqualTo(1);
+        assertThat(catalog.catalogVersion()).isEqualTo(2);
         assertThat(catalog.collectionPin()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(catalog.curationSource()).contains("transformation-table.md");
+    }
+
+    @Test
+    void catalogEnvironmentVariableNamesEqualTheProvisionedMappingExactly() {
+        AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
+
+        Set<String> declaredNames = new HashSet<>();
+        for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
+            declaredNames.add(entry.envVar());
+        }
+        for (AnsibleBindingCatalog.SecretEntry entry : catalog.secrets()) {
+            declaredNames.add(entry.envVar());
+        }
+        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : catalog.sections()) {
+            for (AnsibleBindingCatalog.FeatureBinding binding : section.values()) {
+                for (AnsibleBindingCatalog.EnvReference reference : binding.envReferences()) {
+                    declaredNames.add(reference.envVar());
+                }
+            }
+        }
+
+        assertThat(declaredNames).as("catalog environment-variable names vs the provisioned mapping")
+                .containsExactlyInAnyOrderElementsOf(PROVISIONED_ENV_VAR_NAMES);
     }
 
     @Test
@@ -135,14 +173,55 @@ class AnsibleBindingCatalogTest {
     }
 
     @Test
-    void unknownEnvironmentInputFailsLoading() {
+    void environmentEntryWithoutUppercaseEnvVarFailsLoading() {
         String catalogJson = """
                 { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "environment": [ { "var": "artemis_email", "input": "mail", "file": "common-config", "order": 1, "group": 1, "lines": ["artemis_email: {value}"] } ],
+                  "environment": [ { "var": "artemis_email", "envVar": "mail", "file": "common-config", "order": 1, "group": 1,
+                    "lines": ["artemis_email: \\"{{ lookup('ansible.builtin.env', 'mail') }}\\""] } ],
                   "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown input 'mail'");
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("uppercase environment-variable name");
+    }
+
+    @Test
+    void environmentEntryNotRenderingItsLookupFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "environment": [ { "var": "artemis_email", "envVar": "ARTEMIS_EMAIL_TEST", "file": "common-config", "order": 1, "group": 1,
+                    "lines": ["artemis_email: \\"someone@example.org\\""] } ],
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("does not render the environment lookup of 'ARTEMIS_EMAIL_TEST'");
+    }
+
+    @Test
+    void secretEntryWithoutEnvVarFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "secrets": [ { "var": "artemis_database_password" } ],
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("uppercase environment-variable name");
+    }
+
+    @Test
+    void boundBindingNotRenderingADeclaredEnvReferenceFailsLoading() {
+        String catalogJson = """
+                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
+                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
+                  "features": { "iris": { "binding": "bound", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml",
+                    "lines": ["---", "iris:", "  url: \\"https://example.org\\""],
+                    "envReferences": [ { "envVar": "IRIS_URL", "consumer": "iris.url" } ] } } }
+                """;
+
+        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("declares environment reference 'IRIS_URL' but does not render its lookup");
     }
 
     @Test

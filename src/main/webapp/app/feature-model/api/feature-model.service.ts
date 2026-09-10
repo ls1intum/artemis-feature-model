@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { ArtifactGenerationRequest } from '../core/artifact-generation.types';
+import { ArtifactGenerationRequest, DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from '../core/artifact-generation.types';
 import { WorkflowAvailability } from '../core/deployment-profile.types';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { GuidedWorkflow } from '../core/guided-workflow.types';
@@ -14,6 +14,8 @@ const PROFILE_AVAILABILITY_RESOURCE_URL = '/api/feature-model/profile-availabili
 const SNAPSHOTS_RESOURCE_URL = '/api/feature-model/snapshots';
 const ARTIFACTS_DOWNLOAD_RESOURCE_URL = '/api/feature-model/artifacts/download';
 const DEPLOYMENT_PACKAGE_DOWNLOAD_RESOURCE_URL = '/api/feature-model/deployment-package/download';
+const DEPLOYMENT_PACKAGE_PUBLISH_RESOURCE_URL = '/api/feature-model/deployment-package/publish';
+const DEPLOYMENT_PACKAGE_PUBLISH_TARGET_RESOURCE_URL = '/api/feature-model/deployment-package/publish-target';
 
 @Injectable({ providedIn: 'root' })
 export class FeatureModelService {
@@ -82,5 +84,27 @@ export class FeatureModelService {
      */
     downloadDeploymentPackage(request: ArtifactGenerationRequest): Observable<Blob> {
         return this.http.post(DEPLOYMENT_PACKAGE_DOWNLOAD_RESOURCE_URL, request, { responseType: 'blob' });
+    }
+
+    /**
+     * Issues `POST /api/feature-model/deployment-package/publish` and returns the commit that now carries the
+     * remote-ansible package in the deployment repository. The package is generated through the same path as the
+     * download, so the published tree and the downloaded ZIP are byte-identical for the same request.
+     *
+     * @param request Artifact generation request with the remote-ansible deployment mode and a target name.
+     * @returns Observable that emits the publish response once and completes.
+     */
+    publishDeploymentPackage(request: ArtifactGenerationRequest): Observable<DeploymentPackagePublishResponse> {
+        return this.http.post<DeploymentPackagePublishResponse>(DEPLOYMENT_PACKAGE_PUBLISH_RESOURCE_URL, request);
+    }
+
+    /**
+     * Issues `GET /api/feature-model/deployment-package/publish-target` and returns where a publish would go, so the
+     * review page can show the destination and hide the publish action on an unconfigured instance.
+     *
+     * @returns Observable that emits the publish target once and completes.
+     */
+    loadDeploymentPackagePublishTarget(): Observable<DeploymentPackagePublishTarget> {
+        return this.http.get<DeploymentPackagePublishTarget>(DEPLOYMENT_PACKAGE_PUBLISH_TARGET_RESOURCE_URL);
     }
 }

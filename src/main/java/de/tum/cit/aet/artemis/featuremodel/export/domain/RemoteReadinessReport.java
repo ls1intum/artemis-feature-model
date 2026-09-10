@@ -11,14 +11,16 @@ import java.util.List;
  * @param selectionValidated whether the selection passed validation; always {@code pass} in a generated package.
  * @param bindingsResolved per-feature classification results against the binding catalog.
  * @param valuesGenerated whether the inventory values were generated; always {@code pass} in a generated package.
- * @param environmentProvided per-input environment states: {@code provided} or {@code pending}.
- * @param secretsAsReferences whether secrets appear only as vault references; always {@code pass} by construction.
+ * @param requiredEnvironmentVariables environment-variable names the execution environment must provide; the shipped
+ *            preflight script refuses a missing or empty variable.
+ * @param secretsAsReferences whether secrets appear only as environment lookup expressions; always {@code pass} by
+ *            construction.
  * @param syntaxValidated always {@code pending}; the shipped preflight script performs the syntax check.
  * @param model identity of the model the package was generated from.
  * @param bindingCatalog identity of the binding catalog the package was generated with.
  */
 public record RemoteReadinessReport(String selectionValidated, List<RemoteAnsibleEmissionPlan.FeatureClassificationResult> bindingsResolved,
-        String valuesGenerated, List<RemoteAnsibleEmissionPlan.EnvironmentState> environmentProvided, String secretsAsReferences, String syntaxValidated,
+        String valuesGenerated, List<String> requiredEnvironmentVariables, String secretsAsReferences, String syntaxValidated,
         ModelIdentity model, RemoteAnsibleEmissionPlan.CatalogIdentity bindingCatalog) {
 
     /** Layer state of a proven generation step. */

@@ -75,4 +75,17 @@ public class FeatureModelExceptionHandler {
         log.warn("Artifact generation exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
         return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
     }
+
+    /**
+     * Converts deployment repository publish exceptions to JSON error responses using the status the exception
+     * carries.
+     *
+     * @param exception deployment repository publish exception.
+     * @return response entity with stable error code and message.
+     */
+    @ExceptionHandler(DeploymentRepositoryPublishException.class)
+    public ResponseEntity<Map<String, String>> handleDeploymentRepositoryPublishException(DeploymentRepositoryPublishException exception) {
+        log.warn("Deployment repository publish exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
+        return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
+    }
 }
