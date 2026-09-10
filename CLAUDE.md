@@ -110,8 +110,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   playbook, inventory membership wiring and group values, preflight script)
   plus remote metadata (`remote-readiness.json`, `env-references.json`).
   Values come from the curated Ansible binding catalog
-  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.json`),
-  an application resource in both source modes, versioned by its collection
+  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`),
+  a YAML catalog using literal content blocks, stripped `#:` annotations,
+  and derived group filenames and environment references. It is an
+  application resource in both source modes, versioned by its collection
   pin (a commit of the `JTNing/artemis-ansible-collection` fork branch
   `feature-model/module-toggles`) — never part of a model snapshot. Every
   selectable feature must be classified `bound`/`no-op`/`unsupported`;
