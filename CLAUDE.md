@@ -110,15 +110,22 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   playbook, inventory membership wiring and group values, preflight script)
   plus remote metadata (`remote-readiness.json`, `env-references.json`).
   Values come from the curated Ansible binding catalog
-  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`),
+  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`, catalog v4),
   a YAML catalog using literal content blocks, stripped `#:` annotations,
   and derived group filenames and environment references. It is an
   application resource in both source modes, versioned by its collection
   pin (a commit of the `JTNing/artemis-ansible-collection` fork branch
-  `feature-model/module-toggles`) — never part of a model snapshot. Every
+  `feature-model/module-toggles`, pinned at
+  `13e50a20fea641a5a792e42541952a37cd7f1239`) — never part of a model snapshot. Every
   selectable feature must be classified `bound`/`no-op`/`unsupported`;
-  unclassified or inexpressible selections (Jenkins) fail closed with a
-  controlled 400 naming the catalog identity or missing variable. Module
+  unclassified or inexpressible selections (MySQL or Jenkins) fail closed with a
+  controlled 400 naming the catalog identity or missing variable. This collection
+  pin supports PostgreSQL only: upstream removed MySQL deployment support and
+  hardcodes PostgreSQL JDBC and compose selection. The classpath default remains
+  MySQL+ICL; users must switch to PostgreSQL in the advanced tree before remote
+  export. Local Docker and IDE MySQL support are unchanged. The existing
+  `artemis_rate_limit` values now bind correctly on the collection's Docker path
+  through the upstream environment-name fixes. Module
   reduction is expressible: the seven module features are deselection-gated
   bound bindings (`gating: deselected`) that emit one
   `artemistests_without_<key>` group per switched-off module through the
