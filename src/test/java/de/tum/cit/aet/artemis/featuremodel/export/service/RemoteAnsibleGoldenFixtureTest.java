@@ -39,8 +39,8 @@ class RemoteAnsibleGoldenFixtureTest {
 
     private static final String FIXTURE_DIR = "/fixtures/remote-ansible/";
 
-    private static final List<String> FULL_MYSQL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "mysql", "integrated-code-lifecycle", "localvc");
+    private static final List<String> FULL_POSTGRES_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
+            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "postgresql", "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;
@@ -70,34 +70,24 @@ class RemoteAnsibleGoldenFixtureTest {
 
     @Test
     void labEnvironmentRequestReproducesTheLabInventoryByteForByte() {
-        GeneratedArtifactPackage result = service.generate(labRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage result = service.generate(labRequest(FULL_POSTGRES_SELECTION));
 
         assertFixtureMatch(result, "inventory/hosts", "hosts");
         assertFixtureMatch(result, "inventory/group_vars/artemislocal/main.yml", "artemislocal-main.yml");
         assertFixtureMatch(result, "inventory/group_vars/artemislocal/secrets.yml", "artemislocal-secrets.yml");
         assertFixtureMatch(result, "inventory/group_vars/artemistests_common_config.yml", "artemistests_common_config.yml");
-        assertFixtureMatch(result, "inventory/group_vars/artemistests_mysql.yml", "artemistests_mysql.yml");
+        assertFixtureMatch(result, "inventory/group_vars/artemistests_postgres.yml", "artemistests_postgres.yml");
         assertFixtureMatch(result, "inventory/group_vars/artemistests_local_vc_ci.yml", "artemistests_local_vc_ci.yml");
     }
 
     @Test
     void reducedVariantReproducesTheLabWithoutGroupValuesByteForByte() {
-        List<String> selection = FULL_MYSQL_SELECTION.stream().filter(id -> !"exam".equals(id) && !"tutorialgroup".equals(id)).toList();
+        List<String> selection = FULL_POSTGRES_SELECTION.stream().filter(id -> !"exam".equals(id) && !"tutorialgroup".equals(id)).toList();
 
         GeneratedArtifactPackage result = service.generate(labRequest(selection));
 
         assertFixtureMatch(result, "inventory/group_vars/artemistests_without_exam.yml", "artemistests_without_exam.yml");
         assertFixtureMatch(result, "inventory/group_vars/artemistests_without_tutorialgroup.yml", "artemistests_without_tutorialgroup.yml");
-    }
-
-    @Test
-    void postgresVariantReproducesTheInertLabPostgresValuesByteForByte() {
-        List<String> selection = FULL_MYSQL_SELECTION.stream().map(id -> "mysql".equals(id) ? "postgresql" : id).toList();
-
-        GeneratedArtifactPackage result = service.generate(labRequest(selection));
-
-        assertFixtureMatch(result, "inventory/group_vars/artemistests_postgres.yml", "artemistests_postgres.yml");
-        assertFixtureMatch(result, "inventory/group_vars/artemistests_common_config.yml", "artemistests_common_config.yml");
     }
 
     private ArtifactGenerationRequest labRequest(List<String> selection) {

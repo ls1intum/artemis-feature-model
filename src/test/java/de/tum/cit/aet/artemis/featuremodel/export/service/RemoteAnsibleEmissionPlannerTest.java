@@ -33,7 +33,7 @@ class RemoteAnsibleEmissionPlannerTest {
 
     private static final List<String> MINIMAL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
             "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
-            "sharing", "mysql", "integrated-code-lifecycle", "localvc");
+            "sharing", "postgresql", "integrated-code-lifecycle", "localvc");
 
     private AnsibleBindingCatalog catalog;
 
@@ -117,15 +117,8 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void membershipFollowsTheSelectedDatabaseChoice() {
-        RemoteAnsibleEmissionPlan mysqlPlan = planner.plan(model, fullSelection(), labEnvironment());
-        Set<String> postgresSelection = new LinkedHashSet<>(fullSelection());
-        postgresSelection.remove("mysql");
-        postgresSelection.add("postgresql");
-        RemoteAnsibleEmissionPlan postgresPlan = planner.plan(model, postgresSelection, labEnvironment());
+        RemoteAnsibleEmissionPlan postgresPlan = planner.plan(model, fullSelection(), labEnvironment());
 
-        assertThat(fileContent(mysqlPlan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_mysql:children]\nartemislocal")
-                .doesNotContain("artemistests_postgres");
-        assertThat(filePaths(mysqlPlan)).contains("inventory/group_vars/artemistests_mysql.yml").doesNotContain("inventory/group_vars/artemistests_postgres.yml");
         assertThat(fileContent(postgresPlan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_postgres:children]\nartemislocal")
                 .doesNotContain("artemistests_mysql");
         assertThat(fileContent(postgresPlan, "inventory/group_vars/artemistests_postgres.yml")).contains("artemis_database_type: postgresql");
@@ -165,6 +158,16 @@ class RemoteAnsibleEmissionPlannerTest {
         assertThat(fileContent(plan, "inventory/group_vars/artemistests_without_fileupload.yml"))
                 .isEqualTo("---\nartemis_modules:\n  fileupload: false");
         assertThat(fileContent(plan, RemoteAnsibleEmissionPlanner.HOSTS_FILE)).contains("[artemistests_without_fileupload:children]\nartemislocal");
+    }
+
+    @Test
+    void mysqlSelectionFailsClosedWithTheCatalogReason() {
+        Set<String> selection = selectionWithout("postgresql");
+        selection.add("mysql");
+        assertThatThrownBy(() -> planner.plan(model, selection, labEnvironment()))
+                .isInstanceOf(ArtifactGenerationException.class)
+                .hasMessageContaining("mysql").hasMessageContaining("removed MySQL support")
+                .extracting("code").isEqualTo("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE");
     }
 
     @Test

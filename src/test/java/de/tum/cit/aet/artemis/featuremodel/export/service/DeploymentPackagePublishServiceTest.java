@@ -50,8 +50,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 class DeploymentPackagePublishServiceTest {
 
-    private static final List<String> FULL_MYSQL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "mysql", "integrated-code-lifecycle", "localvc");
+    private static final List<String> FULL_POSTGRES_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
+            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "postgresql", "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path tempDir;
@@ -93,7 +93,7 @@ class DeploymentPackagePublishServiceTest {
 
     @Test
     void publishTreeEqualsGenerateOutputAndDownloadZipContentByteForByte() throws Exception {
-        ArtifactGenerationRequest request = remoteRequest(FULL_MYSQL_SELECTION);
+        ArtifactGenerationRequest request = remoteRequest(FULL_POSTGRES_SELECTION);
 
         DeploymentRepositoryPublishResult result = publishService.publish(request);
         GeneratedArtifactPackage generated = deploymentPackageService.generate(request);
@@ -118,7 +118,7 @@ class DeploymentPackagePublishServiceTest {
 
     @Test
     void commitMessageDerivesEntirelyFromTheGeneratedPackage() throws Exception {
-        List<String> reducedWithIris = new ArrayList<>(FULL_MYSQL_SELECTION);
+        List<String> reducedWithIris = new ArrayList<>(FULL_POSTGRES_SELECTION);
         reducedWithIris.remove("exam");
         reducedWithIris.remove("tutorialgroup");
         reducedWithIris.add("iris");
@@ -127,9 +127,9 @@ class DeploymentPackagePublishServiceTest {
 
         String message = headCommitMessage();
         assertThat(message).startsWith("deploy artemis-remote: model ");
-        assertThat(message).contains("catalog v3@fce6ad1");
+        assertThat(message).contains("catalog v4@13e50a2");
         assertThat(message).contains("\nprofile: ");
-        assertThat(message).contains("database: mysql   ci: integrated-code-lifecycle");
+        assertThat(message).contains("database: postgresql   ci: integrated-code-lifecycle");
         assertThat(message).contains("modules off: atlas, exam, tutorialgroup");
         assertThat(message).contains("integrations: iris");
         assertThat(message).contains("environment: env-channel");

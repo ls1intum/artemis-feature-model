@@ -2,9 +2,9 @@
 # Lines starting with #: are catalog annotations; plain # comments stay emitted.
 # Group filenames derive from membership + .yml.
 # Environment references and dotted consumers derive from lookups in parsed content.
-catalogVersion: 3
-collectionPin: "fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e"
-curationSource: "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names taken verbatim from the user-provisioned mapping of 2026-08-29 (devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt)"
+catalogVersion: 4
+collectionPin: "13e50a20fea641a5a792e42541952a37cd7f1239"
+curationSource: "2026-09-10 re-curation at upstream/main dfdc9fb: MySQL removal #245, valkey rename #246, rate-limit fixes #249, per-job build-agent auth #242; artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names taken verbatim from the user-provisioned mapping of 2026-08-29 (devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt)"
 files:
   targetMain:
     content: |-
@@ -81,15 +81,8 @@ files:
 technical:
   database:
     mysql:
-      binding: "bound"
-      membership: "artemistests_mysql"
-      content: |-
-        ---
-        artemis_database_dbname: "Artemis"
-        artemis_database_host: "artemis-mysql"
-        artemis_database_username: "Artemis"
-        artemis_database_type: mysql
-        artemis_database_port: 3306
+      binding: "unsupported"
+      reason: "Upstream removed MySQL support at pinned commit 13e50a2: PostgreSQL-hardcoded JDBC URL and compose selection; no collection variable expresses a MySQL deployment."
     postgresql:
       binding: "bound"
       membership: "artemistests_postgres"
