@@ -19,8 +19,8 @@ artemis:
     # Deployment repository publishing stays disabled unless a local run configures it explicitly. The access token
     # is never a property: it is read only from the FM_DEPLOYMENT_REPO_TOKEN environment variable.
     deployment-repository:
-      enabled: false
-      repository-url: https://github.com/JTNing/artemis-feature-model-deploy-lab/
+      enabled: true
+      repository-url: git@github.com:ls1intum/artemis-feature-model-deployments.git
       branch: deployment
       target-directory-root: deployments
       expected-visibility:
