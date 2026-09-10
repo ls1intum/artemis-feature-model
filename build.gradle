@@ -29,8 +29,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'com.github.javaparser:javaparser-core:3.26.4'
     implementation 'org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.3.0.202506031305-r'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.eclipse.jgit:org.eclipse.jgit.junit.ssh:7.3.0.202506031305-r'
 }
 
 tasks.named('test') {
