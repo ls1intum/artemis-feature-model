@@ -3,7 +3,6 @@ package de.tum.cit.aet.artemis.featuremodel.export.domain;
 import java.util.List;
 import java.util.Map;
 
-
 /**
  * Curated catalog that binds feature-model identities to Ansible collection variables for the remote-ansible
  * deployment package. The catalog is an application classpath resource in both runtime source modes; its version axis
@@ -23,7 +22,8 @@ import java.util.Map;
  * @param technical bindings of the technical database and CI-provider axes.
  * @param features classification and binding of every selectable functional feature.
  */
-public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, String curationSource, PackageFiles files, TechnicalBindings technical, Map<String, FeatureBinding> features) {
+public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, String curationSource, PackageFiles files,
+        TechnicalBindings technical, Map<String, FeatureBinding> features) {
 
     /** Classification of a feature with a rendered deployment-plane binding. */
     public static final String BINDING_BOUND = "bound";
@@ -114,7 +114,7 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
      *            the shape of the collection's module off-switches).
      * @param membership inventory group the target joins when the binding applies.
      * @param content rendered YAML of the bound block.
-     * @param envReferences environment references the rendered content contain.
+     * @param envReferences environment references the rendered content contains.
      * @param unsupportedWhen direction of an unsupported binding: {@link #UNSUPPORTED_WHEN_DESELECTED} or
      *            {@link #UNSUPPORTED_WHEN_SELECTED}.
      * @param missingVariable missing-variable reason of an unsupported feature binding.

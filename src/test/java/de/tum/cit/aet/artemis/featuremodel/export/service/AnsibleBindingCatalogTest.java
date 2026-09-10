@@ -360,6 +360,12 @@ class AnsibleBindingCatalogTest {
                 .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("uppercase environment-variable name");
     }
 
+    @Test
+    void nonMappingCatalogStructureFailsWithControlledLoadError() {
+        assertThatThrownBy(() -> loadCatalog("- unexpected sequence"))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Ansible binding catalog");
+    }
+
     private boolean isClassified(AnsibleBindingCatalog catalog, String featureId) {
         return catalog.features().containsKey(featureId) || catalog.technical().database().containsKey(featureId)
                 || catalog.technical().ciProvider().containsKey(featureId);

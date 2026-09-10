@@ -10,15 +10,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.error.YAMLException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.error.YAMLException;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelLoadException;
@@ -75,7 +74,7 @@ public class AnsibleBindingCatalogLoader {
             prepareCatalog(raw);
             this.catalog = objectMapper.convertValue(raw, AnsibleBindingCatalog.class);
         }
-        catch (IOException | YAMLException | IllegalArgumentException e) {
+        catch (IOException | YAMLException | IllegalArgumentException | ClassCastException e) {
             throw new FeatureModelLoadException("Could not load the Ansible binding catalog: " + e.getMessage(), e);
         }
         validate(this.catalog);
@@ -161,7 +160,7 @@ public class AnsibleBindingCatalogLoader {
         }
         String content = String.join("\n", Arrays.stream(authored.split("\n", -1)).filter(line -> !line.startsWith("#:")).toList());
         if (!content.equals("---") && !content.startsWith("---\n")) {
-            throw invalid("Content in " + label + " must start with ---. ");
+            throw invalid("Content in " + label + " must start with ---.");
         }
         List<AnsibleBindingCatalog.EnvReference> references = new ArrayList<>();
         try {
@@ -213,9 +212,8 @@ public class AnsibleBindingCatalogLoader {
     }
 
     /**
-     * Validates the shipped catalog: identity fields, known emission, binding, and direction kinds, declared
-     * environment-variable names and their rendered lookup expressions, mandatory reasons, the technical axes, and
-     * unique group files.
+     * Validates catalog identity, classification and gating, mandatory reasons, technical axes, and unique
+     * membership groups after content parsing has derived the environment references.
      *
      * @param catalog parsed catalog.
      * @throws FeatureModelLoadException if the catalog is internally inconsistent.
