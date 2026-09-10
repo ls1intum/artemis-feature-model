@@ -1,0 +1,306 @@
+catalogVersion: 3
+collectionPin: "fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e"
+curationSource: "artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names taken verbatim from the user-provisioned mapping of 2026-08-29 (devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt)"
+files:
+  targetMain:
+    content: |-
+      ---
+      #: Host identity; supplied by the execution environment so the package bakes no environment value.
+      var_testserver_name: "{{ lookup('ansible.builtin.env', 'TESTSERVER_NAME') }}"
+      #: Single maintenance point for the server hostname (server URL and LocalVC ssh_url derive from it lazily, so the env lookup propagates).
+      var_server_hostname: "{{ lookup('ansible.builtin.env', 'SERVER_HOSTNAME') }}"
+  targetSecrets:
+    content: |-
+      ---
+      # Secret values are never stored in this package; every value below is resolved from a
+      # control-node environment variable at run time. See README.md for providing the values.
+      #: Deployment-internal contract value; both ends are owned by the deployment. Must stay stable across deploys of a target: a database applies credentials only on first initialization.
+      artemis_database_password: "{{ lookup('ansible.builtin.env', 'ARTEMIS_DATABASE_PASSWORD') }}"
+      #: Deployment-internal contract value; doubles as the artemis_admin login password.
+      artemis_internal_admin_password: "{{ lookup('ansible.builtin.env', 'ARTEMIS_INTERNAL_ADMIN_PASSWORD') }}"
+      #: Deployment-internal contract value; format constraint: long base64 value.
+      artemis_jhipster_jwt: "{{ lookup('ansible.builtin.env', 'ARTEMIS_JHIPSTER_JWT') }}"
+  commonConfig:
+    content: |-
+      ---
+      #: Node 1 carries the scheduling Spring profile.
+      node_id: 1
+      is_testserver: true
+      #: Derivation pattern kept from the upstream inventory; the hostname source is the target values file.
+      artemis_server_url: "https://{{ var_server_hostname }}"
+      #: Admin-owned contact address; the collection's mail-from split evaluates the lookup lazily.
+      artemis_email: "{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}"
+
+      #: Deploy-time image tag baseline.
+      artemis_version: develop
+      #: Compose-file source branch for the checkout.
+      artemis_branch: develop
+
+      artemis_internal_admin_user: artemis_admin
+      artemis_passkey_enabled: true
+      artemis_repo_basepath: "/opt/artemis/data"
+      artemis_tmp_directory: "/tmp"
+
+      #: LocalVC key-generation contract; the quartet is kept verbatim.
+      artemis_ssh_key_password:
+      artemis_ssh_key_path:
+      artemis_ssh_key_name: "id_ecdsa"
+      artemis_ssh_priv_key_value: ""
+
+      #: Selects the Docker deployment path of the collection.
+      use_docker: true
+
+      #: INFO_OPERATORNAME is unguarded in artemis.env.j2 and therefore mandatory.
+      artemis_operator_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}"
+      #: INFO_OPERATORADMINNAME is unguarded in artemis.env.j2 and therefore mandatory.
+      artemis_operator_admin_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_ADMIN_NAME') }}"
+
+      artemis_global_search_enabled: true
+
+      artemis_rate_limit:
+        account_management_rpm: 5
+        authentication_rpm: 30
+
+      #: The collection default is true; a generated deployment must not report to the upstream telemetry endpoint.
+      artemis_telemetry_enabled: false
+
+      #: The deployment-automation user is provisioned by the execution environment, not by this package.
+      artemis_create_deployment_user: false
+
+      #: nginx bind-mounts the certificate file; the path is admin-owned.
+      proxy_ssl_certificate_path: "{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_PATH') }}"
+      #: nginx bind-mounts the key file; the path is admin-owned.
+      proxy_ssl_certificate_key_path: "{{ lookup('ansible.builtin.env', 'PROXY_SSL_CERTIFICATE_KEY_PATH') }}"
+
+      #: The collection defaults this variable to the hermes-prod relay; removing the key resurrects the default, so an explicit null is the only off-switch.
+      push_notification_relay:
+technical:
+  database:
+    mysql:
+      binding: "bound"
+      membership: "artemistests_mysql"
+      content: |-
+        ---
+        artemis_database_dbname: "Artemis"
+        artemis_database_host: "artemis-mysql"
+        artemis_database_username: "Artemis"
+        artemis_database_type: mysql
+        artemis_database_port: 3306
+    postgresql:
+      binding: "bound"
+      membership: "artemistests_postgres"
+      content: |-
+        ---
+        artemis_database_dbname: "Artemis"
+        artemis_database_host: "artemis-postgres"
+        artemis_database_username: "Artemis"
+        artemis_database_type: postgresql
+        artemis_database_port: 5432
+  ciProvider:
+    integrated-code-lifecycle:
+      binding: "bound"
+      membership: "artemistests_local_vc_ci"
+      evidence: "Single node is core and build agent; a local-CI node must not configure the shared build_agent_git_credentials pair (LocalVCBuildAgentCredentialsValidator refuses startup since Artemis develop 2026-08-25), build agents authenticate per job via SSH keys or clone tokens, with build_agent_use_ssh selecting the SSH path."
+      content: |-
+        ---
+        version_control:
+          localvc:
+            url: "{{ artemis_server_url }}"
+            ssh_key_path: /opt/artemis/data/artemis/ssh-keys
+            use_version_control_access_token: true
+            build_agent_use_ssh: true
+            ssh_url: "ssh://git@{{ var_server_hostname }}:7921/"
+
+        artemis_ssh_key_path: "/tmp"
+
+        continuous_integration:
+          localci:
+            url: "{{ artemis_server_url }}"
+            is_core_node: true
+            is_build_agent: true
+    jenkins:
+      binding: "unsupported"
+      reason: "The single-node remote-ansible package provides no Jenkins service; the upstream Jenkins inventory targets the multinode test-server topology, which this package does not support."
+features:
+  course-workflow:
+    binding: "no-op"
+    reason: "Mandatory module; part of every Artemis deployment and needs no deployment-plane configuration."
+  communication:
+    binding: "no-op"
+    reason: "Mandatory module; part of every Artemis deployment and needs no deployment-plane configuration."
+  exercise-common:
+    binding: "no-op"
+    reason: "Mandatory module; part of every Artemis deployment and needs no deployment-plane configuration."
+  programming:
+    binding: "no-op"
+    reason: "Mandatory module; part of every Artemis deployment and needs no deployment-plane configuration."
+  quiz:
+    binding: "no-op"
+    reason: "Mandatory module; part of every Artemis deployment and needs no deployment-plane configuration."
+  localvc:
+    binding: "no-op"
+    reason: "Mandatory baseline; its LocalVC values ship in the integrated-code-lifecycle group values file."
+  lecture:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_lecture"
+    evidence: "artemis_modules.lecture renders ARTEMIS_LECTURE_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        lecture: false
+  tutorialgroup:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_tutorialgroup"
+    evidence: "artemis_modules.tutorialgroup renders ARTEMIS_TUTORIALGROUP_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        tutorialgroup: false
+  text:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_text"
+    evidence: "artemis_modules.text renders ARTEMIS_TEXT_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        text: false
+  modeling:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_modeling"
+    evidence: "artemis_modules.modeling renders ARTEMIS_MODELING_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        modeling: false
+  file-upload:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_fileupload"
+    evidence: "artemis_modules.fileupload renders ARTEMIS_FILEUPLOAD_ENABLED in artemis.env.j2 at the pinned fork commit (Artemis spells fileupload without the feature model's hyphen); an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        fileupload: false
+  exam:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_exam"
+    evidence: "artemis_modules.exam renders ARTEMIS_EXAM_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        exam: false
+  plagiarism:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_plagiarism"
+    evidence: "artemis_modules.plagiarism renders ARTEMIS_PLAGIARISM_ENABLED in artemis.env.j2 at the pinned fork commit; an absent key keeps the Artemis default (enabled)."
+    content: |-
+      ---
+      artemis_modules:
+        plagiarism: false
+  iris:
+    binding: "bound"
+    membership: "artemistests_iris"
+    evidence: "Guard in artemis.env.j2: iris is defined and is not none; value shape from the upstream artemistests_iris.yml (iris block only, without the upstream nebula bundling)."
+    content: |-
+      ---
+      iris:
+        url: "{{ lookup('ansible.builtin.env', 'IRIS_URL') }}"
+        secret: "{{ lookup('ansible.builtin.env', 'IRIS_SECRET') }}"
+  athena:
+    binding: "bound"
+    membership: "artemistests_athena"
+    evidence: "Guard in artemis.env.j2: athena is defined, fields url and secret; no upstream inventory example exists, so the value shape follows the iris block convention."
+    content: |-
+      ---
+      athena:
+        url: "{{ lookup('ansible.builtin.env', 'ATHENA_URL') }}"
+        secret: "{{ lookup('ansible.builtin.env', 'ATHENA_SECRET') }}"
+  atlas:
+    binding: "bound"
+    gating: "deselected"
+    membership: "artemistests_without_atlas"
+    evidence: "artemis.atlas.enabled defaults to true in the image-shipped application-core.yml, so an absent atlas variable leaves the module enabled and the explicit false is the only off-switch (guard in artemis.env.j2: atlas is defined). A selected atlas needs no values because the image default already enables it. The nested atlasml block is deliberately not emitted; its image default is disabled."
+    content: |-
+      ---
+      atlas:
+        enabled: false
+  hyperion:
+    binding: "bound"
+    membership: "artemistests_hyperion"
+    evidence: "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty; an unset variable would fail that guard silently, which is why the preflight env gate refuses missing or empty values first. Value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
+    content: |-
+      ---
+      artemis_hyperion_enabled: true
+
+      spring_ai:
+        azure_openai:
+          api_key: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_API_KEY') }}"
+          endpoint: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_ENDPOINT') }}"
+          deployment_name: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_DEPLOYMENT_NAME') }}"
+          temperature: 1.0
+  deimos:
+    binding: "bound"
+    membership: "artemistests_deimos"
+    evidence: "Guard in artemis.env.j2: deimos is defined renders ARTEMIS_DEIMOS_ENABLED='true' plus the five llm values; artemis.deimos.enabled defaults to false in the image-shipped application-core.yml, so absence is off. Value shape from the deimos block of the upstream artemistests_common_config.yml (ls1intum/artemis-ansible at cca6f51), with the api key as a vault lookup following the kv/data/artemis/common/<service> convention. The LLM endpoint is an external service the admin should review."
+    content: |-
+      ---
+      deimos:
+        llm:
+          base_url: https://logos.aet.cit.tum.de/v1
+          api_key: "{{ lookup('hashi_vault', 'kv/data/artemis/common/deimos').get('api_key') }}"
+          model: openai/gpt-oss-120b
+          completions_path: /chat/completions
+          temperature: 0.3
+  lti:
+    binding: "bound"
+    membership: "artemistests_lti"
+    evidence: "Guard in artemis.env.j2: lti is defined; value shape from the admin sample (dropped there as a minimal-variant block)."
+    content: |-
+      ---
+      lti:
+        oauth_secret: "{{ lookup('ansible.builtin.env', 'LTI_OAUTH_SECRET') }}"
+  theia:
+    binding: "bound"
+    membership: "artemistests_theia"
+    evidence: "Guard in artemis.env.j2: core node and theia is defined; value shape from the upstream artemistests_theia.yml. The portal URL is an external service endpoint the admin should review."
+    content: |-
+      ---
+      theia:
+        portal_url: https://theia-staging.artemis.cit.tum.de
+
+        images:
+          java:
+            Java-17: "java-17-latest"
+          c:
+            C: "c-latest"
+          javascript:
+            Javascript: "javascript-latest"
+          ocaml:
+            Ocaml: "ocaml-latest"
+          python:
+            Python: "python-latest"
+          rust:
+            Rust: "rust-latest"
+  apollon:
+    binding: "bound"
+    membership: "artemistests_apollon"
+    evidence: "Guard in artemis.env.j2: apollon_url is defined; the public converter URL comes from the admin sample (dropped there as a minimal-variant block)."
+    content: |-
+      ---
+      apollon_url: https://apollon.aet.cit.tum.de
+  sharing:
+    binding: "bound"
+    membership: "artemistests_sharing"
+    evidence: "Guard in artemis.env.j2: sharing is defined, fields url, apikey, and actionname; value shape from the commented reference block in the upstream artemistests_common_config.yml, with the action name pointed at this target's hostname."
+    content: |-
+      ---
+      sharing:
+        url: "https://dev-exchange.codeability-austria.uibk.ac.at/"
+        apikey: "{{ lookup('ansible.builtin.env', 'SHARING_APIKEY') }}"
+        actionname: "Export to Artemis@{{ var_server_hostname }}"

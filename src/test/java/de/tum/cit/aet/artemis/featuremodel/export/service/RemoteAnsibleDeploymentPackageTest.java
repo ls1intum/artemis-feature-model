@@ -171,7 +171,7 @@ class RemoteAnsibleDeploymentPackageTest {
             requiredNames.add(name.asString());
         }
         assertThat(requiredNames).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST");
-        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(2);
+        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(3);
         assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }

@@ -55,7 +55,7 @@ class AnsibleBindingCatalogTest {
     void bundledCatalogLoadsWithItsCollectionPinIdentity() {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
-        assertThat(catalog.catalogVersion()).isEqualTo(2);
+        assertThat(catalog.catalogVersion()).isEqualTo(3);
         assertThat(catalog.collectionPin()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
         assertThat(catalog.curationSource()).contains("transformation-table.md");
     }
@@ -65,11 +65,10 @@ class AnsibleBindingCatalogTest {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
         Set<String> declaredNames = new HashSet<>();
-        for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            declaredNames.add(entry.envVar());
-        }
-        for (AnsibleBindingCatalog.SecretEntry entry : catalog.secrets()) {
-            declaredNames.add(entry.envVar());
+        for (var file : List.of(catalog.files().targetMain(), catalog.files().targetSecrets(), catalog.files().commonConfig())) {
+            for (var reference : file.envReferences()) {
+                declaredNames.add(reference.envVar());
+            }
         }
         for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : catalog.sections()) {
             for (AnsibleBindingCatalog.FeatureBinding binding : section.values()) {
@@ -95,155 +94,231 @@ class AnsibleBindingCatalogTest {
     }
 
     @Test
-    void unknownEmissionKindFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "baseline": [ { "var": "node_id", "emission": "sometimes", "order": 10, "group": 1, "lines": ["node_id: 1"] } ],
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown emission kind");
-    }
-
-    @Test
-    void nullOverrideWithoutReasonFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "baseline": [ { "var": "push_notification_relay", "emission": "null-override", "order": 10, "group": 1, "lines": ["push_notification_relay:"] } ] }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Null-override");
-    }
-
-    @Test
     void unsupportedBindingWithoutReasonFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "exam": { "binding": "unsupported" } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "no-op"
+                      reason: "r"
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                features:
+                  exam:
+                    binding: "unsupported"
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("missing variable or reason");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("missing variable or reason");
     }
 
     @Test
     void unknownBindingClassificationFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "iris": { "binding": "maybe" } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "no-op"
+                      reason: "r"
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                features:
+                  iris:
+                    binding: "maybe"
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown classification");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown classification");
     }
 
     @Test
     void unknownUnsupportedDirectionFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "exam": { "binding": "unsupported", "unsupportedWhen": "deselcted", "missingVariable": "x" } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "no-op"
+                      reason: "r"
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                features:
+                  exam:
+                    binding: "unsupported"
+                    unsupportedWhen: "deselcted"
+                    missingVariable: "x"
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown direction 'deselcted'");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown direction 'deselcted'");
     }
 
     @Test
     void unknownBoundGatingFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "exam": { "binding": "bound", "gating": "deslected", "membership": "artemistests_without_exam",
-                    "groupVarsFile": "artemistests_without_exam.yml", "lines": ["---"] } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "no-op"
+                      reason: "r"
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                features:
+                  exam:
+                    binding: "bound"
+                    gating: "deslected"
+                    membership: "artemistests_without_exam"
+                    content: |-
+                      ---
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown gating 'deslected'");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("unknown gating 'deslected'");
     }
 
     @Test
     void gatingOnATechnicalBindingFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "bound", "gating": "deselected", "membership": "artemistests_mysql",
-                    "groupVarsFile": "artemistests_mysql.yml", "lines": ["---"] } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "bound"
+                      gating: "deselected"
+                      membership: "artemistests_mysql"
+                      content: |-
+                        ---
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class)
                 .hasMessageContaining("must not declare a gating");
     }
 
     @Test
-    void environmentEntryWithoutUppercaseEnvVarFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "environment": [ { "var": "artemis_email", "envVar": "mail", "file": "common-config", "order": 1, "group": 1,
-                    "lines": ["artemis_email: \\"{{ lookup('ansible.builtin.env', 'mail') }}\\""] } ],
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
-                .hasMessageContaining("uppercase environment-variable name");
-    }
-
-    @Test
-    void environmentEntryNotRenderingItsLookupFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "environment": [ { "var": "artemis_email", "envVar": "ARTEMIS_EMAIL_TEST", "file": "common-config", "order": 1, "group": 1,
-                    "lines": ["artemis_email: \\"someone@example.org\\""] } ],
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
-                .hasMessageContaining("does not render the environment lookup of 'ARTEMIS_EMAIL_TEST'");
-    }
-
-    @Test
-    void secretEntryWithoutEnvVarFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "secrets": [ { "var": "artemis_database_password" } ],
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
-                .hasMessageContaining("uppercase environment-variable name");
-    }
-
-    @Test
-    void boundBindingNotRenderingADeclaredEnvReferenceFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": { "iris": { "binding": "bound", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml",
-                    "lines": ["---", "iris:", "  url: \\"https://example.org\\""],
-                    "envReferences": [ { "envVar": "IRIS_URL", "consumer": "iris.url" } ] } } }
-                """;
-
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class)
-                .hasMessageContaining("declares environment reference 'IRIS_URL' but does not render its lookup");
-    }
-
-    @Test
     void missingTechnicalAxesFailLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277", "features": {} }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                features: {}
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("technical database and ciProvider");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("technical database and ciProvider");
     }
 
     @Test
     void duplicateGroupValuesFileFailsLoading() {
-        String catalogJson = """
-                { "catalogVersion": 1, "collectionPin": "8977303c560a91be27214509dd07bf6170c97277",
-                  "technical": { "database": { "mysql": { "binding": "no-op", "reason": "r" } }, "ciProvider": { "icl": { "binding": "no-op", "reason": "r" } } },
-                  "features": {
-                    "iris": { "binding": "bound", "membership": "artemistests_iris", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] },
-                    "atlas": { "binding": "bound", "membership": "artemistests_atlas", "groupVarsFile": "artemistests_iris.yml", "lines": ["---"] } } }
+        String catalogYaml = """
+                catalogVersion: 1
+                collectionPin: "8977303c560a91be27214509dd07bf6170c97277"
+                technical:
+                  database:
+                    mysql:
+                      binding: "no-op"
+                      reason: "r"
+                  ciProvider:
+                    icl:
+                      binding: "no-op"
+                      reason: "r"
+                features:
+                  iris:
+                    binding: "bound"
+                    membership: "artemistests_iris"
+                    content: |-
+                      ---
+                  atlas:
+                    binding: "bound"
+                    membership: "artemistests_iris"
+                    content: |-
+                      ---
+                files:
+                  targetMain:
+                    content: |-
+                      ---
+                  targetSecrets:
+                    content: |-
+                      ---
+                  commonConfig:
+                    content: |-
+                      ---
                 """;
 
-        assertThatThrownBy(() -> loadCatalog(catalogJson)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("declared by more than one bound binding");
+        assertThatThrownBy(() -> loadCatalog(catalogYaml)).isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("declared by more than one bound binding");
     }
 
     @Test
@@ -251,15 +326,49 @@ class AnsibleBindingCatalogTest {
         assertThatThrownBy(() -> loadCatalog("{ not json")).isInstanceOf(FeatureModelLoadException.class);
     }
 
+    @Test
+    void annotationsAreStrippedAndReferencesFollowDottedConsumers() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        AnsibleBindingCatalog catalog = loadCatalog(bundled);
+        assertThat(catalog.files().targetSecrets().content()).doesNotContain("#:")
+                .contains("# Secret values are never stored");
+        assertThat(catalog.bindingFor("iris").envReferences()).containsExactly(
+                new AnsibleBindingCatalog.EnvReference("IRIS_URL", "iris.url"),
+                new AnsibleBindingCatalog.EnvReference("IRIS_SECRET", "iris.secret"));
+        assertThat(catalog.bindingFor("hyperion").envReferences().getFirst().consumer()).isEqualTo("spring_ai.azure_openai.api_key");
+    }
+
+    @Test
+    void unknownKeysAndMissingBlocksFailLoading() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("gating:", "gatting:")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Unknown key 'gatting'");
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("targetMain:", "targetTypo:")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Unknown key");
+        assertThatThrownBy(() -> loadCatalog(bundled.replaceFirst("(?s)  targetMain:.*?  targetSecrets:", "  targetSecrets:")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Missing targetMain");
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("    content: |-", "    missing: |-")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Unknown key");
+    }
+
+    @Test
+    void malformedContentAndLowercaseLookupFailLoading() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("var_testserver_name:", "bad: [\n      var_testserver_name:")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("targetMain");
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("TESTSERVER_NAME", "lowercase")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("uppercase environment-variable name");
+    }
+
     private boolean isClassified(AnsibleBindingCatalog catalog, String featureId) {
         return catalog.features().containsKey(featureId) || catalog.technical().database().containsKey(featureId)
                 || catalog.technical().ciProvider().containsKey(featureId);
     }
 
-    private AnsibleBindingCatalog loadCatalog(String catalogJson) {
+    private AnsibleBindingCatalog loadCatalog(String catalogYaml) {
         try {
-            Path catalogFile = tempDir.resolve("catalog.json");
-            Files.writeString(catalogFile, catalogJson);
+            Path catalogFile = tempDir.resolve("catalog.yml");
+            Files.writeString(catalogFile, catalogYaml);
             return new AnsibleBindingCatalogLoader(resourceLoader, objectMapper, "file:" + catalogFile).catalog();
         }
         catch (IOException e) {

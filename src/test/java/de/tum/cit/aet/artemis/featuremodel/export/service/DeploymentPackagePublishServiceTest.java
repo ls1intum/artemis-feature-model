@@ -127,7 +127,7 @@ class DeploymentPackagePublishServiceTest {
 
         String message = headCommitMessage();
         assertThat(message).startsWith("deploy artemis-remote: model ");
-        assertThat(message).contains("catalog v2@fce6ad1");
+        assertThat(message).contains("catalog v3@fce6ad1");
         assertThat(message).contains("\nprofile: ");
         assertThat(message).contains("database: mysql   ci: integrated-code-lifecycle");
         assertThat(message).contains("modules off: atlas, exam, tutorialgroup");
