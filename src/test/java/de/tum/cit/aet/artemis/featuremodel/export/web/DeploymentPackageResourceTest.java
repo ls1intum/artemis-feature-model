@@ -248,6 +248,8 @@ class DeploymentPackageResourceTest {
                         .contentType(MediaType.APPLICATION_JSON).content(mysqlBody))
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE"))
+                        .andExpect(jsonPath("$.featureId").value("mysql"))
+                        .andExpect(jsonPath("$.reason", containsString("removed MySQL support")))
                         .andExpect(jsonPath("$.message", containsString("mysql")))
                         .andExpect(jsonPath("$.message", containsString("removed MySQL support")));
             }

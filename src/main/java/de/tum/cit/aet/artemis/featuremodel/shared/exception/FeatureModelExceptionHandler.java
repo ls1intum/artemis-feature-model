@@ -73,6 +73,10 @@ public class FeatureModelExceptionHandler {
     @ExceptionHandler(ArtifactGenerationException.class)
     public ResponseEntity<Map<String, String>> handleArtifactGenerationException(ArtifactGenerationException exception) {
         log.warn("Artifact generation exception converted to HTTP {} response with code {}.", exception.getStatus().value(), exception.getCode());
+        if (exception.getFeatureId() != null) {
+            return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage(),
+                    "featureId", exception.getFeatureId(), "reason", exception.getReason()));
+        }
         return ResponseEntity.status(exception.getStatus()).body(Map.of("code", exception.getCode(), "message", exception.getMessage()));
     }
 
