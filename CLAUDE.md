@@ -172,8 +172,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   family. The review page adds a
   localStorage-persisted target-name field and a "Publish and download"
   action for the remote target, rendered only when the publish target is
-  configured and a target name is present; a publish failure still delivers
-  the download.
+  configured and a target name is present; repository publish failures still
+  fall back to downloading. Unsupported remote selections return structured
+  `featureId` and `reason` fields alongside the stable error code and message.
+  The review page shows one actionable error card with a readable feature name,
+  an Advanced tree shortcut, and a collapsed technical explanation; it does not
+  retry downloading a package that publishing already refused as unsupported.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
