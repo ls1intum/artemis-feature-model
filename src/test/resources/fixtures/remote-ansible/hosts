@@ -6,7 +6,7 @@ artemislocal
 [artemistests_common_config:children]
 artemislocal
 
-[artemistests_mysql:children]
+[artemistests_postgres:children]
 artemislocal
 
 [artemistests_local_vc_ci:children]

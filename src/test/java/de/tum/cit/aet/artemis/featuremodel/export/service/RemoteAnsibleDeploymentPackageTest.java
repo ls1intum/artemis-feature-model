@@ -37,8 +37,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 class RemoteAnsibleDeploymentPackageTest {
 
-    private static final List<String> FULL_MYSQL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "mysql", "integrated-code-lifecycle", "localvc");
+    private static final List<String> FULL_POSTGRES_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
+            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "postgresql", "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;
@@ -69,39 +69,26 @@ class RemoteAnsibleDeploymentPackageTest {
     }
 
     @Test
-    void mysqlIntegratedCodeLifecycleSelectionComposesTheCompletePackage() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+    void postgresqlIntegratedCodeLifecycleSelectionComposesTheCompletePackage() {
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         assertThat(result.files()).extracting("path").containsExactly("README.md", "requirements.yml", "ansible.cfg", "playbook.yml", "inventory/hosts",
                 "inventory/group_vars/artemistarget/main.yml", "inventory/group_vars/artemistarget/secrets.yml",
-                "inventory/group_vars/artemistests_common_config.yml", "inventory/group_vars/artemistests_mysql.yml",
+                "inventory/group_vars/artemistests_common_config.yml", "inventory/group_vars/artemistests_postgres.yml",
                 "inventory/group_vars/artemistests_local_vc_ci.yml", "inventory/group_vars/artemistests_without_atlas.yml", "preflight.sh",
                 "metadata/package-manifest.json", "metadata/remote-readiness.json", "metadata/env-references.json", "metadata/selected-features.json");
-        assertThat(content(result, "inventory/hosts")).contains("[artemistests_mysql:children]\nartemistarget")
+        assertThat(content(result, "inventory/hosts")).contains("[artemistests_postgres:children]\nartemistarget")
                 .contains("[artemistests_local_vc_ci:children]\nartemistarget").contains("[artemistests_without_atlas:children]\nartemistarget")
-                .doesNotContain("artemistests_postgres");
-        assertThat(content(result, "requirements.yml")).contains("version: fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
+                .doesNotContain("artemistests_mysql");
+        assertThat(content(result, "requirements.yml")).contains("version: 13e50a20fea641a5a792e42541952a37cd7f1239");
         assertThat(content(result, "ansible.cfg")).contains("hash_behaviour = merge").contains("[ssh_connection]\npipelining = True");
     }
 
     @Test
-    void postgresqlIntegratedCodeLifecycleSelectionComposesThePostgresVariant() {
-        List<String> selection = replace(FULL_MYSQL_SELECTION, "mysql", "postgresql");
-
-        GeneratedArtifactPackage result = service.generate(remoteRequest(selection));
-
-        assertThat(result.files()).extracting("path").contains("inventory/group_vars/artemistests_postgres.yml")
-                .doesNotContain("inventory/group_vars/artemistests_mysql.yml");
-        assertThat(content(result, "inventory/group_vars/artemistests_postgres.yml")).contains("artemis_database_type: postgresql")
-                .contains("artemis_database_host: \"artemis-postgres\"");
-        assertThat(content(result, "inventory/hosts")).contains("[artemistests_postgres:children]\nartemistarget").doesNotContain("artemistests_mysql");
-    }
-
-    @Test
     void selectedIrisAddsExactlyItsGroupFileAndMembership() {
-        List<String> withIris = withExtra(FULL_MYSQL_SELECTION, "iris");
+        List<String> withIris = withExtra(FULL_POSTGRES_SELECTION, "iris");
 
-        GeneratedArtifactPackage base = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage base = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
         GeneratedArtifactPackage irisVariant = service.generate(remoteRequest(withIris));
 
         List<String> basePaths = base.files().stream().map(GeneratedArtifactFile::path).toList();
@@ -118,7 +105,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void moduleReductionComposesTheWithoutGroupFileAndMembership() {
-        List<String> reduced = new ArrayList<>(FULL_MYSQL_SELECTION);
+        List<String> reduced = new ArrayList<>(FULL_POSTGRES_SELECTION);
         reduced.remove("exam");
 
         GeneratedArtifactPackage result = service.generate(remoteRequest(reduced));
@@ -130,7 +117,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void jenkinsSelectionFailsClosedWithTheCatalogReason() {
-        List<String> jenkinsSelection = replace(FULL_MYSQL_SELECTION, "integrated-code-lifecycle", "jenkins");
+        List<String> jenkinsSelection = replace(FULL_POSTGRES_SELECTION, "integrated-code-lifecycle", "jenkins");
 
         assertThatThrownBy(() -> service.generate(remoteRequest(jenkinsSelection)))
                 .isInstanceOf(ArtifactGenerationException.class)
@@ -140,7 +127,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void manifestKeepsTheSharedRecordShapeAndRecordsTheRemoteMode() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
         assertThat(manifest.packageType()).isEqualTo("remote-ansible-deployment-package");
@@ -148,7 +135,7 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(manifest.deploymentMode()).isEqualTo("remote-ansible");
         assertThat(manifest.supportedRuntimeModes()).isEmpty();
         assertThat(manifest.requiredEnvironmentVariables()).isEmpty();
-        assertThat(manifest.database().type()).isEqualTo("mysql");
+        assertThat(manifest.database().type()).isEqualTo("postgresql");
         assertThat(manifest.database().mode()).isEqualTo("ansible-managed");
         assertThat(manifest.ciProvider().type()).isEqualTo("integrated-code-lifecycle");
         assertThat(manifest.readiness().localRuntimeReady()).isFalse();
@@ -158,7 +145,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void readinessRecordsLayersClassificationsAndDualAxisProvenance() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         JsonNode readiness = objectMapper.readTree(content(result, "metadata/remote-readiness.json"));
         assertThat(readiness.get("selectionValidated").asString()).isEqualTo("pass");
@@ -171,14 +158,14 @@ class RemoteAnsibleDeploymentPackageTest {
             requiredNames.add(name.asString());
         }
         assertThat(requiredNames).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST");
-        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(2);
-        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e");
+        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(4);
+        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("13e50a20fea641a5a792e42541952a37cd7f1239");
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }
 
     @Test
     void noGeneratedByteContainsAValueChannelOrBakedEnvironmentValue() {
-        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_MYSQL_SELECTION, "iris", "hyperion"), null, null,
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_POSTGRES_SELECTION, "iris", "hyperion"), null, null,
                 "remote-ansible", labEnvironment()));
 
         String secretsFile = content(result, "inventory/group_vars/artemislocal/secrets.yml");
@@ -197,8 +184,8 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void targetNameOnlyChangesTheTargetGroupNaming() {
-        GeneratedArtifactPackage defaultPackage = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
-        GeneratedArtifactPackage labPackage = service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "remote-ansible",
+        GeneratedArtifactPackage defaultPackage = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
+        GeneratedArtifactPackage labPackage = service.generate(new ArtifactGenerationRequest(FULL_POSTGRES_SELECTION, null, null, "remote-ansible",
                 labEnvironment()));
 
         List<String> renamedDefaultPaths = defaultPackage.files().stream().map(GeneratedArtifactFile::path)
@@ -212,7 +199,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void preflightEmbedsTheRequiredEnvironmentVariableGate() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         String preflight = content(result, "preflight.sh");
         JsonNode readiness = objectMapper.readTree(content(result, "metadata/remote-readiness.json"));
@@ -225,20 +212,20 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void remoteEnvironmentOnNonRemoteModesIsRejected() {
-        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "local-docker", labEnvironment())))
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_POSTGRES_SELECTION, null, null, "local-docker", labEnvironment())))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("local-docker");
-        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, "dev-ide", labEnvironment())))
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_POSTGRES_SELECTION, null, null, "dev-ide", labEnvironment())))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("dev-ide");
-        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_MYSQL_SELECTION, null, null, null, labEnvironment())))
+        assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_POSTGRES_SELECTION, null, null, null, labEnvironment())))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("remote-ansible");
     }
 
     @Test
     void requirementsPinTheArtemisCollectionAndDeclareTheCollectionsItsRolesNeed() {
-        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_MYSQL_SELECTION));
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         String requirements = content(result, "requirements.yml");
-        assertThat(requirements).contains("version: fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e").contains("- name: ansible.posix")
+        assertThat(requirements).contains("version: 13e50a20fea641a5a792e42541952a37cd7f1239").contains("- name: ansible.posix")
                 .contains("- name: community.crypto").contains("- name: community.general").doesNotContain("hashi_vault");
         assertThat(content(result, "README.md")).contains("lookup('ansible.builtin.env', …)").contains("env-references.json");
     }

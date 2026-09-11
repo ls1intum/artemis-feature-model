@@ -1,7 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,16 +51,6 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Renders the environment lookup expression of a provisioned variable name.
-     *
-     * @param envVar user-provisioned environment-variable name.
-     * @return Jinja environment lookup expression.
-     */
-    static String envLookup(String envVar) {
-        return "{{ lookup('ansible.builtin.env', '" + envVar + "') }}";
-    }
-
-    /**
      * Plans the inventory files for a validated selection. Classification runs against the active model regardless of
      * its source mode, so a model ahead of the catalog is refused instead of silently under-configured.
      *
@@ -88,9 +77,9 @@ public class RemoteAnsibleEmissionPlanner {
 
         List<RemoteAnsibleEmissionPlan.PlannedFile> files = new ArrayList<>();
         files.add(new RemoteAnsibleEmissionPlan.PlannedFile(HOSTS_FILE, hostsContent(targetGroup, databaseBinding, ciBinding, boundFeatures)));
-        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(targetMainPath, targetMainContent()));
-        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(secretsPath, targetSecretsContent()));
-        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(commonConfigPath, commonConfigContent()));
+        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(targetMainPath, catalog.files().targetMain().content()));
+        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(secretsPath, catalog.files().targetSecrets().content()));
+        files.add(new RemoteAnsibleEmissionPlan.PlannedFile(commonConfigPath, catalog.files().commonConfig().content()));
         files.add(plannedGroupFile(databaseBinding));
         files.add(plannedGroupFile(ciBinding));
         for (AnsibleBindingCatalog.FeatureBinding boundFeature : boundFeatures) {
@@ -98,15 +87,12 @@ public class RemoteAnsibleEmissionPlanner {
         }
 
         List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences = new ArrayList<>();
-        collectEnvironmentEntryReferences(AnsibleBindingCatalog.FILE_TARGET_MAIN, targetMainPath, envReferences);
-        for (AnsibleBindingCatalog.SecretEntry secret : catalog.secrets()) {
-            envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(secret.envVar(), secret.var(), secretsPath,
-                    RemoteAnsibleEmissionPlan.ENV_KIND_SECRET));
-        }
-        collectEnvironmentEntryReferences(AnsibleBindingCatalog.FILE_COMMON_CONFIG, commonConfigPath, envReferences);
-        collectBindingEnvReferences(ciBinding, envReferences);
-        for (AnsibleBindingCatalog.FeatureBinding boundFeature : boundFeatures) {
-            collectBindingEnvReferences(boundFeature, envReferences);
+        collectReferences(catalog.files().targetMain().envReferences(), targetMainPath, RemoteAnsibleEmissionPlan.ENV_KIND_IDENTITY, envReferences);
+        collectReferences(catalog.files().targetSecrets().envReferences(), secretsPath, RemoteAnsibleEmissionPlan.ENV_KIND_SECRET, envReferences);
+        collectReferences(catalog.files().commonConfig().envReferences(), commonConfigPath, RemoteAnsibleEmissionPlan.ENV_KIND_IDENTITY, envReferences);
+        collectReferences(ciBinding.envReferences(), GROUP_VARS_DIR + ciBinding.groupVarsFile(), RemoteAnsibleEmissionPlan.ENV_KIND_SECRET, envReferences);
+        for (AnsibleBindingCatalog.FeatureBinding binding : boundFeatures) {
+            collectReferences(binding.envReferences(), GROUP_VARS_DIR + binding.groupVarsFile(), RemoteAnsibleEmissionPlan.ENV_KIND_SECRET, envReferences);
         }
 
         RemoteAnsibleEmissionPlan.CatalogIdentity catalogIdentity = new RemoteAnsibleEmissionPlan.CatalogIdentity(catalog.catalogVersion(),
@@ -243,105 +229,26 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Renders the target-group main values file from the environment entries of the target file; every line embeds
-     * its environment lookup expression verbatim.
-     *
-     * @return rendered file content.
-     */
-    private String targetMainContent() {
-        List<String> lines = new ArrayList<>();
-        lines.add("---");
-        for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            if (AnsibleBindingCatalog.FILE_TARGET_MAIN.equals(entry.file())) {
-                lines.addAll(entry.lines());
-            }
-        }
-        return String.join("\n", lines);
-    }
-
-    /**
-     * Renders the target-group secrets file: every value is an environment lookup expression, never a secret value.
-     *
-     * @return rendered file content.
-     */
-    private String targetSecretsContent() {
-        List<String> lines = new ArrayList<>();
-        lines.add("---");
-        lines.add("# Secret values are never stored in this package; every value below is resolved from a");
-        lines.add("# control-node environment variable at run time. See README.md for providing the values.");
-        for (AnsibleBindingCatalog.SecretEntry secret : catalog.secrets()) {
-            lines.add(secret.var() + ": \"" + envLookup(secret.envVar()) + "\"");
-        }
-        return String.join("\n", lines);
-    }
-
-    /**
-     * Renders the common configuration values file by merging baseline and environment entries in catalog order,
-     * separating groups with blank lines.
-     *
-     * @return rendered file content.
-     */
-    private String commonConfigContent() {
-        List<CommonConfigEntry> entries = new ArrayList<>();
-        for (AnsibleBindingCatalog.BaselineEntry entry : catalog.baseline()) {
-            entries.add(new CommonConfigEntry(entry.order(), entry.group(), entry.lines()));
-        }
-        for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            if (AnsibleBindingCatalog.FILE_COMMON_CONFIG.equals(entry.file())) {
-                entries.add(new CommonConfigEntry(entry.order(), entry.group(), entry.lines()));
-            }
-        }
-        entries.sort(Comparator.comparingInt(CommonConfigEntry::order));
-
-        List<String> lines = new ArrayList<>();
-        lines.add("---");
-        Integer currentGroup = null;
-        for (CommonConfigEntry entry : entries) {
-            if (currentGroup != null && entry.group() != currentGroup) {
-                lines.add("");
-            }
-            currentGroup = entry.group();
-            lines.addAll(entry.lines());
-        }
-        return String.join("\n", lines);
-    }
-
-    /**
      * Renders one bound group values file; the catalog lines are emitted verbatim.
      *
      * @param binding bound binding.
      * @return planned group values file.
      */
     private RemoteAnsibleEmissionPlan.PlannedFile plannedGroupFile(AnsibleBindingCatalog.FeatureBinding binding) {
-        return new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + binding.groupVarsFile(), String.join("\n", binding.lines()));
+        return new RemoteAnsibleEmissionPlan.PlannedFile(GROUP_VARS_DIR + binding.groupVarsFile(), binding.content());
     }
 
     /**
-     * Collects the identity environment references of the environment entries rendered into one file.
-     *
-     * @param file catalog target-file marker.
-     * @param filePath package-relative path of the rendered file.
-     * @param envReferences accumulating reference list.
+     * Resolves block references to their package file and classification.
+     * @param references references derived from emitted content.
+     * @param filePath package-relative path.
+     * @param kind identity or secret classification.
+     * @param envReferences accumulating plan references.
      */
-    private void collectEnvironmentEntryReferences(String file, String filePath, List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
-        for (AnsibleBindingCatalog.EnvironmentEntry entry : catalog.environment()) {
-            if (file.equals(entry.file())) {
-                envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(entry.envVar(), entry.var(), filePath,
-                        RemoteAnsibleEmissionPlan.ENV_KIND_IDENTITY));
-            }
-        }
-    }
-
-    /**
-     * Collects the secret-class environment references of one bound binding.
-     *
-     * @param binding bound binding.
-     * @param envReferences accumulating reference list.
-     */
-    private void collectBindingEnvReferences(AnsibleBindingCatalog.FeatureBinding binding, List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
-        for (AnsibleBindingCatalog.EnvReference reference : binding.envReferences()) {
-            envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(reference.envVar(), reference.consumer(),
-                    GROUP_VARS_DIR + binding.groupVarsFile(), RemoteAnsibleEmissionPlan.ENV_KIND_SECRET));
+    private void collectReferences(List<AnsibleBindingCatalog.EnvReference> references, String filePath, String kind,
+            List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
+        for (AnsibleBindingCatalog.EnvReference reference : references) {
+            envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(reference.envVar(), reference.consumer(), filePath, kind));
         }
     }
 
@@ -361,13 +268,4 @@ public class RemoteAnsibleEmissionPlanner {
         return optionalIds;
     }
 
-    /**
-     * One entry of the merged common configuration file.
-     *
-     * @param order rendering position.
-     * @param group blank-line group id.
-     * @param lines rendered lines.
-     */
-    private record CommonConfigEntry(int order, int group, List<String> lines) {
-    }
 }

@@ -12,6 +12,7 @@ import {
     LocalizedViolation,
     LocalizedWarning,
     ReviewGroupSummary,
+    RemoteSelectionError,
 } from '../shared/configurator-view.types';
 
 /** Which of the focused option's three prose lists the impact panel currently shows. */
@@ -59,6 +60,7 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly artifactGenerating = input<boolean>(false);
     readonly artifactErrorMessage = input<string | undefined>(undefined);
     readonly deploymentPackageDownloading = input<boolean>(false);
+    readonly remoteSelectionError = input<RemoteSelectionError | undefined>(undefined);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
     readonly selectedDeploymentMode = input.required<string>();
     readonly deploymentTargetName = input<string>('');

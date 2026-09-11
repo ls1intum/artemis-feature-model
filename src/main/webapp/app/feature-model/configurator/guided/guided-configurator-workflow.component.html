@@ -507,6 +507,20 @@
                         </div>
                     }
 
+                    @if (remoteSelectionError(); as error) {
+                        <div class="alert alert-danger mt-3 mb-0 remote-selection-error" role="alert" data-testid="remote-selection-error">
+                            <h3 class="h6 mb-2">{{ error.title }}</h3>
+                            <p class="mb-2">Your configuration is valid, but it cannot be packaged for Remote server (Ansible).</p>
+                            <p class="mb-3"><strong>What to change:</strong> {{ error.suggestion }}</p>
+                            <button type="button" class="btn btn-outline-danger btn-sm" (click)="openTree.emit()"
+                                data-testid="remote-selection-review">Review in Advanced tree</button>
+                            <details class="mt-3">
+                                <summary>Technical reason</summary>
+                                <p class="small mt-2 mb-0">{{ error.reason }}</p>
+                            </details>
+                        </div>
+                    }
+
                     @if (deploymentPackagePublishErrorMessage(); as publishError) {
                         <div class="alert alert-danger mt-2 mb-0" role="alert" data-testid="publish-error">{{ publishError }}</div>
                     }

@@ -73,7 +73,7 @@ class DeploymentPackageResourceTest {
     private static final String MINIMAL = "[\"course-workflow\",\"communication\",\"exercise-common\",\"programming\",\"quiz\",\"mysql\","
             + "\"integrated-code-lifecycle\",\"localvc\"]";
 
-    private static final String REMOTE_PUBLISH_BODY = "{\"selectedFeatureIds\":" + MINIMAL
+    private static final String REMOTE_PUBLISH_BODY = "{\"selectedFeatureIds\":" + MINIMAL.replace("mysql", "postgresql")
             + ",\"deploymentMode\":\"remote-ansible\",\"remoteEnvironment\":{\"targetName\":\"artemis-remote\"}}";
 
     @TempDir
@@ -235,6 +235,28 @@ class DeploymentPackageResourceTest {
 
         mockMvc.perform(post("/api/feature-model/deployment-package/publish").contentType(MediaType.APPLICATION_JSON).content(REMOTE_PUBLISH_BODY))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.upToDate").value(true));
+    }
+
+    @Test
+    void mysqlRemoteDownloadAndPublishAreRefusedWithoutChangingTheRemote() throws Exception {
+        String mysqlBody = REMOTE_PUBLISH_BODY.replace("postgresql", "mysql");
+        Path remoteDirectory = dataRoot.resolve("deployment-repo.git");
+        try (Git remote = Git.open(remoteDirectory.toFile())) {
+            var originalHead = remote.getRepository().resolve("refs/heads/main");
+            for (String action : List.of("download", "publish")) {
+                mockMvc.perform(post("/api/feature-model/deployment-package/" + action)
+                        .contentType(MediaType.APPLICATION_JSON).content(mysqlBody))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE"))
+                        .andExpect(jsonPath("$.featureId").value("mysql"))
+                        .andExpect(jsonPath("$.reason", containsString("removed MySQL support")))
+                        .andExpect(jsonPath("$.message", containsString("mysql")))
+                        .andExpect(jsonPath("$.message", containsString("removed MySQL support")));
+            }
+            assertThat(remote.getRepository().resolve("refs/heads/main")).isEqualTo(originalHead);
+            assertThat(remote.getRepository().resolve("refs/heads/deployment")).isNull();
+            assertThat(remote.log().add(originalHead).call()).hasSize(1);
+        }
     }
 
     @Test

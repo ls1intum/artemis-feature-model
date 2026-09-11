@@ -1009,6 +1009,41 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(rootEl(fixture).querySelector('[data-testid="publish-result"]')).toBeNull();
     });
 
+    it.each([
+        ['mysql', 'MySQL', 'PostgreSQL'],
+        ['jenkins', 'Jenkins', 'Integrated Code Lifecycle'],
+    ])('shows one actionable %s refusal without retrying the same invalid download', (featureId, featureName, alternative) => {
+        markTutorialSeen();
+        flushInitialLoads(fixture, httpMock, buildTechnicalModelResponse(), buildGuidedWorkflowFixture(), buildWorkflowAvailabilityFixture(),
+            CONFIGURED_PUBLISH_TARGET);
+        fixture.componentInstance.onOpenReview();
+        fixture.detectChanges();
+        clickByTestId(fixture, 'deployment-mode-remote-ansible');
+        typeTargetName(fixture, 'artemis-remote');
+        clickByTestId(fixture, 'publish-deployment-package-button');
+
+        const reason = `The pinned collection cannot deploy ${featureName}.`;
+        httpMock.expectOne(DEPLOYMENT_PACKAGE_PUBLISH_URL).flush({
+            code: 'ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE', featureId, reason, message: 'Compatibility error message',
+        }, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+
+        httpMock.expectNone(DEPLOYMENT_PACKAGE_DOWNLOAD_URL);
+        const errorCard = rootEl(fixture).querySelector('[data-testid="remote-selection-error"]');
+        expect(errorCard?.querySelector('h3')?.textContent).toBe(`${featureName} is not supported for remote deployment`);
+        expect(errorCard?.textContent).toContain(alternative);
+        expect(errorCard?.querySelector('details')?.textContent).toContain(reason);
+        expect(errorCard?.querySelector('details')?.open).toBe(false);
+        expect(rootEl(fixture).querySelector('[data-testid="publish-error"]')).toBeNull();
+        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')).toBeNull();
+        clickByTestId(fixture, 'remote-selection-review');
+        expect(fixture.componentInstance.screen()).toBe('tree');
+        fixture.componentInstance.onCloseTree();
+        fixture.detectChanges();
+        clickByTestId(fixture, 'deployment-mode-local-docker');
+        expect(rootEl(fixture).querySelector('[data-testid="remote-selection-error"]')).toBeNull();
+    });
+
     it('disables the runtime package download while the selection is invalid', () => {
         markTutorialSeen();
         flushInitialLoads(fixture, httpMock);
@@ -1069,7 +1104,10 @@ describe('FeatureModelConfiguratorComponent', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         fixture.detectChanges();
 
-        expect(rootEl(fixture).querySelector('[data-testid="deployment-package-error"]')?.textContent).toContain(serverMessage);
+        const errorCard = rootEl(fixture).querySelector('[data-testid="remote-selection-error"]');
+        expect(errorCard?.textContent).toContain(serverMessage);
+        expect(errorCard?.querySelector('h3')?.textContent).toContain('This selection is not supported');
+        expect(errorCard?.querySelector('details')?.open).toBe(false);
     });
 
     it('still blocks artifact generation for an invalid selection while the section is hidden', () => {

@@ -403,3 +403,11 @@
         flex-direction: column-reverse;
     }
 }
+
+.remote-selection-error {
+    overflow-wrap: anywhere;
+
+    summary {
+        cursor: pointer;
+    }
+}

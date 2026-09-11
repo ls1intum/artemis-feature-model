@@ -15,6 +15,10 @@ public class ArtifactGenerationException extends RuntimeException {
 
     private final HttpStatus status;
 
+    private final String featureId;
+
+    private final String reason;
+
     /**
      * Creates an artifact generation exception.
      *
@@ -23,9 +27,39 @@ public class ArtifactGenerationException extends RuntimeException {
      * @param status HTTP status the caller should receive.
      */
     public ArtifactGenerationException(String code, String message, HttpStatus status) {
+        this(code, message, status, null, null);
+    }
+
+    /**
+     * Carries the unsupported selection separately from the compatibility message.
+     * @param code stable error code.
+     * @param message human-readable message.
+     * @param status HTTP status.
+     * @param featureId unsupported feature, or null for other errors.
+     * @param reason catalog reason, or null for other errors.
+     */
+    private ArtifactGenerationException(String code, String message, HttpStatus status, String featureId, String reason) {
         super(message);
         this.code = code;
         this.status = status;
+        this.featureId = featureId;
+        this.reason = reason;
+    }
+
+    /**
+     * Returns the unsupported feature for structured error rendering.
+     * @return feature id, or null for other errors.
+     */
+    public String getFeatureId() {
+        return featureId;
+    }
+
+    /**
+     * Returns the catalog explanation independently of the error message prefix.
+     * @return unsupported reason, or null for other errors.
+     */
+    public String getReason() {
+        return reason;
     }
 
     /**
@@ -145,7 +179,7 @@ public class ArtifactGenerationException extends RuntimeException {
      */
     public static ArtifactGenerationException remoteAnsibleUnsupportedFeature(String featureId, String detail) {
         String message = "Cannot generate a remote-ansible package: feature '" + featureId + "' is not expressible with the pinned collection. " + detail;
-        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE", message, HttpStatus.BAD_REQUEST);
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE", message, HttpStatus.BAD_REQUEST, featureId, detail);
     }
 
     /**

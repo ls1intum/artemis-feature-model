@@ -49,3 +49,10 @@ export interface DecisionOptionToggle {
     decision: GuidedDecision;
     option: GuidedDecisionOption;
 }
+
+/** View-ready guidance for an unsupported remote deployment selection. */
+export interface RemoteSelectionError {
+    title: string;
+    reason: string;
+    suggestion: string;
+}

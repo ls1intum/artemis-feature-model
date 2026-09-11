@@ -23,6 +23,7 @@ import {
     DecisionChangeSummary,
     DecisionOptionToggle,
     ReviewGroupSummary,
+    RemoteSelectionError,
 } from './shared/configurator-view.types';
 import {
     CONFIGURATOR_TUTORIAL_STEPS,
@@ -30,6 +31,13 @@ import {
 } from './shared/configurator-tutorial';
 import { DEFAULT_DEPLOYMENT_MODE, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
+
+interface DeploymentErrorBody {
+    code?: string;
+    message?: string;
+    featureId?: string;
+    reason?: string;
+}
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to load the guided configurator. Please verify that the server is running and try again.';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'Failed to validate the current selection. Please verify that the server is running and try again.';
@@ -71,6 +79,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly validationErrorMessage = signal<string | undefined>(undefined);
     readonly artifactGenerating = signal<boolean>(false);
     readonly artifactErrorMessage = signal<string | undefined>(undefined);
+    readonly remoteSelectionError = signal<RemoteSelectionError | undefined>(undefined);
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
     readonly selectedDeploymentMode = signal<string>(DEFAULT_DEPLOYMENT_MODE);
@@ -447,6 +456,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     onSelectDeploymentMode(deploymentMode: string): void {
         this.selectedDeploymentMode.set(deploymentMode);
         this.deploymentPackageErrorMessage.set(undefined);
+        this.remoteSelectionError.set(undefined);
         this.deploymentPackagePublishResult.set(undefined);
         this.deploymentPackagePublishErrorMessage.set(undefined);
     }
@@ -481,8 +491,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
 
     /**
      * Publishes the remote-ansible package to the deployment repository and downloads the same package as a ZIP: two
-     * requests with the same body, byte-identical content by determinism. A publish failure still delivers the
-     * download and surfaces the publish error separately.
+     * requests with the same body, byte-identical content by determinism. Repository failures still fall back to
+     * downloading; unsupported selections stop once because neither action can generate their package.
      */
     onPublishAndDownloadDeploymentPackage(): void {
         const targetName = this.deploymentTargetName().trim();
@@ -491,6 +501,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         }
         const request = this.deploymentPackageRequest();
         this.deploymentPackagePublishing.set(true);
+        this.deploymentPackageErrorMessage.set(undefined);
+        this.remoteSelectionError.set(undefined);
         this.deploymentPackagePublishResult.set(undefined);
         this.deploymentPackagePublishErrorMessage.set(undefined);
         this.featureModelService
@@ -504,8 +516,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                 },
                 error: (error: Error) => {
                     this.deploymentPackagePublishing.set(false);
-                    this.reportPublishError(error);
-                    this.startDeploymentPackageDownload(request);
+                    const body = (error as { error?: DeploymentErrorBody }).error;
+                    if (!this.reportRemoteSelectionError(body)) {
+                        this.reportPublishError(error);
+                        this.startDeploymentPackageDownload(request);
+                    }
                 },
             });
     }
@@ -529,6 +544,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         const fileName = deploymentTargetFor(this.selectedDeploymentMode()).fileName;
         this.deploymentPackageDownloading.set(true);
         this.deploymentPackageErrorMessage.set(undefined);
+        this.remoteSelectionError.set(undefined);
         this.featureModelService
             .downloadDeploymentPackage(request)
             .pipe(takeUntilDestroyed(this.destroyRef))
@@ -539,7 +555,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
                 },
                 error: (error: Error) => {
                     this.deploymentPackageDownloading.set(false);
-                    this.reportDownloadError(error, DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE, this.deploymentPackageErrorMessage);
+                    this.reportDownloadError(error, DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE, this.deploymentPackageErrorMessage,
+                        (body) => this.reportRemoteSelectionError(body));
                 },
             });
     }
@@ -562,7 +579,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
      * such a body is read back asynchronously and its `message` surfaced. Any other error reports the transport
      * message immediately, falling back to the default.
      */
-    private reportDownloadError(error: Error, defaultMessage: string, target: WritableSignal<string | undefined>): void {
+    private reportDownloadError(error: Error, defaultMessage: string, target: WritableSignal<string | undefined>,
+        handleBody?: (body: DeploymentErrorBody) => boolean): void {
         const body = (error as { error?: unknown }).error;
         const transportMessage = error?.message?.trim();
         const fallback = transportMessage && transportMessage.length > 0 ? transportMessage : defaultMessage;
@@ -573,11 +591,34 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         void body
             .text()
             .then((text) => {
-                const parsed = JSON.parse(text) as { message?: unknown };
+                const parsed = JSON.parse(text) as DeploymentErrorBody;
+                if (handleBody?.(parsed)) {
+                    return;
+                }
                 const serverMessage = typeof parsed.message === 'string' ? parsed.message.trim() : '';
                 target.set(serverMessage.length > 0 ? serverMessage : fallback);
             })
             .catch(() => target.set(fallback));
+    }
+
+    /** Presents catalog refusals once, with a readable feature name and an actionable next step. */
+    private reportRemoteSelectionError(body: DeploymentErrorBody | undefined): boolean {
+        if (body?.code !== 'ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE') {
+            return false;
+        }
+        const featureName = body.featureId ? this.featuresById().get(body.featureId)?.name ?? body.featureId : undefined;
+        let suggestion = 'Review the unsupported option in Advanced tree, or choose a different deployment target.';
+        if (body.featureId === 'mysql') {
+            suggestion = 'In Advanced tree, switch Database to PostgreSQL. To keep MySQL, choose Docker runtime or IntelliJ IDE instead.';
+        } else if (body.featureId === 'jenkins') {
+            suggestion = 'In Advanced tree, switch CI Provider to Integrated Code Lifecycle to use remote deployment.';
+        }
+        this.remoteSelectionError.set({
+            title: featureName ? `${featureName} is not supported for remote deployment` : 'This selection is not supported for remote deployment',
+            reason: body.reason ?? body.message ?? 'The current Ansible package cannot express this feature selection.',
+            suggestion,
+        });
+        return true;
     }
 
     /** Triggers a browser download for a generated blob without persisting it anywhere on the server. */
@@ -774,6 +815,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         // A selection change clears any stale artifact/package/publish state from a previous attempt.
         this.artifactErrorMessage.set(undefined);
         this.deploymentPackageErrorMessage.set(undefined);
+        this.remoteSelectionError.set(undefined);
         this.deploymentPackagePublishResult.set(undefined);
         this.deploymentPackagePublishErrorMessage.set(undefined);
         this.validationService

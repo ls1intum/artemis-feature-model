@@ -66,3 +66,18 @@ Updating these fixtures is a deliberate, reviewed act: re-derive the
 structural class from the lab inventory and record the new lab commit here;
 re-derive the package-own class from the binding catalog and the mapping
 file.
+
+## PostgreSQL collection pin uptake — 2026-09-10
+
+Catalog v4 moves the collection pin from `fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e`
+to `13e50a20fea641a5a792e42541952a37cd7f1239`. Upstream #245 removed
+MySQL support and hardcodes PostgreSQL JDBC and compose selection, so remote
+MySQL requests now fail before download or publish. The now-unemitted
+`artemistests_mysql.yml` fixture is removed. The package-own `hosts` expectation
+is re-derived with `artemistests_postgres` membership replacing MySQL.
+
+The postgres fixture retains its lab `2040df8` bytes, including explicit port
+5432. `without_*`, `local_vc_ci`, and every value-bearing environment-lookup
+fixture remain byte-identical. The preceding v3 YAML representation migration
+changed no fixture bytes. Collection rendering and new-default curation are
+recorded in the lab's `evidence/catalog-pin-validation-2026-09-10.md`.
