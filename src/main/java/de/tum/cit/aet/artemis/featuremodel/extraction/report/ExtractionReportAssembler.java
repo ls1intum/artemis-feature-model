@@ -46,6 +46,8 @@ public class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_CONFIG_MAPPING_REJECTED, "A manifest configuration entry rejects a key, so no mapping is emitted for it."),
             Map.entry(ReportItem.CODE_FEATURE_USAGE_LABEL_MALFORMED,
                     "A @FeatureUsage label is not an area/feature kebab-case label with exactly one slash; the placement is kept."),
+            Map.entry(ReportItem.CODE_FEATURE_USAGE_UNATTACHED,
+                    "A @FeatureUsage type is guarded by a condition class that names no model member, so its labels become no sub-feature."),
             Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries or resolved semantics collide for this scan and need review.")));
 
     /**

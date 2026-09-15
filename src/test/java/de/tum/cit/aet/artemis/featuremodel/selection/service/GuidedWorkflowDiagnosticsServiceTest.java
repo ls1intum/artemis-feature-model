@@ -62,6 +62,11 @@ class GuidedWorkflowDiagnosticsServiceTest {
     }
 
     @Test
+    void subFeatureNodesNeedNoGuidedCoverage() {
+        assertThat(service.findings(coveringWorkflow(), TestFeatureModels.withSubFeature("athena", "feedback/suggestions"), Set.of("athena-service"))).isEmpty();
+    }
+
+    @Test
     void warnsForUnknownCapabilityId() {
         assertThat(service.findings(coveringWorkflow(), TestFeatureModels.baseModel(), Set.of("athena-service"))).isEmpty();
 

@@ -4,7 +4,7 @@ import java.util.List;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 
-public record FeatureSourceDTO(String configKey, String springProfile, String clientConstant, String serverConditionClass,
+public record FeatureSourceDTO(String configKey, String springProfile, String clientConstant, String serverConditionClass, String usageLabel,
         List<String> evidence) {
 
     /**
@@ -14,6 +14,7 @@ public record FeatureSourceDTO(String configKey, String springProfile, String cl
      * @param springProfile optional Spring profile.
      * @param clientConstant optional client feature constant.
      * @param serverConditionClass optional server condition class.
+     * @param usageLabel optional {@code @FeatureUsage} label of a sub-feature node.
      * @param evidence source evidence entries.
      */
     public FeatureSourceDTO {
@@ -30,7 +31,7 @@ public record FeatureSourceDTO(String configKey, String springProfile, String cl
         if (source == null) {
             return null;
         }
-        return new FeatureSourceDTO(source.configKey(), source.springProfile(), source.clientConstant(), source.serverConditionClass(),
+        return new FeatureSourceDTO(source.configKey(), source.springProfile(), source.clientConstant(), source.serverConditionClass(), source.usageLabel(),
                 source.evidence());
     }
 }

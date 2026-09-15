@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import de.tum.cit.aet.artemis.featuremodel.TestFeatureModels;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
@@ -24,6 +25,13 @@ class FeatureModelCatalogServiceTest {
         assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("lecture", "tutorialgroup", "course-workflow", "communication",
                 "exercise-common", "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "atlas", "mysql",
                 "integrated-code-lifecycle", "localvc");
+    }
+
+    @Test
+    void defaultSelectionNeverContainsSubFeatureNodes() {
+        var model = TestFeatureModels.withSubFeature("programming", "authoring/exercises");
+
+        assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("exercise-common", "programming", "quiz");
     }
 
     @Test
