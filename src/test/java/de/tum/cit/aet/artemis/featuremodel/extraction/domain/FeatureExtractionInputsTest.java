@@ -98,7 +98,6 @@ class FeatureExtractionInputsTest {
         Map<String, String> options = new HashMap<>();
         options.put(FeatureExtractionInputs.OPTION_MANIFEST, "manifest.yml");
         options.put(FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, "guided-workflow.json");
-        options.put(FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE, "profile.json");
         options.put(FeatureExtractionInputs.OPTION_RUNTIME_IMAGE, "delivery/artemis-runtime-image.json");
         options.put(FeatureExtractionInputs.OPTION_OUTPUT_ROOT, "build/feature-extraction");
         return options;

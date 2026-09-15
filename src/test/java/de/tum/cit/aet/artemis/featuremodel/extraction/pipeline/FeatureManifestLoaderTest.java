@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 
-/** Verifies schema-level loading and controlled failures of the version 4 YAML scope manifest. */
+/** Verifies schema-level loading and controlled failures of the version 5 YAML scope manifest. */
 class FeatureManifestLoaderTest {
 
     private final FeatureManifestLoader loader = new FeatureManifestLoader();
@@ -19,14 +19,12 @@ class FeatureManifestLoaderTest {
     @Test
     void loadsValidManifest() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
-                provisional:
-                  - anchor: module:alpha
-                    id: alpha
+                manifestVersion: 5
                 features:
                   - id: alpha
                     parent: root
-                    requiresCapabilities: [alpha-service]
+                    configuration:
+                      - { key: artemis.alpha.url }
                 notModeled:
                   - anchor: toggle:RateLimit
                     reason: operational
@@ -39,94 +37,197 @@ class FeatureManifestLoaderTest {
                     optionality: mandatory
                 """);
 
-        assertThat(manifest.provisional()).singleElement().satisfies(entry -> {
-            assertThat(entry.anchor()).isEqualTo("module:alpha");
-            assertThat(entry.id()).isEqualTo("alpha");
-        });
         assertThat(manifest.features()).singleElement().satisfies(entry -> {
             assertThat(entry.id()).isEqualTo("alpha");
             assertThat(entry.optionality()).isNull();
-            assertThat(entry.requiresCapabilities()).containsExactly("alpha-service");
+            assertThat(entry.configuration()).singleElement().satisfies(configuration -> assertThat(configuration.key()).isEqualTo("artemis.alpha.url"));
         });
         assertThat(manifest.notModeled()).singleElement().satisfies(entry -> assertThat(entry.reason()).isEqualTo("operational"));
         assertThat(manifest.conceptualNodes()).anySatisfy(node -> {
             assertThat(node.id()).isEqualTo("always-on");
             assertThat(node.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_MANDATORY);
         });
+        assertThat(manifest.declaresRoot()).isTrue();
     }
 
     @Test
-    void loadsAnEmptyV4Manifest() {
+    void loadsAnEmptyV5ManifestWithoutADeclaredRoot() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 """);
 
         assertThat(manifest.manifestVersion()).isEqualTo(FeatureScopeManifest.CURRENT_VERSION);
         assertThat(manifest.features()).isEmpty();
-        assertThat(manifest.provisional()).isEmpty();
         assertThat(manifest.technical()).isEmpty();
         assertThat(manifest.notModeled()).isEmpty();
+        assertThat(manifest.declaresRoot()).isFalse();
+    }
+
+    @Test
+    void acceptsReferencesToTheImplicitRootWhenNoRootIsDeclared() {
+        FeatureScopeManifest manifest = load("""
+                manifestVersion: 5
+                features:
+                  - id: alpha
+                    parent: artemis
+                technical:
+                  - anchor: profile:localvc
+                    id: localvc
+                    parent: artemis
+                conceptualNodes:
+                  - id: content
+                    parent: artemis
+                    kind: group
+                """);
+
+        assertThat(manifest.declaresRoot()).isFalse();
+        assertThat(manifest.conceptualNodes()).singleElement().satisfies(node -> assertThat(node.parent()).isEqualTo(FeatureScopeManifest.IMPLICIT_ROOT_ID));
+    }
+
+    @Test
+    void rejectsAnEntryNamedLikeTheImplicitRootWhenNoRootIsDeclared() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                conceptualNodes:
+                  - id: artemis
+                    kind: group
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("'artemis' collides with the implicit root");
     }
 
     @Test
     void rejectsTheRetiredIncludeSectionWithAMigrationMessage() {
-        assertThatThrownBy(() -> load("manifestVersion: 4\ninclude: [{ anchor: module:alpha, id: alpha }]\n"))
+        assertThatThrownBy(() -> load("manifestVersion: 5\ninclude: [{ anchor: module:alpha, id: alpha }]\n"))
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("root.include was removed in manifestVersion 4")
-                .hasMessageContaining("'provisional'").hasMessageContaining("'technical'").hasMessageContaining("'features'");
+                .hasMessageContaining("'features'").hasMessageContaining("'technical'");
+    }
+
+    @Test
+    void rejectsTheRetiredProvisionalSectionWithAMigrationMessage() {
+        assertThatThrownBy(() -> load("manifestVersion: 4\nprovisional: [{ anchor: module:alpha, id: alpha }]\n"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("root.provisional was removed in manifestVersion 5")
+                .hasMessageContaining("'features'").hasMessageContaining("module id");
+    }
+
+    @Test
+    void rejectsTheRetiredRenamesSectionWithAMigrationMessage() {
+        assertThatThrownBy(() -> load("manifestVersion: 5\nrenames: [{ from: alpha, to: beta, rationale: Renamed }]\n"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("root.renames was removed in manifestVersion 5")
+                .hasMessageContaining("guided workflow");
     }
 
     @Test
     void rejectsTheRetiredExcludeSectionWithAMigrationMessage() {
-        assertThatThrownBy(() -> load("manifestVersion: 4\nexclude: [{ anchor: module:alpha, reason: deferred }]\n"))
+        assertThatThrownBy(() -> load("manifestVersion: 5\nexclude: [{ anchor: module:alpha, reason: deferred }]\n"))
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("root.exclude was removed in manifestVersion 4")
                 .hasMessageContaining("'notModeled'");
     }
 
     @Test
     void rejectsTheRetiredArtemisCommitShaFieldWithAMigrationMessage() {
-        assertThatThrownBy(() -> load("manifestVersion: 4\nartemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee\n"))
+        assertThatThrownBy(() -> load("manifestVersion: 5\nartemisCommitSha: aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee\n"))
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("artemisCommitSha")
                 .hasMessageContaining("removed in manifestVersion 3").hasMessageContaining("derived from the verified Artemis checkout");
     }
 
     @Test
     void rejectsTheRetiredArtemisImageDigestFieldWithAMigrationMessage() {
-        assertThatThrownBy(() -> load("manifestVersion: 4\nartemisImageDigest: latest\n"))
+        assertThatThrownBy(() -> load("manifestVersion: 5\nartemisImageDigest: latest\n"))
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("artemisImageDigest")
                 .hasMessageContaining("removed in manifestVersion 3").hasMessageContaining("delivery/artemis-runtime-image.json");
     }
 
     @Test
-    void rejectsAnUnsupportedManifestVersion() {
+    void rejectsUnsupportedManifestVersionsWithTheV5Message() {
         assertThatThrownBy(() -> load("manifestVersion: 3\n"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("Unsupported manifestVersion 3");
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("Unsupported manifestVersion 3").hasMessageContaining("expected 5");
+        assertThatThrownBy(() -> load("manifestVersion: 4\n"))
+                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("Unsupported manifestVersion 4").hasMessageContaining("Artemis module id");
     }
 
     @Test
-    void rejectsAnAnchorOnAFeaturesEntry() {
+    void rejectsAnAnchorOnAFeaturesEntryWithAMigrationMessage() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - anchor: module:alpha
                     id: alpha
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0] contains unknown field(s): anchor");
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0].anchor was removed in manifestVersion 5")
+                .hasMessageContaining("module:<id>");
     }
 
     @Test
-    void rejectsSemanticsOnAProvisionalEntry() {
+    void rejectsTheRetiredCapabilityFieldsWithMigrationMessages() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                provisional:
-                  - anchor: module:alpha
-                    id: alpha
-                    group: some-group
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("provisional[0] contains unknown field(s): group");
+                manifestVersion: 5
+                features:
+                  - id: alpha
+                    requiresCapabilities: [alpha-service]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0].requiresCapabilities was removed in manifestVersion 5")
+                .hasMessageContaining("<id>-service").hasMessageContaining("<id>-secret");
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                technical:
+                  - anchor: infra:mysql
+                    id: mysql
+                    providesCapabilities: [default-database]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0].providesCapabilities was removed in manifestVersion 5")
+                .hasMessageContaining("bundled deployment profile");
+    }
+
+    @Test
+    void rejectsArtifactMappingsOnFeaturesAndTechnicalEntriesWithAMigrationMessage() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                features:
+                  - id: alpha
+                    artifactMappings:
+                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: environment }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0].artifactMappings was removed in manifestVersion 5")
+                .hasMessageContaining("derived").hasMessageContaining("'configuration'");
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                technical:
+                  - anchor: infra:mysql
+                    id: mysql
+                    artifactMappings:
+                      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: docker/mysql.yml }
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0].artifactMappings was removed in manifestVersion 5")
+                .hasMessageContaining("'profiles'");
+    }
+
+    @Test
+    void rejectsImpliedKindAndCategoryOnATechnicalEntry() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                technical:
+                  - anchor: infra:mysql
+                    id: mysql
+                    kind: feature
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0].kind was removed in manifestVersion 5")
+                .hasMessageContaining("implied");
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                technical:
+                  - anchor: infra:mysql
+                    id: mysql
+                    category: technical
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0].category was removed in manifestVersion 5");
+    }
+
+    @Test
+    void rejectsKindOnAFeaturesEntryAsAnUnknownField() {
+        assertThatThrownBy(() -> load("""
+                manifestVersion: 5
+                features:
+                  - id: alpha
+                    kind: module
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0] contains unknown field(s): kind");
     }
 
     @Test
     void rejectsInvalidOptionalityValue() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - id: alpha
                     optionality: required
@@ -134,10 +235,9 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
-    void rejectsDuplicateAnchorsAcrossMembershipSections() {
+    void rejectsDuplicateAnchorsBetweenTheImpliedFeaturesAnchorAndNotModeled() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                provisional: [{ anchor: module:alpha, id: alpha }]
+                manifestVersion: 5
                 features: [{ id: alpha }]
                 notModeled: [{ anchor: module:alpha, reason: duplicate }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate manifest anchor 'module:alpha'");
@@ -146,7 +246,7 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsDuplicateAnchorsBetweenTechnicalAndNotModeled() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 technical: [{ anchor: infra:mysql, id: mysql }]
                 notModeled: [{ anchor: infra:mysql, reason: duplicate }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate manifest anchor 'infra:mysql'");
@@ -155,48 +255,21 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsDuplicateIdsAcrossFeaturesTechnicalAndConceptualNodes() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features: [{ id: shared }]
                 conceptualNodes: [{ id: shared, kind: group }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate manifest id 'shared'");
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features: [{ id: shared }]
                 technical: [{ anchor: infra:shared, id: shared }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate manifest id 'shared'");
     }
 
     @Test
-    void acceptsAProvisionalIdThatMatchesItsFeaturesEntryButRejectsOneNamingATechnicalId() {
-        FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
-                provisional: [{ anchor: module:alpha, id: alpha }]
-                features: [{ id: alpha }]
-                """);
-        assertThat(manifest.provisional()).singleElement().satisfies(entry -> assertThat(entry.id()).isEqualTo("alpha"));
-
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                provisional: [{ anchor: module:alpha, id: mysql }]
-                technical: [{ anchor: infra:mysql, id: mysql }]
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Provisional id 'mysql' collides");
-    }
-
-    @Test
-    void rejectsDuplicateProvisionalIds() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                provisional:
-                  - { anchor: module:alpha, id: alpha }
-                  - { anchor: module:beta, id: alpha }
-                features: [{ id: alpha }]
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate provisional id 'alpha'");
-    }
-
-    @Test
     void normalizesMissingNotModeledReasonToUnspecified() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 notModeled: [{ anchor: toggle:RateLimit }]
                 """);
 
@@ -209,7 +282,7 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsBlankNotModeledReasonWhenPresent() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 notModeled: [{ anchor: toggle:RateLimit, reason: "" }]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("notModeled[0].reason");
     }
@@ -217,7 +290,7 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUnknownRootField() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 pending: [module:alpha]
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field(s): pending");
     }
@@ -225,13 +298,13 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUndeclaredGroupReferenceOnFeaturesAndTechnicalEntries() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - id: alpha
                     group: missing-group
                 """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("'alpha' references undeclared parent/group 'missing-group'");
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 technical:
                   - anchor: infra:mysql
                     id: mysql
@@ -240,21 +313,24 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
-    void loadsTechnicalSemanticsAndConstraints() {
+    void loadsTechnicalSemanticsProfilesConfigurationAndConstraints() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 technical:
-                  - anchor: infra:tech-a
+                  - anchor: profile:tech-a
                     id: tech-a
                     group: tech-group
-                    kind: feature
-                    category: technical
                     defaultState: enabled
                     order: 1
-                    providesCapabilities: [tech-capability]
-                    artifactMappings:
-                      - { target: .env, path: SPRING_PROFILES_ACTIVE, source: selection, valueWhenSelected: tech-a-profile }
-                      - { target: application-feature-model.yml, path: artemis.tech.url, source: environment, secret: true }
+                    profiles: [tech-a, tech-agent]
+                    configuration:
+                      - { key: artemis.tech.url }
+                      - { key: artemis.tech.secret, secret: true }
+                      - { key: artemis.tech.callback, action: exclude }
+                  - anchor: profile:tech-b
+                    id: tech-b
+                    group: tech-group
+                    order: 2
                 conceptualNodes:
                   - id: tech-group
                     kind: group
@@ -262,33 +338,34 @@ class FeatureManifestLoaderTest {
                     groupType: alternative
                     order: 2
                 constraints:
-                  - id: tech-a-excludes-tech-a
-                    type: excludes
+                  - id: tech-a-requires-tech-b
+                    type: requires
                     source: tech-a
-                    target: tech-a
+                    target: tech-b
                 """);
 
-        assertThat(manifest.technical()).singleElement().satisfies(entry -> {
-            assertThat(entry.anchor()).isEqualTo("infra:tech-a");
+        assertThat(manifest.technical()).hasSize(2).first().satisfies(entry -> {
+            assertThat(entry.anchor()).isEqualTo("profile:tech-a");
             assertThat(entry.feature().id()).isEqualTo("tech-a");
-            assertThat(entry.feature().category()).isEqualTo("technical");
             assertThat(entry.feature().defaultState()).isEqualTo("enabled");
             assertThat(entry.feature().order()).isEqualTo(1);
-            assertThat(entry.feature().artifactMappings()).hasSize(2);
-            assertThat(entry.feature().artifactMappings().get(1).source()).isEqualTo("environment");
-            assertThat(entry.feature().artifactMappings().get(1).secret()).isTrue();
+            assertThat(entry.profiles()).containsExactly("tech-a", "tech-agent");
+            assertThat(entry.feature().configuration()).hasSize(3);
+            assertThat(entry.feature().configuration().get(1).secret()).isTrue();
+            assertThat(entry.feature().configuration().getLast().action()).isEqualTo(FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE);
         });
+        assertThat(manifest.technical().getLast().profiles()).isEmpty();
         assertThat(manifest.conceptualNodes()).singleElement().satisfies(node -> {
-            assertThat(node.groupType()).isEqualTo("alternative");
+            assertThat(node.groupType()).isEqualTo(FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE);
             assertThat(node.order()).isEqualTo(2);
         });
-        assertThat(manifest.constraints()).singleElement().satisfies(constraint -> assertThat(constraint.type()).isEqualTo("excludes"));
+        assertThat(manifest.constraints()).singleElement().satisfies(constraint -> assertThat(constraint.type()).isEqualTo("requires"));
     }
 
     @Test
     void rejectsGroupTypeOnNonGroupNode() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 conceptualNodes:
                   - id: always-on
                     kind: module
@@ -299,7 +376,7 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsUnknownConstraintType() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features: [{ id: alpha }]
                 constraints:
                   - { id: bad, type: implies, source: alpha, target: alpha }
@@ -309,7 +386,7 @@ class FeatureManifestLoaderTest {
     @Test
     void rejectsConstraintReferencingUndeclaredFeature() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features: [{ id: alpha }]
                 constraints:
                   - { id: bad, type: requires, source: alpha, target: ghost }
@@ -317,90 +394,9 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
-    void loadsExplicitRenameWithRationale() {
-        FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
-                features: [{ id: alpha-renamed }]
-                renames:
-                  - from: alpha
-                    to: alpha-renamed
-                    rationale: The module kept its semantics.
-                """);
-
-        assertThat(manifest.renames()).singleElement().satisfies(rename -> {
-            assertThat(rename.from()).isEqualTo("alpha");
-            assertThat(rename.to()).isEqualTo("alpha-renamed");
-            assertThat(rename.rationale()).isEqualTo("The module kept its semantics.");
-        });
-    }
-
-    @Test
-    void rejectsRenameWithoutRationale() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features: [{ id: alpha-renamed }]
-                renames: [{ from: alpha, to: alpha-renamed }]
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("renames[0].rationale");
-    }
-
-    @Test
-    void rejectsDuplicateRenameSource() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - { id: alpha-renamed }
-                  - { id: beta-renamed }
-                renames:
-                  - { from: old, to: alpha-renamed, rationale: First }
-                  - { from: old, to: beta-renamed, rationale: Second }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate rename source 'old'");
-    }
-
-    @Test
-    void rejectsConflictingRenameTarget() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features: [{ id: alpha-renamed }]
-                renames:
-                  - { from: old-alpha, to: alpha-renamed, rationale: First }
-                  - { from: other-alpha, to: alpha-renamed, rationale: Second }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("Duplicate rename target 'alpha-renamed'");
-    }
-
-    @Test
-    void rejectsSelfRename() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features: [{ id: alpha }]
-                renames: [{ from: alpha, to: alpha, rationale: Invalid }]
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source and target must differ");
-    }
-
-    @Test
-    void rejectsUnknownRenameTarget() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                renames: [{ from: alpha, to: ghost, rationale: Invalid }]
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("target 'ghost' is not a current manifest-declared id");
-    }
-
-    @Test
-    void rejectsRenameFromCurrentIdAndChainedMappings() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - { id: alpha }
-                  - { id: beta }
-                renames:
-                  - { from: old-alpha, to: alpha, rationale: First }
-                  - { from: alpha, to: beta, rationale: Chained }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("source 'alpha' is still a current manifest-declared id");
-    }
-
-    @Test
     void rejectsNonPositiveOrder() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - id: alpha
                     order: 0
@@ -408,51 +404,20 @@ class FeatureManifestLoaderTest {
     }
 
     @Test
-    void rejectsTheRetiredProfileValueMappingShape() {
-        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, valueFromProfile: artemis.tech.url }"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("unknown field").hasMessageContaining("valueFromProfile");
-    }
-
-    @Test
-    void rejectsAMappingWithoutASource() {
-        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url }"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("source");
-    }
-
-    @Test
-    void rejectsAnUnknownMappingSource() {
-        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, source: profile }"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("source must be one of");
-    }
-
-    @Test
-    void rejectsASelectionMappingWithoutAnyValue() {
-        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.enabled, source: selection }"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("selection");
-    }
-
-    @Test
-    void rejectsAnEnvironmentMappingCarryingASelectionValue() {
-        assertThatThrownBy(() -> technicalWithMapping("{ target: application-feature-model.yml, path: artemis.tech.url, source: environment, valueWhenSelected: on }"))
-                .isInstanceOf(FeatureManifestException.class).hasMessageContaining("environment");
-    }
-
-    @Test
-    void rejectsArtifactMappingsOnAFeaturesEntryWithAMigrationMessage() {
+    void rejectsBlankProfileTokens() {
         assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                features:
-                  - id: alpha
-                    artifactMappings:
-                      - { target: application-feature-model.yml, path: artemis.alpha.url, source: environment }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("features[0].artifactMappings was removed for functional features")
-                .hasMessageContaining("derived").hasMessageContaining("'configuration'").hasMessageContaining("Technical entries");
+                manifestVersion: 5
+                technical:
+                  - anchor: profile:tech-a
+                    id: tech-a
+                    profiles: [tech-a, ""]
+                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0].profiles must contain only non-blank strings");
     }
 
     @Test
     void loadsConfigurationEntriesWithDefaultsAndActions() {
         FeatureScopeManifest manifest = load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - id: alpha
                     configuration:
@@ -494,35 +459,6 @@ class FeatureManifestLoaderTest {
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("a rejected key is never emitted");
     }
 
-    @Test
-    void rejectsConfigurationOnATechnicalEntry() {
-        assertThatThrownBy(() -> load("""
-                manifestVersion: 4
-                technical:
-                  - anchor: infra:tech-a
-                    id: tech-a
-                    configuration:
-                      - { key: artemis.tech.url }
-                """)).isInstanceOf(FeatureManifestException.class).hasMessageContaining("technical[0] contains unknown field(s): configuration");
-    }
-
-    /**
-     * Loads a manifest with one technical entry carrying one mapping hint.
-     *
-     * @param mapping inline YAML mapping hint.
-     * @return parsed manifest.
-     */
-    private FeatureScopeManifest technicalWithMapping(String mapping) {
-        return load("""
-                manifestVersion: 4
-                technical:
-                  - anchor: infra:tech-a
-                    id: tech-a
-                    artifactMappings:
-                      - %s
-                """.formatted(mapping));
-    }
-
     /**
      * Loads a manifest with one features entry carrying configuration entries.
      *
@@ -531,7 +467,7 @@ class FeatureManifestLoaderTest {
      */
     private FeatureScopeManifest featuresWithConfiguration(String configuration) {
         return load("""
-                manifestVersion: 4
+                manifestVersion: 5
                 features:
                   - id: alpha
                     configuration:

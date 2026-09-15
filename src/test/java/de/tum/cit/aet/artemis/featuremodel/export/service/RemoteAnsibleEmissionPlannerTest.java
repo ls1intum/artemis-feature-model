@@ -32,7 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 class RemoteAnsibleEmissionPlannerTest {
 
     private static final List<String> MINIMAL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
+            "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
             "sharing", "postgresql", "integrated-code-lifecycle", "localvc");
 
     private AnsibleBindingCatalog catalog;
@@ -153,7 +153,7 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void deselectedFileUploadMapsToTheUnhyphenatedArtemisModuleKey() {
-        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("file-upload"), labEnvironment());
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("fileupload"), labEnvironment());
 
         assertThat(fileContent(plan, "inventory/group_vars/artemistests_without_fileupload.yml"))
                 .isEqualTo("---\nartemis_modules:\n  fileupload: false");

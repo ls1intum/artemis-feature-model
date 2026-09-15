@@ -102,8 +102,8 @@ public class PackageStageService {
                     model.configDerivation(), stageItems, eligible);
             artifactStore.writeReport(context.layout(), report);
             boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), model.generatedCatalog(), report,
-                    context.artemisCommit(), context.manifestDigest(), repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()),
-                    inputLoader.runtimeImage(inputs).digest(), inputs.manifestSource(), eligible);
+                    context.artemisCommit(), context.manifestDigest(), repositoryCommit(), inputLoader.runtimeImage(inputs).digest(), inputs.manifestSource(),
+                    eligible);
             if (published) {
                 new FeatureModelSnapshotValidator(objectMapper).validate(context.layout().snapshotDirectory());
             }

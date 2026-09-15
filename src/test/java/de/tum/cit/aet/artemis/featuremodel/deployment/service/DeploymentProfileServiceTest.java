@@ -8,13 +8,18 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.io.DefaultResourceLoader;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.DeploymentProfileDetailDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.dto.DeploymentProfileSummaryDTO;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentProfileException;
+import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
 
 class DeploymentProfileServiceTest {
@@ -34,8 +39,11 @@ class DeploymentProfileServiceTest {
     void getProfileDetailReturnsCapabilitiesWithoutAnyParameters() {
         DeploymentProfileDetailDTO detail = service().getProfileDetail("default-artemis-profile");
 
-        assertThat(detail.providedCapabilities()).contains("pyris-service", "pyris-secret", "hyperion-service", "athena-service",
-                "lti-platform-registration", "theia-service", "sharing-platform-registration");
+        // Derived from the active model: <feature>-service for a non-secret deployment input, <feature>-secret for a secret one.
+        assertThat(detail.providedCapabilities()).containsExactly("athena-service", "athena-secret", "atlas-service", "iris-service", "iris-secret",
+                "hyperion-service", "hyperion-secret", "deimos-service", "deimos-secret", "theia-service", "apollon-service", "sharing-service",
+                "sharing-secret");
+        assertThat(detail.providedCapabilities()).doesNotContain("lti-platform-registration", "pyris-service", "default-database");
         assertThat(detail.defaultProfile()).isTrue();
     }
 
@@ -55,7 +63,10 @@ class DeploymentProfileServiceTest {
     }
 
     private DeploymentProfileService service() {
-        DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), new ObjectMapper());
-        return new DeploymentProfileService(repository);
+        ObjectMapper objectMapper = new ObjectMapper();
+        DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
+        FeatureModelCatalogService catalogService = new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper),
+                new FeatureModelIntegrityService(), new FeatureModelTreeService());
+        return new DeploymentProfileService(repository, catalogService);
     }
 }

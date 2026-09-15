@@ -14,13 +14,12 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestExce
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.FeatureManifestLoader;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/** Covers idempotence, stub generation, orphan flagging, and explicit id-rename rewriting of the scaffold sync. */
+/** Covers idempotence, stub generation, and orphan flagging of the scaffold sync. */
 class GuidedWorkflowScaffoldServiceTest {
 
     private static final Path AUTHORED_WORKFLOW = Path.of("src/main/resources/feature-model/guided-workflow.json");
@@ -137,62 +136,9 @@ class GuidedWorkflowScaffoldServiceTest {
         GuidedWorkflowScaffoldService.Result result = service.sync(workflow, manifest);
 
         assertThat(result.changed()).isTrue();
-        assertThat(result.report().renamedIds()).isEmpty();
         assertThat(result.report().orphanReferences()).containsExactly("alpha");
         assertThat(result.report().addedOptionIds()).containsExactly("enable-alpha-renamed");
         assertThat(firstOption(result.workflow()).withArrayProperty("selects").get(0).asString()).isEqualTo("alpha");
-    }
-
-    @Test
-    void appliesExplicitRenamesAcrossAllReferenceLocationsWithoutChangingProse() {
-        FeatureScopeManifest manifest = manifest(List.of(include("alpha-renamed", "content-group", null)),
-                List.of(rootNode(), groupNode("content-group")),
-                List.of(new RenameEntry("alpha", "alpha-renamed", "The module kept its semantics."),
-                        new RenameEntry("old-content-group", "content-group", "The group kept its semantics.")));
-        ObjectNode workflow = workflowCovering("alpha");
-        ObjectNode template = (ObjectNode) workflow.withArrayProperty("useCaseTemplates").get(0);
-        template.withArrayProperty("deselectedFeatureIds").add("alpha");
-        firstOption(workflow).withArrayProperty("deselects").add("alpha");
-        ((ObjectNode) workflow.withArrayProperty("finalReviewGroups").get(0)).put("groupNodeId", "old-content-group");
-        String workflowBefore = workflow.toString();
-
-        GuidedWorkflowScaffoldService.Result result = service.sync(workflow, manifest);
-
-        assertThat(result.report().renamedIds()).containsExactly("alpha->alpha-renamed", "old-content-group->content-group");
-        assertThat(template.withArrayProperty("selectedFeatureIds")).extracting(node -> node.asString()).containsExactly("alpha-renamed");
-        assertThat(template.withArrayProperty("deselectedFeatureIds")).extracting(node -> node.asString()).containsExactly("alpha-renamed");
-        assertThat(firstOption(result.workflow()).withArrayProperty("selects")).extracting(node -> node.asString()).containsExactly("alpha-renamed");
-        assertThat(firstOption(result.workflow()).withArrayProperty("deselects")).extracting(node -> node.asString()).containsExactly("alpha-renamed");
-        assertThat(result.workflow().withArrayProperty("finalReviewGroups").get(0).path("groupNodeId").asString()).isEqualTo("content-group");
-        assertThat(result.workflow().toString().replace("alpha-renamed", "alpha").replace("content-group", "old-content-group")).isEqualTo(workflowBefore);
-    }
-
-    @Test
-    void rejectsExplicitRenameToAlreadyCoveredTarget() {
-        FeatureScopeManifest manifest = manifest(List.of(include("alpha-renamed", "content-group", null)),
-                List.of(rootNode(), groupNode("content-group")),
-                List.of(new RenameEntry("alpha", "alpha-renamed", "The module kept its semantics.")));
-        ObjectNode workflow = workflowCovering("alpha");
-        firstDecision(workflow).withArrayProperty("options").addObject().put("id", "already-covered").withArrayProperty("selects").add("alpha-renamed");
-
-        assertThatThrownBy(() -> service.sync(workflow, manifest)).isInstanceOf(FeatureManifestException.class)
-                .hasMessageContaining("already-covered target 'alpha-renamed'");
-    }
-
-    @Test
-    void secondRunAfterExplicitRenameIsIdempotent() {
-        FeatureScopeManifest manifest = manifest(List.of(include("alpha-renamed", "content-group", null)),
-                List.of(rootNode(), groupNode("content-group")),
-                List.of(new RenameEntry("alpha", "alpha-renamed", "The module kept its semantics.")));
-        ObjectNode workflow = workflowCovering("alpha");
-
-        GuidedWorkflowScaffoldService.Result firstRun = service.sync(workflow, manifest);
-        String afterFirstRun = service.writeWorkflow(firstRun.workflow());
-        GuidedWorkflowScaffoldService.Result secondRun = service.sync(firstRun.workflow(), manifest);
-
-        assertThat(firstRun.report().renamedIds()).containsExactly("alpha->alpha-renamed");
-        assertThat(secondRun.changed()).isFalse();
-        assertThat(service.writeWorkflow(secondRun.workflow())).isEqualTo(afterFirstRun);
     }
 
     @Test
@@ -214,16 +160,11 @@ class GuidedWorkflowScaffoldServiceTest {
     }
 
     private FeatureScopeManifest manifest(List<FeatureEntry> features, List<ConceptualNode> conceptualNodes) {
-        return manifest(features, conceptualNodes, List.of());
-    }
-
-    private FeatureScopeManifest manifest(List<FeatureEntry> features, List<ConceptualNode> conceptualNodes, List<RenameEntry> renames) {
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, features, List.of(), List.of(), List.of(), conceptualNodes, List.of(), List.of(),
-                renames);
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, features, List.of(), List.of(), conceptualNodes, List.of(), List.of());
     }
 
     private FeatureEntry include(String id, String group, String name) {
-        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), name, null, null, null);
+        return new FeatureEntry(id, group, null, null, null, null, null, List.of(), name, null, null, null);
     }
 
     private ConceptualNode rootNode() {

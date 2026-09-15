@@ -29,11 +29,9 @@ class DeploymentProfileRepositoryTest {
 
         assertThat(profiles).extracting(DeploymentProfile::id).contains("default-artemis-profile");
         DeploymentProfile defaultProfile = profileById(profiles, "default-artemis-profile");
-        // The single bundled profile provides every capability the guided workflow references.
-        assertThat(defaultProfile.providedCapabilities()).contains("pyris-service", "pyris-secret", "athena-service", "hyperion-service",
-                "lti-platform-registration", "theia-service", "sharing-platform-registration", "sharing-secret");
-        assertThat(defaultProfile.version()).isEqualTo("2.0.0");
-        assertThat(defaultProfile.providedCapabilities()).doesNotContain("default-authentication");
+        // The single bundled profile declares no capabilities of its own; the service derives them from the active model.
+        assertThat(defaultProfile.providedCapabilities()).isNull();
+        assertThat(defaultProfile.version()).isEqualTo("3.0.0");
     }
 
     @Test

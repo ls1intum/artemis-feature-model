@@ -73,8 +73,7 @@ public class WorkflowStageService {
 
             byte[] authoredWorkflowBytes = inputLoader.authoredWorkflowBytes(inputs);
             GuidedWorkflow authoredWorkflow = objectMapper.readValue(authoredWorkflowBytes, GuidedWorkflow.class);
-            WorkflowValidationOutcome validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow,
-                    inputLoader.deploymentProfile(inputs));
+            WorkflowValidationOutcome validation = new GuidedWorkflowValidator().validate(model.generatedModel(), authoredWorkflow);
             artifactStore.writeWorkflow(context.layout(), validation, authoredWorkflowBytes, model.result().generatedModelDigest(), context.artemisCommit());
 
             return new Summary(context.layout().workflowDirectory(), validation.guidedValidation().status(), validation.workflowIntegrityValid(),

@@ -395,7 +395,7 @@ public class ExtractionHtmlReportRenderer {
                 <div class="callout bad compact">
                 <h3><span class="chip bad">undeclared</span> Undeclared candidates <span class="count">%s</span></h3>
                 <p>Artemis presents these modules as features, but no manifest entry decides about them. \
-                The run is blocked until each one is declared provisional or listed in notModeled.</p>
+                The run is blocked until each one has a features entry or is listed in notModeled.</p>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
                 <tbody>
@@ -407,7 +407,7 @@ public class ExtractionHtmlReportRenderer {
 
     /**
      * Renders the members, open by default because they are what the run delivers. The membership column states
-     * whether a provisional entry or a technical entry declared the membership.
+     * whether a features entry or a technical entry declared the membership.
      *
      * @param included members of the generated model.
      * @return included disclosure markup.

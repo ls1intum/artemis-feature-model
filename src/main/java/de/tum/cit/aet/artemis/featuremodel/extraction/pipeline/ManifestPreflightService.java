@@ -36,11 +36,11 @@ public class ManifestPreflightService {
      * @param manifestDigest digest identifying the manifest content.
      * @param featureCount number of features entries.
      * @param technicalCount number of technical entries.
-     * @param provisionalCount number of provisional entries.
      * @param notModeledCount number of notModeled entries.
+     * @param derivedConstraintCount number of pairwise exclusions the alternative groups of the manifest derive.
      */
-    public record Summary(int manifestVersion, String artemisCommitSha, String manifestDigest, int featureCount, int technicalCount, int provisionalCount,
-            int notModeledCount) {
+    public record Summary(int manifestVersion, String artemisCommitSha, String manifestDigest, int featureCount, int technicalCount, int notModeledCount,
+            int derivedConstraintCount) {
     }
 
     /**
@@ -60,6 +60,27 @@ public class ManifestPreflightService {
         ExtractionRunContext context = inputLoader.runContext(inputs, source);
         FeatureScopeManifest manifest = context.manifest();
         return new Summary(manifest.manifestVersion(), context.artemisCommit(), context.manifestDigest(), manifest.features().size(), manifest.technical().size(),
-                manifest.provisional().size(), manifest.notModeled().size());
+                manifest.notModeled().size(), derivedConstraintCount(manifest));
+    }
+
+    /**
+     * Counts the pairwise exclusions the manifest's alternative groups derive: for a group with {@code n} declared
+     * children, {@code n * (n - 1) / 2}.
+     *
+     * @param manifest loaded manifest.
+     * @return derived constraint count.
+     */
+    private int derivedConstraintCount(FeatureScopeManifest manifest) {
+        int count = 0;
+        for (FeatureScopeManifest.ConceptualNode group : manifest.conceptualNodes()) {
+            if (!FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(group.groupType())) {
+                continue;
+            }
+            long children = manifest.conceptualNodes().stream().filter(node -> group.id().equals(node.parent())).count()
+                    + manifest.features().stream().filter(entry -> group.id().equals(entry.group() != null ? entry.group() : entry.parent())).count()
+                    + manifest.technical().stream().filter(entry -> group.id().equals(entry.feature().group() != null ? entry.feature().group() : entry.feature().parent())).count();
+            count += (int) (children * (children - 1) / 2);
+        }
+        return count;
     }
 }

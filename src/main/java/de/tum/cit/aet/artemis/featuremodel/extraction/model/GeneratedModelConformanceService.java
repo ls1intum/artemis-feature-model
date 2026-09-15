@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMapping;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
@@ -78,7 +79,7 @@ class GeneratedModelConformanceService {
         validateModelIdentity(generatedModel, artemisCommit, findings);
         validateFeatures(expectedNodes, candidatesById, generatedModel.features(), findings);
         validateRelations(expectedNodes, generatedModel.relations(), findings);
-        validateConstraints(manifest.constraints(), generatedModel.constraints(), findings);
+        validateConstraints(manifest.constraints(), expectedNodes, candidatesById, generatedModel.constraints(), findings);
         return List.copyOf(findings);
     }
 
@@ -95,7 +96,8 @@ class GeneratedModelConformanceService {
     }
 
     /**
-     * Builds the complete expected node universe in manifest declaration order.
+     * Builds the complete expected node universe in manifest declaration order, adding the implicit root when the
+     * manifest declares none.
      *
      * @param manifest parsed manifest.
      * @param includedFeatures resolved includes.
@@ -114,6 +116,11 @@ class GeneratedModelConformanceService {
             String parentId = included.group() == null ? included.parent() : included.group();
             putExpectedNode(nodes, new NodeContract(included.id(), parentId, defaultKind(included.kind()), included.optionality(), included.category(), null,
                     included.order(), declarationIndex++, null, included), findings);
+        }
+        if (!manifest.declaresRoot()) {
+            ConceptualNode implicitRoot = new ConceptualNode(FeatureScopeManifest.IMPLICIT_ROOT_ID, null, KIND_ROOT, null, null, null, null,
+                    FeatureScopeManifest.IMPLICIT_ROOT_NAME, FeatureScopeManifest.IMPLICIT_ROOT_DESCRIPTION);
+            putExpectedNode(nodes, new NodeContract(implicitRoot.id(), null, KIND_ROOT, null, null, null, null, declarationIndex, implicitRoot, null), findings);
         }
         return nodes;
     }
@@ -284,12 +291,12 @@ class GeneratedModelConformanceService {
     }
 
     /**
-     * Derives incoming relations from manifest placement and sibling order.
+     * Groups the expected nodes by parent in sibling order: declared orders first, then declaration sequence.
      *
      * @param nodes expected nodes.
-     * @return expected relation keyed by child id.
+     * @return children per parent id.
      */
-    private Map<String, FeatureRelation> expectedRelations(Map<String, NodeContract> nodes) {
+    private Map<String, List<NodeContract>> childrenByParent(Map<String, NodeContract> nodes) {
         Map<String, List<NodeContract>> childrenByParent = new LinkedHashMap<>();
         for (NodeContract node : nodes.values()) {
             if (node.parentId() != null) {
@@ -299,6 +306,17 @@ class GeneratedModelConformanceService {
         Comparator<NodeContract> order = Comparator.comparingInt((NodeContract node) -> node.order() == null ? Integer.MAX_VALUE : node.order())
                 .thenComparingInt(NodeContract::declarationIndex);
         childrenByParent.values().forEach(children -> children.sort(order));
+        return childrenByParent;
+    }
+
+    /**
+     * Derives incoming relations from manifest placement and sibling order.
+     *
+     * @param nodes expected nodes.
+     * @return expected relation keyed by child id.
+     */
+    private Map<String, FeatureRelation> expectedRelations(Map<String, NodeContract> nodes) {
+        Map<String, List<NodeContract>> childrenByParent = childrenByParent(nodes);
 
         Map<String, FeatureRelation> relations = new LinkedHashMap<>();
         for (NodeContract node : nodes.values()) {
@@ -320,17 +338,26 @@ class GeneratedModelConformanceService {
     }
 
     /**
-     * Compares exact constraint membership and semantics.
+     * Compares exact constraint membership and semantics: the declared constraints that do not duplicate a derived
+     * exclusion, plus the pairwise exclusions of every alternative group computed from the expected hierarchy.
      *
      * @param expectedEntries manifest constraints.
+     * @param expectedNodes expected nodes.
+     * @param candidatesById scanned candidates supplying the expected names.
      * @param actualConstraints emitted constraints.
      * @param findings diagnostic sink.
      */
-    private void validateConstraints(List<ConstraintEntry> expectedEntries, List<FeatureConstraint> actualConstraints, List<ReportItem> findings) {
+    private void validateConstraints(List<ConstraintEntry> expectedEntries, Map<String, NodeContract> expectedNodes,
+            Map<String, FeatureCandidate> candidatesById, List<FeatureConstraint> actualConstraints, List<ReportItem> findings) {
+        List<FeatureConstraint> derived = expectedDerivedConstraints(expectedNodes, candidatesById);
+        Set<String> derivedPairs = AlternativeGroupConstraints.pairKeys(derived);
         Map<String, FeatureConstraint> expectedById = new LinkedHashMap<>();
         for (ConstraintEntry entry : expectedEntries) {
-            expectedById.put(entry.id(), new FeatureConstraint(entry.id(), entry.type(), entry.source(), entry.target(), null, entry.description()));
+            if (!AlternativeGroupConstraints.isRedundant(entry, derivedPairs)) {
+                expectedById.put(entry.id(), new FeatureConstraint(entry.id(), entry.type(), entry.source(), entry.target(), null, entry.description()));
+            }
         }
+        derived.forEach(constraint -> expectedById.put(constraint.id(), constraint));
         Map<String, FeatureConstraint> actualById = new LinkedHashMap<>();
         for (FeatureConstraint constraint : actualConstraints) {
             if (actualById.putIfAbsent(constraint.id(), constraint) != null) {
@@ -347,6 +374,28 @@ class GeneratedModelConformanceService {
             }
         }
         actualById.keySet().forEach(id -> mismatch(findings, id, "Generated model contains undeclared constraint '" + id + "'."));
+    }
+
+    /**
+     * Derives the expected pairwise exclusions of every alternative group from the expected hierarchy, independently
+     * of the assembler: groups in node order, children in sibling order, names as the expected feature names.
+     *
+     * @param expectedNodes expected nodes.
+     * @param candidatesById scanned candidates supplying the expected names.
+     * @return expected derived constraints.
+     */
+    private List<FeatureConstraint> expectedDerivedConstraints(Map<String, NodeContract> expectedNodes, Map<String, FeatureCandidate> candidatesById) {
+        Map<String, List<NodeContract>> childrenByParent = childrenByParent(expectedNodes);
+        List<FeatureConstraint> derived = new ArrayList<>();
+        for (NodeContract node : expectedNodes.values()) {
+            if (!KIND_GROUP.equals(node.kind()) || !FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(node.groupType())) {
+                continue;
+            }
+            List<AlternativeGroupConstraints.Child> children = childrenByParent.getOrDefault(node.id(), List.of()).stream()
+                    .map(child -> new AlternativeGroupConstraints.Child(child.id(), expectedFeature(child, candidatesById).name())).toList();
+            derived.addAll(AlternativeGroupConstraints.derive(expectedFeature(node, candidatesById).name(), children));
+        }
+        return derived;
     }
 
     /**

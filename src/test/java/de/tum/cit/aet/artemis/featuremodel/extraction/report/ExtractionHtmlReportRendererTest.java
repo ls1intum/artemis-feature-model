@@ -131,7 +131,7 @@ class ExtractionHtmlReportRendererTest {
         assertThat(html).contains("<caption>Candidate decisions by kind</caption>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>module-feature</code></th><td class=\"num\">1</td>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>infrastructure</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
-        assertThat(html).contains("<th scope=\"col\">Membership</th>", "<span class=\"tag\">provisional</span>");
+        assertThat(html).contains("<th scope=\"col\">Membership</th>", "<span class=\"tag\">features</span>");
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
         assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
         assertThat(html).contains("Unmodeled anchors <span class=\"count\">1</span>", "toggle:RateLimit");
@@ -278,7 +278,7 @@ class ExtractionHtmlReportRendererTest {
 
     private CurationDecision included(String candidateId) {
         return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null,
-                CurationReport.SOURCE_PROVISIONAL);
+                CurationReport.SOURCE_FEATURES);
     }
 
     private CurationDecision excluded(String candidateId, String reason) {

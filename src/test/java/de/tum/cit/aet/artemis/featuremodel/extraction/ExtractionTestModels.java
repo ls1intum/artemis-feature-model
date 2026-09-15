@@ -24,7 +24,7 @@ final class ExtractionTestModels {
      */
     static FeatureModel fixtureCuratedModel() {
         FeatureNode root = new FeatureNode("fixture-root", "Fixture Root", "root", false, null, "not_applicable", null);
-        FeatureNode alpha = new FeatureNode("alpha-feature", "Alpha", "module", true, null, "enabled", new FeatureSource("artemis.alpha.enabled", null,
+        FeatureNode alpha = new FeatureNode("alpha", "Alpha", "module", true, null, "enabled", new FeatureSource("artemis.alpha.enabled", null,
                 "MODULE_FEATURE_ALPHA", "AlphaEnabled", List.of("AlphaEnabled.java:12", "application-core.yml:2-3", "Constants.java:999")));
         FeatureNode ghost = new FeatureNode("ghost", "Ghost", "module", true, null, "disabled",
                 new FeatureSource("artemis.ghost.enabled", null, null, "GhostEnabled", List.of("GhostEnabled.java:10")));
