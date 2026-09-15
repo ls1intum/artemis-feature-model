@@ -37,11 +37,16 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
 - The regular guided workflow should use user-facing outcome, recommendation,
   availability, and things-to-know text. Keep technical capability ids and
   artifact mappings in the advanced tree view.
-- Deployment Profiles are JSON files; one bundled `default-artemis-profile`
-  provides all capabilities and drives feature/option availability. The regular
-  Configurator does not expose a profile selector; capability gating is a latent
-  safety net for maintainer local overrides. Keep raw capability ids and
-  missing-capability details in advanced tree/debug views.
+- Deployment Profiles are JSON files; the bundled `default-artemis-profile`
+  (profile version 3.0.0) declares no `providedCapabilities` and provides the
+  union of the capabilities the active model requires, so it drives
+  feature/option availability without naming ids. Capability ids are derived on
+  model features from their deployment inputs as `<feature>-service` and
+  `<feature>-secret`. The regular Configurator does not expose a profile
+  selector; capability gating is a latent safety net for maintainer local
+  overrides, whose explicit `providedCapabilities` list stays authoritative.
+  Keep raw capability ids and missing-capability details in advanced tree/debug
+  views.
 - Custom configuration starts from backend-derived `defaultSelectedFeatureIds`;
   default-on guided options should be reflected as selected in the UI.
 - The in-configurator tree reflects guided selections in real time and can
@@ -129,8 +134,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   reduction is expressible: the seven module features are deselection-gated
   bound bindings (`gating: deselected`) that emit one
   `artemistests_without_<key>` group per switched-off module through the
-  pinned fork's `artemis_modules` off-switches, with `file-upload` mapping to
-  the unhyphenated Artemis key `fileupload`. The atlas integration is
+  pinned fork's `artemis_modules` off-switches. The atlas integration is
   deselection-gated for the same reason: its image-shipped default is enabled,
   so deselection emits an explicit `atlas.enabled: false` group
   (`artemistests_without_atlas`) while selection emits nothing. The package
@@ -213,42 +217,51 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
   deterministic apart from scan-metadata timestamps; the drift report replaces
   the discovery step of the manual weekly consistency audit.
-- The scope manifest is schema version 4 and carries curation content only:
-  membership of a functional feature comes from a `provisional` entry (anchor
-  plus feature id), technical members from `technical` entries, deliberate
-  exclusions from `notModeled`, and every member's modeling semantics from its
-  `features` entry keyed by id. Functional knowledge comes from the Artemis
-  declarations the scan extracts; there is no source annotation channel. The
-  retired `include`/`exclude` sections and the `artemisCommitSha`/
-  `artemisImageDigest` identity fields are rejected with migration messages;
-  the source revision is derived from the verified checkout HEAD (a file
-  cannot pin the commit that contains it) and the runtime image reference
-  lives in `delivery/artemis-runtime-image.json`. The scan verifies before
-  reading any file that the checkout is a clean git work tree and matches the
-  expected revision when one is supplied. Curation is fail-closed and tiered:
-  a module candidate Artemis itself enumerates or displays as a feature blocks
-  the run when no manifest entry decides about it (`UNDECLARED_CANDIDATE`),
-  other undecided candidates are listed as `UNMODELED_ANCHOR` information; a
-  relation between included features without a declared constraint or an
-  `ignoredRelations` entry, an orphan or ambiguous anchor, a member without a
-  `features` entry, a colliding decision, or a failed extractor blocks the
-  run, which writes diagnostics and exits non-zero without assembling a model.
-  Environment mappings of functional members are derived from guarded
-  configuration injection sites, `@ConfigurationProperties` prefixes, and
-  enabled-key namespaces of the scanned checkout, classified into deployment
-  inputs and listed tunables; `features[].configuration` entries confirm,
-  add, or reject keys and take precedence over derivation, and the outcome is
-  persisted as `model/config-derivation.json`. Exclusion reasons are
-  optional: an omitted reason is normalized to `unspecified` and reported as a
-  non-blocking warning. Missing rationale on an excluded runtime toggle also
-  warns, while an included runtime toggle without rationale remains a blocking
-  curation conflict.
+- The scope manifest is schema version 5 and carries modeling judgments only:
+  a `features` entry keyed by the Artemis module id declares the membership,
+  placement, and prose of a functional feature (its anchor is implied as
+  `module:<id>`), `technical` entries declare the maintainer-only members with
+  their `infra:` or `profile:` anchor and an optional `profiles` token list,
+  `notModeled` entries record the five deliberate feature-shaped exclusions, and
+  `conceptualNodes`, `constraints`, and `ignoredRelations` shape the hierarchy.
+  Everything else is derived at run time: the `artemis` root when no root node
+  is declared, the pairwise `excludes` constraints of every `alternative` group
+  (`<a>-excludes-<b>`; a declared duplicate warns
+  `MANIFEST_CONSTRAINT_REDUNDANT` and is dropped), the compose mapping of an
+  infrastructure anchor from its base compose file, the `SPRING_PROFILES_ACTIVE`
+  mapping from the profile name or `profiles` list, the environment mappings of
+  functional and profile members from guarded configuration injection sites,
+  `@ConfigurationProperties` prefixes, and enabled-key namespaces (functional
+  members through their condition class, technical members through their
+  `@Profile` constant), and the required capabilities from the emitted
+  deployment inputs. `configuration` entries on either entry kind confirm, add,
+  or reject keys and take precedence over derivation; the outcome is persisted
+  as `model/config-derivation.json`. The retired sections and fields
+  (`include`, `exclude`, `provisional`, `renames`, `anchor` and
+  `artifactMappings` on entries, `requiresCapabilities`, `providesCapabilities`,
+  `kind`/`category` on technical entries, `artemisCommitSha`,
+  `artemisImageDigest`) are rejected with migration messages; the source
+  revision is derived from the verified checkout HEAD and the runtime image
+  reference lives in `delivery/artemis-runtime-image.json`. The scan verifies
+  before reading any file that the checkout is a clean git work tree and matches
+  the expected revision when one is supplied. Curation is fail-closed and
+  tiered: a module candidate Artemis itself enumerates or displays as a feature
+  blocks the run when no manifest entry decides about it
+  (`UNDECLARED_CANDIDATE`), other undecided candidates are listed as
+  `UNMODELED_ANCHOR` information; a relation between included features without
+  a declared or derived constraint or an `ignoredRelations` entry, an orphan or
+  ambiguous anchor, a colliding decision, an underivable technical mapping, or a
+  failed extractor blocks the run, which writes diagnostics and exits non-zero
+  without assembling a model. Exclusion reasons are optional: an omitted reason
+  is normalized to `unspecified` and reported as a non-blocking warning. Missing
+  rationale on an excluded runtime toggle also warns, while an included runtime
+  toggle without rationale remains a blocking curation conflict.
 - The extraction run additionally assembles a complete generated feature model
   from the manifest's member entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
   integrated-code-lifecycle/jenkins as maintainer-only xor groups plus the
   mandatory `localvc` baseline, enforced through `alternative` group relations
-  and `excludes` constraints) — regenerates the Artemis config-key catalog
+  and their derived `excludes` constraints) — regenerates the Artemis config-key catalog
   from the scanned YAML defaults, validates model and bundled workflow through
   the shared loader/integrity/diagnostics code paths, and independently compares
   the emitted model with the resolved manifest contract, including membership,
@@ -277,7 +290,9 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   the extraction output; hard reference errors still fail hard.
   `./gradlew syncGuidedWorkflowScaffold` is a deliberate maintainer task that
   stubs newly included features with TODO prose, flags orphans without
-  deleting, and leaves an already-covered workflow byte-identical.
+  deleting, and leaves an already-covered workflow byte-identical; the
+  `featureModelManifestPreflight` task prints the manifest digest with the
+  feature, technical, notModeled, and derived-constraint counts.
 - Successful and controlled failed extraction runs write a dependency-free
   `report/index.html` plus raw conformance, extraction, workflow, and release-delta
   JSON. Successful runs publish seven checksummed snapshot files: model, workflow,

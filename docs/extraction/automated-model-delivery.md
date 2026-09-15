@@ -8,7 +8,8 @@ Source identity is derived, never pinned in the manifest: every extraction comma
 requires a clean git work tree, derives the source revision from `HEAD`, and keys every artifact layout, envelope, and
 report by that derived revision. CI and publication additionally verify the derived revision against an externally
 supplied expectation through `-PexpectedArtemisSha` — the committed validation pin for pull requests, an explicitly
-resolved SHA for publication runs. Manifest v3 carries curation content only.
+resolved SHA for publication runs. Manifest v5 carries modeling judgments only; anchors, capabilities, technical mappings,
+alternative-group exclusions, and the root node are derived.
 
 ## Manifest resolution modes
 
