@@ -387,15 +387,15 @@ public class ExtractionHtmlReportRenderer {
             return """
                     <div class="callout ok compact">
                     <h3><span class="chip ok">none</span> No undeclared candidates</h3>
-                    <p>Every candidate Artemis presents as a feature carries an annotation or a manifest decision, so curation is complete for this commit.</p>
+                    <p>Every candidate Artemis presents as a feature carries a manifest decision, so curation is complete for this commit.</p>
                     </div>
                     """;
         }
         return """
                 <div class="callout bad compact">
                 <h3><span class="chip bad">undeclared</span> Undeclared candidates <span class="count">%s</span></h3>
-                <p>Artemis presents these modules as features, but neither an @ArtemisFeature annotation nor a manifest entry decides about them. \
-                The run is blocked until each one is annotated, declared provisional, or listed in notModeled.</p>
+                <p>Artemis presents these modules as features, but no manifest entry decides about them. \
+                The run is blocked until each one is declared provisional or listed in notModeled.</p>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
                 <tbody>
@@ -407,7 +407,7 @@ public class ExtractionHtmlReportRenderer {
 
     /**
      * Renders the members, open by default because they are what the run delivers. The membership column states
-     * whether an annotation, a provisional entry, or a technical entry declared the membership.
+     * whether a provisional entry or a technical entry declared the membership.
      *
      * @param included members of the generated model.
      * @return included disclosure markup.
@@ -478,7 +478,7 @@ public class ExtractionHtmlReportRenderer {
 
     /**
      * Renders the candidates nobody decided about that Artemis does not present as features. They never block the
-     * run and stay outside the model until someone annotates or declares them; the group is omitted when empty.
+     * run and stay outside the model until someone declares them; the group is omitted when empty.
      *
      * @param unmodeled undecided candidates that are not feature-shaped.
      * @return unmodeled disclosure markup, empty when there are none.
@@ -538,8 +538,8 @@ public class ExtractionHtmlReportRenderer {
         return """
                 <section id="configuration">
                 <h2>Configuration derivation <span class="count">%s</span></h2>
-                <p class="muted">Per functional member, every configuration key the precedence merge considered: declared by the \
-                @ArtemisFeature annotation, confirmed or rejected by the manifest, derived from guarded Artemis structure, or listed as a tunable.</p>
+                <p class="muted">Per functional member, every configuration key the precedence merge considered: confirmed or rejected by \
+                the manifest, derived from guarded Artemis structure, or listed as a tunable.</p>
                 %s%s</section>
                 """.formatted(configDerivation.members().size(), renderEach(withKeys, this::memberDerivationGroup), emptyMembers);
     }

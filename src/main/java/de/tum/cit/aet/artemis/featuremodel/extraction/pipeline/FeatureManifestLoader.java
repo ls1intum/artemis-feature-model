@@ -133,9 +133,8 @@ public class FeatureManifestLoader {
      */
     private void rejectRetiredFields(Map<String, Object> root) {
         if (root.containsKey("include")) {
-            throw new FeatureManifestException("manifest root.include was removed in manifestVersion 4: membership of a functional feature comes from its "
-                    + "@ArtemisFeature annotation or a 'provisional' entry, technical members move to 'technical', and every member's semantics move to a "
-                    + "'features' entry keyed by id.");
+            throw new FeatureManifestException("manifest root.include was removed in manifestVersion 4: membership of a functional feature comes from a "
+                    + "'provisional' entry, technical members move to 'technical', and every member's semantics move to a 'features' entry keyed by id.");
         }
         if (root.containsKey("exclude")) {
             throw new FeatureManifestException("manifest root.exclude was removed in manifestVersion 4: rename the section to 'notModeled'; its entries keep "

@@ -41,29 +41,20 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A server property name constant has no matching server module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
-    /** A module candidate Artemis presents as a feature has neither an annotation nor a manifest decision; blocking. */
+    /** A module candidate Artemis presents as a feature has no manifest decision; blocking. */
     public static final String CODE_UNDECLARED_CANDIDATE = "UNDECLARED_CANDIDATE";
 
     /** A candidate Artemis does not present as a feature has no decision; listed as information, never modeled. */
     public static final String CODE_UNMODELED_ANCHOR = "UNMODELED_ANCHOR";
 
-    /** A source annotation could not be joined to exactly one extracted candidate; blocking. */
-    public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
+    /** A member declared by a provisional entry has no features entry placing it in the hierarchy. */
+    public static final String CODE_MEMBER_UNPLACED = "MEMBER_UNPLACED";
 
-    /** A member declared by an annotation or a provisional entry has no features entry placing it in the hierarchy. */
-    public static final String CODE_ANNOTATED_FEATURE_UNPLACED = "ANNOTATED_FEATURE_UNPLACED";
-
-    /** A features entry names an id that no annotation, provisional entry, or technical entry declares as a member. */
+    /** A features entry names an id that no provisional or technical entry declares as a member. */
     public static final String CODE_MANIFEST_FEATURE_UNKNOWN = "MANIFEST_FEATURE_UNKNOWN";
 
-    /** An annotated candidate is listed in notModeled; the two declarations contradict each other. */
-    public static final String CODE_NOT_MODELED_ANCHOR_ANNOTATED = "NOT_MODELED_ANCHOR_ANNOTATED";
-
-    /** A provisional entry carries membership because the annotation has not landed upstream yet. */
+    /** A provisional entry carries the membership of a functional member. */
     public static final String CODE_PROVISIONAL_MEMBERSHIP = "PROVISIONAL_MEMBERSHIP";
-
-    /** A provisional entry is redundant because the annotation now resolves to the same candidate. */
-    public static final String CODE_PROVISIONAL_REDUNDANT = "PROVISIONAL_REDUNDANT";
 
     /** A deployment-input mapping was derived from guarded Artemis structure without a declaration. */
     public static final String CODE_CONFIG_MAPPING_DERIVED = "CONFIG_MAPPING_DERIVED";
@@ -74,16 +65,10 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A manifest configuration entry rejects a key, so no mapping is emitted for it. */
     public static final String CODE_CONFIG_MAPPING_REJECTED = "CONFIG_MAPPING_REJECTED";
 
-    /** A manifest configuration entry agrees with an annotation-declared key and can be removed. */
-    public static final String CODE_MANIFEST_CONFIGURATION_REDUNDANT = "MANIFEST_CONFIGURATION_REDUNDANT";
-
-    /** A manifest configuration entry tries to alter or reject an annotation-declared key; the annotation wins. */
-    public static final String CODE_ANNOTATION_OVERRIDES_MANIFEST = "ANNOTATION_OVERRIDES_MANIFEST";
-
     /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 
-    /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
+    /** Manifest entries or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
     /** An excluded candidate omitted its optional reason and uses the stable unspecified fallback. */

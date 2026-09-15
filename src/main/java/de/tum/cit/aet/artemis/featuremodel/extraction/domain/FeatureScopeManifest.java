@@ -4,8 +4,7 @@ import java.util.List;
 
 /**
  * Curation manifest for extracted Artemis candidates, schema version 4. Membership of a functional feature is declared
- * by the {@code @ArtemisFeature} annotation in Artemis source, or by a {@code provisional} entry while that annotation
- * has not landed upstream; {@code technical} entries declare the maintainer-only features without a Java anchor;
+ * by a {@code provisional} entry; {@code technical} entries declare the maintainer-only features without a Java anchor;
  * {@code notModeled} entries record the deliberate exclusions. Every modeling judgment of a member (placement, order,
  * optionality, category, capabilities, artifact-mapping hints, prose overrides) lives in its {@code features} entry,
  * keyed by feature id. Conceptual nodes provide hierarchy without a source anchor, and cross-tree constraints declare
@@ -14,7 +13,7 @@ import java.util.List;
  *
  * @param manifestVersion manifest schema version.
  * @param features modeling semantics of every member, keyed by id.
- * @param provisional manifest-carried membership for anchors whose annotation has not landed upstream.
+ * @param provisional manifest-carried membership of functional features.
  * @param technical manifest-declared technical and infrastructure members.
  * @param notModeled explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
@@ -105,8 +104,7 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
 
     /**
      * One configuration-key confirmation or exception of a functional {@code features} entry. An include entry adds
-     * or confirms a key as a deployment input in declaration order; an exclude entry rejects a derived key. An entry
-     * naming a key the {@code @ArtemisFeature} annotation declares can never alter or remove it.
+     * or confirms a key as a deployment input in declaration order; an exclude entry rejects a derived key.
      *
      * @param key dotted configuration key.
      * @param secret whether the value is a secret; null defers to the derived classification.
@@ -117,19 +115,16 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
     }
 
     /**
-     * Manifest-carried membership for an anchor whose {@code @ArtemisFeature} annotation has not landed in upstream
-     * Artemis. Once the annotation resolves to the same candidate the annotation wins and the entry is reported as
-     * redundant.
+     * Manifest-carried membership of a functional feature.
      *
      * @param anchor candidate id or canonical source symbol.
-     * @param id feature id the annotation is expected to declare.
+     * @param id feature id of the member; its semantics live in the {@code features} entry with the same id.
      */
     public record ProvisionalEntry(String anchor, String id) {
     }
 
     /**
-     * Manifest-declared technical or infrastructure member. Such candidates have no Java symbol an annotation could
-     * sit on, so the entry carries anchor, id, and semantics together.
+     * Manifest-declared technical or infrastructure member. The entry carries anchor, id, and semantics together.
      *
      * @param anchor candidate id or canonical source symbol.
      * @param feature id and modeling semantics of the member.

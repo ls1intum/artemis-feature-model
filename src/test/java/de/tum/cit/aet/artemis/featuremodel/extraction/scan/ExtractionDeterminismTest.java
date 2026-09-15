@@ -132,7 +132,6 @@ class ExtractionDeterminismTest {
      */
     private List<String> scanArtifactFileNames() {
         return List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE, ExtractionArtifactStore.EVIDENCE_FILE,
-                ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.ANNOTATIONS_FILE, ExtractionArtifactStore.CONFIG_DEFAULTS_FILE,
-                ExtractionArtifactStore.CONFIG_INJECTIONS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE);
+                ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.CONFIG_INJECTIONS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE);
     }
 }

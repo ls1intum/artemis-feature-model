@@ -1,23 +1,21 @@
 manifestVersion: 4
-# Since manifest version 4 membership of a functional feature is declared in Artemis source by the @ArtemisFeature
-# annotation on its condition class; this file carries the modeling judgments. The Artemis source revision is derived
-# from the verified checkout HEAD at run time, and the runtime image reference lives in delivery/artemis-runtime-image.json.
+# Manifest version 4 carries the modeling judgments of the curated model; functional knowledge comes from the Artemis
+# declarations the scan extracts. The Artemis source revision is derived from the verified checkout HEAD at run time,
+# and the runtime image reference lives in delivery/artemis-runtime-image.json.
 #
 # Sections:
-#   provisional     membership for anchors whose annotation has not landed in upstream Artemis; once the annotation
-#                   resolves to the same candidate the annotation wins and the entry is reported as redundant.
+#   provisional     membership of the functional features: one entry per member anchor with its feature id.
 #   features        modeling semantics of every member keyed by feature id: placement, order, optionality, category,
 #                   default state, required capabilities, configuration confirmations, and prose overrides.
-#   technical       maintainer-only technical and infrastructure members; they have no Java anchor an annotation could
-#                   sit on, so the entry carries anchor, id, and semantics together.
+#   technical       maintainer-only technical and infrastructure members; the entry carries anchor, id, and semantics
+#                   together.
 #   notModeled      deliberate exclusions with a reason. A module anchor Artemis itself presents as a feature blocks
-#                   the run until it is annotated, declared provisional, or listed here; other undecided anchors are
-#                   reported as information only.
+#                   the run until it is declared provisional or listed here; other undecided anchors are reported as
+#                   information only.
 #   conceptualNodes, constraints, ignoredRelations, renames: hierarchy scaffolding and relation decisions, unchanged.
 
 provisional:
-  # The 16 functional modules of the curated model. Each entry is removed once upstream Artemis carries
-  # @ArtemisFeature(id = "<id>") on the anchor's condition class.
+  # The 16 functional modules of the curated model.
   - { anchor: module:lecture, id: lecture }
   - { anchor: module:tutorialgroup, id: tutorialgroup }
   - { anchor: module:text, id: text }
@@ -95,7 +93,7 @@ features:
     requiresCapabilities: [hyperion-service]
     configuration:
       # Read by the Spring AI auto-configuration, linked to hyperion only by a YAML comment, so derivation cannot see
-      # them. The entries become redundant once the @ArtemisFeature annotation declares the keys upstream.
+      # them.
       - { key: spring.ai.openai.api-key, secret: true }
       - { key: spring.ai.openai.base-url }
 

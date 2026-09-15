@@ -72,7 +72,7 @@ class FeatureManifestLoaderTest {
     void rejectsTheRetiredIncludeSectionWithAMigrationMessage() {
         assertThatThrownBy(() -> load("manifestVersion: 4\ninclude: [{ anchor: module:alpha, id: alpha }]\n"))
                 .isInstanceOf(FeatureManifestException.class).hasMessageContaining("root.include was removed in manifestVersion 4")
-                .hasMessageContaining("@ArtemisFeature").hasMessageContaining("'provisional'").hasMessageContaining("'technical'").hasMessageContaining("'features'");
+                .hasMessageContaining("'provisional'").hasMessageContaining("'technical'").hasMessageContaining("'features'");
     }
 
     @Test

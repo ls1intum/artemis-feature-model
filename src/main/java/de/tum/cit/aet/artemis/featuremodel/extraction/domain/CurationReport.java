@@ -29,9 +29,6 @@ public record CurationReport(int manifestVersion, String artemisCommitSha, Map<S
     /** Persisted state key of a candidate without a decision that Artemis does not present as a feature; informational. */
     public static final String STATE_UNMODELED = "unmodeled";
 
-    /** Membership source of a member declared by its {@code @ArtemisFeature} annotation. */
-    public static final String SOURCE_ANNOTATION = "annotation";
-
     /** Membership source of a member declared by a provisional manifest entry. */
     public static final String SOURCE_PROVISIONAL = "provisional";
 

@@ -43,7 +43,7 @@ class ModelAssemblyService {
      */
     ModelAssemblyOutcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, DeploymentProfile bundledProfile, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
-        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations(), artemisCommit);
+        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), artemisCommit);
         items.addAll(curation.items());
         ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, curation.includedFeatures(),
                 scan.relationCandidates(), curation.report(), curation.items(), scan.items());
@@ -53,8 +53,8 @@ class ModelAssemblyService {
                     List.copyOf(items));
         }
 
-        ConfigMappingDeriver.Result derivation = new ConfigMappingDeriver().derive(curation.includedFeatures(), scan.annotations(), scan.configInjections(),
-                scan.configDefaults(), scan.candidates());
+        ConfigMappingDeriver.Result derivation = new ConfigMappingDeriver().derive(curation.includedFeatures(), scan.configInjections(), scan.configDefaults(),
+                scan.candidates());
         items.addAll(derivation.items());
         List<ResolvedFeatureScope> resolvedFeatures = derivation.resolvedFeatures();
 

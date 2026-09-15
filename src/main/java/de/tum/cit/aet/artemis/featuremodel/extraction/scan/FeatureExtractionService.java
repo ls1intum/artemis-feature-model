@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
@@ -65,23 +64,21 @@ class FeatureExtractionService {
                 ComposeFileScan.Result.empty());
         SourceScanResult<UsageEvidenceScan.Result> usageScan = runScan("usage evidence",
                 () -> SourceScanResult.success(new UsageEvidenceScan().scan(source)), UsageEvidenceScan.Result.empty());
-        SourceScanResult<List<ExtractedAnnotation>> annotationScan = runScan("ArtemisFeature annotations", () -> new ArtemisFeatureAnnotationScan().scan(source),
-                List.of());
         SourceScanResult<List<ExtractedConfigInjection>> injectionScan = runScan("configuration injection sites",
                 () -> new ConfigInjectionScan().scan(source), List.of());
 
         List<SourceScanResult<?>> scanResults = List.of(constantScan, configHelperScan, conditionScan, serverToggleScan, clientConstantScan,
-                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, annotationScan, injectionScan);
+                clientToggleScan, adminPageScan, i18nScan, yamlScan, composeScan, usageScan, injectionScan);
         appendWholeScannerDiagnostics(scanResults, items);
-        appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, annotationScan, injectionScan), items);
+        appendIsolatedDiagnostics(List.of(conditionScan, yamlScan, injectionScan), items);
 
         CandidateAssemblyInput assemblyInput = new CandidateAssemblyInput(source, constantScan.facts(), configHelperScan.facts(), conditionScan.facts(),
                 serverToggleScan.facts(), clientConstantScan.facts(), clientToggleScan.facts(), adminPageScan.facts(), i18nScan.facts(), yamlScan.facts(),
                 composeScan.facts(), usageScan.facts());
         CandidateAssembler.Result assembly = candidateAssembler.assemble(assemblyInput);
         items.addAll(assembly.items());
-        return new ExtractedSourceFacts(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), annotationScan.facts(), yamlScan.facts(),
-                injectionScan.facts(), List.copyOf(items));
+        return new ExtractedSourceFacts(assembly.candidates(), assembly.evidence(), assembly.relationCandidates(), yamlScan.facts(), injectionScan.facts(),
+                List.copyOf(items));
     }
 
     /**
@@ -116,7 +113,7 @@ class FeatureExtractionService {
 
     /**
      * Appends isolated per-file failures after all whole-scanner failures, in the established condition, YAML, then
-     * annotation order.
+     * injection order.
      *
      * @param scanResults scanners that can retain sibling facts after one file fails.
      * @param items diagnostic sink.

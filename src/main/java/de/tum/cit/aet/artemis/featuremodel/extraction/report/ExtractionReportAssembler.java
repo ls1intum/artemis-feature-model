@@ -32,14 +32,11 @@ public class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_EXTRACTOR_ERROR, "One extractor failed to parse its source; the scan continued without its contribution."),
             Map.entry(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "Server enabled property constants and module feature constants are asymmetric."),
             Map.entry(ReportItem.CODE_UNDECLARED_CANDIDATE,
-                    "A module candidate Artemis presents as a feature has neither an @ArtemisFeature annotation nor a manifest decision, so the run cannot be published."),
+                    "A module candidate Artemis presents as a feature has no manifest decision, so the run cannot be published."),
             Map.entry(ReportItem.CODE_UNMODELED_ANCHOR, "A candidate Artemis does not present as a feature has no decision; it is listed and stays outside the model."),
-            Map.entry(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, "An @ArtemisFeature annotation could not be joined to exactly one extracted candidate."),
-            Map.entry(ReportItem.CODE_ANNOTATED_FEATURE_UNPLACED, "A member declared by an annotation or provisional entry has no features entry placing it in the hierarchy."),
-            Map.entry(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, "A features entry names an id that no annotation, provisional entry, or technical entry declares as a member."),
-            Map.entry(ReportItem.CODE_NOT_MODELED_ANCHOR_ANNOTATED, "An annotated candidate is listed in notModeled; the two declarations contradict each other."),
-            Map.entry(ReportItem.CODE_PROVISIONAL_MEMBERSHIP, "A provisional entry carries membership because the annotation has not landed upstream yet."),
-            Map.entry(ReportItem.CODE_PROVISIONAL_REDUNDANT, "A provisional entry is redundant because the annotation now resolves to the same candidate."),
+            Map.entry(ReportItem.CODE_MEMBER_UNPLACED, "A member declared by a provisional entry has no features entry placing it in the hierarchy."),
+            Map.entry(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, "A features entry names an id that no provisional or technical entry declares as a member."),
+            Map.entry(ReportItem.CODE_PROVISIONAL_MEMBERSHIP, "A provisional entry carries the membership of a functional member."),
             Map.entry(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "A manifest anchor matches no extraction candidate of this scan, or matches more than one."),
             Map.entry(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED,
                     "An excluded candidate omitted its optional reason code and is grouped under the stable unspecified fallback."),
@@ -48,11 +45,7 @@ public class ExtractionReportAssembler {
             Map.entry(ReportItem.CODE_CONFIG_MAPPING_DERIVED, "A deployment-input mapping was derived from guarded Artemis structure without a declaration."),
             Map.entry(ReportItem.CODE_CONFIG_MAPPING_TUNABLE_SKIPPED, "A derived configuration-key candidate stays a tunable and is listed instead of emitted."),
             Map.entry(ReportItem.CODE_CONFIG_MAPPING_REJECTED, "A manifest configuration entry rejects a key, so no mapping is emitted for it."),
-            Map.entry(ReportItem.CODE_MANIFEST_CONFIGURATION_REDUNDANT,
-                    "A manifest configuration entry agrees with an annotation-declared key and can be removed."),
-            Map.entry(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST,
-                    "A manifest configuration entry tries to alter or reject an annotation-declared key; the annotation wins."),
-            Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries, annotations, or resolved semantics collide for this scan and need review.")));
+            Map.entry(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "Manifest entries or resolved semantics collide for this scan and need review.")));
 
     /**
      * Assembles the consolidated report: documented codes, counts, and items sorted by code, subject, message, and

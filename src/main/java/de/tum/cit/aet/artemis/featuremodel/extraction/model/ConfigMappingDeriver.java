@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
@@ -15,8 +14,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.ConfigKeyResolution;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.MemberConfigDerivation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics.ConfigurationDeclaration;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
@@ -29,15 +26,15 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScop
 
 /**
  * Derives the environment-facing configuration mappings of every functional member from the persisted scan facts and
- * applies the precedence annotation over manifest over derivation. Candidate keys come from three structural sources:
+ * applies the precedence manifest over derivation. Candidate keys come from three structural sources:
  * {@code @Value} keys whose injection sites are all guarded by the member's own condition class, YAML keys under
  * {@code @ConfigurationProperties} prefixes declared in such guarded files, and YAML keys under the namespace of the
  * member's enabled key. A key that belongs to another candidate's enabled-key namespace is never attributed to the
  * member, and a key injected anywhere without the member's guard is not attributable either, so cross-cutting core
  * keys such as the server URL stay out of feature mappings. Candidates classify as deployment inputs or listed
- * tunables through {@link ConfigKeyClassifier}. The emitted order is deterministic: declared keys in declaration
- * order — annotation first, then manifest entries — then derived non-secret keys sorted, then derived secret keys
- * sorted. Technical members keep their declared mapping hints untouched.
+ * tunables through {@link ConfigKeyClassifier}. The emitted order is deterministic: manifest entries in declaration
+ * order, then derived non-secret keys sorted, then derived secret keys sorted. Technical members keep their declared
+ * mapping hints untouched.
  */
 class ConfigMappingDeriver {
 
@@ -66,14 +63,13 @@ class ConfigMappingDeriver {
      * Derives and merges the configuration mappings of every member.
      *
      * @param includedFeatures resolved member semantics of the curation step.
-     * @param annotations parsed source annotations carrying the developers' configuration declarations.
      * @param configInjections guarded injection sites of the consumed scan.
      * @param configDefaults scanned YAML defaults of the consumed scan.
      * @param candidates extracted candidates providing condition classes and enabled keys.
      * @return updated member semantics, the derivation report, and diagnostics.
      */
-    Result derive(List<ResolvedFeatureScope> includedFeatures, List<ExtractedAnnotation> annotations, List<ExtractedConfigInjection> configInjections,
-            ExtractedConfigurationDefaults configDefaults, List<FeatureCandidate> candidates) {
+    Result derive(List<ResolvedFeatureScope> includedFeatures, List<ExtractedConfigInjection> configInjections, ExtractedConfigurationDefaults configDefaults,
+            List<FeatureCandidate> candidates) {
         Map<String, FeatureCandidate> candidatesById = new LinkedHashMap<>();
         candidates.forEach(candidate -> candidatesById.putIfAbsent(candidate.id(), candidate));
         Map<String, String> namespacesByCandidate = enabledKeyNamespaces(candidates);
@@ -90,8 +86,7 @@ class ConfigMappingDeriver {
             FeatureCandidate candidate = candidatesById.get(member.candidateId());
             Map<String, DerivedCandidate> derived = deriveCandidates(member, candidate, configInjections, injectionSitesByKey, configDefaults,
                     namespacesByCandidate);
-            List<ConfigurationDeclaration> declared = annotationDeclarations(member, annotations);
-            MemberResolution resolution = mergeByPrecedence(member, declared, derived, items);
+            MemberResolution resolution = mergeByPrecedence(member, derived, items);
             resolvedFeatures.add(member.withArtifactMappings(resolution.mappings()));
             membersById.put(member.id(), new MemberConfigDerivation(member.id(), member.candidateId(), resolution.keys()));
         }
@@ -103,29 +98,20 @@ class ConfigMappingDeriver {
     }
 
     /**
-     * Applies the per-key precedence for one member: annotation declarations are untouchable and emit first, manifest
-     * include entries confirm or add keys in declaration order, exclude entries reject derived keys, and the
-     * remaining derived deployment inputs emit non-secret keys before secret keys, each sorted. Tunables are listed
-     * as skipped.
+     * Applies the per-key precedence for one member: manifest include entries confirm or add keys in declaration
+     * order, exclude entries reject derived keys, and the remaining derived deployment inputs emit non-secret keys
+     * before secret keys, each sorted. Tunables are listed as skipped.
      *
      * @param member resolved member semantics.
-     * @param declared annotation configuration declarations of the member, in declaration order.
      * @param derived derived candidate keys of the member.
      * @param items diagnostics sink.
      * @return resolved mappings and key resolutions.
      */
-    private MemberResolution mergeByPrecedence(ResolvedFeatureScope member, List<ConfigurationDeclaration> declared, Map<String, DerivedCandidate> derived,
-            List<ReportItem> items) {
+    private MemberResolution mergeByPrecedence(ResolvedFeatureScope member, Map<String, DerivedCandidate> derived, List<ReportItem> items) {
         Map<String, EmittedKey> emitted = new LinkedHashMap<>();
-        for (ConfigurationDeclaration declaration : declared) {
-            DerivedCandidate candidate = derived.get(declaration.key());
-            emitted.putIfAbsent(declaration.key(), new EmittedKey(new ConfigKeyResolution(declaration.key(), ConfigDerivationReport.ORIGIN_ANNOTATION,
-                    ConfigDerivationReport.DECISION_DECLARED, declaration.secret(), candidate == null ? List.of() : candidate.evidence(), null),
-                    declaration.secret() ? Boolean.TRUE : null));
-        }
         List<ConfigKeyResolution> rejected = new ArrayList<>();
         for (ConfigurationEntry entry : member.configuration()) {
-            applyManifestEntry(member, entry, declared, derived, emitted, rejected, items);
+            applyManifestEntry(member, entry, derived, emitted, rejected, items);
         }
         appendDerivedInputs(member, derived, emitted, rejected, items);
 
@@ -142,35 +128,19 @@ class ConfigMappingDeriver {
     }
 
     /**
-     * Applies one manifest configuration entry. An entry naming an annotation-declared key can only agree with it: an
-     * agreeing include is redundant, everything else is ignored with a warning. Other include entries confirm or add
-     * the key at their declaration position; exclude entries reject the key.
+     * Applies one manifest configuration entry. Include entries confirm or add the key at their declaration position;
+     * exclude entries reject the key.
      *
      * @param member resolved member semantics.
      * @param entry manifest configuration entry.
-     * @param declared annotation configuration declarations of the member.
      * @param derived derived candidate keys of the member.
      * @param emitted emitted keys, updated in place.
      * @param rejected rejected key resolutions, updated in place.
      * @param items diagnostics sink.
      */
-    private void applyManifestEntry(ResolvedFeatureScope member, ConfigurationEntry entry, List<ConfigurationDeclaration> declared,
-            Map<String, DerivedCandidate> derived, Map<String, EmittedKey> emitted, List<ConfigKeyResolution> rejected, List<ReportItem> items) {
+    private void applyManifestEntry(ResolvedFeatureScope member, ConfigurationEntry entry, Map<String, DerivedCandidate> derived,
+            Map<String, EmittedKey> emitted, List<ConfigKeyResolution> rejected, List<ReportItem> items) {
         String entryLabel = "features[id=" + member.id() + "].configuration entry for key '" + entry.key() + "'";
-        ConfigurationDeclaration declaration = declared.stream().filter(candidate -> candidate.key().equals(entry.key())).findFirst().orElse(null);
-        if (declaration != null) {
-            boolean excludes = FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE.equals(entry.action());
-            boolean altersSecret = entry.secret() != null && entry.secret() != declaration.secret();
-            if (excludes || altersSecret) {
-                items.add(ReportItem.warning(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST, member.id(),
-                        entryLabel + " tries to " + (excludes ? "reject" : "alter") + " an @ArtemisFeature-declared key; the annotation wins and the entry is ignored."));
-            }
-            else {
-                items.add(ReportItem.info(ReportItem.CODE_MANIFEST_CONFIGURATION_REDUNDANT, member.id(),
-                        entryLabel + " agrees with the @ArtemisFeature declaration; remove the entry once the annotation is upstream."));
-            }
-            return;
-        }
         DerivedCandidate candidate = derived.get(entry.key());
         if (FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE.equals(entry.action())) {
             String detail = candidate == null ? "derivation did not produce the key" : candidate.deploymentInput() ? "rejects the derived deployment input"
@@ -359,22 +329,6 @@ class ConfigMappingDeriver {
             }
         }
         return owner != null && !owner.equals(ownNamespace);
-    }
-
-    /**
-     * Resolves the annotation configuration declarations of a member. Only membership declared by an annotation can
-     * carry declarations, and a conformant run has exactly one annotation per member id.
-     *
-     * @param member resolved member semantics.
-     * @param annotations parsed source annotations.
-     * @return declarations in declaration order; empty for provisional membership.
-     */
-    private List<ConfigurationDeclaration> annotationDeclarations(ResolvedFeatureScope member, List<ExtractedAnnotation> annotations) {
-        if (!CurationReport.SOURCE_ANNOTATION.equals(member.membershipSource())) {
-            return List.of();
-        }
-        return annotations.stream().filter(annotation -> Objects.equals(annotation.semantics().id(), member.id())).findFirst()
-                .map(annotation -> annotation.semantics().configuration()).orElse(List.of());
     }
 
     /**

@@ -12,7 +12,6 @@ import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
@@ -23,9 +22,9 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 
 /**
- * Resolves the membership of every extracted candidate and the semantics of every member. Membership comes from the
- * {@code @ArtemisFeature} annotation in Artemis source, from a provisional manifest entry while the annotation has not
- * landed upstream, or from a technical manifest entry; exclusion comes from a notModeled entry. The gate is tiered by
+ * Resolves the membership of every extracted candidate and the semantics of every member. Membership comes from a
+ * provisional manifest entry for functional features or from a technical manifest entry; exclusion comes from a
+ * notModeled entry. The gate is tiered by
  * feature shape: a module candidate Artemis itself enumerates or displays as a feature blocks the run when nobody
  * decided about it, any other undecided candidate is listed as information. Every finding becomes a report item
  * rather than aborting the run, so one run reports every gap at once; {@link ManifestConformanceService} turns the
@@ -48,7 +47,7 @@ class ScopeCurationService {
      * Resolved membership of one candidate.
      *
      * @param source one of the {@code CurationReport.SOURCE_*} membership constants.
-     * @param anchor annotation or manifest anchor that declared the membership.
+     * @param anchor manifest anchor that declared the membership.
      * @param id feature id for members, otherwise null.
      * @param semantics inline semantics of a technical member, otherwise null.
      * @param notModeled exclusion entry, otherwise null.
@@ -61,15 +60,13 @@ class ScopeCurationService {
      *
      * @param manifest loaded manifest.
      * @param candidates extracted candidates.
-     * @param annotations parsed source annotations.
      * @param artemisCommit derived source revision the scan was taken from.
      * @return classifications, resolved member semantics, and diagnostics.
      */
-    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, List<ExtractedAnnotation> annotations, String artemisCommit) {
+    Result curate(FeatureScopeManifest manifest, List<FeatureCandidate> candidates, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveManifestMembership(manifest, resolver, items);
-        applyAnnotations(annotations, resolver, membershipByCandidate, items);
         Map<String, FeatureEntry> featuresById = new LinkedHashMap<>();
         manifest.features().forEach(entry -> featuresById.put(entry.id(), entry));
 
@@ -175,55 +172,6 @@ class ScopeCurationService {
     }
 
     /**
-     * Applies the source annotations on top of the manifest memberships. An annotation grants membership with its
-     * id; it wins over a provisional entry, which is then redundant, and it contradicts a notModeled entry. Technical
-     * membership is manifest-only, so an annotation on a technical candidate is a conflict.
-     *
-     * @param annotations parsed source annotations.
-     * @param resolver candidate resolver.
-     * @param membershipByCandidate manifest memberships, updated in place.
-     * @param items report item sink.
-     */
-    private void applyAnnotations(List<ExtractedAnnotation> annotations, CandidateResolver resolver, Map<String, Membership> membershipByCandidate,
-            List<ReportItem> items) {
-        for (ExtractedAnnotation annotation : annotations) {
-            CandidateResolver.Resolution resolution = resolver.resolve(annotation.anchor());
-            String location = annotation.file() + ":" + annotation.line();
-            if (resolution.problem() != null) {
-                items.add(ReportItem.error(ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED, annotation.anchor(),
-                        "@ArtemisFeature at " + location + " declares a feature the extractor cannot see. " + resolution.problem()));
-                continue;
-            }
-            String candidateId = resolution.candidateId();
-            String id = annotation.semantics().id();
-            Membership existing = membershipByCandidate.get(candidateId);
-            Membership annotated = new Membership(CurationReport.SOURCE_ANNOTATION, annotation.anchor(), id, null, null);
-            if (existing == null) {
-                membershipByCandidate.put(candidateId, annotated);
-                continue;
-            }
-            switch (existing.source()) {
-                case CurationReport.SOURCE_ANNOTATION -> items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidateId,
-                        "Several @ArtemisFeature annotations resolve to this candidate; the annotation at " + location + " is ignored."));
-                case CurationReport.SOURCE_PROVISIONAL -> {
-                    if (!existing.id().equals(id)) {
-                        items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidateId, "Provisional entry '" + existing.anchor()
-                                + "' declares id '" + existing.id() + "' but @ArtemisFeature at " + location + " declares '" + id + "'; the ids must match."));
-                    }
-                    items.add(ReportItem.warning(ReportItem.CODE_PROVISIONAL_REDUNDANT, candidateId, "Provisional entry '" + existing.anchor()
-                            + "' is redundant: @ArtemisFeature at " + location + " declares the membership; remove the entry."));
-                    membershipByCandidate.put(candidateId, annotated);
-                }
-                case CurationReport.SOURCE_NOT_MODELED -> items.add(ReportItem.error(ReportItem.CODE_NOT_MODELED_ANCHOR_ANNOTATED, candidateId,
-                        "@ArtemisFeature at " + location + " declares feature '" + id + "', but notModeled entry '" + existing.anchor()
-                                + "' excludes the candidate; remove one of the two declarations."));
-                default -> items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidateId, "@ArtemisFeature at " + location
-                        + " annotates a candidate declared by technical entry '" + existing.anchor() + "'; technical membership is manifest-only."));
-            }
-        }
-    }
-
-    /**
      * Classifies one candidate and, for members, resolves the semantics from the manifest.
      *
      * @param candidate extracted candidate.
@@ -247,7 +195,7 @@ class ScopeCurationService {
         decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_INCLUDE, membership.id(), null, membership.source()));
         FeatureEntry semantics = membership.semantics() != null ? membership.semantics() : featuresById.get(membership.id());
         if (semantics == null) {
-            items.add(ReportItem.error(ReportItem.CODE_ANNOTATED_FEATURE_UNPLACED, candidate.id(), "Member '" + membership.id() + "' declared by "
+            items.add(ReportItem.error(ReportItem.CODE_MEMBER_UNPLACED, candidate.id(), "Member '" + membership.id() + "' declared by "
                     + membership.source() + " anchor '" + membership.anchor() + "' has no features entry; add features[id=" + membership.id() + "] with its placement."));
             return;
         }
@@ -256,8 +204,8 @@ class ScopeCurationService {
                     "Runtime toggle member '" + membership.id() + "' has no rationale; every modeled toggle must document its reasoning."));
         }
         if (CurationReport.SOURCE_PROVISIONAL.equals(membership.source())) {
-            items.add(ReportItem.info(ReportItem.CODE_PROVISIONAL_MEMBERSHIP, candidate.id(), "Membership of '" + membership.id()
-                    + "' is carried by provisional entry '" + membership.anchor() + "' until the @ArtemisFeature annotation lands upstream."));
+            items.add(ReportItem.info(ReportItem.CODE_PROVISIONAL_MEMBERSHIP, candidate.id(),
+                    "Membership of '" + membership.id() + "' is carried by provisional entry '" + membership.anchor() + "'."));
         }
         includedFeatures.add(resolveSemantics(candidate, membership.id(), semantics, membership.source()));
     }
@@ -272,13 +220,13 @@ class ScopeCurationService {
     private void classifyUndecided(FeatureCandidate candidate, List<CurationDecision> decisions, List<ReportItem> items) {
         if (isFeatureShaped(candidate)) {
             decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_UNDECLARED, null, null, CurationReport.SOURCE_UNDECLARED));
-            items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(), "Artemis presents this module as a feature, but neither an "
-                    + "@ArtemisFeature annotation nor a manifest entry decides about it; annotate it, add a provisional entry, or list it in notModeled."));
+            items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(), "Artemis presents this module as a feature, but no manifest "
+                    + "entry decides about it; add a provisional entry or list it in notModeled."));
             return;
         }
         decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_UNMODELED, null, null, CurationReport.SOURCE_UNMODELED));
         items.add(ReportItem.info(ReportItem.CODE_UNMODELED_ANCHOR, candidate.id(),
-                "Candidate has no decision and stays outside the model; annotate it or add a manifest entry to model or exclude it."));
+                "Candidate has no decision and stays outside the model; add a manifest entry to model or exclude it."));
     }
 
     /**
@@ -294,7 +242,7 @@ class ScopeCurationService {
     }
 
     /**
-     * Reports features entries whose id no annotation, provisional entry, or technical entry declares as a member.
+     * Reports features entries whose id no provisional or technical entry declares as a member.
      *
      * @param manifest loaded manifest.
      * @param membershipByCandidate resolved memberships.
@@ -306,7 +254,7 @@ class ScopeCurationService {
         for (FeatureEntry entry : manifest.features()) {
             if (!memberIds.contains(entry.id())) {
                 items.add(ReportItem.error(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, entry.id(), "features entry '" + entry.id()
-                        + "' matches no member: no @ArtemisFeature annotation, provisional entry, or technical entry declares this id for this scan."));
+                        + "' matches no member: no provisional or technical entry declares this id for this scan."));
             }
         }
     }
@@ -436,7 +384,7 @@ class ScopeCurationService {
         };
     }
 
-    /** Resolves manifest and annotation symbols to the canonical namespaced candidate id. */
+    /** Resolves manifest symbols to the canonical namespaced candidate id. */
     private static final class CandidateResolver {
 
         /**
@@ -466,7 +414,7 @@ class ScopeCurationService {
          * Resolves an anchor written as a namespaced candidate id or as a source symbol: a condition class, a server
          * constant, or a client constant, optionally package-qualified.
          *
-         * @param anchor manifest or annotation anchor.
+         * @param anchor manifest anchor.
          * @return successful resolution, or the failure description.
          */
         private Resolution resolve(String anchor) {
@@ -487,7 +435,7 @@ class ScopeCurationService {
          * Checks whether an anchor names one of the candidate's source symbols.
          *
          * @param candidate extracted candidate.
-         * @param anchor manifest or annotation anchor.
+         * @param anchor manifest anchor.
          * @return true if the anchor matches a symbol of the candidate.
          */
         private boolean matches(FeatureCandidate candidate, String anchor) {
@@ -498,7 +446,7 @@ class ScopeCurationService {
         /**
          * Checks whether an anchor equals a symbol or is a package-qualified form of it.
          *
-         * @param anchor manifest or annotation anchor.
+         * @param anchor manifest anchor.
          * @param symbol candidate source symbol, or null.
          * @return true if the anchor names the symbol.
          */

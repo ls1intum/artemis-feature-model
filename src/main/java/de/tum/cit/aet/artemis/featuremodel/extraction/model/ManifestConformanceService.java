@@ -47,9 +47,8 @@ class ManifestConformanceService {
         List<ReportItem> items = new ArrayList<>();
         List<String> undeclaredRelations = evaluateRelationDecisions(manifest, includedFeatures, relationCandidates, items);
         ManifestConformance conformance = ManifestConformance.from(List.copyOf(curation.undeclaredCandidateIds()), undeclaredRelations,
-                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, ReportItem.CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED),
-                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT, ReportItem.CODE_ANNOTATED_FEATURE_UNPLACED,
-                        ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, ReportItem.CODE_NOT_MODELED_ANCHOR_ANNOTATED),
+                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR),
+                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT, ReportItem.CODE_MEMBER_UNPLACED, ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN),
                 subjectsOf(scanItems, ReportItem.CODE_EXTRACTOR_ERROR));
         return new Result(conformance, List.copyOf(items));
     }

@@ -5,20 +5,17 @@ import java.util.List;
 /**
  * Configuration-derivation outcome of one model assembly, persisted as {@code model/config-derivation.json} and
  * rendered as a report section. It lists, per functional member, every configuration key the precedence merge
- * considered — declared by the {@code @ArtemisFeature} annotation, confirmed or added by the manifest, derived from
- * guarded Artemis structure, skipped as a tunable, or rejected by a manifest exclude — together with its evidence.
+ * considered — confirmed or added by the manifest, derived from guarded Artemis structure, skipped as a tunable, or
+ * rejected by a manifest exclude — together with its evidence.
  *
  * @param members per-member key resolutions sorted by feature id.
  */
 public record ConfigDerivationReport(List<MemberConfigDerivation> members) {
 
-    /** Decision of a key the {@code @ArtemisFeature} annotation declares; emitted with the highest precedence. */
-    public static final String DECISION_DECLARED = "declared";
-
-    /** Decision of a key a manifest {@code configuration} include entry confirms or adds; emitted in entry order. */
+    /** Decision of a key a manifest {@code configuration} include entry confirms or adds; emitted first, in entry order. */
     public static final String DECISION_CONFIRMED = "confirmed";
 
-    /** Decision of a derived deployment input without a declaration; emitted after the declared keys. */
+    /** Decision of a derived deployment input without a declaration; emitted after the confirmed keys. */
     public static final String DECISION_DERIVED = "derived";
 
     /** Decision of a derived candidate classified as a tunable; listed, never emitted. */
@@ -26,9 +23,6 @@ public record ConfigDerivationReport(List<MemberConfigDerivation> members) {
 
     /** Decision of a key a manifest {@code configuration} exclude entry rejects; never emitted. */
     public static final String DECISION_REJECTED = "rejected";
-
-    /** Origin of a key declared in Artemis source by the {@code @ArtemisFeature} annotation. */
-    public static final String ORIGIN_ANNOTATION = "annotation";
 
     /** Origin of a key declared by a manifest {@code features[].configuration} entry. */
     public static final String ORIGIN_MANIFEST = "manifest";

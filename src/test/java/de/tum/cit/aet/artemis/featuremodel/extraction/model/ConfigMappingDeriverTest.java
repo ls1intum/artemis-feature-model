@@ -12,9 +12,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationRep
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.ConfigKeyResolution;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics.ConfigurationDeclaration;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection.ConfigurationPropertiesPrefix;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefault;
@@ -40,7 +37,7 @@ class ConfigMappingDeriverTest {
         ExtractedConfigInjection unguarded = injection("src/main/java/core/CoreConfiguration.java", List.of(), List.of("artemis.shared.instance-name"),
                 List.of());
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), List.of(guarded, unguarded),
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(guarded, unguarded),
                 defaults(Map.of()), List.of(alphaCandidate()));
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.token");
@@ -67,7 +64,7 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.mode", "production",
                 "artemis.alpha.connector.endpoint", "<your-endpoint>"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), List.of(properties), defaults,
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(properties), defaults,
                 List.of(alphaCandidate()));
 
         assertThat(mappingPaths(result, "alpha")).as("non-secret inputs sorted; the own enabled key never derives")
@@ -91,41 +88,12 @@ class ConfigMappingDeriverTest {
         FeatureCandidate nested = new FeatureCandidate("module:nested", FeatureCandidate.KIND_MODULE_FEATURE, null, null, null,
                 "artemis.alpha.nested.enabled", Boolean.FALSE, null, null, "NestedEnabled", null, false, false, null);
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), List.of(), defaults,
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), defaults,
                 List.of(alphaCandidate(), nested));
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.url");
         assertThat(result.derivation().members()).singleElement().satisfies(member -> assertThat(member.keys()).extracting(ConfigKeyResolution::key)
                 .doesNotContain("artemis.alpha.nested.auth-token", "artemis.alpha.nested.enabled"));
-    }
-
-    @Test
-    void annotationDeclarationsEmitFirstInDeclarationOrderAndDerivedDuplicatesCollapse() {
-        ExtractedAnnotation annotation = annotation("alpha", List.of(new ConfigurationDeclaration("artemis.alpha.api-key", true),
-                new ConfigurationDeclaration("artemis.alpha.base-url", false)));
-        ExtractedConfigurationDefaults defaults = defaults(Map.of("artemis.alpha.base-url", "http://localhost:9000"));
-
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(annotatedAlpha(List.of())), List.of(annotation), List.of(), defaults,
-                List.of(alphaCandidate()));
-
-        assertThat(mappingsOf(result, "alpha")).extracting(MappingHint::path).as("declaration order wins over the sorted derived order")
-                .containsExactly("artemis.alpha.api-key", "artemis.alpha.base-url");
-        assertThat(mappingsOf(result, "alpha")).extracting(MappingHint::secret).containsExactly(Boolean.TRUE, null);
-        assertThat(resolutionOf(result, "alpha", "artemis.alpha.base-url")).satisfies(resolution -> {
-            assertThat(resolution.origin()).isEqualTo(ConfigDerivationReport.ORIGIN_ANNOTATION);
-            assertThat(resolution.decision()).isEqualTo(ConfigDerivationReport.DECISION_DECLARED);
-            assertThat(resolution.evidence()).as("derivation evidence attaches to the declared key").isNotEmpty();
-        });
-    }
-
-    @Test
-    void provisionalMembershipNeverConsumesAnnotationDeclarations() {
-        ExtractedAnnotation annotation = annotation("alpha", List.of(new ConfigurationDeclaration("artemis.alpha.api-key", true)));
-
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(annotation), List.of(), defaults(Map.of()),
-                List.of(alphaCandidate()));
-
-        assertThat(mappingPaths(result, "alpha")).isEmpty();
     }
 
     @Test
@@ -139,7 +107,7 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.url", "<your-url>",
                 "artemis.alpha.callback-url", "http://localhost:7000"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(), List.of(), defaults, List.of(alphaCandidate()));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(), defaults, List.of(alphaCandidate()));
 
         assertThat(mappingPaths(result, "alpha")).as("declared entries in order, then derived keys")
                 .containsExactly("artemis.alpha.chat-model", "spring.ai.alpha.api-key", "artemis.alpha.url");
@@ -157,39 +125,6 @@ class ConfigMappingDeriverTest {
     }
 
     @Test
-    void manifestEntryAgreeingWithAnAnnotationDeclaredKeyIsRedundant() {
-        ExtractedAnnotation annotation = annotation("alpha", List.of(new ConfigurationDeclaration("spring.ai.alpha.api-key", true)));
-        ResolvedFeatureScope alpha = annotatedAlpha(List.of(new ConfigurationEntry("spring.ai.alpha.api-key", true, null)));
-
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(annotation), List.of(), defaults(Map.of()),
-                List.of(alphaCandidate()));
-
-        assertThat(mappingPaths(result, "alpha")).containsExactly("spring.ai.alpha.api-key");
-        assertThat(result.items()).singleElement().satisfies(item -> {
-            assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CONFIGURATION_REDUNDANT);
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO);
-            assertThat(item.subject()).isEqualTo("alpha");
-        });
-    }
-
-    @Test
-    void manifestEntryAlteringOrRejectingAnAnnotationDeclaredKeyIsIgnoredWithAWarning() {
-        ExtractedAnnotation annotation = annotation("alpha", List.of(new ConfigurationDeclaration("spring.ai.alpha.api-key", true)));
-        ResolvedFeatureScope alpha = annotatedAlpha(List.of(new ConfigurationEntry("spring.ai.alpha.api-key", null,
-                FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE)));
-
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(annotation), List.of(), defaults(Map.of()),
-                List.of(alphaCandidate()));
-
-        assertThat(mappingPaths(result, "alpha")).as("the annotation-declared key stays emitted").containsExactly("spring.ai.alpha.api-key");
-        assertThat(mappingsOf(result, "alpha")).extracting(MappingHint::secret).containsExactly(Boolean.TRUE);
-        assertThat(result.items()).singleElement().satisfies(item -> {
-            assertThat(item.code()).isEqualTo(ReportItem.CODE_ANNOTATION_OVERRIDES_MANIFEST);
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING);
-        });
-    }
-
-    @Test
     void derivedInputsEmitNonSecretKeysSortedBeforeSecretKeysSorted() {
         ExtractedConfigurationDefaults defaults = defaults(Map.of(
                 "artemis.alpha.zeta-url", "<your-url>",
@@ -197,7 +132,7 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.base-url", "http://localhost:8000",
                 "artemis.alpha.secret", "<your-secret>"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), List.of(), defaults,
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), defaults,
                 List.of(alphaCandidate()));
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.base-url", "artemis.alpha.zeta-url", "artemis.alpha.api-key",
@@ -210,7 +145,7 @@ class ConfigMappingDeriverTest {
         ResolvedFeatureScope technical = new ResolvedFeatureScope("infra:tech", "tech", null, "root", "feature", "optional", "technical", "enabled", 1,
                 List.of(), List.of(), List.of(declared), List.of(), "Tech", null, null, CurationReport.SOURCE_TECHNICAL);
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(technical), List.of(), List.of(), defaults(Map.of("tech.url", "<your-url>")),
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(technical), List.of(), defaults(Map.of("tech.url", "<your-url>")),
                 List.of());
 
         assertThat(result.resolvedFeatures()).singleElement().satisfies(resolved -> assertThat(resolved.artifactMappings()).containsExactly(declared));
@@ -238,31 +173,9 @@ class ConfigMappingDeriverTest {
         return alphaMember(configuration, CurationReport.SOURCE_PROVISIONAL);
     }
 
-    /**
-     * Builds the alpha member with annotation membership.
-     *
-     * @param configuration manifest configuration entries.
-     * @return resolved alpha member.
-     */
-    private ResolvedFeatureScope annotatedAlpha(List<ConfigurationEntry> configuration) {
-        return alphaMember(configuration, CurationReport.SOURCE_ANNOTATION);
-    }
-
     private ResolvedFeatureScope alphaMember(List<ConfigurationEntry> configuration, String membershipSource) {
         return new ResolvedFeatureScope("module:alpha", "alpha", "group", null, "module", "optional", null, null, 1, List.of(), List.of(), List.of(),
                 configuration, null, null, null, membershipSource);
-    }
-
-    /**
-     * Builds an annotation fact declaring configuration keys for a feature id.
-     *
-     * @param id feature id.
-     * @param configuration declared keys.
-     * @return annotation fact.
-     */
-    private ExtractedAnnotation annotation(String id, List<ConfigurationDeclaration> configuration) {
-        return new ExtractedAnnotation("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", new ExtractedAnnotationSemantics(id, configuration),
-                "src/main/java/alpha/AlphaEnabled.java", 10);
     }
 
     /**
