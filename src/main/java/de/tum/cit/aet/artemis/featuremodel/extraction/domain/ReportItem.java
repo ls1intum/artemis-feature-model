@@ -41,22 +41,34 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A server property name constant has no matching server module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
-    /** An extracted candidate is absent from both manifest membership lists, so its scope is undecided. */
+    /** A module candidate Artemis presents as a feature has no manifest decision; blocking. */
     public static final String CODE_UNDECLARED_CANDIDATE = "UNDECLARED_CANDIDATE";
 
-    /** A source annotation exists on a candidate that the manifest does not include. */
-    public static final String CODE_ANNOTATED_BUT_UNSCOPED = "ANNOTATED_BUT_UNSCOPED";
+    /** A candidate Artemis does not present as a feature has no decision; listed as information, never modeled. */
+    public static final String CODE_UNMODELED_ANCHOR = "UNMODELED_ANCHOR";
 
-    /** A source annotation declares an attribute differently from the manifest entry; the manifest value is used. */
-    public static final String CODE_MANIFEST_OVERRIDES_ANNOTATION = "MANIFEST_OVERRIDES_ANNOTATION";
+    /** A member declared by a provisional entry has no features entry placing it in the hierarchy. */
+    public static final String CODE_MEMBER_UNPLACED = "MEMBER_UNPLACED";
 
-    /** A source annotation could not be joined to an extracted candidate. */
-    public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
+    /** A features entry names an id that no provisional or technical entry declares as a member. */
+    public static final String CODE_MANIFEST_FEATURE_UNKNOWN = "MANIFEST_FEATURE_UNKNOWN";
+
+    /** A provisional entry carries the membership of a functional member. */
+    public static final String CODE_PROVISIONAL_MEMBERSHIP = "PROVISIONAL_MEMBERSHIP";
+
+    /** A deployment-input mapping was derived from guarded Artemis structure without a declaration. */
+    public static final String CODE_CONFIG_MAPPING_DERIVED = "CONFIG_MAPPING_DERIVED";
+
+    /** A derived configuration-key candidate stays a tunable and is listed instead of emitted. */
+    public static final String CODE_CONFIG_MAPPING_TUNABLE_SKIPPED = "CONFIG_MAPPING_TUNABLE_SKIPPED";
+
+    /** A manifest configuration entry rejects a key, so no mapping is emitted for it. */
+    public static final String CODE_CONFIG_MAPPING_REJECTED = "CONFIG_MAPPING_REJECTED";
 
     /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 
-    /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
+    /** Manifest entries or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
     /** An excluded candidate omitted its optional reason and uses the stable unspecified fallback. */

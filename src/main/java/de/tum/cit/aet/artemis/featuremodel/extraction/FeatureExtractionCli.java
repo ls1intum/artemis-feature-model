@@ -87,8 +87,10 @@ public final class FeatureExtractionCli {
         System.out.println("manifestVersion=" + summary.manifestVersion());
         System.out.println("artemisCommitSha=" + summary.artemisCommitSha());
         System.out.println("manifestDigest=" + summary.manifestDigest());
-        System.out.println("includeCount=" + summary.includeCount());
-        System.out.println("excludeCount=" + summary.excludeCount());
+        System.out.println("featureCount=" + summary.featureCount());
+        System.out.println("technicalCount=" + summary.technicalCount());
+        System.out.println("provisionalCount=" + summary.provisionalCount());
+        System.out.println("notModeledCount=" + summary.notModeledCount());
     }
 
     /**

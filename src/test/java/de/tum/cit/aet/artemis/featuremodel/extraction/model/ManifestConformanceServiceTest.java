@@ -85,6 +85,21 @@ class ManifestConformanceServiceTest {
     }
 
     @Test
+    void failsOnMembershipDiagnostics() {
+        List<ReportItem> curationItems = List.of(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "GhostEnabled", "No candidate."),
+                ReportItem.error(ReportItem.CODE_MEMBER_UNPLACED, "module:alpha", "No features entry."),
+                ReportItem.error(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, "ghost", "No member."),
+                ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "module:beta", "Collision."),
+                ReportItem.info(ReportItem.CODE_UNMODELED_ANCHOR, "toggle:RateLimit", "Listed."));
+
+        ManifestConformanceService.Result result = evaluate(manifest(List.of(), List.of()), List.of(), curation(List.of()), curationItems, List.of());
+
+        assertThat(result.conformance().conformant()).isFalse();
+        assertThat(result.conformance().unresolvedAnchors()).containsExactly("GhostEnabled");
+        assertThat(result.conformance().conflictingDecisions()).containsExactly("ghost", "module:alpha", "module:beta");
+    }
+
+    @Test
     void failsOnOrphanAnchorsConflictsAndExtractorFailures() {
         List<ReportItem> curationItems = List.of(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "module:gone", "Anchor no longer resolves."),
                 ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "module:alpha", "Two entries claim this candidate."));
@@ -122,8 +137,8 @@ class ManifestConformanceServiceTest {
      * @return scope manifest.
      */
     private FeatureScopeManifest manifest(List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations) {
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), constraints, ignoredRelations,
-                List.of());
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), List.of(), List.of(), constraints,
+                ignoredRelations, List.of());
     }
 
     /**
@@ -143,10 +158,10 @@ class ManifestConformanceServiceTest {
      */
     private List<ResolvedFeatureScope> includedFeatures() {
         return List.of(
-                new ResolvedFeatureScope("module:alpha", "alpha", null, "root", "module", "optional", null, null, 1, List.of(), List.of(), List.of(), null, null,
-                        null, "manifest"),
-                new ResolvedFeatureScope("module:beta", "beta", null, "root", "module", "optional", null, null, 2, List.of(), List.of(), List.of(), null, null,
-                        null, "manifest"));
+                new ResolvedFeatureScope("module:alpha", "alpha", null, "root", "module", "optional", null, null, 1, List.of(), List.of(), List.of(), List.of(), null, null,
+                        null, CurationReport.SOURCE_PROVISIONAL),
+                new ResolvedFeatureScope("module:beta", "beta", null, "root", "module", "optional", null, null, 2, List.of(), List.of(), List.of(), List.of(), null, null,
+                        null, CurationReport.SOURCE_PROVISIONAL));
     }
 
     /**

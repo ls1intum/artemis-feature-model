@@ -7,64 +7,147 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotationSemantics;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.NotModeledEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ProvisionalEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.TechnicalEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 
-/** Covers candidate membership, source-symbol resolution, annotation precedence, and unscoped diagnostics. */
+/** Covers provisional and technical membership, the tiered gate, and every curation diagnostic. */
 class ScopeCurationServiceTest {
 
     private static final String PINNED_COMMIT = "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee";
 
-    @Test
-    void keepsManifestSemanticsWhenAnAnnotationContradictsThem() throws Exception {
-        List<FeatureCandidate> candidates = List.of(module("module:alpha", "AlphaEnabled"), module("module:beta", "BetaEnabled"));
-        IncludeEntry include = new IncludeEntry("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled", "manifest-alpha", "manifest-group", null, null, null, null, null,
-                null, List.of("manifest-service"), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(include), List.of(),
-                List.of(new ConceptualNode("manifest-group", null, "group", null, null, null, null, null, null),
-                        new ConceptualNode("annotation-group", null, "group", null, null, null, null, null, null)),
-                List.of(), List.of(), List.of());
+    private static final ConceptualNode ROOT = new ConceptualNode("root", null, "root", null, null, null, null, null, null);
 
-        // The two condition-class annotations of the annotated fixture, as ArtemisFeatureAnnotationScan extracts them.
-        List<ExtractedAnnotation> conditionAnnotations = List.of(
-                new ExtractedAnnotation("de.tum.cit.aet.artemis.alpha.config.AlphaEnabled",
-                        new ExtractedAnnotationSemantics("annotated-alpha", "annotation-group", null, null,
-                                List.of("annotation-service", "annotation-secret"), null, "Annotated Alpha", null, null),
-                        "src/main/java/de/tum/cit/aet/artemis/alpha/config/AlphaEnabled.java", 3),
-                new ExtractedAnnotation("de.tum.cit.aet.artemis.beta.config.BetaEnabled",
-                        new ExtractedAnnotationSemantics("annotated-beta", null, "annotated-alpha", null, null, null, null, null, null),
-                        "src/main/java/de/tum/cit/aet/artemis/beta/config/BetaEnabled.java", 3));
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, candidates, conditionAnnotations, PINNED_COMMIT);
+    @Test
+    void provisionalEntryCarriesMembershipAndTheFeaturesEntrySuppliesTheSemantics() {
+        FeatureScopeManifest manifest = manifest(List.of(feature("alpha", "root", List.of("alpha-service"))),
+                List.of(new ProvisionalEntry("module:alpha", "alpha")), List.of(), List.of());
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(featureShaped("module:alpha", "AlphaEnabled")), PINNED_COMMIT);
 
         assertThat(result.includedFeatures()).singleElement().satisfies(feature -> {
-            assertThat(feature.id()).isEqualTo("manifest-alpha");
-            assertThat(feature.group()).isEqualTo("manifest-group");
-            assertThat(feature.requiresCapabilities()).containsExactly("manifest-service");
-            assertThat(feature.name()).as("the annotation still fills a name the manifest leaves open").isEqualTo("Annotated Alpha");
-            assertThat(feature.semanticSource()).isEqualTo("annotation");
+            assertThat(feature.id()).isEqualTo("alpha");
+            assertThat(feature.parent()).isEqualTo("root");
+            assertThat(feature.kind()).isEqualTo("module");
             assertThat(feature.optionality()).isEqualTo(FeatureScopeManifest.OPTIONALITY_OPTIONAL);
+            assertThat(feature.requiresCapabilities()).containsExactly("alpha-service");
+            assertThat(feature.membershipSource()).isEqualTo(CurationReport.SOURCE_PROVISIONAL);
         });
-        assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:beta");
-        assertThat(result.report().decisions().getFirst().state()).isEqualTo(CurationReport.STATE_UNDECLARED);
-        assertThat(result.items()).extracting(ReportItem::code).contains(ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION,
-                ReportItem.CODE_ANNOTATED_BUT_UNSCOPED, ReportItem.CODE_UNDECLARED_CANDIDATE);
-        assertThat(result.items()).filteredOn(item -> ReportItem.CODE_MANIFEST_OVERRIDES_ANNOTATION.equals(item.code())).singleElement().satisfies(item -> {
-            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING);
-            assertThat(item.message()).contains("id", "group", "requiresCapabilities").contains("the manifest value is used");
+        assertThat(result.report().decisions()).singleElement().satisfies(decision -> {
+            assertThat(decision.state()).isEqualTo(CurationReport.STATE_INCLUDE);
+            assertThat(decision.curatedId()).isEqualTo("alpha");
+            assertThat(decision.membershipSource()).isEqualTo(CurationReport.SOURCE_PROVISIONAL);
         });
+        assertThat(result.items()).singleElement().satisfies(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_PROVISIONAL_MEMBERSHIP);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO);
+            assertThat(item.subject()).isEqualTo("module:alpha");
+        });
+        assertThat(conformant(manifest, result)).isTrue();
+    }
+
+    @Test
+    void technicalEntryGrantsMembershipWithInlineSemantics() {
+        FeatureEntry technicalSemantics = new FeatureEntry("tech-a", null, "root", "feature", null, FeatureScopeManifest.CATEGORY_TECHNICAL, "enabled", 1,
+                List.of(), List.of("tech-capability"), List.of(), List.of(), "Tech A", null, null, null);
+        FeatureScopeManifest manifest = manifest(List.of(), List.of(), List.of(new TechnicalEntry("infra:tech-a", technicalSemantics)), List.of());
+        FeatureCandidate infrastructure = new FeatureCandidate("infra:tech-a", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null,
+                null, null, null, null, null);
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(infrastructure), PINNED_COMMIT);
+
+        assertThat(result.includedFeatures()).singleElement().satisfies(feature -> {
+            assertThat(feature.id()).isEqualTo("tech-a");
+            assertThat(feature.kind()).isEqualTo("feature");
+            assertThat(feature.category()).isEqualTo(FeatureScopeManifest.CATEGORY_TECHNICAL);
+            assertThat(feature.providesCapabilities()).containsExactly("tech-capability");
+            assertThat(feature.name()).isEqualTo("Tech A");
+            assertThat(feature.membershipSource()).isEqualTo(CurationReport.SOURCE_TECHNICAL);
+        });
+        assertThat(result.items()).isEmpty();
+    }
+
+    @Test
+    void undecidedFeatureShapedModuleBlocksWhileOtherUndecidedAnchorsOnlyInform() {
+        FeatureScopeManifest manifest = manifest(List.of(), List.of(), List.of(), List.of());
+        FeatureCandidate hiddenModule = new FeatureCandidate("module:hidden", FeatureCandidate.KIND_MODULE_FEATURE, null, null, null, null, null, null, null,
+                "HiddenEnabled", null, false, false, null);
+        FeatureCandidate toggle = new FeatureCandidate("toggle:RateLimit", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null,
+                null, null, null, null);
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(featureShaped("module:alpha", "AlphaEnabled"), hiddenModule, toggle),
+                PINNED_COMMIT);
+
+        assertThat(result.report().undeclaredCandidateIds()).containsExactly("module:alpha");
+        assertThat(result.report().decisions()).extracting(CurationDecision::candidateId, CurationDecision::state, CurationDecision::membershipSource)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("module:alpha", CurationReport.STATE_UNDECLARED, CurationReport.SOURCE_UNDECLARED),
+                        org.assertj.core.groups.Tuple.tuple("module:hidden", CurationReport.STATE_UNMODELED, CurationReport.SOURCE_UNMODELED),
+                        org.assertj.core.groups.Tuple.tuple("toggle:RateLimit", CurationReport.STATE_UNMODELED, CurationReport.SOURCE_UNMODELED));
+        assertThat(result.report().stateCounts()).containsEntry(CurationReport.STATE_UNDECLARED, 1).containsEntry(CurationReport.STATE_UNMODELED, 2);
+        assertThat(result.items()).filteredOn(item -> ReportItem.CODE_UNDECLARED_CANDIDATE.equals(item.code())).singleElement()
+                .satisfies(item -> assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR));
+        assertThat(result.items()).filteredOn(item -> ReportItem.CODE_UNMODELED_ANCHOR.equals(item.code())).hasSize(2)
+                .allSatisfy(item -> assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_INFO));
+        assertThat(conformant(manifest, result)).isFalse();
+    }
+
+    @Test
+    void unmodeledAnchorsAloneKeepTheRunConformant() {
+        FeatureScopeManifest manifest = manifest(List.of(), List.of(), List.of(), List.of());
+        FeatureCandidate toggle = new FeatureCandidate("toggle:RateLimit", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null,
+                null, null, null, null);
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), PINNED_COMMIT);
+
+        assertThat(result.report().undeclaredCandidateIds()).isEmpty();
+        assertThat(conformant(manifest, result)).isTrue();
+    }
+
+    @Test
+    void memberWithoutFeaturesEntryIsUnplacedAndBlocking() {
+        FeatureScopeManifest manifest = manifest(List.of(), List.of(new ProvisionalEntry("module:alpha", "alpha")), List.of(), List.of());
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(featureShaped("module:alpha", "AlphaEnabled")), PINNED_COMMIT);
+
+        assertThat(result.includedFeatures()).isEmpty();
+        assertThat(result.report().decisions()).singleElement().satisfies(decision -> {
+            assertThat(decision.state()).isEqualTo(CurationReport.STATE_INCLUDE);
+            assertThat(decision.curatedId()).isEqualTo("alpha");
+        });
+        assertThat(result.items()).singleElement().satisfies(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_MEMBER_UNPLACED);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
+            assertThat(item.message()).contains("features[id=alpha]");
+        });
+        assertThat(conformant(manifest, result)).isFalse();
+    }
+
+    @Test
+    void featuresEntryWithoutAMemberIsUnknownAndBlocking() {
+        FeatureScopeManifest manifest = manifest(List.of(feature("ghost", "root", List.of())), List.of(), List.of(), List.of());
+
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(), PINNED_COMMIT);
+
+        assertThat(result.items()).singleElement().satisfies(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
+            assertThat(item.subject()).isEqualTo("ghost");
+        });
+        assertThat(conformant(manifest, result)).isFalse();
     }
 
     @Test
     void reportsOrphanManifestAnchorAndKeepsCurating() {
-        IncludeEntry orphan = new IncludeEntry("module:missing", "missing", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(orphan), List.of(), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = manifest(List.of(feature("missing", "root", List.of())), List.of(new ProvisionalEntry("module:missing", "missing")),
+                List.of(), List.of());
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of(), PINNED_COMMIT);
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(featureShaped("module:alpha", "AlphaEnabled")), PINNED_COMMIT);
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR);
@@ -77,11 +160,10 @@ class ScopeCurationServiceTest {
 
     @Test
     void reportsConflictWhenSeveralEntriesResolveToOneCandidateAndFirstWins() {
-        IncludeEntry byId = new IncludeEntry("module:alpha", "alpha", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest.ExcludeEntry bySymbol = new FeatureScopeManifest.ExcludeEntry("AlphaEnabled", "duplicate", null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(byId), List.of(bySymbol), List.of(), List.of(), List.of(), List.of());
+        FeatureScopeManifest manifest = manifest(List.of(feature("alpha", "root", List.of())), List.of(new ProvisionalEntry("module:alpha", "alpha")),
+                List.of(), List.of(new NotModeledEntry("AlphaEnabled", "duplicate", null)));
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(module("module:alpha", "AlphaEnabled")), List.of(), PINNED_COMMIT);
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(featureShaped("module:alpha", "AlphaEnabled")), PINNED_COMMIT);
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CURATION_CONFLICT);
@@ -93,16 +175,15 @@ class ScopeCurationServiceTest {
     }
 
     @Test
-    void blocksIncludedRuntimeToggleEntriesWithoutRationale() {
-        IncludeEntry toggleWithoutRationale = new IncludeEntry("toggle:ToggleOne", "toggle-one", null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(toggleWithoutRationale), List.of(), List.of(), List.of(), List.of(), List.of());
-        FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
-                null, null, null);
+    void blocksRuntimeToggleMembersWithoutRationale() {
+        FeatureScopeManifest manifest = manifest(List.of(feature("toggle-one", "root", List.of())), List.of(new ProvisionalEntry("toggle:ToggleOne", "toggle-one")),
+                List.of(), List.of());
+        FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null,
+                null, null, null, null);
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of(), PINNED_COMMIT);
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), PINNED_COMMIT);
 
-        assertThat(result.items()).anySatisfy(item -> {
-            assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CURATION_CONFLICT);
+        assertThat(result.items()).filteredOn(item -> ReportItem.CODE_MANIFEST_CURATION_CONFLICT.equals(item.code())).singleElement().satisfies(item -> {
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
             assertThat(item.message()).contains("no rationale");
         });
@@ -111,15 +192,11 @@ class ScopeCurationServiceTest {
 
     @Test
     void warnsButAcceptsExcludedRuntimeToggleWithoutReasonOrRationale() {
-        FeatureScopeManifest.ExcludeEntry excludedToggle = new FeatureScopeManifest.ExcludeEntry("toggle:ToggleOne", null, null);
-        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(excludedToggle), List.of(), List.of(), List.of(),
-                List.of());
-        FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null, null,
-                null, null, null);
+        FeatureScopeManifest manifest = manifest(List.of(), List.of(), List.of(), List.of(new NotModeledEntry("toggle:ToggleOne", null, null)));
+        FeatureCandidate toggle = new FeatureCandidate("toggle:ToggleOne", FeatureCandidate.KIND_RUNTIME_TOGGLE, null, null, null, null, null, null, null, null,
+                null, null, null, null);
 
-        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), List.of(), PINNED_COMMIT);
-        ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, result.includedFeatures(), List.of(), result.report(),
-                result.items(), List.of());
+        ScopeCurationService.Result result = new ScopeCurationService().curate(manifest, List.of(toggle), PINNED_COMMIT);
 
         assertThat(result.report().decisions()).singleElement().satisfies(decision -> {
             assertThat(decision.state()).isEqualTo(CurationReport.STATE_EXCLUDE);
@@ -128,10 +205,25 @@ class ScopeCurationServiceTest {
         assertThat(result.items()).extracting(ReportItem::code).containsExactlyInAnyOrder(ReportItem.CODE_EXCLUSION_REASON_UNSPECIFIED,
                 ReportItem.CODE_EXCLUDED_TOGGLE_RATIONALE_MISSING);
         assertThat(result.items()).allSatisfy(item -> assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING));
-        assertThat(conformance.conformance().conformant()).isTrue();
+        assertThat(conformant(manifest, result)).isTrue();
     }
 
-    private FeatureCandidate module(String id, String conditionClass) {
-        return new FeatureCandidate(id, FeatureCandidate.KIND_MODULE_FEATURE, null, null, null, null, null, null, null, conditionClass, null, null, null, null);
+    private boolean conformant(FeatureScopeManifest manifest, ScopeCurationService.Result result) {
+        return new ManifestConformanceService().evaluate(manifest, result.includedFeatures(), List.of(), result.report(), result.items(), List.of())
+                .conformance().conformant();
+    }
+
+    private FeatureScopeManifest manifest(List<FeatureEntry> features, List<ProvisionalEntry> provisional, List<TechnicalEntry> technical,
+            List<NotModeledEntry> notModeled) {
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, features, provisional, technical, notModeled, List.of(ROOT), List.of(), List.of(),
+                List.of());
+    }
+
+    private FeatureEntry feature(String id, String parent, List<String> requiresCapabilities) {
+        return new FeatureEntry(id, null, parent, null, null, null, null, null, requiresCapabilities, List.of(), List.of(), List.of(), null, null, null, null);
+    }
+
+    private FeatureCandidate featureShaped(String id, String conditionClass) {
+        return new FeatureCandidate(id, FeatureCandidate.KIND_MODULE_FEATURE, null, null, null, null, null, null, null, conditionClass, null, true, true, null);
     }
 }

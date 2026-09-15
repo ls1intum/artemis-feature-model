@@ -1,5 +1,6 @@
-# Copy of the mini-Artemis manifest with the module:gamma exclusion removed. Gamma is enumerated by the fixture's
-# getEnabledFeatures, so it is feature-shaped, has no decision, and the conformance gate must stop the run.
+# Copy of the mini-Artemis manifest with the module:delta exclusion removed. Delta is neither enumerated by the
+# fixture's getEnabledFeatures nor displayed on its admin page, so the missing decision is informational only and the
+# run still publishes.
 manifestVersion: 4
 provisional:
   - anchor: module:alpha
@@ -12,7 +13,7 @@ notModeled:
   - { anchor: infra:postgres, reason: test-fixture }
   - { anchor: module:beta, reason: test-fixture }
   - { anchor: module:beta-extra, reason: test-fixture }
-  - { anchor: module:delta, reason: test-fixture }
+  - { anchor: module:gamma, reason: test-fixture }
   - { anchor: profile:agentx, reason: test-fixture }
   - { anchor: profile:cione, reason: test-fixture }
   - { anchor: profile:feprofile, reason: test-fixture }

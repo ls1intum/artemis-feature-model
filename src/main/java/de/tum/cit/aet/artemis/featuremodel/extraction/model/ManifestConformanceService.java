@@ -35,7 +35,7 @@ class ManifestConformanceService {
      * Evaluates the conformance of one run.
      *
      * @param manifest loaded scope manifest.
-     * @param includedFeatures resolved include semantics of the curation step.
+     * @param includedFeatures resolved member semantics of the curation step.
      * @param relationCandidates relation candidates the scan discovered.
      * @param curation manifest classification section.
      * @param curationItems diagnostics of the curation step.
@@ -47,7 +47,8 @@ class ManifestConformanceService {
         List<ReportItem> items = new ArrayList<>();
         List<String> undeclaredRelations = evaluateRelationDecisions(manifest, includedFeatures, relationCandidates, items);
         ManifestConformance conformance = ManifestConformance.from(List.copyOf(curation.undeclaredCandidateIds()), undeclaredRelations,
-                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR), subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT),
+                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR),
+                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT, ReportItem.CODE_MEMBER_UNPLACED, ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN),
                 subjectsOf(scanItems, ReportItem.CODE_EXTRACTOR_ERROR));
         return new Result(conformance, List.copyOf(items));
     }
@@ -138,14 +139,15 @@ class ManifestConformanceService {
     }
 
     /**
-     * Collects the distinct sorted subjects of all items carrying one diagnostic code.
+     * Collects the distinct sorted subjects of all items carrying one of the given diagnostic codes.
      *
      * @param items diagnostics to filter.
-     * @param code diagnostic code.
+     * @param codes diagnostic codes.
      * @return sorted distinct subjects.
      */
-    private List<String> subjectsOf(List<ReportItem> items, String code) {
-        return items.stream().filter(item -> code.equals(item.code())).map(ReportItem::subject).distinct().sorted().toList();
+    private List<String> subjectsOf(List<ReportItem> items, String... codes) {
+        Set<String> codeSet = Set.of(codes);
+        return items.stream().filter(item -> codeSet.contains(item.code())).map(ReportItem::subject).distinct().sorted().toList();
     }
 
 }

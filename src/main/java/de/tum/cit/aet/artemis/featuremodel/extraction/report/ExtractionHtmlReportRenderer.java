@@ -15,8 +15,11 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.MemberConfigDerivation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
@@ -50,8 +53,7 @@ public class ExtractionHtmlReportRenderer {
             ReportItem.SEVERITY_INFO, "Info");
 
     /** Column order of the candidate decision matrix. */
-    private static final List<String> DECISION_STATES = List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE,
-            CurationReport.STATE_UNDECLARED);
+    private static final List<String> DECISION_STATES = CurationReport.STATES;
 
     /**
      * Preferred row order of the candidate decision matrix, from the most feature-like kind to the most infrastructural
@@ -112,11 +114,12 @@ public class ExtractionHtmlReportRenderer {
                 </head>
                 <body>
                 %s<main>
-                %s%s%s%s%s</main>
+                %s%s%s%s%s%s</main>
                 </body>
                 </html>
                 """.formatted(escape(title), passed ? FAVICON_PASS : FAVICON_FAIL, stylesheet(), statusBar(report, verdict, passed), summaryTiles(report),
-                findingsSection(report), decisionsSection(report.curation()), releaseDeltaSection(), rawArtifactsSection());
+                findingsSection(report), decisionsSection(report.curation()), configDerivationSection(report.configDerivation()), releaseDeltaSection(),
+                rawArtifactsSection());
     }
 
     /**
@@ -137,7 +140,8 @@ public class ExtractionHtmlReportRenderer {
                 <p class="provenance"><span title="%s">commit <code>%s</code></span><span title="%s">manifest <code>%s</code></span>\
                 <span>manifest v%s</span></p>
                 </div>
-                <nav class="jump"><a href="#findings">Findings</a><a href="#decisions">Decisions</a><a href="#raw">Raw</a></nav>
+                <nav class="jump"><a href="#findings">Findings</a><a href="#decisions">Decisions</a><a href="#configuration">Configuration</a>\
+                <a href="#raw">Raw</a></nav>
                 </header>
                 """.formatted(passed ? "ok" : "bad", escape(verdict), escape(report.artemisCommit()), escape(shortCommit(report.artemisCommit())),
                 escape(report.manifestDigest()), escape(shortDigest(report.manifestDigest())), report.curation().manifestVersion());
@@ -283,9 +287,10 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders the manifest curation outcome: the kind-by-state matrix, the undeclared candidates that block the run,
-     * and the included and excluded candidates behind disclosures. A run that failed before curation carries no
-     * decisions at all, which is stated instead of being rendered as a complete curation with zero findings.
+     * Renders the membership outcome: the kind-by-state matrix, the undeclared candidates that block the run, the
+     * members grouped by membership source, the excluded candidates, and the informational unmodeled anchors. A run
+     * that failed before curation carries no decisions at all, which is stated instead of being rendered as a complete
+     * curation with zero findings.
      *
      * @param curation manifest curation section of the report.
      * @return candidate decision section markup.
@@ -306,10 +311,11 @@ public class ExtractionHtmlReportRenderer {
         return """
                 <section id="decisions">
                 <h2>Candidate decisions <span class="count">%s</span></h2>
-                %s%s%s%s</section>
+                %s%s%s%s%s</section>
                 """.formatted(decisions.size(), decisionMatrix(curation), undeclaredBlock(decisionsWithState(decisions, CurationReport.STATE_UNDECLARED)),
                 includedGroup(decisionsWithState(decisions, CurationReport.STATE_INCLUDE)),
-                excludedGroup(decisionsWithState(decisions, CurationReport.STATE_EXCLUDE)));
+                excludedGroup(decisionsWithState(decisions, CurationReport.STATE_EXCLUDE)),
+                unmodeledGroup(decisionsWithState(decisions, CurationReport.STATE_UNMODELED)));
     }
 
     /**
@@ -381,14 +387,15 @@ public class ExtractionHtmlReportRenderer {
             return """
                     <div class="callout ok compact">
                     <h3><span class="chip ok">none</span> No undeclared candidates</h3>
-                    <p>Every extracted candidate carries an explicit manifest decision, so curation is complete for this commit.</p>
+                    <p>Every candidate Artemis presents as a feature carries a manifest decision, so curation is complete for this commit.</p>
                     </div>
                     """;
         }
         return """
                 <div class="callout bad compact">
                 <h3><span class="chip bad">undeclared</span> Undeclared candidates <span class="count">%s</span></h3>
-                <p>These candidates exist in the pinned Artemis commit but have no manifest decision. The run is blocked until each one is declared.</p>
+                <p>Artemis presents these modules as features, but no manifest entry decides about them. \
+                The run is blocked until each one is declared provisional or listed in notModeled.</p>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
                 <tbody>
@@ -399,23 +406,23 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders the included candidates, open by default because they are what the run delivers. The semantic source
-     * column states whether the manifest or an annotation supplied the resolved attributes.
+     * Renders the members, open by default because they are what the run delivers. The membership column states
+     * whether a provisional entry or a technical entry declared the membership.
      *
-     * @param included candidates the manifest includes.
+     * @param included members of the generated model.
      * @return included disclosure markup.
      */
     private String includedGroup(List<CurationDecision> included) {
         String rows = renderEach(included, decision -> """
                 <tr><td><code>%s</code></td><td>%s</td><td><code>%s</code></td><td><span class="tag">%s</span></td></tr>
                 """.formatted(escape(decision.candidateId()), escape(decision.candidateKind()), escape(decision.curatedId()),
-                decision.semanticSource() == null ? NOT_AVAILABLE : escape(decision.semanticSource())));
+                decision.membershipSource() == null ? NOT_AVAILABLE : escape(decision.membershipSource())));
         return """
                 <details class="group" open>
                 <summary><span class="chip ok">include</span> Included features <span class="count">%s</span></summary>
                 <div class="scroll-x"><table>
                 <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th><th scope="col">Generated id</th>\
-                <th scope="col">Semantics from</th></tr></thead>
+                <th scope="col">Membership</th></tr></thead>
                 <tbody>
                 %s</tbody>
                 </table></div>
@@ -470,7 +477,31 @@ public class ExtractionHtmlReportRenderer {
     }
 
     /**
-     * Renders a candidate identity row shared by the undeclared and excluded tables.
+     * Renders the candidates nobody decided about that Artemis does not present as features. They never block the
+     * run and stay outside the model until someone declares them; the group is omitted when empty.
+     *
+     * @param unmodeled undecided candidates that are not feature-shaped.
+     * @return unmodeled disclosure markup, empty when there are none.
+     */
+    private String unmodeledGroup(List<CurationDecision> unmodeled) {
+        if (unmodeled.isEmpty()) {
+            return "";
+        }
+        return """
+                <details class="group">
+                <summary><span class="chip info">unmodeled</span> Unmodeled anchors <span class="count">%s</span>\
+                <span class="summary-hint">no decision; informational</span></summary>
+                <div class="scroll-x"><table>
+                <thead><tr><th scope="col">Candidate</th><th scope="col">Kind</th></tr></thead>
+                <tbody>
+                %s</tbody>
+                </table></div>
+                </details>
+                """.formatted(unmodeled.size(), renderEach(unmodeled, this::candidateRow));
+    }
+
+    /**
+     * Renders a candidate identity row shared by the undeclared, excluded, and unmodeled tables.
      *
      * @param decision candidate decision.
      * @return table row markup.
@@ -479,6 +510,79 @@ public class ExtractionHtmlReportRenderer {
         return """
                 <tr><td><code>%s</code></td><td>%s</td></tr>
                 """.formatted(escape(decision.candidateId()), escape(decision.candidateKind()));
+    }
+
+    /**
+     * Renders the per-member configuration-key resolutions: every key the precedence merge considered, with its
+     * origin, decision, secret flag, and evidence references. Members without any key resolution are summarized in
+     * one line instead of rendering empty tables. A run that failed before derivation carries no section data, which
+     * is stated explicitly.
+     *
+     * @param configDerivation configuration-derivation section of the report, or null.
+     * @return configuration section markup.
+     */
+    private String configDerivationSection(ConfigDerivationReport configDerivation) {
+        if (configDerivation == null) {
+            return """
+                    <section id="configuration">
+                    <h2>Configuration derivation</h2>
+                    <p class="muted">This run did not reach configuration derivation; the findings above state why.</p>
+                    </section>
+                    """;
+        }
+        List<MemberConfigDerivation> withKeys = configDerivation.members().stream().filter(member -> !member.keys().isEmpty()).toList();
+        List<MemberConfigDerivation> withoutKeys = configDerivation.members().stream().filter(member -> member.keys().isEmpty()).toList();
+        String emptyMembers = withoutKeys.isEmpty() ? "" : """
+                <p class="muted">No configuration keys were declared or derived for: %s.</p>
+                """.formatted(escape(withoutKeys.stream().map(MemberConfigDerivation::featureId).collect(Collectors.joining(", "))));
+        return """
+                <section id="configuration">
+                <h2>Configuration derivation <span class="count">%s</span></h2>
+                <p class="muted">Per functional member, every configuration key the precedence merge considered: confirmed or rejected by \
+                the manifest, derived from guarded Artemis structure, or listed as a tunable.</p>
+                %s%s</section>
+                """.formatted(configDerivation.members().size(), renderEach(withKeys, this::memberDerivationGroup), emptyMembers);
+    }
+
+    /**
+     * Renders one member's key resolutions as a collapsible table.
+     *
+     * @param member member key resolutions.
+     * @return nested disclosure markup.
+     */
+    private String memberDerivationGroup(MemberConfigDerivation member) {
+        String rows = renderEach(member.keys(), resolution -> """
+                <tr><td><code>%s</code></td><td><span class="tag">%s</span></td><td><span class="tag">%s</span></td><td>%s</td><td>%s</td><td>%s</td></tr>
+                """.formatted(escape(resolution.key()), escape(resolution.origin()), escape(resolution.decision()), resolution.secret() ? "secret" : "",
+                evidenceReferences(resolution.evidence()), resolution.detail() == null ? "" : escape(resolution.detail())));
+        return """
+                <details class="group nested">
+                <summary><code>%s</code> <span class="count">%s</span></summary>
+                <div class="scroll-x"><table>
+                <thead><tr><th scope="col">Key</th><th scope="col">Origin</th><th scope="col">Decision</th><th scope="col">Secret</th>\
+                <th scope="col">Evidence</th><th scope="col">Note</th></tr></thead>
+                <tbody>
+                %s</tbody>
+                </table></div>
+                </details>
+                """.formatted(escape(member.featureId()), member.keys().size(), rows);
+    }
+
+    /**
+     * Renders evidence items as short file references. Only the file name and line are shown, mirroring the model's
+     * evidence reference style, so the sanitizer never sees a slash-separated path.
+     *
+     * @param evidence evidence items of one key resolution.
+     * @return escaped evidence references separated by spaces.
+     */
+    private String evidenceReferences(List<EvidenceItem> evidence) {
+        return renderEach(evidence, item -> {
+            String fileName = item.file() == null ? "" : item.file().substring(item.file().lastIndexOf('/') + 1);
+            String reference = item.line() == null ? fileName : fileName + ":" + item.line();
+            return """
+                    <code>%s</code>
+                    """.formatted(escape(reference));
+        });
     }
 
     /**

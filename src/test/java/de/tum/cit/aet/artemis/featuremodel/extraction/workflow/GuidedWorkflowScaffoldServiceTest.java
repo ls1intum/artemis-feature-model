@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.FeatureManifestLoader;
 import tools.jackson.databind.ObjectMapper;
@@ -209,20 +209,21 @@ class GuidedWorkflowScaffoldServiceTest {
         assertThat(service.writeWorkflow(secondRun.workflow())).isEqualTo(afterFirstRun);
     }
 
-    private FeatureScopeManifest manifest(List<IncludeEntry> includes) {
-        return manifest(includes, List.of(rootNode(), groupNode("content-group")));
+    private FeatureScopeManifest manifest(List<FeatureEntry> features) {
+        return manifest(features, List.of(rootNode(), groupNode("content-group")));
     }
 
-    private FeatureScopeManifest manifest(List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
-        return manifest(includes, conceptualNodes, List.of());
+    private FeatureScopeManifest manifest(List<FeatureEntry> features, List<ConceptualNode> conceptualNodes) {
+        return manifest(features, conceptualNodes, List.of());
     }
 
-    private FeatureScopeManifest manifest(List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes, List<RenameEntry> renames) {
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, includes, List.of(), conceptualNodes, List.of(), List.of(), renames);
+    private FeatureScopeManifest manifest(List<FeatureEntry> features, List<ConceptualNode> conceptualNodes, List<RenameEntry> renames) {
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, features, List.of(), List.of(), List.of(), conceptualNodes, List.of(), List.of(),
+                renames);
     }
 
-    private IncludeEntry include(String id, String group, String name) {
-        return new IncludeEntry("module:" + id, id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), name, null, null, null);
+    private FeatureEntry include(String id, String group, String name) {
+        return new FeatureEntry(id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of(), name, null, null, null);
     }
 
     private ConceptualNode rootNode() {

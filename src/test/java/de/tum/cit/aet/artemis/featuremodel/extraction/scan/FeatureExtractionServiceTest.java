@@ -206,7 +206,6 @@ class FeatureExtractionServiceTest {
     @Test
     void completesWithoutExtractorErrors() {
         assertThat(itemsWithCode(ReportItem.CODE_EXTRACTOR_ERROR)).isEmpty();
-        assertThat(outcome.annotations()).isEmpty();
         assertThat(outcome.configDefaults().occurrencesByKey()).containsKey("artemis.alpha.enabled");
     }
 

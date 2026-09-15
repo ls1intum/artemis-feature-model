@@ -99,7 +99,7 @@ public class PackageStageService {
             stageItems.addAll(workflow.items());
             eligible = model.result().deliveryEligible() && workflow.result().deliveryEligible();
             ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), model.result().curation(),
-                    stageItems, eligible);
+                    model.configDerivation(), stageItems, eligible);
             artifactStore.writeReport(context.layout(), report);
             boolean published = snapshotPublisher.publish(context.layout(), model.generatedModel(), workflow.preparedWorkflow(), model.generatedCatalog(), report,
                     context.artemisCommit(), context.manifestDigest(), repositoryCommit(), Sha256Digest.of(inputs.deploymentProfileFile()),
