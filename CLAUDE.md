@@ -213,25 +213,38 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   manifest input with `-PfeatureManifestPath=<manifest.yml>`. Outputs are
   deterministic apart from scan-metadata timestamps; the drift report replaces
   the discovery step of the manual weekly consistency audit.
-- The scope manifest is schema version 3 and carries curation content only:
+- The scope manifest is schema version 4 and carries curation content only:
+  membership of a functional feature comes from a `provisional` entry (anchor
+  plus feature id), technical members from `technical` entries, deliberate
+  exclusions from `notModeled`, and every member's modeling semantics from its
+  `features` entry keyed by id. Functional knowledge comes from the Artemis
+  declarations the scan extracts; there is no source annotation channel. The
+  retired `include`/`exclude` sections and the `artemisCommitSha`/
+  `artemisImageDigest` identity fields are rejected with migration messages;
   the source revision is derived from the verified checkout HEAD (a file
-  cannot pin the commit that contains it), the runtime image reference lives
-  in `delivery/artemis-runtime-image.json`, and the retired
-  `artemisCommitSha`/`artemisImageDigest` fields are rejected with migration
-  messages. The scan verifies before reading any file that the checkout is a
-  clean git work tree and matches the expected revision when one is supplied.
-  Curation is fail-closed — an undeclared candidate, a relation between
-  included features without a declared constraint or an `ignoredRelations`
-  entry, an orphan or ambiguous anchor, a colliding decision, or a failed
-  extractor blocks the run, which writes diagnostics and exits non-zero without
-  assembling a model. Manifest-authored semantics win over `@ArtemisFeature`
-  annotations, which only fill attributes the manifest leaves open and never
-  grant membership. Exclusion reasons are optional: an omitted reason is
-  normalized to `unspecified` and reported as a non-blocking warning. Missing
-  rationale on an excluded runtime toggle also warns, while an included runtime
-  toggle without rationale remains a blocking curation conflict.
+  cannot pin the commit that contains it) and the runtime image reference
+  lives in `delivery/artemis-runtime-image.json`. The scan verifies before
+  reading any file that the checkout is a clean git work tree and matches the
+  expected revision when one is supplied. Curation is fail-closed and tiered:
+  a module candidate Artemis itself enumerates or displays as a feature blocks
+  the run when no manifest entry decides about it (`UNDECLARED_CANDIDATE`),
+  other undecided candidates are listed as `UNMODELED_ANCHOR` information; a
+  relation between included features without a declared constraint or an
+  `ignoredRelations` entry, an orphan or ambiguous anchor, a member without a
+  `features` entry, a colliding decision, or a failed extractor blocks the
+  run, which writes diagnostics and exits non-zero without assembling a model.
+  Environment mappings of functional members are derived from guarded
+  configuration injection sites, `@ConfigurationProperties` prefixes, and
+  enabled-key namespaces of the scanned checkout, classified into deployment
+  inputs and listed tunables; `features[].configuration` entries confirm,
+  add, or reject keys and take precedence over derivation, and the outcome is
+  persisted as `model/config-derivation.json`. Exclusion reasons are
+  optional: an omitted reason is normalized to `unspecified` and reported as a
+  non-blocking warning. Missing rationale on an excluded runtime toggle also
+  warns, while an included runtime toggle without rationale remains a blocking
+  curation conflict.
 - The extraction run additionally assembles a complete generated feature model
-  from the manifest's include entries and conceptual nodes — including the
+  from the manifest's member entries and conceptual nodes — including the
   first technical subtree (`database` mysql/postgresql and `ci-provider`
   integrated-code-lifecycle/jenkins as maintainer-only xor groups plus the
   mandatory `localvc` baseline, enforced through `alternative` group relations
