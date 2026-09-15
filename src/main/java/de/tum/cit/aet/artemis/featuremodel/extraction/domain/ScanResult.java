@@ -24,7 +24,7 @@ public record ScanResult(int schemaVersion, String extractorVersion, String arte
     public static final int CURRENT_SCHEMA_VERSION = 4;
 
     /** Version of the extraction pipeline, recorded in the scan metadata and verified by every downstream stage. */
-    public static final String EXTRACTOR_VERSION = "0.4.0";
+    public static final String EXTRACTOR_VERSION = "0.5.0";
 
     /**
      * Normalizes the digest map to an immutable copy.

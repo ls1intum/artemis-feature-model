@@ -59,6 +59,9 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A {@code @FeatureUsage} label is not an area/feature kebab-case label; the placement is kept. */
     public static final String CODE_FEATURE_USAGE_LABEL_MALFORMED = "FEATURE_USAGE_LABEL_MALFORMED";
 
+    /** A {@code @FeatureUsage} type is guarded by a condition class that names no model member; informational. */
+    public static final String CODE_FEATURE_USAGE_UNATTACHED = "FEATURE_USAGE_UNATTACHED";
+
     /** A manifest anchor, declared or implied by a features entry, matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 

@@ -40,6 +40,16 @@ class FeatureModelValidationServiceTest {
     }
 
     @Test
+    void ignoresMandatorySubFeatureNodesAndKeepsThemOutOfTheNormalizedSelection() {
+        var result = validationService(TestFeatureModels.withSubFeature("athena", "feedback/suggestions"))
+                .validateSelection(new ValidationRequest(List.of("exercise-common", "programming", "quiz", "athena")));
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.violations()).isEmpty();
+        assertThat(result.normalizedSelection()).containsExactly("exercise-common", "programming", "quiz", "athena");
+    }
+
+    @Test
     void reportsMissingMandatoryFeature() {
         var result = validationService(TestFeatureModels.baseModel()).validateSelection(new ValidationRequest(List.of("exercise-common", "quiz")));
 

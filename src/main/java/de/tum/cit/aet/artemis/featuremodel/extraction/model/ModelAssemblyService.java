@@ -13,7 +13,8 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Turns the source facts of one scan into the generated artifacts the manifest describes: it applies manifest
  * membership to the extracted candidates, gates on complete manifest conformance, derives the mappings and capabilities
- * of the members, assembles the generated feature model and the regenerated config key catalog, and
+ * of the members, joins the persisted feature usages to their guarding members, assembles the generated feature model
+ * with its sub-feature nodes and the regenerated config key catalog, and
  * validates the model-side rules. A run whose curation is incomplete stops at the gate and produces diagnostics only, so no model
  * can silently omit what the manifest never decided about. It never reopens the Artemis checkout — everything it
  * needs comes from the scan artifacts and the manifest.
@@ -57,15 +58,18 @@ class ModelAssemblyService {
         boolean derivationEligible = derivation.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         List<ResolvedFeatureScope> resolvedFeatures = derivation.resolvedFeatures();
 
+        FeatureUsageJoin.Result usageJoin = FeatureUsageJoin.join(resolvedFeatures, scan.candidates(), scan.featureUsages());
+        items.addAll(usageJoin.items());
+
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, resolvedFeatures, scan.candidates(),
-                scan.evidence(), artemisCommit);
+                scan.evidence(), usageJoin.subFeaturesByOwner(), artemisCommit);
         items.addAll(generated.items());
 
         GeneratedCatalogAssembler.Result generatedCatalog = new GeneratedCatalogAssembler().assemble(generated.model(), scan.configDefaults(), artemisCommit);
         items.addAll(generatedCatalog.items());
 
         List<ReportItem> generatedOutputFindings = new GeneratedModelConformanceService(objectMapper).validate(manifest, resolvedFeatures,
-                scan.candidates(), generated.model(), artemisCommit);
+                scan.candidates(), scan.featureUsages(), generated.model(), artemisCommit);
         items.addAll(generatedOutputFindings);
 
         GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model());

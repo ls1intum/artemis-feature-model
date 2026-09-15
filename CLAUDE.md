@@ -273,6 +273,22 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   development fixture. Runtime selects the complete classpath or snapshot bundle
   explicitly, and `StaticConfigValidationService` always consumes the catalog from
   that same validated bundle.
+- The scan also records every `@FeatureUsage`-annotated controller type as a
+  persisted fact (`scan/feature-usages.json`: labels, method overrides, and
+  the type's `@Conditional` and `@Profile` guards as written), and the model
+  stage joins them to their guarding members: a functional member owns the
+  types guarded by its condition class, a technical `profile:` member the
+  types guarded by its `PROFILE_*` constant or profile literal. Each distinct
+  label becomes a non-selectable `sub-feature` node
+  (`<owner>/<area>/<feature>`, `category: derived`, `defaultState:
+  not_applicable`, `source.usageLabel`, maintainer-only below technical
+  owners) with a `mandatory` relation ordered by area then feature; the
+  conformance step recomputes the set independently. Types guarded by a
+  condition class that names no member inform (`FEATURE_USAGE_UNATTACHED`),
+  unguarded types produce nothing (the package join for mandatory conceptual
+  modules is deferred). Nothing downstream treats sub-features as selectable;
+  the Configurator hides them and the Explorer shows them. See
+  `docs/extraction/feature-usage-sub-features.md`.
 - Enabled configuration keys are not standalone feature candidates and therefore
   need no manifest membership entries. Their constants, YAML defaults, and usage
   remain evidence on the owning module candidate and inputs to artifact mappings

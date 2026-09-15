@@ -36,7 +36,8 @@ import tools.jackson.databind.ObjectMapper;
  * the manifest, names and descriptions from Artemis i18n with manifest overrides, kind-based category and role
  * defaults keep technical features maintainer-only, the enabled-key artifact mapping is auto-derived from the scanned
  * configuration key, the deriver's resolved mappings follow it, every anchored feature carries a source block with
- * merged evidence references, the root is the declared root node or the implicit {@code artemis} root, and the
+ * merged evidence references, the root is the declared root node or the implicit {@code artemis} root, every member
+ * is followed by one non-selectable {@code sub-feature} node per {@code @FeatureUsage} label its guard owns, and the
  * constraints are the declared ones plus the pairwise exclusions of every {@code alternative} group. Output ordering is
  * a deterministic depth-first traversal, so two runs on the same commit produce byte-identical models.
  */
@@ -51,6 +52,12 @@ class GeneratedModelAssembler {
     private static final String KIND_GROUP = "group";
 
     private static final String KIND_MODULE = "module";
+
+    private static final String KIND_SUB_FEATURE = "sub-feature";
+
+    private static final String EXTRACTION_METHOD_FEATURE_USAGE = "feature-usage-annotation";
+
+    private static final String DEFAULT_STATE_NOT_APPLICABLE = "not_applicable";
 
     private static final String CATEGORY_DERIVED = "derived";
 
@@ -96,11 +103,12 @@ class GeneratedModelAssembler {
      * @param includedFeatures resolved include semantics from the curation step.
      * @param candidates extracted candidates providing names, config keys, and defaults.
      * @param evidence evidence items backing the candidates.
+     * @param subFeaturesByOwner joined feature-usage sub-features per member id, each list in emission order.
      * @param artemisCommit resolved commit of the scanned checkout.
      * @return assembled model and diagnostics.
      */
     Result assemble(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures, List<FeatureCandidate> candidates, List<EvidenceItem> evidence,
-            String artemisCommit) {
+            Map<String, List<FeatureUsageJoin.SubFeature>> subFeaturesByOwner, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         Map<String, FeatureCandidate> candidatesById = new LinkedHashMap<>();
         candidates.forEach(candidate -> candidatesById.putIfAbsent(candidate.id(), candidate));
@@ -112,7 +120,7 @@ class GeneratedModelAssembler {
         List<FeatureNode> features = new ArrayList<>();
         List<FeatureRelation> relations = new ArrayList<>();
         Map<String, List<ModelNode>> childrenByParent = childrenByParent(nodesById);
-        emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
+        emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, subFeaturesByOwner, features, relations);
         List<FeatureConstraint> constraints = assembleConstraints(manifest, features, nodesById, childrenByParent, items);
 
         ModelMetadata metadata = new ModelMetadata(GENERATED_MODEL_ID, GENERATED_MODEL_NAME, generatedVersion(artemisCommit), "generated", artemisCommit);
@@ -200,26 +208,73 @@ class GeneratedModelAssembler {
     }
 
     /**
-     * Emits features and relations in depth-first order: each node emits its incoming relation and feature node, then
-     * its children in sibling order, exactly mirroring the curated model's file layout.
+     * Emits features and relations in depth-first order: each node emits its incoming relation and feature node, a
+     * member then its sub-feature nodes, then its children in sibling order, exactly mirroring the curated model's file
+     * layout.
      *
      * @param node current node.
      * @param parent parent node, or null for the root.
      * @param childrenByParent children per parent id.
      * @param candidatesById candidates keyed by candidate id.
      * @param evidenceByCandidate evidence per candidate id.
+     * @param subFeaturesByOwner joined sub-features per member id.
      * @param features feature sink.
      * @param relations relation sink.
      */
     private void emitDepthFirst(ModelNode node, ModelNode parent, Map<String, List<ModelNode>> childrenByParent, Map<String, FeatureCandidate> candidatesById,
-            Map<String, List<EvidenceItem>> evidenceByCandidate, List<FeatureNode> features, List<FeatureRelation> relations) {
+            Map<String, List<EvidenceItem>> evidenceByCandidate, Map<String, List<FeatureUsageJoin.SubFeature>> subFeaturesByOwner, List<FeatureNode> features,
+            List<FeatureRelation> relations) {
         if (parent != null) {
             relations.add(relation(parent, node, siblingPosition(node, childrenByParent.get(parent.id()))));
         }
-        features.add(featureNode(node, candidatesById, evidenceByCandidate));
-        for (ModelNode child : childrenByParent.getOrDefault(node.id(), List.of())) {
-            emitDepthFirst(child, node, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
+        FeatureNode feature = featureNode(node, candidatesById, evidenceByCandidate);
+        features.add(feature);
+        if (node.included() != null) {
+            emitSubFeatures(feature, candidatesById.get(node.included().candidateId()), subFeaturesByOwner.getOrDefault(node.id(), List.of()), features,
+                    relations);
         }
+        for (ModelNode child : childrenByParent.getOrDefault(node.id(), List.of())) {
+            emitDepthFirst(child, node, childrenByParent, candidatesById, evidenceByCandidate, subFeaturesByOwner, features, relations);
+        }
+    }
+
+    /**
+     * Emits the sub-feature nodes of a member per contract C-1: one non-selectable, derived, maintainer-visible (for a
+     * technical owner) or owner-visible node per label with a mandatory relation ordered by area then feature.
+     *
+     * @param owner emitted member node.
+     * @param candidate extracted candidate of the owner, or null.
+     * @param subFeatures joined sub-features of the owner in emission order.
+     * @param features feature sink.
+     * @param relations relation sink.
+     */
+    private void emitSubFeatures(FeatureNode owner, FeatureCandidate candidate, List<FeatureUsageJoin.SubFeature> subFeatures, List<FeatureNode> features,
+            List<FeatureRelation> relations) {
+        boolean technical = CATEGORY_TECHNICAL.equals(owner.category());
+        int order = 1;
+        for (FeatureUsageJoin.SubFeature subFeature : subFeatures) {
+            String id = owner.id() + "/" + subFeature.label();
+            relations.add(new FeatureRelation(owner.id(), id, "mandatory", null, order++));
+            String description = "REST endpoints labelled " + subFeature.label() + " in module " + subFeature.module() + ", guarded by " + subFeature.guard() + ".";
+            FeatureSource source = technical
+                    ? new FeatureSource(null, candidate == null ? null : candidate.springProfile(), null, null, subFeature.label(), subFeature.evidence())
+                    : new FeatureSource(null, null, null, candidate == null ? null : candidate.serverConditionClass(), subFeature.label(), subFeature.evidence());
+            features.add(new FeatureNode(id, subFeatureName(subFeature.feature()), KIND_SUB_FEATURE, false, description, DEFAULT_STATE_NOT_APPLICABLE, source,
+                    CATEGORY_DERIVED, technical ? List.of(ROLE_MAINTAINER) : owner.visibleTo(), List.of(), List.of(), List.of(),
+                    new ExtractionMetadata(EXTRACTION_METHOD_FEATURE_USAGE, "high", "generated")));
+        }
+    }
+
+    /**
+     * Derives the display name of a sub-feature from the feature segment of its label: first letter upper-cased,
+     * hyphens turned into spaces.
+     *
+     * @param feature feature segment of the label.
+     * @return display name.
+     */
+    private String subFeatureName(String feature) {
+        String spaced = feature.replace('-', ' ');
+        return spaced.isEmpty() ? spaced : Character.toUpperCase(spaced.charAt(0)) + spaced.substring(1);
     }
 
     /**
@@ -445,7 +500,7 @@ class GeneratedModelAssembler {
         List<FeatureConstraint> derived = new ArrayList<>();
         for (FeatureNode feature : emittedFeatures) {
             ModelNode node = nodesById.get(feature.id());
-            if (!KIND_GROUP.equals(node.kind()) || !FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(node.groupType())) {
+            if (node == null || !KIND_GROUP.equals(node.kind()) || !FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(node.groupType())) {
                 continue;
             }
             List<AlternativeGroupConstraints.Child> children = childrenByParent.getOrDefault(node.id(), List.of()).stream()
