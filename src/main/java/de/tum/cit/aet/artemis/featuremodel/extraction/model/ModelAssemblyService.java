@@ -3,7 +3,6 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -13,8 +12,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Turns the source facts of one scan into the generated artifacts the manifest describes: it applies manifest
- * membership to the extracted candidates, gates on complete manifest conformance, derives the configuration mappings
- * of the functional members, assembles the generated feature model and the regenerated config key catalog, and
+ * membership to the extracted candidates, gates on complete manifest conformance, derives the mappings and capabilities
+ * of the members, assembles the generated feature model and the regenerated config key catalog, and
  * validates the model-side rules. A run whose curation is incomplete stops at the gate and produces diagnostics only, so no model
  * can silently omit what the manifest never decided about. It never reopens the Artemis checkout — everything it
  * needs comes from the scan artifacts and the manifest.
@@ -37,11 +36,10 @@ class ModelAssemblyService {
      *
      * @param manifest loaded scope manifest.
      * @param scan source facts of the consumed scan.
-     * @param bundledProfile bundled deployment profile for the capability cross-check.
      * @param artemisCommit resolved commit the scan was taken from.
      * @return generated artifacts and diagnostics.
      */
-    ModelAssemblyOutcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, DeploymentProfile bundledProfile, String artemisCommit) {
+    ModelAssemblyOutcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
         ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), artemisCommit);
         items.addAll(curation.items());
@@ -54,8 +52,9 @@ class ModelAssemblyService {
         }
 
         ConfigMappingDeriver.Result derivation = new ConfigMappingDeriver().derive(curation.includedFeatures(), scan.configInjections(), scan.configDefaults(),
-                scan.candidates());
+                scan.candidates(), scan.evidence());
         items.addAll(derivation.items());
+        boolean derivationEligible = derivation.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         List<ResolvedFeatureScope> resolvedFeatures = derivation.resolvedFeatures();
 
         GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, resolvedFeatures, scan.candidates(),
@@ -69,12 +68,12 @@ class ModelAssemblyService {
                 scan.candidates(), generated.model(), artemisCommit);
         items.addAll(generatedOutputFindings);
 
-        GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model(), resolvedFeatures, bundledProfile);
+        GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model());
         items.addAll(validation.items());
 
         boolean catalogEligible = generatedCatalog.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         return new ModelAssemblyOutcome(resolvedFeatures, curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(),
                 derivation.derivation(), generatedOutputFindings.isEmpty(), validation.modelIntegrityValid(),
-                validation.deliveryEligible() && catalogEligible && generatedOutputFindings.isEmpty(), List.copyOf(items));
+                validation.deliveryEligible() && catalogEligible && derivationEligible && generatedOutputFindings.isEmpty(), List.copyOf(items));
     }
 }

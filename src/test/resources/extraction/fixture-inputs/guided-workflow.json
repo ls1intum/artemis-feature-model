@@ -30,7 +30,7 @@
               "status": "published",
               "label": "Alpha",
               "description": "Fixture option.",
-              "selects": ["alpha-feature"],
+              "selects": ["alpha"],
               "enabledOutcome": ["Outcome."],
               "recommendedWhen": ["Fits."],
               "thingsToKnow": ["Notes."]

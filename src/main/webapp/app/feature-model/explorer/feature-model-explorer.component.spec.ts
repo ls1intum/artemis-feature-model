@@ -185,15 +185,15 @@ describe('FeatureModelExplorerComponent', () => {
         expect(matchCount?.textContent).toContain('1 match');
     });
 
-    it('filters by feature id and finds file-upload', () => {
+    it('filters by feature id and finds fileupload', () => {
         fixture.detectChanges();
         stub.subject.next(buildMvpFeatureModelResponse());
         fixture.detectChanges();
 
-        setSearch(fixture, 'file-upload');
+        setSearch(fixture, 'fileupload');
 
         const ids = getRenderedFeatureIds(fixture);
-        expect(ids).toContain('file-upload');
+        expect(ids).toContain('fileupload');
         expect(ids).toContain('exercise-system');
         expect(ids).not.toContain('lecture');
     });

@@ -10,14 +10,19 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
+import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelExceptionHandler;
+import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTreeService;
 import tools.jackson.databind.ObjectMapper;
 
 class DeploymentProfileResourceTest {
@@ -29,8 +34,11 @@ class DeploymentProfileResourceTest {
 
     @BeforeEach
     void setUp() {
-        DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), new ObjectMapper());
-        DeploymentProfileService service = new DeploymentProfileService(repository);
+        ObjectMapper objectMapper = new ObjectMapper();
+        DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
+        FeatureModelCatalogService catalogService = new FeatureModelCatalogService(new JsonFeatureModelStore(new DefaultResourceLoader(), objectMapper),
+                new FeatureModelIntegrityService(), new FeatureModelTreeService());
+        DeploymentProfileService service = new DeploymentProfileService(repository, catalogService);
         mockMvc = MockMvcBuilders.standaloneSetup(new DeploymentProfileResource(service)).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter()).build();
     }
@@ -44,7 +52,7 @@ class DeploymentProfileResourceTest {
     @Test
     void returnsProfileDetailWithCapabilities() throws Exception {
         mockMvc.perform(get("/api/deployment-profiles/default-artemis-profile")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value("default-artemis-profile")).andExpect(jsonPath("$.providedCapabilities", hasItem("pyris-service")))
+                .andExpect(jsonPath("$.id").value("default-artemis-profile")).andExpect(jsonPath("$.providedCapabilities", hasItem("iris-service")))
                 .andExpect(jsonPath("$.parameters").doesNotExist());
     }
 

@@ -16,22 +16,23 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.NotModeledEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ProvisionalEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.TechnicalEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 
 /**
  * Resolves the membership of every extracted candidate and the semantics of every member. Membership comes from a
- * provisional manifest entry for functional features or from a technical manifest entry; exclusion comes from a
- * notModeled entry. The gate is tiered by
- * feature shape: a module candidate Artemis itself enumerates or displays as a feature blocks the run when nobody
- * decided about it, any other undecided candidate is listed as information. Every finding becomes a report item
- * rather than aborting the run, so one run reports every gap at once; {@link ManifestConformanceService} turns the
- * errors into the blocking verdict, and statically detectable authoring errors are rejected earlier by
+ * features entry, whose id is the Artemis module id and implies the anchor {@code module:<id>}, or from a technical
+ * manifest entry with an explicit anchor; exclusion comes from a notModeled entry. The gate is tiered by feature shape:
+ * a module candidate Artemis itself enumerates or displays as a feature blocks the run when nobody decided about it,
+ * any other undecided candidate is listed as information. Every finding becomes a report item rather than aborting the
+ * run, so one run reports every gap at once; {@link ManifestConformanceService} turns the errors into the blocking
+ * verdict, and statically detectable authoring errors are rejected earlier by
  * {@link de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.FeatureManifestLoader}.
  */
 class ScopeCurationService {
+
+    private static final String KIND_TECHNICAL_FEATURE = "feature";
 
     /**
      * Curation result.
@@ -47,12 +48,12 @@ class ScopeCurationService {
      * Resolved membership of one candidate.
      *
      * @param source one of the {@code CurationReport.SOURCE_*} membership constants.
-     * @param anchor manifest anchor that declared the membership.
-     * @param id feature id for members, otherwise null.
-     * @param semantics inline semantics of a technical member, otherwise null.
+     * @param anchor declared or implied manifest anchor.
+     * @param semantics manifest semantics of a member, otherwise null.
+     * @param profiles Spring profile tokens of a technical member, empty otherwise.
      * @param notModeled exclusion entry, otherwise null.
      */
-    private record Membership(String source, String anchor, String id, FeatureEntry semantics, NotModeledEntry notModeled) {
+    private record Membership(String source, String anchor, FeatureEntry semantics, List<String> profiles, NotModeledEntry notModeled) {
     }
 
     /**
@@ -67,15 +68,12 @@ class ScopeCurationService {
         List<ReportItem> items = new ArrayList<>();
         CandidateResolver resolver = new CandidateResolver(candidates);
         Map<String, Membership> membershipByCandidate = resolveManifestMembership(manifest, resolver, items);
-        Map<String, FeatureEntry> featuresById = new LinkedHashMap<>();
-        manifest.features().forEach(entry -> featuresById.put(entry.id(), entry));
 
         List<CurationDecision> decisions = new ArrayList<>();
         List<ResolvedFeatureScope> includedFeatures = new ArrayList<>();
         for (FeatureCandidate candidate : candidates) {
-            classifyCandidate(candidate, membershipByCandidate.get(candidate.id()), featuresById, decisions, includedFeatures, items);
+            classifyCandidate(candidate, membershipByCandidate.get(candidate.id()), decisions, includedFeatures, items);
         }
-        reportUnknownFeatureEntries(manifest, membershipByCandidate, items);
 
         includedFeatures.sort(Comparator.comparing(ResolvedFeatureScope::candidateId));
         reportResolvedSemanticConflicts(manifest, includedFeatures, items);
@@ -85,9 +83,9 @@ class ScopeCurationService {
     }
 
     /**
-     * Resolves the technical, provisional, and notModeled anchors onto candidates. An anchor that resolves to no
-     * candidate or to several candidates yields an orphan diagnostic and is skipped; several entries resolving to the
-     * same candidate yield a conflict diagnostic and the first entry wins.
+     * Resolves the technical anchors, the implied features anchors, and the notModeled anchors onto candidates. An
+     * anchor that resolves to no candidate or to several candidates yields an orphan diagnostic and is skipped; several
+     * entries resolving to the same candidate yield a conflict diagnostic and the first entry wins.
      *
      * @param manifest loaded manifest.
      * @param resolver candidate resolver.
@@ -99,19 +97,20 @@ class ScopeCurationService {
         for (TechnicalEntry entry : manifest.technical()) {
             String candidateId = resolveAnchor(entry.anchor(), resolver, items);
             if (candidateId != null && !conflictsWithExistingEntry(membershipByCandidate, candidateId, entry.anchor(), items)) {
-                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_TECHNICAL, entry.anchor(), entry.feature().id(), entry.feature(), null));
+                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_TECHNICAL, entry.anchor(), entry.feature(), entry.profiles(), null));
             }
         }
-        for (ProvisionalEntry entry : manifest.provisional()) {
-            String candidateId = resolveAnchor(entry.anchor(), resolver, items);
-            if (candidateId != null && !conflictsWithExistingEntry(membershipByCandidate, candidateId, entry.anchor(), items)) {
-                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_PROVISIONAL, entry.anchor(), entry.id(), null, null));
+        for (FeatureEntry entry : manifest.features()) {
+            String anchor = FeatureScopeManifest.moduleAnchor(entry.id());
+            String candidateId = resolveAnchor(anchor, resolver, items);
+            if (candidateId != null && !conflictsWithExistingEntry(membershipByCandidate, candidateId, anchor, items)) {
+                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_FEATURES, anchor, entry, List.of(), null));
             }
         }
         for (NotModeledEntry entry : manifest.notModeled()) {
             String candidateId = resolveAnchor(entry.anchor(), resolver, items);
             if (candidateId != null && !conflictsWithExistingEntry(membershipByCandidate, candidateId, entry.anchor(), items)) {
-                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_NOT_MODELED, entry.anchor(), null, null, entry));
+                membershipByCandidate.put(candidateId, new Membership(CurationReport.SOURCE_NOT_MODELED, entry.anchor(), null, List.of(), entry));
                 reportIncompleteExclusionDocumentation(resolver.candidate(candidateId), entry, items);
             }
         }
@@ -121,7 +120,7 @@ class ScopeCurationService {
     /**
      * Resolves one manifest anchor and reports resolution failures as orphan diagnostics.
      *
-     * @param anchor manifest anchor.
+     * @param anchor declared or implied manifest anchor.
      * @param resolver candidate resolver.
      * @param items report item sink.
      * @return resolved candidate id, or null when the anchor is unknown or ambiguous.
@@ -172,17 +171,16 @@ class ScopeCurationService {
     }
 
     /**
-     * Classifies one candidate and, for members, resolves the semantics from the manifest.
+     * Classifies one candidate and, for members, resolves the semantics from the manifest entry.
      *
      * @param candidate extracted candidate.
      * @param membership resolved membership, or null when nobody decided about the candidate.
-     * @param featuresById manifest features entries keyed by id.
      * @param decisions decision sink.
      * @param includedFeatures resolved member semantics sink.
      * @param items report item sink.
      */
-    private void classifyCandidate(FeatureCandidate candidate, Membership membership, Map<String, FeatureEntry> featuresById, List<CurationDecision> decisions,
-            List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
+    private void classifyCandidate(FeatureCandidate candidate, Membership membership, List<CurationDecision> decisions, List<ResolvedFeatureScope> includedFeatures,
+            List<ReportItem> items) {
         if (membership == null) {
             classifyUndecided(candidate, decisions, items);
             return;
@@ -192,22 +190,13 @@ class ScopeCurationService {
                     membership.source()));
             return;
         }
-        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_INCLUDE, membership.id(), null, membership.source()));
-        FeatureEntry semantics = membership.semantics() != null ? membership.semantics() : featuresById.get(membership.id());
-        if (semantics == null) {
-            items.add(ReportItem.error(ReportItem.CODE_MEMBER_UNPLACED, candidate.id(), "Member '" + membership.id() + "' declared by "
-                    + membership.source() + " anchor '" + membership.anchor() + "' has no features entry; add features[id=" + membership.id() + "] with its placement."));
-            return;
-        }
+        FeatureEntry semantics = membership.semantics();
+        decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_INCLUDE, semantics.id(), null, membership.source()));
         if (FeatureCandidate.KIND_RUNTIME_TOGGLE.equals(candidate.kind()) && semantics.rationale() == null) {
             items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, candidate.id(),
-                    "Runtime toggle member '" + membership.id() + "' has no rationale; every modeled toggle must document its reasoning."));
+                    "Runtime toggle member '" + semantics.id() + "' has no rationale; every modeled toggle must document its reasoning."));
         }
-        if (CurationReport.SOURCE_PROVISIONAL.equals(membership.source())) {
-            items.add(ReportItem.info(ReportItem.CODE_PROVISIONAL_MEMBERSHIP, candidate.id(),
-                    "Membership of '" + membership.id() + "' is carried by provisional entry '" + membership.anchor() + "'."));
-        }
-        includedFeatures.add(resolveSemantics(candidate, membership.id(), semantics, membership.source()));
+        includedFeatures.add(resolveSemantics(candidate, membership));
     }
 
     /**
@@ -221,12 +210,12 @@ class ScopeCurationService {
         if (isFeatureShaped(candidate)) {
             decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_UNDECLARED, null, null, CurationReport.SOURCE_UNDECLARED));
             items.add(ReportItem.error(ReportItem.CODE_UNDECLARED_CANDIDATE, candidate.id(), "Artemis presents this module as a feature, but no manifest "
-                    + "entry decides about it; add a provisional entry or list it in notModeled."));
+                    + "entry decides about it; add a features entry keyed by the module id or list it in notModeled."));
             return;
         }
         decisions.add(new CurationDecision(candidate.id(), candidate.kind(), CurationReport.STATE_UNMODELED, null, null, CurationReport.SOURCE_UNMODELED));
         items.add(ReportItem.info(ReportItem.CODE_UNMODELED_ANCHOR, candidate.id(),
-                "Candidate has no decision and stays outside the model; add a manifest entry to model or exclude it."));
+                "Candidate has no decision and stays outside the model; add a features, technical, or notModeled entry to model or exclude it."));
     }
 
     /**
@@ -242,24 +231,6 @@ class ScopeCurationService {
     }
 
     /**
-     * Reports features entries whose id no provisional or technical entry declares as a member.
-     *
-     * @param manifest loaded manifest.
-     * @param membershipByCandidate resolved memberships.
-     * @param items report item sink.
-     */
-    private void reportUnknownFeatureEntries(FeatureScopeManifest manifest, Map<String, Membership> membershipByCandidate, List<ReportItem> items) {
-        Set<String> memberIds = new LinkedHashSet<>();
-        membershipByCandidate.values().stream().filter(membership -> membership.id() != null).forEach(membership -> memberIds.add(membership.id()));
-        for (FeatureEntry entry : manifest.features()) {
-            if (!memberIds.contains(entry.id())) {
-                items.add(ReportItem.error(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, entry.id(), "features entry '" + entry.id()
-                        + "' matches no member: no provisional or technical entry declares this id for this scan."));
-            }
-        }
-    }
-
-    /**
      * Reports conflicts in the resolved member semantics: duplicate feature ids and parent or group references that
      * no longer resolve after skipped orphan entries. The manifest-internal references were already validated
      * statically by the loader, so every conflict here is scan-induced.
@@ -270,6 +241,9 @@ class ScopeCurationService {
      */
     private void reportResolvedSemanticConflicts(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures, List<ReportItem> items) {
         Set<String> resolvedIds = new LinkedHashSet<>();
+        if (!manifest.declaresRoot()) {
+            resolvedIds.add(FeatureScopeManifest.IMPLICIT_ROOT_ID);
+        }
         manifest.conceptualNodes().forEach(node -> resolvedIds.add(node.id()));
         for (ResolvedFeatureScope feature : includedFeatures) {
             if (!resolvedIds.add(feature.id())) {
@@ -299,34 +273,32 @@ class ScopeCurationService {
     }
 
     /**
-     * Combines the id of a membership declaration with the modeling semantics of its manifest entry.
+     * Combines the membership of a candidate with the modeling semantics of its manifest entry. Technical members are
+     * features of category technical by section; functional members take their kind from the candidate kind and their
+     * declared category.
      *
      * @param candidate extracted candidate.
-     * @param id feature id declared by the membership.
-     * @param semantics manifest semantics of the member.
-     * @param membershipSource what declared the membership.
+     * @param membership resolved membership.
      * @return resolved semantics.
      */
-    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, String id, FeatureEntry semantics, String membershipSource) {
+    private ResolvedFeatureScope resolveSemantics(FeatureCandidate candidate, Membership membership) {
+        FeatureEntry semantics = membership.semantics();
+        boolean technical = CurationReport.SOURCE_TECHNICAL.equals(membership.source());
         String optionality = semantics.optionality() == null ? FeatureScopeManifest.OPTIONALITY_OPTIONAL : semantics.optionality();
-        return new ResolvedFeatureScope(candidate.id(), id, semantics.group(), semantics.parent(), kind(semantics.kind(), candidate), optionality,
-                semantics.category(), semantics.defaultState(), semantics.order(), semantics.requiresCapabilities(), semantics.providesCapabilities(),
-                semantics.artifactMappings(), semantics.configuration(), semantics.name(), semantics.description(), semantics.documentationUrl(),
-                membershipSource);
+        String kind = technical ? KIND_TECHNICAL_FEATURE : kind(candidate);
+        String category = technical ? FeatureScopeManifest.CATEGORY_TECHNICAL : semantics.category();
+        return new ResolvedFeatureScope(candidate.id(), semantics.id(), semantics.group(), semantics.parent(), kind, optionality, category,
+                semantics.defaultState(), semantics.order(), List.of(), membership.profiles(), List.of(), semantics.configuration(), semantics.name(),
+                semantics.description(), semantics.documentationUrl(), membership.source());
     }
 
     /**
-     * Chooses the model kind of a member: the explicit override when present, otherwise a default derived from the
-     * extraction candidate kind.
+     * Derives the model kind of a functional member from the extraction candidate kind.
      *
-     * @param declaredKind explicit kind from the manifest, or null.
      * @param candidate extracted candidate.
      * @return model kind.
      */
-    private String kind(String declaredKind, FeatureCandidate candidate) {
-        if (declaredKind != null) {
-            return declaredKind;
-        }
+    private String kind(FeatureCandidate candidate) {
         return switch (candidate.kind()) {
             case FeatureCandidate.KIND_MODULE_FEATURE -> "module";
             case FeatureCandidate.KIND_RUNTIME_TOGGLE -> "runtime-toggle";

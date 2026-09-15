@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IgnoredRelationEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
@@ -65,6 +66,20 @@ class ManifestConformanceServiceTest {
     }
 
     @Test
+    void acceptsARelationCoveredByADerivedAlternativeGroupExclusion() {
+        ConceptualNode xorGroup = new ConceptualNode("xor-group", "root", "group", null, null, FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE, 1, null, null);
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), List.of(xorGroup),
+                List.of(), List.of());
+        List<ResolvedFeatureScope> alternatives = List.of(included("module:alpha", "alpha", "xor-group", 1), included("module:beta", "beta", "xor-group", 2));
+
+        ManifestConformanceService.Result result = conformanceService.evaluate(manifest, alternatives, List.of(relation()), curation(List.of()), List.of(),
+                List.of());
+
+        assertThat(result.conformance().conformant()).isTrue();
+        assertThat(result.items()).isEmpty();
+    }
+
+    @Test
     void acceptsARelationExplicitlyIgnoredWithARationale() {
         List<IgnoredRelationEntry> ignored = List.of(new IgnoredRelationEntry("relation:AlphaWithBeta", "Independent modules; the condition only guards glue code."));
 
@@ -86,17 +101,15 @@ class ManifestConformanceServiceTest {
 
     @Test
     void failsOnMembershipDiagnostics() {
-        List<ReportItem> curationItems = List.of(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "GhostEnabled", "No candidate."),
-                ReportItem.error(ReportItem.CODE_MEMBER_UNPLACED, "module:alpha", "No features entry."),
-                ReportItem.error(ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN, "ghost", "No member."),
+        List<ReportItem> curationItems = List.of(ReportItem.error(ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR, "module:ghost", "No candidate."),
                 ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "module:beta", "Collision."),
                 ReportItem.info(ReportItem.CODE_UNMODELED_ANCHOR, "toggle:RateLimit", "Listed."));
 
         ManifestConformanceService.Result result = evaluate(manifest(List.of(), List.of()), List.of(), curation(List.of()), curationItems, List.of());
 
         assertThat(result.conformance().conformant()).isFalse();
-        assertThat(result.conformance().unresolvedAnchors()).containsExactly("GhostEnabled");
-        assertThat(result.conformance().conflictingDecisions()).containsExactly("ghost", "module:alpha", "module:beta");
+        assertThat(result.conformance().unresolvedAnchors()).containsExactly("module:ghost");
+        assertThat(result.conformance().conflictingDecisions()).containsExactly("module:beta");
     }
 
     @Test
@@ -137,8 +150,7 @@ class ManifestConformanceServiceTest {
      * @return scope manifest.
      */
     private FeatureScopeManifest manifest(List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations) {
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), List.of(), List.of(), constraints,
-                ignoredRelations, List.of());
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), List.of(), constraints, ignoredRelations);
     }
 
     /**
@@ -157,11 +169,12 @@ class ManifestConformanceServiceTest {
      * @return resolved include semantics.
      */
     private List<ResolvedFeatureScope> includedFeatures() {
-        return List.of(
-                new ResolvedFeatureScope("module:alpha", "alpha", null, "root", "module", "optional", null, null, 1, List.of(), List.of(), List.of(), List.of(), null, null,
-                        null, CurationReport.SOURCE_PROVISIONAL),
-                new ResolvedFeatureScope("module:beta", "beta", null, "root", "module", "optional", null, null, 2, List.of(), List.of(), List.of(), List.of(), null, null,
-                        null, CurationReport.SOURCE_PROVISIONAL));
+        return List.of(included("module:alpha", "alpha", null, 1), included("module:beta", "beta", null, 2));
+    }
+
+    private ResolvedFeatureScope included(String candidateId, String id, String group, int order) {
+        return new ResolvedFeatureScope(candidateId, id, group, group == null ? "root" : null, "module", "optional", null, null, order, List.of(), List.of(),
+                List.of(), List.of(), null, null, null, CurationReport.SOURCE_FEATURES);
     }
 
     /**

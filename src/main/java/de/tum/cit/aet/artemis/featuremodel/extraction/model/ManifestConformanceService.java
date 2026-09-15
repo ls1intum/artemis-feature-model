@@ -9,6 +9,7 @@ import java.util.Set;
 
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ManifestConformance;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.RelationCandidate;
@@ -48,15 +49,15 @@ class ManifestConformanceService {
         List<String> undeclaredRelations = evaluateRelationDecisions(manifest, includedFeatures, relationCandidates, items);
         ManifestConformance conformance = ManifestConformance.from(List.copyOf(curation.undeclaredCandidateIds()), undeclaredRelations,
                 subjectsOf(curationItems, ReportItem.CODE_MANIFEST_ORPHAN_ANCHOR),
-                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT, ReportItem.CODE_MEMBER_UNPLACED, ReportItem.CODE_MANIFEST_FEATURE_UNKNOWN),
+                subjectsOf(curationItems, ReportItem.CODE_MANIFEST_CURATION_CONFLICT),
                 subjectsOf(scanItems, ReportItem.CODE_EXTRACTOR_ERROR));
         return new Result(conformance, List.copyOf(items));
     }
 
     /**
-     * Requires a decision for every relation candidate whose members are all included: either a declared constraint
-     * covering the pair, or an explicit ignore entry. Relations touching an excluded candidate need no decision, since
-     * the excluded side is already outside the model.
+     * Requires a decision for every relation candidate whose members are all included: either a declared or derived
+     * constraint covering the pair, or an explicit ignore entry. Relations touching an excluded candidate need no
+     * decision, since the excluded side is already outside the model.
      *
      * @param manifest loaded scope manifest.
      * @param includedFeatures resolved include semantics.
@@ -68,7 +69,7 @@ class ManifestConformanceService {
             List<RelationCandidate> relationCandidates, List<ReportItem> items) {
         Map<String, String> includedIdByCandidate = new LinkedHashMap<>();
         includedFeatures.forEach(included -> includedIdByCandidate.put(included.candidateId(), included.id()));
-        Set<String> declaredPairs = declaredConstraintPairs(manifest);
+        Set<String> declaredPairs = constraintPairs(manifest, includedFeatures);
         Set<String> ignoredRelationIds = new LinkedHashSet<>();
         manifest.ignoredRelations().forEach(entry -> ignoredRelationIds.add(entry.id()));
 
@@ -87,18 +88,45 @@ class ManifestConformanceService {
     }
 
     /**
-     * Collects the feature id pairs a declared constraint covers, in both directions.
+     * Collects the feature id pairs a declared constraint or a derived alternative-group exclusion covers, in both
+     * directions. The children of an alternative group are the conceptual nodes and members placed under it.
      *
      * @param manifest loaded scope manifest.
+     * @param includedFeatures resolved include semantics.
      * @return covered pairs.
      */
-    private Set<String> declaredConstraintPairs(FeatureScopeManifest manifest) {
-        Set<String> declaredPairs = new LinkedHashSet<>();
+    private Set<String> constraintPairs(FeatureScopeManifest manifest, List<ResolvedFeatureScope> includedFeatures) {
+        Set<String> pairs = new LinkedHashSet<>();
         for (ConstraintEntry constraint : manifest.constraints()) {
-            declaredPairs.add(constraint.source() + "->" + constraint.target());
-            declaredPairs.add(constraint.target() + "->" + constraint.source());
+            addPair(pairs, constraint.source(), constraint.target());
         }
-        return declaredPairs;
+        for (ConceptualNode group : manifest.conceptualNodes()) {
+            if (!FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(group.groupType())) {
+                continue;
+            }
+            List<String> children = new ArrayList<>();
+            manifest.conceptualNodes().stream().filter(node -> group.id().equals(node.parent())).forEach(node -> children.add(node.id()));
+            includedFeatures.stream().filter(included -> group.id().equals(included.group() != null ? included.group() : included.parent()))
+                    .forEach(included -> children.add(included.id()));
+            for (int source = 0; source < children.size(); source++) {
+                for (int target = source + 1; target < children.size(); target++) {
+                    addPair(pairs, children.get(source), children.get(target));
+                }
+            }
+        }
+        return pairs;
+    }
+
+    /**
+     * Adds a covered pair in both directions.
+     *
+     * @param pairs covered pairs.
+     * @param first one endpoint id.
+     * @param second the other endpoint id.
+     */
+    private void addPair(Set<String> pairs, String first, String second) {
+        pairs.add(first + "->" + second);
+        pairs.add(second + "->" + first);
     }
 
     /**

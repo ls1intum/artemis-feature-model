@@ -47,15 +47,6 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A candidate Artemis does not present as a feature has no decision; listed as information, never modeled. */
     public static final String CODE_UNMODELED_ANCHOR = "UNMODELED_ANCHOR";
 
-    /** A member declared by a provisional entry has no features entry placing it in the hierarchy. */
-    public static final String CODE_MEMBER_UNPLACED = "MEMBER_UNPLACED";
-
-    /** A features entry names an id that no provisional or technical entry declares as a member. */
-    public static final String CODE_MANIFEST_FEATURE_UNKNOWN = "MANIFEST_FEATURE_UNKNOWN";
-
-    /** A provisional entry carries the membership of a functional member. */
-    public static final String CODE_PROVISIONAL_MEMBERSHIP = "PROVISIONAL_MEMBERSHIP";
-
     /** A deployment-input mapping was derived from guarded Artemis structure without a declaration. */
     public static final String CODE_CONFIG_MAPPING_DERIVED = "CONFIG_MAPPING_DERIVED";
 
@@ -65,8 +56,14 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A manifest configuration entry rejects a key, so no mapping is emitted for it. */
     public static final String CODE_CONFIG_MAPPING_REJECTED = "CONFIG_MAPPING_REJECTED";
 
-    /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
+    /** A manifest anchor, declared or implied by a features entry, matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
+
+    /** A declared constraint duplicates a derived alternative-group exclusion; it is dropped. */
+    public static final String CODE_MANIFEST_CONSTRAINT_REDUNDANT = "MANIFEST_CONSTRAINT_REDUNDANT";
+
+    /** A technical member's compose or profile mapping cannot be derived from its anchor; blocking. */
+    public static final String CODE_TECHNICAL_MAPPING_UNDERIVABLE = "TECHNICAL_MAPPING_UNDERIVABLE";
 
     /** Manifest entries or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
@@ -88,9 +85,6 @@ public record ReportItem(String severity, String code, String subject, String me
 
     /** A technical feature of the generated model is visible or configurable for teachers. */
     public static final String CODE_TECHNICAL_FEATURE_ROLE_LEAK = "TECHNICAL_FEATURE_ROLE_LEAK";
-
-    /** An included technical feature provides a capability the bundled deployment profile does not list. */
-    public static final String CODE_PROFILE_CAPABILITY_MISMATCH = "PROFILE_CAPABILITY_MISMATCH";
 
     /** A relation candidate between included features has neither a declared constraint nor an explicit ignore entry. */
     public static final String CODE_RELATION_CANDIDATE_UNDECLARED = "RELATION_CANDIDATE_UNDECLARED";

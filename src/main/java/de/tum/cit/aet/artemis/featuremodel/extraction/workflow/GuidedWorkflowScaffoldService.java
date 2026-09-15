@@ -11,7 +11,6 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestExce
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
 import tools.jackson.core.util.DefaultIndenter;
 import tools.jackson.core.util.DefaultPrettyPrinter;
 import tools.jackson.core.util.Separators;
@@ -61,11 +60,10 @@ public class GuidedWorkflowScaffoldService {
      * @param addedOptionIds ids of appended stub options.
      * @param addedDecisionIds ids of appended scaffold decisions that need placement review.
      * @param addedReviewGroupNodeIds group node ids of appended review groups.
-     * @param renamedIds renames applied as {@code old->new} entries.
      * @param orphanReferences feature ids referenced by the workflow that no manifest entry declares; never deleted.
      */
     public record ScaffoldReport(String status, List<String> addedOptionIds, List<String> addedDecisionIds, List<String> addedReviewGroupNodeIds,
-            List<String> renamedIds, List<String> orphanReferences) {
+            List<String> orphanReferences) {
     }
 
     /** One guided-eligible feature of the manifest with its group placement and display label. */
@@ -83,7 +81,6 @@ public class GuidedWorkflowScaffoldService {
         Map<String, EligibleFeature> eligibleById = eligibleFeatures(manifest);
         Set<String> knownIds = knownIds(manifest);
 
-        List<String> renames = applyDeclaredRenames(workflow, manifest.renames());
         Set<String> coveredIds = coveredFeatureIds(workflow);
         List<String> orphanReferences = referencedIds(workflow).stream().filter(id -> !knownIds.contains(id)).toList();
 
@@ -100,10 +97,10 @@ public class GuidedWorkflowScaffoldService {
             ensureReviewGroup(workflow, feature.group(), addedReviewGroupNodeIds);
         }
 
-        boolean changed = !renames.isEmpty() || !addedOptionIds.isEmpty() || !addedReviewGroupNodeIds.isEmpty();
+        boolean changed = !addedOptionIds.isEmpty() || !addedReviewGroupNodeIds.isEmpty();
         String status = changed ? "updated" : "no-changes";
         return new Result(changed, workflow, new ScaffoldReport(status, List.copyOf(addedOptionIds), List.copyOf(addedDecisionIds),
-                List.copyOf(addedReviewGroupNodeIds), renames, List.copyOf(orphanReferences)));
+                List.copyOf(addedReviewGroupNodeIds), List.copyOf(orphanReferences)));
     }
 
     /**
@@ -149,7 +146,8 @@ public class GuidedWorkflowScaffoldService {
     }
 
     /**
-     * Collects every feature id the manifest declares: features, technical, provisional, and conceptual nodes.
+     * Collects every feature id the manifest declares: features, technical, and conceptual nodes, plus the implicit
+     * root when no root is declared.
      *
      * @param manifest loaded manifest.
      * @return known feature ids.
@@ -158,76 +156,11 @@ public class GuidedWorkflowScaffoldService {
         Set<String> knownIds = new LinkedHashSet<>();
         manifest.features().forEach(entry -> knownIds.add(entry.id()));
         manifest.technical().forEach(entry -> knownIds.add(entry.feature().id()));
-        manifest.provisional().forEach(entry -> knownIds.add(entry.id()));
         manifest.conceptualNodes().forEach(node -> knownIds.add(node.id()));
+        if (!manifest.declaresRoot()) {
+            knownIds.add(FeatureScopeManifest.IMPLICIT_ROOT_ID);
+        }
         return knownIds;
-    }
-
-    /**
-     * Applies only maintainer-declared mechanical id renames. A referenced source cannot be rewritten onto a target
-     * the workflow already references because that would merge two independently authored meanings.
-     *
-     * @param workflow workflow document.
-     * @param declaredRenames explicit manifest rename declarations.
-     * @return applied renames as {@code old->new} entries.
-     * @throws FeatureManifestException if a referenced rename target is already covered by the workflow.
-     */
-    private List<String> applyDeclaredRenames(ObjectNode workflow, List<RenameEntry> declaredRenames) {
-        List<String> applied = new ArrayList<>();
-        for (RenameEntry rename : declaredRenames) {
-            Set<String> referenced = new LinkedHashSet<>(referencedIds(workflow));
-            if (!referenced.contains(rename.from())) {
-                continue;
-            }
-            if (referenced.contains(rename.to())) {
-                throw new FeatureManifestException("Cannot rename workflow id '" + rename.from() + "' to already-covered target '" + rename.to() + "'.");
-            }
-            rewriteIdReferences(workflow, rename.from(), rename.to());
-            applied.add(rename.from() + "->" + rename.to());
-        }
-        return List.copyOf(applied);
-    }
-
-    /**
-     * Rewrites one feature id in every id reference list of the document.
-     *
-     * @param workflow workflow document.
-     * @param oldId id to replace.
-     * @param newId replacement id.
-     */
-    private void rewriteIdReferences(ObjectNode workflow, String oldId, String newId) {
-        for (ObjectNode template : objectElements(workflow.withArrayProperty("useCaseTemplates"))) {
-            rewriteIdList(template.withArrayProperty("selectedFeatureIds"), oldId, newId);
-            rewriteIdList(template.withArrayProperty("deselectedFeatureIds"), oldId, newId);
-        }
-        for (ObjectNode step : objectElements(workflow.withArrayProperty("steps"))) {
-            for (ObjectNode decision : objectElements(step.withArrayProperty("decisions"))) {
-                for (ObjectNode option : objectElements(decision.withArrayProperty("options"))) {
-                    rewriteIdList(option.withArrayProperty("selects"), oldId, newId);
-                    rewriteIdList(option.withArrayProperty("deselects"), oldId, newId);
-                }
-            }
-        }
-        for (ObjectNode reviewGroup : objectElements(workflow.withArrayProperty("finalReviewGroups"))) {
-            if (oldId.equals(reviewGroup.path("groupNodeId").asString(null))) {
-                reviewGroup.put("groupNodeId", newId);
-            }
-        }
-    }
-
-    /**
-     * Replaces occurrences of an id inside one string array.
-     *
-     * @param ids id array node.
-     * @param oldId id to replace.
-     * @param newId replacement id.
-     */
-    private void rewriteIdList(ArrayNode ids, String oldId, String newId) {
-        for (int index = 0; index < ids.size(); index++) {
-            if (oldId.equals(ids.get(index).asString())) {
-                ids.set(index, objectMapper.getNodeFactory().stringNode(newId));
-            }
-        }
     }
 
     /**

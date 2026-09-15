@@ -38,7 +38,7 @@ import tools.jackson.databind.ObjectMapper;
 class RemoteAnsibleDeploymentPackageTest {
 
     private static final List<String> FULL_POSTGRES_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "postgresql", "integrated-code-lifecycle", "localvc");
+            "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "postgresql", "integrated-code-lifecycle", "localvc");
 
     @TempDir
     Path dataRoot;
@@ -56,7 +56,7 @@ class RemoteAnsibleDeploymentPackageTest {
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
-        DeploymentProfileService profileService = new DeploymentProfileService(repository);
+        DeploymentProfileService profileService = new DeploymentProfileService(repository, catalogService);
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);

@@ -3,30 +3,42 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.domain;
 import java.util.List;
 
 /**
- * Curation manifest for extracted Artemis candidates, schema version 4. Membership of a functional feature is declared
- * by a {@code provisional} entry; {@code technical} entries declare the maintainer-only features without a Java anchor;
- * {@code notModeled} entries record the deliberate exclusions. Every modeling judgment of a member (placement, order,
- * optionality, category, capabilities, artifact-mapping hints, prose overrides) lives in its {@code features} entry,
- * keyed by feature id. Conceptual nodes provide hierarchy without a source anchor, and cross-tree constraints declare
- * the relations the generated model enforces beyond the hierarchy. The Artemis source revision is derived from the
- * verified checkout and the runtime image reference is delivery configuration, so neither identity lives here.
+ * Curation manifest for extracted Artemis candidates, schema version 5. The manifest carries modeling judgments only:
+ * a {@code features} entry keyed by the Artemis module id declares the membership and semantics of a functional
+ * feature, its anchor being implied as {@code module:<id>}; {@code technical} entries declare the maintainer-only
+ * technical and infrastructure members together with their anchor; {@code notModeled} entries record the deliberate
+ * exclusions; conceptual nodes provide hierarchy without a source anchor; declared constraints add the cross-tree
+ * relations the generated model enforces beyond the hierarchy and the derived alternative-group exclusions. Everything
+ * else is derived at run time: functional anchors, required capabilities, technical compose, profile, and environment
+ * mappings, the pairwise exclusions of every {@code alternative} group, and the root node when none is declared. The
+ * Artemis source revision is derived from the verified checkout and the runtime image reference is delivery
+ * configuration, so neither identity lives here.
  *
  * @param manifestVersion manifest schema version.
- * @param features modeling semantics of every member, keyed by id.
- * @param provisional manifest-carried membership of functional features.
+ * @param features functional members keyed by Artemis module id, each carrying its modeling semantics.
  * @param technical manifest-declared technical and infrastructure members.
  * @param notModeled explicitly excluded candidates.
  * @param conceptualNodes unanchored model nodes.
  * @param constraints declared cross-tree constraints of the generated model.
  * @param ignoredRelations relation candidates between members that deliberately stay unenforced.
- * @param renames explicit workflow feature-id renames authorized by a maintainer.
  */
-public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> features, List<ProvisionalEntry> provisional, List<TechnicalEntry> technical,
-        List<NotModeledEntry> notModeled, List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations,
-        List<RenameEntry> renames) {
+public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> features, List<TechnicalEntry> technical, List<NotModeledEntry> notModeled,
+        List<ConceptualNode> conceptualNodes, List<ConstraintEntry> constraints, List<IgnoredRelationEntry> ignoredRelations) {
 
     /** Current manifest schema version. */
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
+
+    /** Id of the root node the assembler emits when the manifest declares no node of kind {@code root}. */
+    public static final String IMPLICIT_ROOT_ID = "artemis";
+
+    /** Name of the implicit root node. */
+    public static final String IMPLICIT_ROOT_NAME = "Artemis";
+
+    /** Description of the implicit root node. */
+    public static final String IMPLICIT_ROOT_DESCRIPTION = "Root of the Artemis feature model.";
+
+    /** Kind of the conceptual node that roots the hierarchy. */
+    public static final String KIND_ROOT = "root";
 
     /** Optionality of a feature whose selection is enforced by validation and rendered as a filled circle. */
     public static final String OPTIONALITY_MANDATORY = "mandatory";
@@ -39,6 +51,9 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
 
     /** Category of maintainer-facing technical features that never enter the teacher surface. */
     public static final String CATEGORY_TECHNICAL = "technical";
+
+    /** Group type of a conceptual group whose children are mutually exclusive; its pairwise exclusions are derived. */
+    public static final String GROUP_TYPE_ALTERNATIVE = "alternative";
 
     /** Stable fallback used when an exclusion deliberately omits its optional reason code. */
     public static final String EXCLUSION_REASON_UNSPECIFIED = "unspecified";
@@ -54,57 +69,66 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
      */
     public FeatureScopeManifest {
         features = features == null ? List.of() : List.copyOf(features);
-        provisional = provisional == null ? List.of() : List.copyOf(provisional);
         technical = technical == null ? List.of() : List.copyOf(technical);
         notModeled = notModeled == null ? List.of() : List.copyOf(notModeled);
         conceptualNodes = conceptualNodes == null ? List.of() : List.copyOf(conceptualNodes);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
         ignoredRelations = ignoredRelations == null ? List.of() : List.copyOf(ignoredRelations);
-        renames = renames == null ? List.of() : List.copyOf(renames);
     }
 
     /**
-     * Modeling semantics of one member. The entry never grants membership: the id must belong to an annotated anchor,
-     * a provisional entry, or a technical entry.
+     * Returns the anchor a features entry implies: the module candidate with the entry's id.
+     *
+     * @param featureId features entry id, which is the Artemis module id.
+     * @return namespaced module candidate id.
+     */
+    public static String moduleAnchor(String featureId) {
+        return FeatureCandidate.NAMESPACE_MODULE + featureId;
+    }
+
+    /**
+     * Checks whether the manifest declares a root conceptual node; otherwise the assembler emits the implicit root.
+     *
+     * @return true when a conceptual node of kind {@code root} is declared.
+     */
+    public boolean declaresRoot() {
+        return conceptualNodes.stream().anyMatch(node -> KIND_ROOT.equals(node.kind()));
+    }
+
+    /**
+     * Membership and modeling semantics of one member. In the {@code features} section the id is the Artemis module id
+     * and grants membership; in a {@code technical} entry the same fields describe the member declared by the entry's
+     * anchor.
      *
      * @param id feature id.
      * @param group group placement, or null.
      * @param parent direct parent placement, or null.
-     * @param kind feature kind override, or null.
      * @param optionality {@code mandatory} or {@code optional}; null defaults to optional. Whether a feature is
      *            mandatory is a modeling judgment that source code cannot express, so it is declared here.
-     * @param category {@code functional} or {@code technical}; null defaults by kind. Technical features are
+     * @param category {@code functional} or {@code technical}; null defaults by section. Technical features are
      *            maintainer-only and never enter the teacher surface.
      * @param defaultState {@code enabled} or {@code disabled}; null defers to the scanned YAML default.
      * @param order relation order under the parent; null appends after ordered siblings in manifest order.
-     * @param requiresCapabilities required deployment capabilities.
-     * @param providesCapabilities capabilities supplied by the feature.
-     * @param artifactMappings declared artifact mapping hints beyond the auto-derived enabled-key mapping; only
-     *            technical entries may declare them, functional features carry {@code configuration} instead.
      * @param configuration configuration-key confirmations and exceptions applied to the derived mappings.
      * @param name explicit name override, or null.
      * @param description explicit description override, or null.
      * @param documentationUrl explicit documentation URL override, or null.
      * @param rationale documented reason for the modeling decision, or null.
      */
-    public record FeatureEntry(String id, String group, String parent, String kind, String optionality, String category, String defaultState, Integer order,
-            List<String> requiresCapabilities, List<String> providesCapabilities, List<MappingHint> artifactMappings, List<ConfigurationEntry> configuration,
-            String name, String description, String documentationUrl, String rationale) {
+    public record FeatureEntry(String id, String group, String parent, String optionality, String category, String defaultState, Integer order,
+            List<ConfigurationEntry> configuration, String name, String description, String documentationUrl, String rationale) {
 
         /**
-         * Normalizes capability, mapping, and configuration collections to immutable lists.
+         * Normalizes the configuration collection to an immutable list.
          */
         public FeatureEntry {
-            requiresCapabilities = requiresCapabilities == null ? List.of() : List.copyOf(requiresCapabilities);
-            providesCapabilities = providesCapabilities == null ? List.of() : List.copyOf(providesCapabilities);
-            artifactMappings = artifactMappings == null ? List.of() : List.copyOf(artifactMappings);
             configuration = configuration == null ? List.of() : List.copyOf(configuration);
         }
     }
 
     /**
-     * One configuration-key confirmation or exception of a functional {@code features} entry. An include entry adds
-     * or confirms a key as a deployment input in declaration order; an exclude entry rejects a derived key.
+     * One configuration-key confirmation or exception of a member. An include entry adds or confirms a key as a
+     * deployment input in declaration order; an exclude entry rejects a derived key.
      *
      * @param key dotted configuration key.
      * @param secret whether the value is a secret; null defers to the derived classification.
@@ -115,21 +139,21 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
     }
 
     /**
-     * Manifest-carried membership of a functional feature.
-     *
-     * @param anchor candidate id or canonical source symbol.
-     * @param id feature id of the member; its semantics live in the {@code features} entry with the same id.
-     */
-    public record ProvisionalEntry(String anchor, String id) {
-    }
-
-    /**
-     * Manifest-declared technical or infrastructure member. The entry carries anchor, id, and semantics together.
+     * Manifest-declared technical or infrastructure member. Kind {@code feature} and category {@code technical} are
+     * implied by the section; the compose, profile, and environment mappings are derived from the anchor.
      *
      * @param anchor candidate id or canonical source symbol.
      * @param feature id and modeling semantics of the member.
+     * @param profiles Spring profile tokens the member activates; empty defers to the anchor's profile name.
      */
-    public record TechnicalEntry(String anchor, FeatureEntry feature) {
+    public record TechnicalEntry(String anchor, FeatureEntry feature, List<String> profiles) {
+
+        /**
+         * Normalizes the profile list to an immutable copy.
+         */
+        public TechnicalEntry {
+            profiles = profiles == null ? List.of() : List.copyOf(profiles);
+        }
     }
 
     /**
@@ -159,7 +183,8 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
      *            default to optional.
      * @param category {@code functional} or {@code technical}; null defaults by kind.
      * @param groupType child combination of a group node, one of {@code and}, {@code or}, or {@code alternative};
-     *            null defaults to {@code and}. An {@code alternative} group models an xor choice.
+     *            null defaults to {@code and}. An {@code alternative} group models an xor choice whose pairwise
+     *            exclusions are derived.
      * @param order relation order under the parent; null appends after ordered siblings in manifest order.
      * @param name optional explicit name.
      * @param description optional explicit description.
@@ -170,7 +195,8 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
 
     /**
      * Declared cross-tree constraint of the generated model. The extraction provides exclusivity and dependency
-     * evidence; declaring the enforced constraint remains a curation decision like any other inclusion.
+     * evidence; declaring the enforced constraint remains a curation decision like any other inclusion. A declared
+     * constraint that duplicates a derived alternative-group exclusion is reported redundant and dropped.
      *
      * @param id stable constraint id.
      * @param type constraint type, {@code requires} or {@code excludes}.
@@ -193,17 +219,8 @@ public record FeatureScopeManifest(int manifestVersion, List<FeatureEntry> featu
     }
 
     /**
-     * Explicitly authorized workflow feature-id rename.
-     *
-     * @param from former feature id referenced by the workflow.
-     * @param to current manifest-declared feature id.
-     * @param rationale maintainer-authored reason why the feature semantics are unchanged.
-     */
-    public record RenameEntry(String from, String to, String rationale) {
-    }
-
-    /**
-     * Declared artifact mapping hint mirroring the generated model's explicit-source mapping shape.
+     * Resolved artifact mapping of a member in the generated model's explicit-source mapping shape. Mappings are
+     * derived, never declared: the deriver produces them from the scanned structure and the manifest confirmations.
      *
      * @param target generated file the entry belongs to.
      * @param path dotted configuration path or variable name written into the target.

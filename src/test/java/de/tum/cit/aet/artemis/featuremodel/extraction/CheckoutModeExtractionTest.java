@@ -152,8 +152,7 @@ class CheckoutModeExtractionTest {
      */
     private FeatureExtractionInputs checkoutModeInputs(SyntheticArtemisCheckout checkout) {
         return new FeatureExtractionInputs(checkout.root(), MANIFEST, FeatureExtractionInputs.MANIFEST_SOURCE_CHECKOUT,
-                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("deployment-profile.json"),
-                FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot, null);
+                FIXTURE_INPUTS.resolve("guided-workflow.json"), FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot, null);
     }
 
     /**
@@ -164,7 +163,7 @@ class CheckoutModeExtractionTest {
      */
     private FeatureExtractionInputs repositoryModeInputs(SyntheticArtemisCheckout checkout) {
         return new FeatureExtractionInputs(checkout.root(), MANIFEST, FIXTURE_INPUTS.resolve("guided-workflow.json"),
-                FIXTURE_INPUTS.resolve("deployment-profile.json"), FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot);
+                FIXTURE_INPUTS.resolve("artemis-runtime-image.json"), outputRoot);
     }
 
     /**

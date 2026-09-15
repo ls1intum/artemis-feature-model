@@ -63,7 +63,7 @@ class DeploymentPackageTechnicalSelectionTest {
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(() -> model, new FeatureModelIntegrityService(), treeService);
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
-        DeploymentProfileService profileService = new DeploymentProfileService(repository);
+        DeploymentProfileService profileService = new DeploymentProfileService(repository, catalogService);
         ArtifactGenerationService artifactService = new ArtifactGenerationService(catalogService, validationService, profileService,
                 new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog()), new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
         service = new DeploymentPackageService(artifactService, catalogService, profileService, new TechnicalSelectionResolver(),

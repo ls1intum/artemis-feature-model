@@ -1,4 +1,18 @@
+# Copy of the mini-Artemis manifest with the cione profile as a technical member whose profile mapping joins the
+# declared profiles list and whose environment mappings come from configuration confirmations only, because the
+# fixture injects nothing under @Profile(PROFILE_CIONE).
 manifestVersion: 5
+technical:
+  - anchor: profile:cione
+    id: ci-one
+    parent: fixture-root
+    defaultState: disabled
+    order: 3
+    profiles: [cione, agentx]
+    name: CI One
+    configuration:
+      - { key: artemis.continuous-integration.concurrent-build-size }
+      - { key: artemis.continuous-integration.ci-token, secret: true }
 features:
   - id: alpha
     group: fixture-root
@@ -10,7 +24,6 @@ notModeled:
   - { anchor: module:delta, reason: test-fixture }
   - { anchor: module:gamma, reason: test-fixture }
   - { anchor: profile:agentx, reason: test-fixture }
-  - { anchor: profile:cione, reason: test-fixture }
   - { anchor: profile:feprofile, reason: test-fixture }
   - { anchor: profile:jenkins, reason: test-fixture }
   - anchor: toggle:ClientOnlyToggle

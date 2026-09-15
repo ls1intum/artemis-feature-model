@@ -10,7 +10,6 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
@@ -30,7 +29,7 @@ class GuidedWorkflowValidatorTest {
 
     @Test
     void passesForAWorkflowThatCoversTheGeneratedModel() {
-        WorkflowValidationOutcome result = validator.validate(model(), coveringWorkflow(), profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), coveringWorkflow());
 
         assertThat(result.items()).isEmpty();
         assertThat(result.workflowIntegrityValid()).isTrue();
@@ -43,7 +42,7 @@ class GuidedWorkflowValidatorTest {
     void reportsWorkflowReferencingUnknownFeatureAsHardError() {
         GuidedDecisionOption unknown = completeOption("enable-ghost", List.of("ghost"), GuidedDecisionOption.STATUS_PUBLISHED);
 
-        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(unknown)), profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(unknown)));
 
         assertThat(result.items()).anySatisfy(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_GENERATED_WORKFLOW_INVALID);
@@ -58,7 +57,7 @@ class GuidedWorkflowValidatorTest {
     void coverageGapWarningKeepsTheRunDeliveryEligible() {
         GuidedDecisionOption partial = completeOption("enable-nothing", List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
 
-        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(partial)), profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(partial)));
 
         assertThat(result.guidedValidation().status()).isEqualTo(GuidedWorkflowValidationReport.STATUS_FINDINGS);
         assertThat(result.guidedValidation().findings()).extracting(GuidedWorkflowFinding::code).contains(GuidedWorkflowFinding.CODE_COVERAGE_GAP);
@@ -81,7 +80,7 @@ class GuidedWorkflowValidatorTest {
         GuidedDecisionOption todo = new GuidedDecisionOption("enable-alpha", "Alpha", "TODO: describe this option.", List.of("alpha"), List.of(), null, null,
                 List.of("Outcome."), List.of("Fits."), List.of("Notes."), List.of(), GuidedDecisionOption.STATUS_PUBLISHED);
 
-        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(todo)), profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(todo)));
 
         assertThat(result.guidedValidation().findings()).anySatisfy(finding -> {
             assertThat(finding.code()).isEqualTo(GuidedWorkflowFinding.CODE_STUB_PROSE);
@@ -101,8 +100,7 @@ class GuidedWorkflowValidatorTest {
         GuidedDecisionOption published = completeOption("enable-alpha", List.of("alpha"), GuidedDecisionOption.STATUS_PUBLISHED);
         GuidedDecisionOption draft = completeOption("enable-ghost-draft", List.of("ghost"), GuidedDecisionOption.STATUS_DRAFT);
 
-        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(published, draft)),
-                profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(published, draft)));
 
         assertThat(result.workflowIntegrityValid()).isTrue();
         assertThat(result.deliveryEligible()).isTrue();
@@ -116,7 +114,7 @@ class GuidedWorkflowValidatorTest {
     void draftOnlyCoverageStillCountsAsACoverageGap() {
         GuidedDecisionOption draft = completeOption("enable-alpha-draft", List.of("alpha"), GuidedDecisionOption.STATUS_DRAFT);
 
-        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(draft)), profile(List.of("alpha-service", "tech-capability")));
+        WorkflowValidationOutcome result = validator.validate(model(), workflow(List.of(draft)));
 
         assertThat(result.guidedValidation().findings()).extracting(GuidedWorkflowFinding::code).contains(GuidedWorkflowFinding.CODE_COVERAGE_GAP,
                 GuidedWorkflowFinding.CODE_DRAFT_OPTION);
@@ -154,7 +152,4 @@ class GuidedWorkflowValidatorTest {
         return new GuidedWorkflow(metadata, List.of(template), List.of(step), List.of(reviewGroup));
     }
 
-    private DeploymentProfile profile(List<String> providedCapabilities) {
-        return new DeploymentProfile("test-profile", "Test Profile", "1.0.0", "published", List.of("maintainer"), providedCapabilities, null, null);
-    }
 }

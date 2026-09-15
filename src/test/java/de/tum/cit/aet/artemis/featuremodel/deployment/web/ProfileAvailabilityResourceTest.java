@@ -48,7 +48,7 @@ class ProfileAvailabilityResourceTest {
         GuidedWorkflowService workflowService = new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowAssembler(),
                 new GuidedWorkflowDiagnosticsService());
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
-        DeploymentProfileService profileService = new DeploymentProfileService(repository);
+        DeploymentProfileService profileService = new DeploymentProfileService(repository, catalogService);
         CapabilityResolutionService capabilityResolutionService = new CapabilityResolutionService(catalogService, workflowService, profileService, new GuidedWorkflowDiagnosticsService());
         mockMvc = MockMvcBuilders.standaloneSetup(new ProfileAvailabilityResource(capabilityResolutionService)).setControllerAdvice(new FeatureModelExceptionHandler())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter()).build();

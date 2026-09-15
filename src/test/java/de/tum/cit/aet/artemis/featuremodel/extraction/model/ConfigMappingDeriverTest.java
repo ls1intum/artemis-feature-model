@@ -23,7 +23,7 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifes
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 
-/** Covers key attribution by guard, prefix, and namespace, the classification split, and the precedence merge. */
+/** Covers key attribution by guard, prefix, and namespace, the classification split, the precedence merge, technical mappings, and derived capabilities. */
 class ConfigMappingDeriverTest {
 
     private static final String OVERLAY = "application-feature-model.yml";
@@ -37,8 +37,8 @@ class ConfigMappingDeriverTest {
         ExtractedConfigInjection unguarded = injection("src/main/java/core/CoreConfiguration.java", List.of(), List.of("artemis.shared.instance-name"),
                 List.of());
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(guarded, unguarded),
-                defaults(Map.of()), List.of(alphaCandidate()));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(functionalAlpha(List.of())), List.of(guarded, unguarded),
+                defaults(Map.of()), List.of(alphaCandidate()), List.of());
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.token");
         assertThat(resolutionOf(result, "alpha", "artemis.alpha.token")).satisfies(resolution -> {
@@ -64,8 +64,8 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.mode", "production",
                 "artemis.alpha.connector.endpoint", "<your-endpoint>"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(properties), defaults,
-                List.of(alphaCandidate()));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(functionalAlpha(List.of())), List.of(properties), defaults,
+                List.of(alphaCandidate()), List.of());
 
         assertThat(mappingPaths(result, "alpha")).as("non-secret inputs sorted; the own enabled key never derives")
                 .containsExactly("artemis.alpha.connector.endpoint", "artemis.alpha.url");
@@ -88,8 +88,8 @@ class ConfigMappingDeriverTest {
         FeatureCandidate nested = new FeatureCandidate("module:nested", FeatureCandidate.KIND_MODULE_FEATURE, null, null, null,
                 "artemis.alpha.nested.enabled", Boolean.FALSE, null, null, "NestedEnabled", null, false, false, null);
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), defaults,
-                List.of(alphaCandidate(), nested));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(functionalAlpha(List.of())), List.of(), defaults,
+                List.of(alphaCandidate(), nested), List.of());
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.url");
         assertThat(result.derivation().members()).singleElement().satisfies(member -> assertThat(member.keys()).extracting(ConfigKeyResolution::key)
@@ -98,7 +98,7 @@ class ConfigMappingDeriverTest {
 
     @Test
     void manifestEntriesConfirmAddAndRejectDerivedKeys() {
-        ResolvedFeatureScope alpha = provisionalAlpha(List.of(
+        ResolvedFeatureScope alpha = functionalAlpha(List.of(
                 new ConfigurationEntry("artemis.alpha.chat-model", null, null),
                 new ConfigurationEntry("spring.ai.alpha.api-key", true, FeatureScopeManifest.CONFIGURATION_ACTION_INCLUDE),
                 new ConfigurationEntry("artemis.alpha.callback-url", null, FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE)));
@@ -107,7 +107,7 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.url", "<your-url>",
                 "artemis.alpha.callback-url", "http://localhost:7000"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(), defaults, List.of(alphaCandidate()));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(alpha), List.of(), defaults, List.of(alphaCandidate()), List.of());
 
         assertThat(mappingPaths(result, "alpha")).as("declared entries in order, then derived keys")
                 .containsExactly("artemis.alpha.chat-model", "spring.ai.alpha.api-key", "artemis.alpha.url");
@@ -132,25 +132,133 @@ class ConfigMappingDeriverTest {
                 "artemis.alpha.base-url", "http://localhost:8000",
                 "artemis.alpha.secret", "<your-secret>"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(provisionalAlpha(List.of())), List.of(), defaults,
-                List.of(alphaCandidate()));
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(functionalAlpha(List.of())), List.of(), defaults,
+                List.of(alphaCandidate()), List.of());
 
         assertThat(mappingPaths(result, "alpha")).containsExactly("artemis.alpha.base-url", "artemis.alpha.zeta-url", "artemis.alpha.api-key",
                 "artemis.alpha.secret");
     }
 
     @Test
-    void technicalMembersKeepTheirDeclaredMappingHintsUntouched() {
-        MappingHint declared = new MappingHint(".env", "SPRING_PROFILES_ACTIVE", "selection", "alpha-profile", null, null);
-        ResolvedFeatureScope technical = new ResolvedFeatureScope("infra:tech", "tech", null, "root", "feature", "optional", "technical", "enabled", 1,
-                List.of(), List.of(), List.of(declared), List.of(), "Tech", null, null, CurationReport.SOURCE_TECHNICAL);
+    void derivesRequiredCapabilitiesFromTheEmittedDeploymentInputs() {
+        ExtractedConfigurationDefaults defaults = defaults(Map.of("artemis.alpha.url", "<your-url>", "artemis.alpha.api-key", "dummy-key"));
 
-        ConfigMappingDeriver.Result result = deriver.derive(List.of(technical), List.of(), defaults(Map.of("tech.url", "<your-url>")),
-                List.of());
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(functionalAlpha(List.of())), List.of(), defaults, List.of(alphaCandidate()), List.of());
 
-        assertThat(result.resolvedFeatures()).singleElement().satisfies(resolved -> assertThat(resolved.artifactMappings()).containsExactly(declared));
-        assertThat(result.derivation().members()).as("technical members never enter the derivation report").isEmpty();
+        assertThat(result.resolvedFeatures()).singleElement().satisfies(resolved -> assertThat(resolved.requiresCapabilities())
+                .as("a non-secret input yields <id>-service, a secret input <id>-secret").containsExactly("alpha-service", "alpha-secret"));
+    }
+
+    @Test
+    void aMemberWithoutEmittedInputsRequiresNoCapabilityAndAConfirmedSecretRequiresOnlyTheSecretOne() {
+        ConfigMappingDeriver.Result none = deriver.derive(List.of(functionalAlpha(List.of())), List.of(), defaults(Map.of()), List.of(alphaCandidate()), List.of());
+        ConfigMappingDeriver.Result secretOnly = deriver.derive(List.of(functionalAlpha(List.of(new ConfigurationEntry("spring.ai.alpha.api-key", true, null)))),
+                List.of(), defaults(Map.of()), List.of(alphaCandidate()), List.of());
+
+        assertThat(none.resolvedFeatures().getFirst().requiresCapabilities()).isEmpty();
+        assertThat(secretOnly.resolvedFeatures().getFirst().requiresCapabilities()).containsExactly("alpha-secret");
+    }
+
+    @Test
+    void derivesTheComposeMappingOfAnInfrastructureMemberFromItsBaseComposeFile() {
+        ResolvedFeatureScope mysql = technical("infra:mysql", "mysql", "db-group", List.of(), List.of());
+        FeatureCandidate candidate = new FeatureCandidate("infra:mysql", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null, null, null,
+                null, null, null);
+        List<EvidenceItem> evidence = List.of(
+                new EvidenceItem("infra:mysql", EvidenceItem.KIND_COMPOSE_FILE, "docker/artemis-dev-mysql.yml", null, "mysql", "paired with docker/artemis-dev-postgres.yml"),
+                new EvidenceItem("infra:mysql", EvidenceItem.KIND_COMPOSE_FILE, "docker/mysql.yml", null, "mysql", "paired with docker/postgres.yml"));
+
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(mysql), List.of(), defaults(Map.of()), List.of(candidate), evidence);
+
+        assertThat(mappingsOf(result, "mysql")).singleElement().satisfies(mapping -> {
+            assertThat(mapping.target()).isEqualTo("docker-compose.override.yml");
+            assertThat(mapping.path()).isEqualTo("db-group.composeFile");
+            assertThat(mapping.source()).isEqualTo("selection");
+            assertThat(mapping.valueWhenSelected()).isEqualTo("docker/mysql.yml");
+        });
+        assertThat(result.resolvedFeatures().getFirst().requiresCapabilities()).isEmpty();
+        assertThat(result.derivation().members()).singleElement().satisfies(member -> assertThat(member.keys()).isEmpty());
         assertThat(result.items()).isEmpty();
+    }
+
+    @Test
+    void reportsAnInfrastructureMemberWithoutABaseComposeFileAsUnderivable() {
+        ResolvedFeatureScope mysql = technical("infra:mysql", "mysql", "db-group", List.of(), List.of());
+        FeatureCandidate candidate = new FeatureCandidate("infra:mysql", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null, null, null,
+                null, null, null);
+        List<EvidenceItem> evidence = List.of(new EvidenceItem("infra:mysql", EvidenceItem.KIND_COMPOSE_FILE, "docker/artemis-dev-mysql.yml", null, "mysql", null));
+
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(mysql), List.of(), defaults(Map.of()), List.of(candidate), evidence);
+
+        assertThat(mappingsOf(result, "mysql")).isEmpty();
+        assertThat(result.items()).singleElement().satisfies(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_TECHNICAL_MAPPING_UNDERIVABLE);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
+            assertThat(item.subject()).isEqualTo("mysql");
+        });
+    }
+
+    @Test
+    void derivesProfileTokensAndProfileGuardedEnvironmentKeysOfATechnicalMember() {
+        ResolvedFeatureScope jenkins = technical("profile:jenkins", "jenkins", "ci-group", List.of(), List.of());
+        ExtractedConfigInjection guarded = new ExtractedConfigInjection("src/main/java/jenkins/JenkinsService.java", "de.tum.cit.aet.artemis", List.of(),
+                List.of("PROFILE_JENKINS"), List.of("artemis.ci.password", "artemis.ci.url", "server.url"), List.of());
+        ExtractedConfigInjection unguarded = new ExtractedConfigInjection("src/main/java/core/CoreConfiguration.java", "de.tum.cit.aet.artemis", List.of(),
+                List.of(), List.of("server.url"), List.of());
+        ExtractedConfigurationDefaults defaults = defaults(Map.of("artemis.ci.url", "<url>", "artemis.ci.password", "<password>", "server.url", "http://localhost"));
+
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(jenkins), List.of(guarded, unguarded), defaults, List.of(profileCandidate("jenkins")), List.of());
+
+        assertThat(mappingPaths(result, "jenkins")).as("profile tokens first, then derived non-secret and secret inputs; the cross-cutting server URL stays out")
+                .containsExactly("SPRING_PROFILES_ACTIVE", "artemis.ci.url", "artemis.ci.password");
+        assertThat(mappingsOf(result, "jenkins").getFirst()).satisfies(mapping -> {
+            assertThat(mapping.target()).isEqualTo(".env");
+            assertThat(mapping.valueWhenSelected()).isEqualTo("jenkins");
+        });
+        assertThat(mappingsOf(result, "jenkins").getLast().secret()).isTrue();
+        assertThat(resolutionOf(result, "jenkins", "artemis.ci.url").evidence()).anySatisfy(evidence -> assertThat(evidence.detail()).contains("@Profile(PROFILE_JENKINS)"));
+        assertThat(result.resolvedFeatures().getFirst().requiresCapabilities()).as("technical members carry no capabilities").isEmpty();
+    }
+
+    @Test
+    void joinsDeclaredProfilesAndEmitsTechnicalConfirmationsBeforeDerivedKeys() {
+        ResolvedFeatureScope localci = technical("profile:localci", "integrated-code-lifecycle", "ci-group", List.of("localci", "buildagent"),
+                List.of(new ConfigurationEntry("artemis.ci.token", true, null)));
+        ExtractedConfigInjection guarded = new ExtractedConfigInjection("src/main/java/localci/LocalCiService.java", "de.tum.cit.aet.artemis", List.of(),
+                List.of("PROFILE_LOCALCI"), List.of("artemis.ci.url"), List.of());
+
+        ConfigMappingDeriver.Result result = deriver.derive(List.of(localci), List.of(guarded), defaults(Map.of("artemis.ci.url", "<url>")),
+                List.of(profileCandidate("localci")), List.of());
+
+        assertThat(mappingPaths(result, "integrated-code-lifecycle")).containsExactly("SPRING_PROFILES_ACTIVE", "artemis.ci.token", "artemis.ci.url");
+        assertThat(mappingsOf(result, "integrated-code-lifecycle").getFirst().valueWhenSelected()).isEqualTo("localci,buildagent");
+        assertThat(resolutionOf(result, "integrated-code-lifecycle", "artemis.ci.token").decision()).isEqualTo(ConfigDerivationReport.DECISION_CONFIRMED);
+    }
+
+    /**
+     * Builds a technical member.
+     *
+     * @param candidateId anchor candidate id.
+     * @param id feature id.
+     * @param group group placement.
+     * @param profiles declared profile tokens.
+     * @param configuration manifest configuration entries.
+     * @return resolved technical member.
+     */
+    private ResolvedFeatureScope technical(String candidateId, String id, String group, List<String> profiles, List<ConfigurationEntry> configuration) {
+        return new ResolvedFeatureScope(candidateId, id, group, null, "feature", "optional", "technical", "enabled", 1, List.of(), profiles, List.of(),
+                configuration, null, null, null, CurationReport.SOURCE_TECHNICAL);
+    }
+
+    /**
+     * Builds a Spring profile candidate whose server constant follows the Artemis naming convention.
+     *
+     * @param profile profile name.
+     * @return profile candidate.
+     */
+    private FeatureCandidate profileCandidate(String profile) {
+        return new FeatureCandidate("profile:" + profile, FeatureCandidate.KIND_SPRING_PROFILE, null, null, null, null, null, "PROFILE_" + profile.toUpperCase(),
+                null, null, profile, null, null, null);
     }
 
     /**
@@ -164,13 +272,13 @@ class ConfigMappingDeriverTest {
     }
 
     /**
-     * Builds the alpha member with provisional membership.
+     * Builds the alpha member with features-entry membership.
      *
      * @param configuration manifest configuration entries.
      * @return resolved alpha member.
      */
-    private ResolvedFeatureScope provisionalAlpha(List<ConfigurationEntry> configuration) {
-        return alphaMember(configuration, CurationReport.SOURCE_PROVISIONAL);
+    private ResolvedFeatureScope functionalAlpha(List<ConfigurationEntry> configuration) {
+        return alphaMember(configuration, CurationReport.SOURCE_FEATURES);
     }
 
     private ResolvedFeatureScope alphaMember(List<ConfigurationEntry> configuration, String membershipSource) {

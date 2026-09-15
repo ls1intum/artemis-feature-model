@@ -1,29 +1,16 @@
 {
   "id": "default-artemis-profile",
   "name": "Default Artemis Deployment Context",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "status": "published",
   "editableBy": [
     "maintainer"
   ],
-  "providedCapabilities": [
-    "default-database",
-    "default-ci-provider",
-    "pyris-service",
-    "pyris-secret",
-    "athena-service",
-    "athena-secret",
-    "hyperion-service",
-    "lti-platform-registration",
-    "theia-service",
-    "apollon-conversion-service",
-    "sharing-platform-registration",
-    "sharing-secret"
-  ],
   "unresolvedNotes": [
     "Since profile version 2.0.0 a deployment profile is a pure capability manifest: it declares which integrations the deployment context supports, never their runtime values.",
+    "Since profile version 3.0.0 the bundled default profile declares no providedCapabilities: it provides every capability the active feature model requires, and the capability ids are derived from the model features' deployment inputs as <feature>-service and <feature>-secret.",
     "A provided capability means the context supports or permits the integration and provides a path for supplying its runtime requirements; concrete values are supplied through the deployment environment and validated at runtime.",
     "Technical axes are selected by feature-model features. The legacy database.type, deployment.mode, and ci.provider parameters were removed and are never authoritative.",
-    "LTI platform registration is database-managed in Artemis; the lti-platform-registration capability records context support only."
+    "A maintainer local override may declare an explicit providedCapabilities list to restrict the available integrations; the list is then authoritative."
   ]
 }

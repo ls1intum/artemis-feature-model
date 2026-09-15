@@ -134,7 +134,7 @@ function buildResponseWithApollonConstraint(): FeatureModelResponse {
             name: 'Apollon',
             description: 'Optional UML diagram PDF export for modeling exercises.',
             defaultState: 'disabled',
-            requiresCapabilities: ['apollon-conversion-service'],
+            requiresCapabilities: ['apollon-service'],
         },
     ];
     response.constraints = [
@@ -163,7 +163,7 @@ function buildWorkflowWithApollonOption(): GuidedWorkflow {
         description: 'Enable UML diagram PDF export through the Apollon conversion service.',
         selects: ['apollon'],
         deselects: [],
-        requiresCapabilities: ['apollon-conversion-service'],
+        requiresCapabilities: ['apollon-service'],
         artifactImpacts: ['Sets artemis.apollon.enabled = true in the generated external configuration overlay.'],
         enabledOutcome: ['Instructors and students can export UML diagrams from modeling exercises as PDF files.'],
         recommendedWhen: ['Your course uses modeling exercises and needs PDF exports of UML diagrams.'],
@@ -438,13 +438,13 @@ describe('FeatureModelConfiguratorComponent', () => {
         const selectedBody = flushValidation(httpMock, validResult());
         expect(selectedBody.selectedFeatureIds).toContain('text');
         expect(selectedBody.selectedFeatureIds).toContain('modeling');
-        expect(selectedBody.selectedFeatureIds).toContain('file-upload');
+        expect(selectedBody.selectedFeatureIds).toContain('fileupload');
 
         clickByTestId(fixture, 'option-card-enable-written-exercise-types');
         const deselectedBody = flushValidation(httpMock, validResult());
         expect(deselectedBody.selectedFeatureIds).not.toContain('text');
         expect(deselectedBody.selectedFeatureIds).not.toContain('modeling');
-        expect(deselectedBody.selectedFeatureIds).not.toContain('file-upload');
+        expect(deselectedBody.selectedFeatureIds).not.toContain('fileupload');
     });
 
     it('shows regular-user guidance for the active decision option', () => {
@@ -463,7 +463,7 @@ describe('FeatureModelConfiguratorComponent', () => {
         expect(impact?.textContent).toContain('Students and instructors can receive AI tutoring support.');
         expect(impact?.textContent).toContain('Recommended when');
         expect(impact?.textContent).toContain('Things to know');
-        expect(impact?.textContent).not.toContain('pyris-service');
+        expect(impact?.textContent).not.toContain('iris-service');
         expect(impact?.textContent).not.toContain('artemis.iris.enabled');
     });
 
@@ -508,8 +508,8 @@ describe('FeatureModelConfiguratorComponent', () => {
 
         const reason = rootEl(fixture).querySelector('[data-testid="option-unavailable-reason"]');
         expect(reason?.textContent).toContain('not available in the current deployment');
-        expect(reason?.textContent).not.toContain('pyris-service');
-        expect(reason?.textContent).not.toContain('pyris-secret');
+        expect(reason?.textContent).not.toContain('iris-service');
+        expect(reason?.textContent).not.toContain('iris-secret');
     });
 
     it('offers every option of a step regardless of the template, leaving requires gaps to validation', () => {
@@ -619,8 +619,8 @@ describe('FeatureModelConfiguratorComponent', () => {
         const profileAvailability = rootEl(fixture).querySelector('[data-testid="tree-profile-availability"]');
         expect(profileAvailability?.textContent).toContain('Unavailable');
         const missing = rootEl(fixture).querySelector('[data-testid="tree-missing-capabilities"]');
-        expect(missing?.textContent).toContain('pyris-service');
-        expect(missing?.textContent).toContain('pyris-secret');
+        expect(missing?.textContent).toContain('iris-service');
+        expect(missing?.textContent).toContain('iris-secret');
     });
 
     it('opens an in-configurator tree view that reflects and updates the current selection', () => {

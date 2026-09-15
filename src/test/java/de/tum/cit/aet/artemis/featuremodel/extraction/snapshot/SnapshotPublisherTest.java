@@ -106,7 +106,7 @@ class SnapshotPublisherTest {
         CurationReport curation = new CurationReport(2, ARTEMIS_COMMIT, Map.of(), Map.of(), List.of(), List.of());
         ExtractionReport report = new ExtractionReport(1, "pass", ARTEMIS_COMMIT, MANIFEST_DIGEST, curation, null, Map.of(), Map.of(), Map.of(), List.of());
         return publisher.publish(layout(), TestFeatureModels.baseModel(), workflowBytes, catalog, report, ARTEMIS_COMMIT, MANIFEST_DIGEST,
-                "fedcba9876543210fedcba9876543210fedcba98", "sha256:profile", "latest", SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY, eligible);
+                "fedcba9876543210fedcba9876543210fedcba98", "latest", SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY, eligible);
     }
 
     private Map<String, byte[]> snapshotBytes() throws Exception {

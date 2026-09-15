@@ -4,11 +4,11 @@ import java.util.List;
 
 /**
  * Configuration-derivation outcome of one model assembly, persisted as {@code model/config-derivation.json} and
- * rendered as a report section. It lists, per functional member, every configuration key the precedence merge
+ * rendered as a report section. It lists, per member, every configuration key the precedence merge
  * considered — confirmed or added by the manifest, derived from guarded Artemis structure, skipped as a tunable, or
  * rejected by a manifest exclude — together with its evidence.
  *
- * @param members per-member key resolutions sorted by feature id.
+ * @param members per-member key resolutions sorted by feature id, functional and technical members alike.
  */
 public record ConfigDerivationReport(List<MemberConfigDerivation> members) {
 
@@ -36,7 +36,7 @@ public record ConfigDerivationReport(List<MemberConfigDerivation> members) {
     }
 
     /**
-     * Key resolutions of one functional member.
+     * Key resolutions of one member.
      *
      * @param featureId feature id of the member.
      * @param candidateId namespaced extraction candidate id of the member.

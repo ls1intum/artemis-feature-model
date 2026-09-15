@@ -1,12 +1,9 @@
 # Copy of the mini-Artemis manifest with the module:delta exclusion removed. Delta is neither enumerated by the
 # fixture's getEnabledFeatures nor displayed on its admin page, so the missing decision is informational only and the
 # run still publishes.
-manifestVersion: 4
-provisional:
-  - anchor: module:alpha
-    id: alpha-feature
+manifestVersion: 5
 features:
-  - id: alpha-feature
+  - id: alpha
     group: fixture-root
 notModeled:
   - { anchor: infra:mysql, reason: test-fixture }

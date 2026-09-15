@@ -83,8 +83,7 @@ public class ModelStageService {
         ModelAssemblyOutcome outcome;
         try {
             scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
-                    context.artemisCommit());
+            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), context.artemisCommit());
         }
         catch (IOException | RuntimeException failure) {
             new ControlledFailureReportWriter(artifactStore).write(context, failure);

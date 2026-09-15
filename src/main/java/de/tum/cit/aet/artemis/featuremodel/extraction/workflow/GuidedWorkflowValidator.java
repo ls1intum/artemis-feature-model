@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GuidedWorkflowValidationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.WorkflowValidationOutcome;
@@ -34,14 +34,13 @@ class GuidedWorkflowValidator {
      *
      * @param generatedModel assembled generated model.
      * @param authoredWorkflow authored lean guided workflow.
-     * @param bundledProfile bundled deployment profile providing the known capabilities.
      * @return workflow integrity state, validation report, and report items.
      */
-    WorkflowValidationOutcome validate(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile) {
+    WorkflowValidationOutcome validate(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow) {
         List<ReportItem> items = new ArrayList<>();
         GuidedWorkflow effectiveWorkflow = new GuidedWorkflowProjectionService().project(authoredWorkflow).effectiveWorkflow();
         boolean workflowIntegrityValid = validateWorkflowReferences(generatedModel, effectiveWorkflow, items);
-        GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, bundledProfile, workflowIntegrityValid, items);
+        GuidedWorkflowValidationReport guidedValidation = guidedValidation(generatedModel, authoredWorkflow, workflowIntegrityValid, items);
         return new WorkflowValidationOutcome(workflowIntegrityValid, guidedValidation.deliveryEligible(), guidedValidation, List.copyOf(items));
     }
 
@@ -67,18 +66,21 @@ class GuidedWorkflowValidator {
 
     /**
      * Runs the shared coverage/capability/lifecycle diagnostics of the authored workflow against the generated model
-     * and assembles the validation report with its severity-based delivery eligibility.
+     * and assembles the validation report with its severity-based delivery eligibility. The known capabilities are
+     * the ones the generated model's features require, which is what the bundled deployment profile provides.
      *
      * @param generatedModel assembled generated model.
      * @param authoredWorkflow authored lean guided workflow, drafts included.
-     * @param bundledProfile bundled deployment profile.
      * @param workflowIntegrityValid whether the effective workflow passed hard reference validation.
      * @param items diagnostics sink for the summary item.
      * @return guided workflow validation report.
      */
-    private GuidedWorkflowValidationReport guidedValidation(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, DeploymentProfile bundledProfile,
-            boolean workflowIntegrityValid, List<ReportItem> items) {
-        Set<String> knownCapabilities = new LinkedHashSet<>(bundledProfile.providedCapabilities());
+    private GuidedWorkflowValidationReport guidedValidation(FeatureModel generatedModel, GuidedWorkflow authoredWorkflow, boolean workflowIntegrityValid,
+            List<ReportItem> items) {
+        Set<String> knownCapabilities = new LinkedHashSet<>();
+        for (FeatureNode feature : generatedModel.features()) {
+            knownCapabilities.addAll(feature.requiresCapabilities());
+        }
         List<GuidedWorkflowFinding> findings = new GuidedWorkflowDiagnosticsService().findings(authoredWorkflow, generatedModel, knownCapabilities);
         Map<String, Integer> severityCounts = new TreeMap<>();
         Map<String, Integer> codeCounts = new TreeMap<>();
