@@ -8,11 +8,13 @@ import de.tum.cit.aet.artemis.alpha.config.AlphaEnabled;
 import de.tum.cit.aet.artemis.alpha.config.AlphaWithBetaEnabled;
 import de.tum.cit.aet.artemis.core.service.feature.Feature;
 import de.tum.cit.aet.artemis.core.service.feature.FeatureToggle;
+import de.tum.cit.aet.artemis.core.service.featureusage.FeatureUsage;
 
 /**
  * Synthetic resource providing usage evidence sites.
  */
 @Conditional(AlphaEnabled.class)
+@FeatureUsage("authoring/alpha-items")
 @RestController
 public class AlphaResource {
 
