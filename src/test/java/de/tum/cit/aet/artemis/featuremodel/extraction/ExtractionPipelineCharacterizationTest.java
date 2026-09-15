@@ -72,24 +72,25 @@ class ExtractionPipelineCharacterizationTest {
             Map.entry("model/generated-feature-model.json", "12e24f6502eeb67bce728e3a06ccdcb5c33abeaf6b52516fb41ca31abd77c44f"),
             Map.entry("model/manifest-conformance-report.json", "6822e04a98f83d97d5d47eca1c25e6e741029d21df80749f558b687c289b9ea2"),
             Map.entry("model/model-diagnostics.json", "7602ab0970c517ea435328cc8d0a86aafeca21d753925041823dd9a54769a2da"),
-            Map.entry("model/model-result.json", "c5ada3f5b00d87ae15990122fb761e51a7f07ac27d327ebf1cad4407e1136d90"),
-            Map.entry("report/extraction-report.json", "a730dae19634a862f78f813abeec0a253f9cfa79ce722f199f01c7ffe9300b7c"),
+            Map.entry("model/model-result.json", "95362ec81964e93b9d7463c314174c836007f905c62bab88abd3c1ccd0e1b60c"),
+            Map.entry("report/extraction-report.json", "6991465e2f5e481d3c5efb2132ee3b8c30d8fc298ea469b53e6f2debb096b8b2"),
             Map.entry("report/index.html", "d9d3ab3e162ee722434dd5e08f912ab6c787bb343678d3288254180f04bb109f"),
             Map.entry("report/release-delta-report.json", "4581d5b3b95165376a5be075aebfca9e012a82498cb6f8dc592c687d31f3ebb9"),
+            Map.entry("scan/feature-usages.json", "4639391c8ae623fb371c45532322fd8c88e02dad5245a5297ed7adb3adf8fc82"),
             Map.entry("scan/config-defaults.json", "4973f5af6b899ac2816f8fe6d78a0f1ae8ec284db6df0dc9de02104e6329d1da"),
             Map.entry("scan/config-injections.json", "4da4d0cc8c3193ae0e3a4131d41b4f491825692d4145cb1e61c9593782533998"),
-            Map.entry("scan/evidence.json", "5d7cd095a2860840480becf1ce0763c050b3ba6466ce492978d099ca96ab0cb2"),
+            Map.entry("scan/evidence.json", "2151a412cbfe552fea4f653d1c29f31e863f5de4500c1b55fe14c1bf203c0694"),
             Map.entry("scan/feature-candidates.json", "a9dcac02f05af8308090f3de00ff52e58d285a2f42b311fda7937fb3516e7b58"),
             Map.entry("scan/relation-candidates.json", "c8b43e1cb073e315b10523e73423eaa4f84e9fed85af8ed1335b6a202522302a"),
             Map.entry("scan/scan-diagnostics.json", "4e3081f07bc10b1c6f1f4cf14b6d14954fde697ba79805f3420885e7d2690319"),
-            Map.entry("scan/scan-result.json", "37be38cf01960eed4f8b96c5e8ad0cb42d6272e5bc322b98e62e07195d0ae9d4"),
-            Map.entry("snapshot/checksums.txt", "bfc9b88eb2b31b915b15c1493837b7f76b812da836541dc7e41817f3415c34b8"),
+            Map.entry("scan/scan-result.json", "3e2dce0ee27327a8185327969a772a6c2dd6dfb04bebfa82dea7aa2424032cf1"),
+            Map.entry("snapshot/checksums.txt", "54133831642d5b86a43889b7c44203d58f0d9255dbad56e2fd6f25b19b6588e7"),
             Map.entry("snapshot/config-key-catalog.json", "001cc8f7ec8818c84a54be67ff164697e7386558f3aa6f4fe24c375d5d630aca"),
             Map.entry("snapshot/feature-model.json", "12e24f6502eeb67bce728e3a06ccdcb5c33abeaf6b52516fb41ca31abd77c44f"),
-            Map.entry("snapshot/generation-report.json", "a730dae19634a862f78f813abeec0a253f9cfa79ce722f199f01c7ffe9300b7c"),
+            Map.entry("snapshot/generation-report.json", "6991465e2f5e481d3c5efb2132ee3b8c30d8fc298ea469b53e6f2debb096b8b2"),
             Map.entry("snapshot/guided-workflow.json", "47b79c65009f1c9f9bfa53d810e153ed3810ecc0f2a0e1bf3fc6d9b2c3a660c3"),
             Map.entry("snapshot/metadata.json", "c2ce0728f093f5afa3d52233c933d7d506ec3f0e8ac3c92fdaa1d7bb049493c6"),
-            Map.entry("snapshot/provenance.json", "14a75b57dcc380a7739e3038d971039b1795267eab24d2faafd6dc22d66ab8c1"),
+            Map.entry("snapshot/provenance.json", "92eff18738700929ba8770fefb1afb6eea192586960b466c6fba5b7124f6f7ef"),
             Map.entry("workflow/guided-workflow-validation.json", "d62007db411e48a6dde5ceb2dc8ee673ae5be15d89682a3f34ee4b1f96f9f40c"),
             Map.entry("workflow/guided-workflow.json", "47b79c65009f1c9f9bfa53d810e153ed3810ecc0f2a0e1bf3fc6d9b2c3a660c3"),
             Map.entry("workflow/workflow-diagnostics.json", "25f881c3c71d326fd737fc9e76c6ce2f03de67a957d97a2cef3282ec2d0cc80f"),
@@ -117,8 +118,8 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(summary.relationCandidateCount()).isEqualTo(2);
         assertThat(summary.artemisCommit()).isEqualTo(DERIVED_COMMIT);
         for (String fileName : List.of(ExtractionArtifactStore.SCAN_METADATA_FILE, ExtractionArtifactStore.FEATURE_CANDIDATES_FILE,
-                ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.CONFIG_DEFAULTS_FILE,
-                ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE)) {
+                ExtractionArtifactStore.EVIDENCE_FILE, ExtractionArtifactStore.RELATION_CANDIDATES_FILE, ExtractionArtifactStore.FEATURE_USAGES_FILE,
+                ExtractionArtifactStore.CONFIG_DEFAULTS_FILE, ExtractionArtifactStore.SCAN_DIAGNOSTICS_FILE, ExtractionArtifactStore.SCAN_RESULT_FILE)) {
             assertThat(layout.scanDirectory().resolve(fileName)).as("scan artifact %s", fileName).isRegularFile();
         }
         assertThat(layout.modelDirectory()).doesNotExist();
@@ -488,6 +489,18 @@ class ExtractionPipelineCharacterizationTest {
         assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.workflowDirectory()).doesNotExist();
         assertFailureReportExists();
+        assertThat(layout.snapshotDirectory()).doesNotExist();
+    }
+
+    @Test
+    void aTamperedFeatureUsagePayloadIsRejectedByTheScanEnvelope() throws Exception {
+        runPipeline();
+        Files.writeString(layout.scanDirectory().resolve(ExtractionArtifactStore.FEATURE_USAGES_FILE), "[]\n");
+
+        assertThatThrownBy(() -> new ModelStageService(OBJECT_MAPPER).run(inputs, this::fixtureSource)).isInstanceOf(ExtractionArtifactException.class)
+                .hasMessageContaining(ExtractionArtifactStore.FEATURE_USAGES_FILE);
+
+        assertThat(layout.modelDirectory()).doesNotExist();
         assertThat(layout.snapshotDirectory()).doesNotExist();
     }
 

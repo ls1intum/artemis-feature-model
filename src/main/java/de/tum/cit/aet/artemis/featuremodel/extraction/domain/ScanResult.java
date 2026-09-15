@@ -19,9 +19,9 @@ public record ScanResult(int schemaVersion, String extractorVersion, String arte
 
     /**
      * Current schema version of the scan envelope; version 2 added the config-injections payload, version 3 removed
-     * the annotations payload.
+     * the annotations payload, version 4 added the feature-usages payload.
      */
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
 
     /** Version of the extraction pipeline, recorded in the scan metadata and verified by every downstream stage. */
     public static final String EXTRACTOR_VERSION = "0.4.0";

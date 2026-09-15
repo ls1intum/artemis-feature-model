@@ -137,6 +137,9 @@ public final class ArtemisSourceConventions {
         /** Spring conditional-bean annotation simple name. */
         public static final String CONDITIONAL_ANNOTATION = "Conditional";
 
+        /** Artemis feature-usage grouping annotation simple name, placed on REST controllers and their methods. */
+        public static final String FEATURE_USAGE_ANNOTATION = "FeatureUsage";
+
         /** Spring profile-guard annotation simple name. */
         public static final String PROFILE_ANNOTATION = "Profile";
 
