@@ -5,7 +5,7 @@
  * than missing properties, so they are typed as `T | null` instead of `T | undefined`.
  */
 
-export type FeatureKind = 'root' | 'group' | 'module' | 'feature' | (string & {});
+export type FeatureKind = 'root' | 'group' | 'module' | 'feature' | 'sub-feature' | (string & {});
 export type DefaultState = 'enabled' | 'disabled' | 'not_applicable' | (string & {});
 export type RelationType = 'mandatory' | 'optional' | 'group' | (string & {});
 export type GroupType = 'and' | 'or' | 'alternative' | (string & {});
@@ -70,6 +70,8 @@ export interface FeatureSource {
     springProfile: string | null;
     clientConstant: string | null;
     serverConditionClass: string | null;
+    /** `<area>/<feature>` label of a FeatureUsage sub-feature; null on every other kind. */
+    usageLabel: string | null;
     evidence: string[];
 }
 

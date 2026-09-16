@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, forwardRef, input, output } from '@angular/core';
 
-import { featureKindDotClass, featureKindLabel } from '../core/feature-model-tree.utils';
+import { featureKindDotClass, featureKindLabel, isSubFeature, usageArea } from '../core/feature-model-tree.utils';
 import { FeatureTreeNode } from '../core/feature-model.types';
 
 @Component({
@@ -28,6 +28,12 @@ export class FeatureModelTreeNodeComponent {
     readonly isMatched = computed(() => this.matchedIds().has(this.featureId()));
     readonly nextDepth = computed(() => this.depth() + 1);
     readonly isStructural = computed(() => !this.node().feature.selectable);
+    readonly isSubFeature = computed(() => isSubFeature(this.node().feature));
+    /** Area prefix of a sub-feature row, taken from the usage label and never from the id. */
+    readonly usageArea = computed(() => {
+        const label = this.node().feature.source?.usageLabel;
+        return label ? usageArea(label) : '';
+    });
     readonly isDefaultEnabled = computed(() => this.node().feature.defaultState === 'enabled');
     readonly kindDotClass = computed(() => featureKindDotClass(this.node().feature.kind));
     /** Accessible name for the colour dot; it carries kind and selectability, which no longer have badges. */

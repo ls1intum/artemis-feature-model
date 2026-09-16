@@ -247,3 +247,46 @@
     padding-left: 0;
     font-size: 0.85rem;
 }
+
+/* Sub-features of the selected member, grouped by area; each name is a link that moves the selection. */
+.sub-feature-group + .sub-feature-group {
+    margin-top: 0.5rem;
+}
+
+.sub-feature-area {
+    margin: 0 0 0.15rem;
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.75rem;
+}
+
+.sub-feature-list {
+    list-style: none;
+    margin: 0;
+    padding-left: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.sub-feature-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.1rem 0;
+}
+
+.sub-feature-list code {
+    font-size: 0.8em;
+}
+
+.sub-feature-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-link-color);
+    text-align: left;
+}
+
+.sub-feature-link:hover,
+.sub-feature-link:focus-visible {
+    text-decoration: underline;
+}

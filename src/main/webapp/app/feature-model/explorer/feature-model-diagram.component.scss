@@ -208,6 +208,21 @@
     stroke: var(--bs-primary);
 }
 
+/* Sub-features are never laid out; their owner carries a passive count badge instead. */
+.diagram-subfeatures__bg {
+    fill: var(--bs-info-bg-subtle);
+    stroke: var(--fm-kind-sub-feature);
+    stroke-width: 1.25;
+}
+
+.diagram-subfeatures__label {
+    fill: var(--bs-info-text-emphasis);
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+}
+
 .diagram-legend {
     display: flex;
     flex-wrap: wrap;
