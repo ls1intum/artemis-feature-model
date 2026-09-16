@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
     collectAllNodeIds,
     collectAncestorIds,
+    countSubFeatures,
+    featureKindDotClass,
     featureKindLabel,
     formatFeatureCategory,
+    formatFeatureKind,
     collectExpandableNodeIds,
     countTreeNodes,
     filterTreeByQuery,
     findNodeById,
+    usageArea,
+    usageFeature,
+    withoutSubFeatures,
 } from './feature-model-tree.utils';
 import { Feature, FeatureTreeNode, IncomingRelation, RelationType } from './feature-model.types';
 
@@ -32,6 +38,33 @@ function makeFeature(id: string, name: string): Feature {
 
 function makeIncoming(parentId: string, childId: string, relationType: RelationType): IncomingRelation {
     return { parentId, childId, relationType, groupType: null, order: 1 };
+}
+
+/** A FeatureUsage sub-feature per contract C-1; the id is deliberately unrelated to the label. */
+function makeSubFeature(ownerId: string, id: string, name: string, label: string): FeatureTreeNode {
+    return {
+        feature: {
+            ...makeFeature(id, name),
+            kind: 'sub-feature',
+            selectable: false,
+            category: 'derived',
+            defaultState: 'not_applicable',
+            configurableBy: [],
+            source: { configKey: null, springProfile: null, clientConstant: null, serverConditionClass: 'LectureEnabled', usageLabel: label, evidence: ['LectureResource.java:88'] },
+        },
+        incomingRelation: makeIncoming(ownerId, id, 'mandatory'),
+        children: [],
+    };
+}
+
+/** The sample tree with two sub-features below lecture and one below programming. */
+function buildTreeWithSubFeatures(): FeatureTreeNode {
+    const root = buildSampleTree();
+    const lecture = findNodeById(root, 'lecture');
+    const programming = findNodeById(root, 'programming');
+    lecture?.children.push(makeSubFeature('lecture', 'sub-1', 'Transcription', 'ai/transcription'), makeSubFeature('lecture', 'sub-2', 'Lectures', 'authoring/lectures'));
+    programming?.children.push(makeSubFeature('programming', 'sub-3', 'Repositories', 'vcs/repositories'));
+    return root;
 }
 
 function buildSampleTree(): FeatureTreeNode {
@@ -149,6 +182,53 @@ describe('feature-model-tree.utils', () => {
         expect(collectAncestorIds(null, new Set(['programming'])).size).toBe(0);
         expect(collectAncestorIds(buildSampleTree(), new Set<string>()).size).toBe(0);
         expect(collectAncestorIds(buildSampleTree(), new Set(['nonsense'])).size).toBe(0);
+    });
+});
+
+describe('sub-feature helpers', () => {
+    it('excludes sub-features from the node count and counts them separately', () => {
+        const root = buildTreeWithSubFeatures();
+        expect(countTreeNodes(root)).toBe(5);
+        expect(countSubFeatures(root)).toBe(3);
+        expect(countSubFeatures(buildSampleTree())).toBe(0);
+        expect(countSubFeatures(null)).toBe(0);
+    });
+
+    it('prunes sub-feature nodes and keeps the original reference when there are none', () => {
+        const plain = buildSampleTree();
+        expect(withoutSubFeatures(plain)).toBe(plain);
+        expect(withoutSubFeatures(null)).toBeNull();
+
+        const pruned = withoutSubFeatures(buildTreeWithSubFeatures());
+        expect(collectAllNodeIds(pruned)).toEqual(['artemis', 'teaching-and-content', 'lecture', 'exercise-system', 'programming']);
+        expect(countSubFeatures(pruned)).toBe(0);
+    });
+
+    it('splits a usage label into area and feature at the first slash', () => {
+        expect(usageArea('authoring/lectures')).toBe('authoring');
+        expect(usageFeature('authoring/lectures')).toBe('lectures');
+        expect(usageArea('units/attachment-video-units')).toBe('units');
+        expect(usageFeature('units/attachment-video-units')).toBe('attachment-video-units');
+        expect(usageArea('plain')).toBe('plain');
+        expect(usageFeature('plain')).toBe('plain');
+    });
+
+    it('matches the search query against the usage label', () => {
+        const result = filterTreeByQuery(buildTreeWithSubFeatures(), 'AUTHORING/');
+        expect(result.matchedIds.has('sub-2')).toBe(true);
+        expect(result.matchedIds.has('sub-1')).toBe(false);
+        expect(result.ancestorIds.has('lecture')).toBe(true);
+        expect(countSubFeatures(result.tree)).toBe(1);
+    });
+
+    it('labels and colours the sub-feature kind', () => {
+        expect(formatFeatureKind('sub-feature')).toBe('Sub-feature');
+        expect(featureKindLabel('sub-feature', 'derived')).toBe('Sub-feature');
+        expect(featureKindDotClass('sub-feature')).toBe('fm-kind-dot--sub-feature');
+    });
+
+    it('still lists owners with only sub-feature children as expandable', () => {
+        expect(collectExpandableNodeIds(buildTreeWithSubFeatures())).toEqual(['artemis', 'teaching-and-content', 'lecture', 'exercise-system', 'programming']);
     });
 });
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Feature, FeatureTreeNode, IncomingRelation } from '../../core/feature-model.types';
 import { ConfiguratorTreeComponent } from './configurator-tree.component';
 
-function feature(id: string, name: string, kind: 'root' | 'group' | 'feature', selectable: boolean): Feature {
+function feature(id: string, name: string, kind: 'root' | 'group' | 'feature' | 'sub-feature', selectable: boolean): Feature {
     return {
         id,
         name,
@@ -47,10 +47,19 @@ function technicalTree(): FeatureTreeNode {
         incomingRelation: incoming('artemis', 'database', 'group', 'alternative'),
         children: [mysql, postgresql],
     };
+    const repositories: FeatureTreeNode = {
+        feature: {
+            ...feature('localvc/vcs/repositories', 'Repositories', 'sub-feature', false),
+            category: 'derived',
+            source: { configKey: null, springProfile: 'localvc', clientConstant: null, serverConditionClass: null, usageLabel: 'vcs/repositories', evidence: ['LocalVCResource.java:40'] },
+        },
+        incomingRelation: incoming('localvc', 'localvc/vcs/repositories', 'mandatory'),
+        children: [],
+    };
     const localvc: FeatureTreeNode = {
         feature: feature('localvc', 'Local Version Control', 'feature', true),
         incomingRelation: incoming('artemis', 'localvc', 'mandatory'),
-        children: [],
+        children: [repositories],
     };
     return {
         feature: feature('artemis', 'Artemis', 'root', false),
@@ -107,6 +116,22 @@ describe('ConfiguratorTreeComponent', () => {
 
         fixture.componentInstance.onToggleSelection('mysql');
         expect(emitSpy).not.toHaveBeenCalled();
+    });
+
+    it('hides sub-feature nodes and their badge from the configurator tree', () => {
+        fixture.componentInstance.onExpandAll();
+        fixture.detectChanges();
+
+        const ids = Array.from(fixture.nativeElement.querySelectorAll('.diagram-node') as NodeListOf<Element>).map((node) => node.getAttribute('data-feature-id'));
+        expect(ids).toEqual(['artemis', 'database', 'localvc', 'mysql', 'postgresql']);
+        expect(fixture.nativeElement.querySelector('[data-testid="sub-feature-badge"]')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.diagram-toggle[data-feature-id="localvc"]')).toBeNull();
+        expect(fixture.componentInstance.expandableIds()).toEqual(['artemis', 'database']);
+        expect(fixture.componentInstance.treeToggleableFeatureIds().has('localvc/vcs/repositories')).toBe(false);
+
+        fixture.componentInstance.onSearchInput('vcs/');
+        fixture.detectChanges();
+        expect(fixture.componentInstance.matchCount()).toBe(0);
     });
 
     it('renders a selected mandatory technical leaf as locked', () => {
