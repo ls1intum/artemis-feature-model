@@ -89,3 +89,23 @@
     font-weight: 700;
     letter-spacing: 0.04em;
 }
+
+/* Sub-feature rows are derived detail below a member: shorter, quieter, prefixed with their area. */
+.tree-row--sub-feature {
+    height: 1.7rem;
+    font-size: 0.85rem;
+}
+
+.tree-row--sub-feature .tree-name {
+    font-weight: 400;
+}
+
+.tree-area {
+    flex: none;
+    padding: 0.05rem 0.35rem;
+    border-radius: var(--bs-border-radius-sm);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72em;
+}

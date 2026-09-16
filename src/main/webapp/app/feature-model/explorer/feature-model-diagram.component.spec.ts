@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { collectExpandableNodeIds } from '../core/feature-model-tree.utils';
-import { buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
+import { buildFeatureModelResponseWithSubFeatures, buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
 import { Feature, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
 
@@ -412,6 +412,28 @@ describe('FeatureModelDiagramComponent', () => {
 
         (nodeFor(fixture, 'lecture') as HTMLElement).dispatchEvent(new Event('click'));
         expect(toggled).toBeUndefined();
+    });
+
+    it('drops sub-feature nodes from the layout and shows a passive +n badge on their owner', () => {
+        const fixture = createFixture(buildFeatureModelResponseWithSubFeatures().tree);
+        const ids = Array.from(root(fixture).querySelectorAll('.diagram-node')).map((node) => node.getAttribute('data-feature-id'));
+        expect(ids).toHaveLength(25);
+        expect(ids).not.toContain('lecture/ai/transcription');
+        expect(ids).not.toContain('localvc/vcs/repositories');
+
+        const lecture = nodeFor(fixture, 'lecture');
+        expect(lecture.querySelector('.diagram-toggle')).toBeNull();
+        const badge = lecture.querySelector('[data-testid="sub-feature-badge"]');
+        expect(badge?.querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('+2');
+        expect(badge?.getAttribute('transform')).toBe('translate(66, 0)');
+        expect(nodeFor(fixture, 'localvc').querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('+1');
+        expect(nodeFor(fixture, 'artemis').querySelector('[data-testid="sub-feature-badge"]')).toBeNull();
+    });
+
+    it('excludes sub-features from the hidden descendant count of a collapsed branch', () => {
+        const fixture = createFixture(buildFeatureModelResponseWithSubFeatures().tree, { expandedIds: new Set(['artemis']) });
+        const label = toggleFor(fixture, 'teaching-and-content').querySelector('.diagram-toggle__label');
+        expect(label?.textContent?.trim()).toBe('+4');
     });
 
     it('keeps the toggle badge expand-only in configuration mode', () => {

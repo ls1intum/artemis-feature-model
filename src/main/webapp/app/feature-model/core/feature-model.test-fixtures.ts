@@ -26,6 +26,7 @@ interface FeatureSpec {
     springProfile?: string;
     clientConstant?: string;
     serverConditionClass?: string;
+    usageLabel?: string;
     evidence?: string[];
 }
 
@@ -132,9 +133,78 @@ const RELATION_SPECS: RelationSpec[] = [
     { parentId: 'platform-integrations', childId: 'theia', relationType: 'optional', order: 2 },
 ];
 
+/**
+ * Sub-feature extension of the MVP fixture (contract C-1): the functional member `lecture` owns two sub-features in
+ * two areas and a technical member `localvc` owns one. Sub-features carry a `mandatory` relation from their owner,
+ * ordered by area then feature as the server emits them.
+ */
+const SUB_FEATURE_FEATURE_SPECS: FeatureSpec[] = [
+    {
+        id: 'localvc',
+        name: 'Local Version Control',
+        kind: 'feature',
+        selectable: true,
+        defaultState: 'enabled',
+        category: 'technical',
+        springProfile: 'localvc',
+    },
+    {
+        id: 'lecture/ai/transcription',
+        name: 'Transcription',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled ai/transcription in module lecture, guarded by LectureEnabled.',
+        serverConditionClass: 'LectureEnabled',
+        usageLabel: 'ai/transcription',
+        evidence: ['LectureTranscriptionResource.java:25'],
+    },
+    {
+        id: 'lecture/authoring/lectures',
+        name: 'Lectures',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled authoring/lectures in module lecture, guarded by LectureEnabled.',
+        serverConditionClass: 'LectureEnabled',
+        usageLabel: 'authoring/lectures',
+        evidence: ['LectureResource.java:88'],
+    },
+    {
+        id: 'localvc/vcs/repositories',
+        name: 'Repositories',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled vcs/repositories in module programming, guarded by PROFILE_LOCALVC.',
+        springProfile: 'localvc',
+        usageLabel: 'vcs/repositories',
+        evidence: ['LocalVCResource.java:40'],
+    },
+];
+
+const SUB_FEATURE_RELATION_SPECS: RelationSpec[] = [
+    { parentId: 'artemis', childId: 'localvc', relationType: 'mandatory', order: 6 },
+    { parentId: 'lecture', childId: 'lecture/ai/transcription', relationType: 'mandatory', order: 1 },
+    { parentId: 'lecture', childId: 'lecture/authoring/lectures', relationType: 'mandatory', order: 2 },
+    { parentId: 'localvc', childId: 'localvc/vcs/repositories', relationType: 'mandatory', order: 1 },
+];
+
 export function buildMvpFeatureModelResponse(overrides: Partial<FeatureModelResponse> = {}): FeatureModelResponse {
-    const features = FEATURE_SPECS.map((spec) => toFeature(spec));
-    const relations: Relation[] = RELATION_SPECS.map((spec) => ({
+    return buildResponse(FEATURE_SPECS, RELATION_SPECS, overrides);
+}
+
+/** The MVP fixture plus the sub-feature extension; existing specs keep using the plain MVP fixture. */
+export function buildFeatureModelResponseWithSubFeatures(overrides: Partial<FeatureModelResponse> = {}): FeatureModelResponse {
+    return buildResponse([...FEATURE_SPECS, ...SUB_FEATURE_FEATURE_SPECS], [...RELATION_SPECS, ...SUB_FEATURE_RELATION_SPECS], overrides);
+}
+
+function buildResponse(featureSpecs: FeatureSpec[], relationSpecs: RelationSpec[], overrides: Partial<FeatureModelResponse>): FeatureModelResponse {
+    const features = featureSpecs.map((spec) => toFeature(spec));
+    const relations: Relation[] = relationSpecs.map((spec) => ({
         parentId: spec.parentId,
         childId: spec.childId,
         relationType: spec.relationType,
@@ -425,6 +495,7 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
         spec.springProfile !== undefined ||
         spec.clientConstant !== undefined ||
         spec.serverConditionClass !== undefined ||
+        spec.usageLabel !== undefined ||
         (spec.evidence !== undefined && spec.evidence.length > 0);
     if (!hasSourceData) {
         return null;
@@ -434,6 +505,7 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
         springProfile: spec.springProfile ?? null,
         clientConstant: spec.clientConstant ?? null,
         serverConditionClass: spec.serverConditionClass ?? null,
+        usageLabel: spec.usageLabel ?? null,
         evidence: spec.evidence ?? [],
     };
 }

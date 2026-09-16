@@ -5,12 +5,16 @@ import { FormsModule } from '@angular/forms';
 import { FeatureModelService } from '../api/feature-model.service';
 import {
     collectExpandableNodeIds,
+    countSubFeatures,
     countTreeNodes,
     featureKindDotClass,
     featureKindLabel,
     filterTreeByQuery,
     findNodeById,
     formatFeatureCategory,
+    isSubFeature,
+    usageArea,
+    usageFeature,
 } from '../core/feature-model-tree.utils';
 import { FeatureModelResponse, FeatureTreeNode, IncomingRelation } from '../core/feature-model.types';
 import { FeatureModelDiagramComponent } from './feature-model-diagram.component';
@@ -22,7 +26,19 @@ const DEFAULT_ERROR_MESSAGE = 'Failed to load the feature model. Please verify t
 export type ExplorerViewMode = 'list' | 'diagram';
 
 /** Fixed display order for the kind legend; kinds outside it keep their model order at the end. */
-const KIND_ORDER = ['root', 'group', 'module', 'feature'];
+const KIND_ORDER = ['root', 'group', 'module', 'feature', 'sub-feature'];
+
+export interface SubFeatureEntry {
+    id: string;
+    name: string;
+    label: string;
+}
+
+/** Sub-features of the selected member, grouped by the area segment of their usage label. */
+export interface SubFeatureGroup {
+    area: string;
+    entries: SubFeatureEntry[];
+}
 
 export interface KindLegendEntry {
     /** Identity of the rendered swatch: one entry per dot colour and label pair. */
@@ -58,6 +74,7 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly model = computed(() => this.response()?.model);
     readonly tree = computed<FeatureTreeNode | null>(() => this.response()?.tree ?? null);
     readonly featureCount = computed(() => countTreeNodes(this.tree()));
+    readonly subFeatureCount = computed(() => countSubFeatures(this.tree()));
     readonly relationCount = computed(() => this.response()?.relations.length ?? 0);
     readonly constraintCount = computed(() => this.response()?.constraints.length ?? 0);
     readonly warnings = computed(() => this.response()?.warnings ?? []);
@@ -139,6 +156,33 @@ export class FeatureModelExplorerComponent implements OnInit {
     readonly selectedKindLabel = computed(() => featureKindLabel(this.selectedNode()?.feature.kind ?? '', this.selectedNode()?.feature.category ?? ''));
     readonly selectedCategoryLabel = computed(() => formatFeatureCategory(this.selectedNode()?.feature.category ?? ''));
     readonly selectedKindDotClass = computed(() => featureKindDotClass(this.selectedNode()?.feature.kind ?? ''));
+    readonly selectedIsSubFeature = computed(() => {
+        const node = this.selectedNode();
+        return Boolean(node && isSubFeature(node.feature));
+    });
+    readonly selectedUsageLabel = computed(() => this.selectedNode()?.feature.source?.usageLabel ?? '');
+    readonly selectedUsageArea = computed(() => usageArea(this.selectedUsageLabel()));
+    readonly selectedUsageFeature = computed(() => usageFeature(this.selectedUsageLabel()));
+    readonly selectedEvidence = computed<string[]>(() => this.selectedNode()?.feature.source?.evidence ?? []);
+    /** Sub-feature children of the selected node in model order, grouped by area; empty for every other node. */
+    readonly selectedSubFeatureGroups = computed<SubFeatureGroup[]>(() => {
+        const groups: SubFeatureGroup[] = [];
+        for (const child of this.selectedNode()?.children ?? []) {
+            if (!isSubFeature(child.feature)) {
+                continue;
+            }
+            const label = child.feature.source?.usageLabel ?? '';
+            const area = usageArea(label);
+            const entry: SubFeatureEntry = { id: child.feature.id, name: child.feature.name, label };
+            const group = groups.find((candidate) => candidate.area === area);
+            if (group) {
+                group.entries.push(entry);
+            } else {
+                groups.push({ area, entries: [entry] });
+            }
+        }
+        return groups;
+    });
 
     ngOnInit(): void {
         this.featureModelService

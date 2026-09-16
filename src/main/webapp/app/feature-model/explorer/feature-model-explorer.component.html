@@ -18,6 +18,12 @@
                     <div class="explorer-stat__value">{{ featureCount() }}</div>
                     <div class="explorer-stat__label">Features</div>
                 </div>
+                @if (subFeatureCount() > 0) {
+                    <div class="explorer-stat" data-testid="stat-sub-features">
+                        <div class="explorer-stat__value">{{ subFeatureCount() }}</div>
+                        <div class="explorer-stat__label">Sub-features</div>
+                    </div>
+                }
                 <div class="explorer-stat">
                     <div class="explorer-stat__value">{{ relationCount() }}</div>
                     <div class="explorer-stat__label">Relations</div>
@@ -184,7 +190,15 @@
                         <dd data-testid="details-category">{{ selectedCategoryLabel() }}</dd>
 
                         <dt>Selectable</dt>
-                        <dd>{{ node.feature.selectable ? 'Yes' : 'No — structural node' }}</dd>
+                        <dd>{{ node.feature.selectable ? 'Yes' : selectedIsSubFeature() ? 'No — derived sub-feature' : 'No — structural node' }}</dd>
+
+                        @if (selectedIsSubFeature()) {
+                            <dt>Area</dt>
+                            <dd data-testid="details-usage-area">{{ selectedUsageArea() }}</dd>
+
+                            <dt>Label</dt>
+                            <dd><code data-testid="details-usage-label">{{ selectedUsageLabel() }}</code></dd>
+                        }
 
                         @if (node.feature.defaultState) {
                             <dt>Default state</dt>
@@ -192,9 +206,9 @@
                         }
 
                         @if (selectedIncomingRelation(); as relation) {
-                            <dt>Parent</dt>
+                            <dt>{{ selectedIsSubFeature() ? 'Owner' : 'Parent' }}</dt>
                             <dd>
-                                <code>{{ relation.parentId }}</code>
+                                <code data-testid="details-parent-id">{{ relation.parentId }}</code>
                                 <span class="text-body-secondary"> · {{ relation.relationType }}</span>
                                 @if (relation.groupType) {
                                     <span class="text-body-secondary"> ({{ relation.groupType }})</span>
@@ -207,6 +221,38 @@
                         <section class="details-section">
                             <p class="fm-eyebrow">Description</p>
                             <p class="mb-0" data-testid="details-description">{{ node.feature.description }}</p>
+                        </section>
+                    }
+
+                    @if (selectedSubFeatureGroups().length > 0) {
+                        <section class="details-section" data-testid="details-sub-features">
+                            <p class="fm-eyebrow">Sub-features</p>
+                            @for (group of selectedSubFeatureGroups(); track group.area) {
+                                <div class="sub-feature-group">
+                                    <p class="sub-feature-area" data-testid="details-sub-feature-area">{{ group.area }}</p>
+                                    <ul class="sub-feature-list">
+                                        @for (entry of group.entries; track entry.id) {
+                                            <li>
+                                                <button type="button" class="sub-feature-link" [attr.data-feature-id]="entry.id" (click)="onSelectFeature(entry.id)">
+                                                    {{ entry.name }}
+                                                </button>
+                                                <code class="text-body-secondary">{{ entry.label }}</code>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </section>
+                    }
+
+                    @if (selectedIsSubFeature() && selectedEvidence().length > 0) {
+                        <section class="details-section" data-testid="details-evidence">
+                            <p class="fm-eyebrow">Evidence</p>
+                            <ul class="evidence-list mb-0">
+                                @for (entry of selectedEvidence(); track entry) {
+                                    <li><code>{{ entry }}</code></li>
+                                }
+                            </ul>
                         </section>
                     }
 
@@ -239,6 +285,10 @@
                                     @if (source.serverConditionClass) {
                                         <dt>Server condition class</dt>
                                         <dd><code>{{ source.serverConditionClass }}</code></dd>
+                                    }
+                                    @if (source.usageLabel) {
+                                        <dt>Usage label</dt>
+                                        <dd><code>{{ source.usageLabel }}</code></dd>
                                     }
                                     @if (source.evidence.length > 0) {
                                         <dt>Evidence</dt>

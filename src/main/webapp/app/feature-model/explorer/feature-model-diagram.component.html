@@ -142,6 +142,29 @@
                             <text class="diagram-toggle__label" text-anchor="middle" dy="0.35em">{{ node.toggleLabel }}</text>
                         </g>
                     }
+
+                    @if (node.subFeatureCount > 0) {
+                        <g
+                            class="diagram-subfeatures"
+                            [attr.transform]="node.subFeatureBadgeTransform"
+                            [attr.data-feature-id]="node.id"
+                            [attr.aria-label]="node.subFeatureCount + ' sub-features of ' + node.name"
+                            role="img"
+                            data-testid="sub-feature-badge"
+                        >
+                            <rect
+                                class="diagram-subfeatures__bg"
+                                [attr.x]="-toggleBadgeHalfWidth"
+                                [attr.y]="-toggleBadgeHalfHeight"
+                                [attr.width]="toggleBadgeWidth"
+                                [attr.height]="toggleBadgeHeight"
+                                rx="9"
+                                ry="9"
+                            />
+                            <text class="diagram-subfeatures__label" text-anchor="middle" dy="0.35em">{{ node.subFeatureLabel }}</text>
+                            <title>{{ node.subFeatureCount }} sub-features, shown in the list view</title>
+                        </g>
+                    }
                 </g>
             }
         </g>
