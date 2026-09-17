@@ -29,23 +29,10 @@ public class RemoteImageStackWriter {
         CiPlan ci = ciPlan(selection);
         StringBuilder yaml = new StringBuilder();
         appendHeader(yaml, database, ci);
-        appendApplication(yaml, database, ci, imageReference(runtimeSource));
+        appendApplication(yaml, database, ci, runtimeSource.imageReference());
         appendDatabase(yaml, database);
         appendNetworkAndVolumes(yaml, database);
         return yaml.toString();
-    }
-
-    /**
-     * Renders the configured Artemis image reference.
-     *
-     * @param runtimeSource resolved Artemis runtime source.
-     * @return tag reference for {@code latest}, otherwise a digest reference.
-     */
-    String imageReference(ArtemisRuntimeSource runtimeSource) {
-        if ("latest".equals(runtimeSource.imageDigest())) {
-            return runtimeSource.imageRepository() + ":latest";
-        }
-        return runtimeSource.imageRepository() + "@" + runtimeSource.imageDigest();
     }
 
     /**
