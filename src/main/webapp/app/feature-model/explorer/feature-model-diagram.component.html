@@ -154,15 +154,15 @@
                         >
                             <rect
                                 class="diagram-subfeatures__bg"
-                                [attr.x]="-toggleBadgeHalfWidth"
-                                [attr.y]="-toggleBadgeHalfHeight"
-                                [attr.width]="toggleBadgeWidth"
-                                [attr.height]="toggleBadgeHeight"
-                                rx="9"
-                                ry="9"
+                                [attr.x]="-subFeatureBadgeHalfWidth"
+                                [attr.y]="-subFeatureBadgeHalfHeight"
+                                [attr.width]="subFeatureBadgeWidth"
+                                [attr.height]="subFeatureBadgeHeight"
+                                rx="2"
+                                ry="2"
                             />
                             <text class="diagram-subfeatures__label" text-anchor="middle" dy="0.35em">{{ node.subFeatureLabel }}</text>
-                            <title>{{ node.subFeatureCount }} sub-features, shown in the list view</title>
+                            <title>{{ node.subFeatureCount }} sub-features. The diagram does not draw them; open the node in the list view or the details panel.</title>
                         </g>
                     }
                 </g>
@@ -185,5 +185,11 @@
             </svg>
             Alternative (choose one)
         </span>
+        @if (hasSubFeatureBadges()) {
+            <span class="diagram-legend__item" data-testid="diagram-legend-sub-features">
+                <span class="diagram-legend__subfeatures" aria-hidden="true">n sub</span>
+                Sub-features, see list view
+            </span>
+        }
     </div>
 </div>

@@ -424,10 +424,18 @@ describe('FeatureModelDiagramComponent', () => {
         const lecture = nodeFor(fixture, 'lecture');
         expect(lecture.querySelector('.diagram-toggle')).toBeNull();
         const badge = lecture.querySelector('[data-testid="sub-feature-badge"]');
-        expect(badge?.querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('+2');
-        expect(badge?.getAttribute('transform')).toBe('translate(66, 0)');
-        expect(nodeFor(fixture, 'localvc').querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('+1');
+        expect(badge?.querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('2 sub');
+        expect(badge?.getAttribute('transform')).toBe('translate(74, 0)');
+        expect(badge?.querySelector('rect')?.getAttribute('rx')).toBe('2');
+        expect(badge?.querySelector('title')?.textContent).toContain('does not draw them');
+        expect(nodeFor(fixture, 'localvc').querySelector('.diagram-subfeatures__label')?.textContent?.trim()).toBe('1 sub');
         expect(nodeFor(fixture, 'artemis').querySelector('[data-testid="sub-feature-badge"]')).toBeNull();
+        expect(root(fixture).querySelector('[data-testid="diagram-legend-sub-features"]')?.textContent).toContain('Sub-features');
+    });
+
+    it('omits the sub-feature legend entry for a model without sub-features', () => {
+        const fixture = createFixture(mvpTree);
+        expect(root(fixture).querySelector('[data-testid="diagram-legend-sub-features"]')).toBeNull();
     });
 
     it('excludes sub-features from the hidden descendant count of a collapsed branch', () => {

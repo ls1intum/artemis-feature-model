@@ -68,6 +68,10 @@ const NODE_RADIUS = 4;
 const TOGGLE_BADGE_WIDTH = 28;
 const TOGGLE_BADGE_HEIGHT = 18;
 const SUB_FEATURE_BADGE_GAP = 2;
+const SUB_FEATURE_BADGE_WIDTH = 40;
+const SUB_FEATURE_BADGE_HEIGHT = 16;
+// Pushes the wider badge outward so its right edge ends where the toggle's would and it covers less of the label.
+const SUB_FEATURE_BADGE_OFFSET_X = NODE_WIDTH / 2 + (TOGGLE_BADGE_WIDTH - SUB_FEATURE_BADGE_WIDTH / 2);
 const MAX_NAME_LENGTH = 18;
 const HORIZONTAL_PADDING = NODE_WIDTH / 2 + TOGGLE_BADGE_WIDTH;
 const VERTICAL_PADDING = NODE_HEIGHT;
@@ -109,6 +113,10 @@ export class FeatureModelDiagramComponent {
     readonly toggleBadgeHalfHeight = TOGGLE_BADGE_HEIGHT / 2;
     readonly toggleBadgeOffsetX = NODE_WIDTH / 2;
     readonly toggleTransform = `translate(${NODE_WIDTH / 2}, 0)`;
+    readonly subFeatureBadgeWidth = SUB_FEATURE_BADGE_WIDTH;
+    readonly subFeatureBadgeHeight = SUB_FEATURE_BADGE_HEIGHT;
+    readonly subFeatureBadgeHalfWidth = SUB_FEATURE_BADGE_WIDTH / 2;
+    readonly subFeatureBadgeHalfHeight = SUB_FEATURE_BADGE_HEIGHT / 2;
     readonly statusIndicatorRadius = STATUS_INDICATOR_RADIUS;
     readonly statusIndicatorOffsetX = STATUS_INDICATOR_OFFSET_X;
     readonly statusIndicatorOffsetY = STATUS_INDICATOR_OFFSET_Y;
@@ -135,6 +143,8 @@ export class FeatureModelDiagramComponent {
             decorateNode(node, selectedId, matched, selectedSet, violations, warnings, toggleable),
         );
     });
+
+    readonly hasSubFeatureBadges = computed(() => this.nodes().some((node) => node.subFeatureCount > 0));
 
     readonly links = computed<DiagramLink[]>(() =>
         this.layout()
@@ -300,7 +310,8 @@ function decorateNode(
     const isCollapsed = hasChildren && data.children.length === 0;
     const toggleLabel = isCollapsed ? `+${data.hiddenDescendantCount}` : '−';
     const incomingRelationType = relationMarkerType(node);
-    // The sub-feature badge shares the right edge with the toggle and moves below it when both are present.
+    // The sub-feature badge shares the right edge with the toggle and moves below it when both are present. It reads
+    // "n sub" in a square-cornered dashed box, so it cannot be mistaken for the round "+n" expand toggle.
     const subFeatureBadgeY = hasChildren ? TOGGLE_BADGE_HEIGHT + SUB_FEATURE_BADGE_GAP : 0;
     return {
         id: feature.id,
@@ -326,8 +337,8 @@ function decorateNode(
         isWarning: warnings.has(feature.id),
         isToggleable: toggleable.has(feature.id),
         subFeatureCount: data.subFeatureCount,
-        subFeatureLabel: `+${data.subFeatureCount}`,
-        subFeatureBadgeTransform: `translate(${NODE_WIDTH / 2}, ${subFeatureBadgeY})`,
+        subFeatureLabel: `${data.subFeatureCount} sub`,
+        subFeatureBadgeTransform: `translate(${SUB_FEATURE_BADGE_OFFSET_X}, ${subFeatureBadgeY})`,
     };
 }
 

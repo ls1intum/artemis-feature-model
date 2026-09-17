@@ -490,8 +490,8 @@ describe('FeatureModelExplorerComponent', () => {
                 .map((badge) => [badge.getAttribute('data-feature-id') ?? '', badge.querySelector('.diagram-subfeatures__label')?.textContent?.trim() ?? ''])
                 .sort((left, right) => left[0].localeCompare(right[0]));
             expect(badges).toEqual([
-                ['lecture', '+2'],
-                ['localvc', '+1'],
+                ['lecture', '2 sub'],
+                ['localvc', '1 sub'],
             ]);
         });
     });

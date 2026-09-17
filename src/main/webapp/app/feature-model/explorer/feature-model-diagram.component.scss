@@ -208,19 +208,35 @@
     stroke: var(--bs-primary);
 }
 
-/* Sub-features are never laid out; their owner carries a passive count badge instead. */
+/*
+ * Sub-features are never laid out; their owner carries a passive count badge instead. The square corners, dashed
+ * outline, and "n sub" wording keep it apart from the round "+n" expand toggle, which is a control.
+ */
 .diagram-subfeatures__bg {
-    fill: var(--bs-info-bg-subtle);
+    fill: var(--bs-body-bg);
     stroke: var(--fm-kind-sub-feature);
-    stroke-width: 1.25;
+    stroke-width: 1;
+    stroke-dasharray: 2 2;
 }
 
 .diagram-subfeatures__label {
     fill: var(--bs-info-text-emphasis);
-    font-size: 0.72rem;
+    font-size: 0.62rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
     pointer-events: none;
     user-select: none;
+}
+
+.diagram-legend__subfeatures {
+    display: inline-block;
+    padding: 0 0.3rem;
+    border: 1px dashed var(--fm-kind-sub-feature);
+    border-radius: 2px;
+    color: var(--bs-info-text-emphasis);
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.5;
 }
 
 .diagram-legend {
