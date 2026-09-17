@@ -97,6 +97,202 @@
       }
     },
     {
+      "id" : "lecture/ai/transcription",
+      "name" : "Transcription",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled ai/transcription in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "ai/transcription",
+        "evidence" : [
+          "LectureTranscriptionResource.java:25"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/authoring/lectures",
+      "name" : "Lectures",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/lectures in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "authoring/lectures",
+        "evidence" : [
+          "LectureResource.java:88"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/units/attachment-video-units",
+      "name" : "Attachment video units",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled units/attachment-video-units in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "units/attachment-video-units",
+        "evidence" : [
+          "AttachmentVideoUnitResource.java:79"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/units/exercise-units",
+      "name" : "Exercise units",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled units/exercise-units in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "units/exercise-units",
+        "evidence" : [
+          "ExerciseUnitResource.java:37"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/units/online-units",
+      "name" : "Online units",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled units/online-units in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "units/online-units",
+        "evidence" : [
+          "OnlineUnitResource.java:59"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/units/text-units",
+      "name" : "Text units",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled units/text-units in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "units/text-units",
+        "evidence" : [
+          "TextUnitResource.java:46"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lecture/units/unit-management",
+      "name" : "Unit management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled units/unit-management in module lecture, guarded by LectureEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LectureEnabled",
+        "usageLabel" : "units/unit-management",
+        "evidence" : [
+          "LectureUnitResource.java:65"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "tutorialgroup",
       "name" : "Tutorial Groups",
       "kind" : "module",
@@ -139,6 +335,118 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "tutorialgroup/management/configuration",
+      "name" : "Configuration",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled management/configuration in module tutorialgroup, guarded by TutorialGroupEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TutorialGroupEnabled",
+        "usageLabel" : "management/configuration",
+        "evidence" : [
+          "TutorialGroupsConfigurationResource.java:48"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "tutorialgroup/management/free-periods",
+      "name" : "Free periods",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled management/free-periods in module tutorialgroup, guarded by TutorialGroupEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TutorialGroupEnabled",
+        "usageLabel" : "management/free-periods",
+        "evidence" : [
+          "TutorialGroupFreePeriodResource.java:45"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "tutorialgroup/management/sessions",
+      "name" : "Sessions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled management/sessions in module tutorialgroup, guarded by TutorialGroupEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TutorialGroupEnabled",
+        "usageLabel" : "management/sessions",
+        "evidence" : [
+          "TutorialGroupSessionResource.java:58"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "tutorialgroup/management/tutorial-groups",
+      "name" : "Tutorial groups",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled management/tutorial-groups in module tutorialgroup, guarded by TutorialGroupEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TutorialGroupEnabled",
+        "usageLabel" : "management/tutorial-groups",
+        "evidence" : [
+          "TutorialGroupResource.java:81"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -332,6 +640,176 @@
       }
     },
     {
+      "id" : "text/assessment/assessment-analytics",
+      "name" : "Assessment analytics",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled assessment/assessment-analytics in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "assessment/assessment-analytics",
+        "evidence" : [
+          "AdminTextAssessmentEventResource.java:31",
+          "TextAssessmentEventResource.java:45"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "text/assessment/manual-assessment",
+      "name" : "Manual assessment",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled assessment/manual-assessment in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "assessment/manual-assessment",
+        "evidence" : [
+          "TextAssessmentResource.java:96"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "text/authoring/exercise-management",
+      "name" : "Exercise management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/exercise-management in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "authoring/exercise-management",
+        "evidence" : [
+          "TextExerciseCreationUpdateResource.java:67",
+          "TextExerciseResource.java:78"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "text/authoring/import-export",
+      "name" : "Import export",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/import-export in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "authoring/import-export",
+        "evidence" : [
+          "TextExerciseExportImportResource.java:61"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "text/integrity/plagiarism",
+      "name" : "Plagiarism",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled integrity/plagiarism in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "integrity/plagiarism",
+        "evidence" : [
+          "TextExercisePlagiarismResource.java:43"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "text/participation/submissions",
+      "name" : "Submissions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled participation/submissions in module text, guarded by TextEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TextEnabled",
+        "usageLabel" : "participation/submissions",
+        "evidence" : [
+          "TextSubmissionResource.java:69"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "modeling",
       "name" : "Modeling Exercises",
       "kind" : "module",
@@ -379,6 +857,118 @@
       }
     },
     {
+      "id" : "modeling/assessment/manual-assessment",
+      "name" : "Manual assessment",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled assessment/manual-assessment in module modeling, guarded by ModelingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ModelingEnabled",
+        "usageLabel" : "assessment/manual-assessment",
+        "evidence" : [
+          "ModelingAssessmentResource.java:71"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "modeling/authoring/exercise-management",
+      "name" : "Exercise management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/exercise-management in module modeling, guarded by ModelingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ModelingEnabled",
+        "usageLabel" : "authoring/exercise-management",
+        "evidence" : [
+          "ModelingExerciseResource.java:99"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "modeling/diagrams/apollon-diagrams",
+      "name" : "Apollon diagrams",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled diagrams/apollon-diagrams in module modeling, guarded by ModelingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ModelingEnabled",
+        "usageLabel" : "diagrams/apollon-diagrams",
+        "evidence" : [
+          "ApollonDiagramResource.java:48"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "modeling/participation/submissions",
+      "name" : "Submissions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled participation/submissions in module modeling, guarded by ModelingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ModelingEnabled",
+        "usageLabel" : "participation/submissions",
+        "evidence" : [
+          "ModelingSubmissionResource.java:72"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "fileupload",
       "name" : "File Upload Exercises",
       "kind" : "module",
@@ -421,6 +1011,90 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "fileupload/assessment/manual-assessment",
+      "name" : "Manual assessment",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled assessment/manual-assessment in module fileupload, guarded by FileUploadEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "FileUploadEnabled",
+        "usageLabel" : "assessment/manual-assessment",
+        "evidence" : [
+          "FileUploadAssessmentResource.java:56"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "fileupload/authoring/exercise-management",
+      "name" : "Exercise management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/exercise-management in module fileupload, guarded by FileUploadEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "FileUploadEnabled",
+        "usageLabel" : "authoring/exercise-management",
+        "evidence" : [
+          "FileUploadExerciseResource.java:95"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "fileupload/participation/submissions",
+      "name" : "Submissions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled participation/submissions in module fileupload, guarded by FileUploadEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "FileUploadEnabled",
+        "usageLabel" : "participation/submissions",
+        "evidence" : [
+          "FileUploadSubmissionResource.java:68"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -494,6 +1168,176 @@
       }
     },
     {
+      "id" : "exam/authoring/exam-management",
+      "name" : "Exam management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/exam-management in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "authoring/exam-management",
+        "evidence" : [
+          "AdminExamResource.java:30",
+          "ExamResource.java:157"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "exam/authoring/exercise-groups",
+      "name" : "Exercise groups",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/exercise-groups in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "authoring/exercise-groups",
+        "evidence" : [
+          "ExerciseGroupResource.java:63"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "exam/authoring/registration",
+      "name" : "Registration",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/registration in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "authoring/registration",
+        "evidence" : [
+          "ExamUserResource.java:65"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "exam/conduction/student-exam",
+      "name" : "Student exam",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled conduction/student-exam in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "conduction/student-exam",
+        "evidence" : [
+          "StudentExamResource.java:92"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "exam/rooms/room-management",
+      "name" : "Room management",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled rooms/room-management in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "rooms/room-management",
+        "evidence" : [
+          "AdminExamRoomManagementResource.java:29",
+          "ExamRoomManagementResource.java:47"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "exam/rooms/seat-distribution",
+      "name" : "Seat distribution",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled rooms/seat-distribution in module exam, guarded by ExamEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ExamEnabled",
+        "usageLabel" : "rooms/seat-distribution",
+        "evidence" : [
+          "ExamRoomDistributionResource.java:50"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "plagiarism",
       "name" : "Plagiarism Detection",
       "kind" : "module",
@@ -536,6 +1380,118 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "plagiarism/cases/answer-posts",
+      "name" : "Answer posts",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled cases/answer-posts in module plagiarism, guarded by PlagiarismEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "PlagiarismEnabled",
+        "usageLabel" : "cases/answer-posts",
+        "evidence" : [
+          "PlagiarismAnswerPostResource.java:39"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "plagiarism/cases/plagiarism-cases",
+      "name" : "Plagiarism cases",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled cases/plagiarism-cases in module plagiarism, guarded by PlagiarismEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "PlagiarismEnabled",
+        "usageLabel" : "cases/plagiarism-cases",
+        "evidence" : [
+          "PlagiarismCaseResource.java:53"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "plagiarism/cases/posts",
+      "name" : "Posts",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled cases/posts in module plagiarism, guarded by PlagiarismEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "PlagiarismEnabled",
+        "usageLabel" : "cases/posts",
+        "evidence" : [
+          "PlagiarismPostResource.java:53"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "plagiarism/detection/plagiarism-checks",
+      "name" : "Plagiarism checks",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled detection/plagiarism-checks in module plagiarism, guarded by PlagiarismEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "PlagiarismEnabled",
+        "usageLabel" : "detection/plagiarism-checks",
+        "evidence" : [
+          "PlagiarismResource.java:50"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -602,6 +1558,62 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "athena/feedback-suggestions/feedback-suggestions",
+      "name" : "Feedback suggestions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled feedback-suggestions/feedback-suggestions in module athena, guarded by AthenaEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AthenaEnabled",
+        "usageLabel" : "feedback-suggestions/feedback-suggestions",
+        "evidence" : [
+          "AthenaResource.java:51"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "athena/feedback-suggestions/internal-callbacks",
+      "name" : "Internal callbacks",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled feedback-suggestions/internal-callbacks in module athena, guarded by AthenaEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AthenaEnabled",
+        "usageLabel" : "feedback-suggestions/internal-callbacks",
+        "evidence" : [
+          "AthenaInternalResource.java:34"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -685,6 +1697,261 @@
       }
     },
     {
+      "id" : "atlas/ai/atlas-agent",
+      "name" : "Atlas agent",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled ai/atlas-agent in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "ai/atlas-agent",
+        "evidence" : [
+          "AtlasAgentResource.java:35"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/ai/competency-orchestration",
+      "name" : "Competency orchestration",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled ai/competency-orchestration in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "ai/competency-orchestration",
+        "evidence" : [
+          "CompetencyOrchestrationResource.java:38"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/competencies/competencies",
+      "name" : "Competencies",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled competencies/competencies in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "competencies/competencies",
+        "evidence" : [
+          "CompetencyResource.java:69",
+          "CourseCompetencyResource.java:72"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/competencies/prerequisites",
+      "name" : "Prerequisites",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled competencies/prerequisites in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "competencies/prerequisites",
+        "evidence" : [
+          "PrerequisiteResource.java:61"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/competencies/standardized-competencies",
+      "name" : "Standardized competencies",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled competencies/standardized-competencies in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "competencies/standardized-competencies",
+        "evidence" : [
+          "AdminStandardizedCompetencyResource.java:51",
+          "StandardizedCompetencyResource.java:36"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/learner-profile/learner-profile",
+      "name" : "Learner profile",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled learner-profile/learner-profile in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "learner-profile/learner-profile",
+        "evidence" : [
+          "CourseLearnerProfileResource.java:43",
+          "LearnerProfileResource.java:38"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/learning-paths/learning-paths",
+      "name" : "Learning paths",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled learning-paths/learning-paths in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "learning-paths/learning-paths",
+        "evidence" : [
+          "LearningPathResource.java:69"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/research/science-events",
+      "name" : "Science events",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled research/science-events in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "research/science-events",
+        "evidence" : [
+          "ScienceResource.java:30"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "atlas/research/science-settings",
+      "name" : "Science settings",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled research/science-settings in module atlas, guarded by AtlasEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "AtlasEnabled",
+        "usageLabel" : "research/science-settings",
+        "evidence" : [
+          "ScienceSettingsResource.java:40"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "iris",
       "name" : "Iris (AI Assistant)",
       "kind" : "module",
@@ -746,6 +2013,258 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/chat/availability",
+      "name" : "Availability",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled chat/availability in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "chat/availability",
+        "evidence" : [
+          "IrisResource.java:38"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/chat/chat-sessions",
+      "name" : "Chat sessions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled chat/chat-sessions in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "chat/chat-sessions",
+        "evidence" : [
+          "IrisChatSessionResource.java:60"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/chat/messages",
+      "name" : "Messages",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled chat/messages in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "chat/messages",
+        "evidence" : [
+          "IrisMessageResource.java:61"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/chat/tutor-suggestions",
+      "name" : "Tutor suggestions",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled chat/tutor-suggestions in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "chat/tutor-suggestions",
+        "evidence" : [
+          "IrisTutorSuggestionSessionResource.java:34"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/configuration/settings",
+      "name" : "Settings",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled configuration/settings in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "configuration/settings",
+        "evidence" : [
+          "IrisSettingsResource.java:32"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/internal/pyris-status-updates",
+      "name" : "Pyris status updates",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled internal/pyris-status-updates in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "internal/pyris-status-updates",
+        "evidence" : [
+          "PyrisInternalStatusUpdateResource.java:49"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/memory/memory",
+      "name" : "Memory",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled memory/memory in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "memory/memory",
+        "evidence" : [
+          "IrisMemoryResource.java:31"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/monitoring/dashboard",
+      "name" : "Dashboard",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled monitoring/dashboard in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "monitoring/dashboard",
+        "evidence" : [
+          "IrisAdminDashboardResource.java:37"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "iris/search/lecture-search",
+      "name" : "Lecture search",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled search/lecture-search in module iris, guarded by IrisEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "IrisEnabled",
+        "usageLabel" : "search/lecture-search",
+        "evidence" : [
+          "IrisGlobalSearchResource.java:43"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -817,6 +2336,146 @@
       }
     },
     {
+      "id" : "hyperion/authoring-assistance/assessment-criteria-generation",
+      "name" : "Assessment criteria generation",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring-assistance/assessment-criteria-generation in module hyperion, guarded by HyperionEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "HyperionEnabled",
+        "usageLabel" : "authoring-assistance/assessment-criteria-generation",
+        "evidence" : [
+          "HyperionAssessmentCriteriaGenerationResource.java:33"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "hyperion/authoring-assistance/code-generation",
+      "name" : "Code generation",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring-assistance/code-generation in module hyperion, guarded by HyperionEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "HyperionEnabled",
+        "usageLabel" : "authoring-assistance/code-generation",
+        "evidence" : [
+          "HyperionCodeGenerationResource.java:44"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "hyperion/authoring-assistance/faq-rewrite",
+      "name" : "Faq rewrite",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring-assistance/faq-rewrite in module hyperion, guarded by HyperionEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "HyperionEnabled",
+        "usageLabel" : "authoring-assistance/faq-rewrite",
+        "evidence" : [
+          "HyperionFaqResource.java:33"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "hyperion/authoring-assistance/problem-statement",
+      "name" : "Problem statement",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring-assistance/problem-statement in module hyperion, guarded by HyperionEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "HyperionEnabled",
+        "usageLabel" : "authoring-assistance/problem-statement",
+        "evidence" : [
+          "HyperionProblemStatementResource.java:61"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "hyperion/authoring-assistance/quiz-generation",
+      "name" : "Quiz generation",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring-assistance/quiz-generation in module hyperion, guarded by HyperionEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "HyperionEnabled",
+        "usageLabel" : "authoring-assistance/quiz-generation",
+        "evidence" : [
+          "HyperionQuizQuestionGenerationResource.java:41"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "deimos",
       "name" : "Deimos (Malicious Participation Analysis)",
       "kind" : "module",
@@ -878,6 +2537,34 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "deimos/malicious-code-analysis/batch-runs",
+      "name" : "Batch runs",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled malicious-code-analysis/batch-runs in module deimos, guarded by DeimosEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "DeimosEnabled",
+        "usageLabel" : "malicious-code-analysis/batch-runs",
+        "evidence" : [
+          "DeimosResource.java:32"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -951,6 +2638,91 @@
       }
     },
     {
+      "id" : "lti/lti/launch",
+      "name" : "Launch",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled lti/launch in module lti, guarded by LtiEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LtiEnabled",
+        "usageLabel" : "lti/launch",
+        "evidence" : [
+          "LtiResource.java:66",
+          "PublicLtiResource.java:38"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lti/lti/oauth2-keys",
+      "name" : "Oauth2 keys",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled lti/oauth2-keys in module lti, guarded by LtiEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LtiEnabled",
+        "usageLabel" : "lti/oauth2-keys",
+        "evidence" : [
+          "PublicOAuth2JWKSResource.java:28"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "lti/lti/platform-configuration",
+      "name" : "Platform configuration",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled lti/platform-configuration in module lti, guarded by LtiEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "LtiEnabled",
+        "usageLabel" : "lti/platform-configuration",
+        "evidence" : [
+          "AdminLtiConfigurationResource.java:46"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "theia",
       "name" : "Theia (Online IDE)",
       "kind" : "module",
@@ -1008,6 +2780,34 @@
       }
     },
     {
+      "id" : "theia/participation/online-ide",
+      "name" : "Online ide",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled participation/online-ide in module programming, guarded by TheiaEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "TheiaEnabled",
+        "usageLabel" : "participation/online-ide",
+        "evidence" : [
+          "TheiaConfigurationResource.java:24"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "apollon",
       "name" : "Apollon (Modeling)",
       "kind" : "module",
@@ -1060,6 +2860,34 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "apollon/diagrams/apollon-conversion",
+      "name" : "Apollon conversion",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled diagrams/apollon-conversion in module modeling, guarded by ApollonEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "ApollonEnabled",
+        "usageLabel" : "diagrams/apollon-conversion",
+        "evidence" : [
+          "ApollonConversionResource.java:32"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -1126,6 +2954,62 @@
       ],
       "extraction" : {
         "method" : "automatic",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "sharing/authoring/sharing",
+      "name" : "Sharing",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled authoring/sharing in module programming, guarded by SharingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "SharingEnabled",
+        "usageLabel" : "authoring/sharing",
+        "evidence" : [
+          "ExerciseSharingResource.java:62"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "sharing/sharing/sharing-platform",
+      "name" : "Sharing platform",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled sharing/sharing-platform in module core, guarded by SharingEnabled.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "serverConditionClass" : "SharingEnabled",
+        "usageLabel" : "sharing/sharing-platform",
+        "evidence" : [
+          "SharingSupportResource.java:42"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "teacher",
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
         "confidence" : "high",
         "status" : "generated"
       }
@@ -1304,6 +3188,141 @@
       }
     },
     {
+      "id" : "integrated-code-lifecycle/build-system/after-due-date-builds",
+      "name" : "After due date builds",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/after-due-date-builds in module localci, guarded by PROFILE_LOCALCI.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localci",
+        "usageLabel" : "build-system/after-due-date-builds",
+        "evidence" : [
+          "AutomaticAfterDueDateResource.java:37"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "integrated-code-lifecycle/build-system/build-logs",
+      "name" : "Build logs",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/build-logs in module localci, guarded by PROFILE_LOCALCI.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localci",
+        "usageLabel" : "build-system/build-logs",
+        "evidence" : [
+          "BuildLogResource.java:30"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "integrated-code-lifecycle/build-system/build-phase-templates",
+      "name" : "Build phase templates",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/build-phase-templates in module localci, guarded by PROFILE_LOCALCI.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localci",
+        "usageLabel" : "build-system/build-phase-templates",
+        "evidence" : [
+          "BuildPhasesTemplateResource.java:39"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "integrated-code-lifecycle/build-system/build-queue",
+      "name" : "Build queue",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/build-queue in module localci, guarded by PROFILE_LOCALCI.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localci",
+        "usageLabel" : "build-system/build-queue",
+        "evidence" : [
+          "BuildJobQueueResource.java:51"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "integrated-code-lifecycle/build-system/build-queue-administration",
+      "name" : "Build queue administration",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/build-queue-administration in module admin, guarded by PROFILE_LOCALCI.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localci",
+        "usageLabel" : "build-system/build-queue-administration",
+        "evidence" : [
+          "AdminBuildJobQueueResource.java:57"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "jenkins",
       "name" : "Jenkins",
       "kind" : "feature",
@@ -1403,6 +3422,61 @@
       }
     },
     {
+      "id" : "jenkins/build-system/build-plans",
+      "name" : "Build plans",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled build-system/build-plans in module localci, guarded by PROFILE_JENKINS.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "jenkins",
+        "usageLabel" : "build-system/build-plans",
+        "evidence" : [
+          "BuildPlanResource.java:35",
+          "PublicBuildPlanResource.java:34"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "jenkins/submission/build-results",
+      "name" : "Build results",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled submission/build-results in module programming, guarded by PROFILE_JENKINS.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "jenkins",
+        "usageLabel" : "submission/build-results",
+        "evidence" : [
+          "PublicProgrammingExerciseResultResource.java:47"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
       "id" : "localvc",
       "name" : "Local Version Control",
       "kind" : "feature",
@@ -1439,6 +3513,87 @@
         "confidence" : "medium",
         "status" : "generated"
       }
+    },
+    {
+      "id" : "localvc/access/build-agent-address",
+      "name" : "Build agent address",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled access/build-agent-address in module localvc, guarded by PROFILE_LOCALVC.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localvc",
+        "usageLabel" : "access/build-agent-address",
+        "evidence" : [
+          "PublicBuildAgentAddressResource.java:47"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "localvc/access/ssh-fingerprints",
+      "name" : "Ssh fingerprints",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled access/ssh-fingerprints in module localvc, guarded by PROFILE_LOCALVC.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localvc",
+        "usageLabel" : "access/ssh-fingerprints",
+        "evidence" : [
+          "SshFingerprintsProviderResource.java:28"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
+    },
+    {
+      "id" : "localvc/access/ssh-keys",
+      "name" : "Ssh keys",
+      "kind" : "sub-feature",
+      "selectable" : false,
+      "description" : "REST endpoints labelled access/ssh-keys in module programming, guarded by PROFILE_LOCALVC.",
+      "defaultState" : "not_applicable",
+      "source" : {
+        "springProfile" : "localvc",
+        "usageLabel" : "access/ssh-keys",
+        "evidence" : [
+          "SshPublicKeysResource.java:37"
+        ]
+      },
+      "category" : "derived",
+      "visibleTo" : [
+        "maintainer"
+      ],
+      "configurableBy" : [ ],
+      "requiresCapabilities" : [ ],
+      "artifactMappings" : [ ],
+      "extraction" : {
+        "method" : "feature-usage-annotation",
+        "confidence" : "high",
+        "status" : "generated"
+      }
     }
   ],
   "relations" : [
@@ -1456,10 +3611,76 @@
       "order" : 1
     },
     {
+      "parentId" : "lecture",
+      "childId" : "lecture/ai/transcription",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/authoring/lectures",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/units/attachment-video-units",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/units/exercise-units",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/units/online-units",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/units/text-units",
+      "relationType" : "mandatory",
+      "order" : 6
+    },
+    {
+      "parentId" : "lecture",
+      "childId" : "lecture/units/unit-management",
+      "relationType" : "mandatory",
+      "order" : 7
+    },
+    {
       "parentId" : "teaching-and-content",
       "childId" : "tutorialgroup",
       "relationType" : "optional",
       "order" : 2
+    },
+    {
+      "parentId" : "tutorialgroup",
+      "childId" : "tutorialgroup/management/configuration",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "tutorialgroup",
+      "childId" : "tutorialgroup/management/free-periods",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "tutorialgroup",
+      "childId" : "tutorialgroup/management/sessions",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "tutorialgroup",
+      "childId" : "tutorialgroup/management/tutorial-groups",
+      "relationType" : "mandatory",
+      "order" : 4
     },
     {
       "parentId" : "teaching-and-content",
@@ -1505,16 +3726,94 @@
       "order" : 4
     },
     {
+      "parentId" : "text",
+      "childId" : "text/assessment/assessment-analytics",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "text",
+      "childId" : "text/assessment/manual-assessment",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "text",
+      "childId" : "text/authoring/exercise-management",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "text",
+      "childId" : "text/authoring/import-export",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "text",
+      "childId" : "text/integrity/plagiarism",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
+      "parentId" : "text",
+      "childId" : "text/participation/submissions",
+      "relationType" : "mandatory",
+      "order" : 6
+    },
+    {
       "parentId" : "exercise-system",
       "childId" : "modeling",
       "relationType" : "optional",
       "order" : 5
     },
     {
+      "parentId" : "modeling",
+      "childId" : "modeling/assessment/manual-assessment",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "modeling",
+      "childId" : "modeling/authoring/exercise-management",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "modeling",
+      "childId" : "modeling/diagrams/apollon-diagrams",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "modeling",
+      "childId" : "modeling/participation/submissions",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
       "parentId" : "exercise-system",
       "childId" : "fileupload",
       "relationType" : "optional",
       "order" : 6
+    },
+    {
+      "parentId" : "fileupload",
+      "childId" : "fileupload/assessment/manual-assessment",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "fileupload",
+      "childId" : "fileupload/authoring/exercise-management",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "fileupload",
+      "childId" : "fileupload/participation/submissions",
+      "relationType" : "mandatory",
+      "order" : 3
     },
     {
       "parentId" : "artemis",
@@ -1530,16 +3829,88 @@
       "order" : 1
     },
     {
+      "parentId" : "exam",
+      "childId" : "exam/authoring/exam-management",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "exam",
+      "childId" : "exam/authoring/exercise-groups",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "exam",
+      "childId" : "exam/authoring/registration",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "exam",
+      "childId" : "exam/conduction/student-exam",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "exam",
+      "childId" : "exam/rooms/room-management",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
+      "parentId" : "exam",
+      "childId" : "exam/rooms/seat-distribution",
+      "relationType" : "mandatory",
+      "order" : 6
+    },
+    {
       "parentId" : "assessment-and-integrity",
       "childId" : "plagiarism",
       "relationType" : "optional",
       "order" : 2
     },
     {
+      "parentId" : "plagiarism",
+      "childId" : "plagiarism/cases/answer-posts",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "plagiarism",
+      "childId" : "plagiarism/cases/plagiarism-cases",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "plagiarism",
+      "childId" : "plagiarism/cases/posts",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "plagiarism",
+      "childId" : "plagiarism/detection/plagiarism-checks",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
       "parentId" : "assessment-and-integrity",
       "childId" : "athena",
       "relationType" : "optional",
       "order" : 3
+    },
+    {
+      "parentId" : "athena",
+      "childId" : "athena/feedback-suggestions/feedback-suggestions",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "athena",
+      "childId" : "athena/feedback-suggestions/internal-callbacks",
+      "relationType" : "mandatory",
+      "order" : 2
     },
     {
       "parentId" : "artemis",
@@ -1555,10 +3926,118 @@
       "order" : 1
     },
     {
+      "parentId" : "atlas",
+      "childId" : "atlas/ai/atlas-agent",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/ai/competency-orchestration",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/competencies/competencies",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/competencies/prerequisites",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/competencies/standardized-competencies",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/learner-profile/learner-profile",
+      "relationType" : "mandatory",
+      "order" : 6
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/learning-paths/learning-paths",
+      "relationType" : "mandatory",
+      "order" : 7
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/research/science-events",
+      "relationType" : "mandatory",
+      "order" : 8
+    },
+    {
+      "parentId" : "atlas",
+      "childId" : "atlas/research/science-settings",
+      "relationType" : "mandatory",
+      "order" : 9
+    },
+    {
       "parentId" : "adaptive-learning-and-ai",
       "childId" : "iris",
       "relationType" : "optional",
       "order" : 2
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/chat/availability",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/chat/chat-sessions",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/chat/messages",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/chat/tutor-suggestions",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/configuration/settings",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/internal/pyris-status-updates",
+      "relationType" : "mandatory",
+      "order" : 6
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/memory/memory",
+      "relationType" : "mandatory",
+      "order" : 7
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/monitoring/dashboard",
+      "relationType" : "mandatory",
+      "order" : 8
+    },
+    {
+      "parentId" : "iris",
+      "childId" : "iris/search/lecture-search",
+      "relationType" : "mandatory",
+      "order" : 9
     },
     {
       "parentId" : "adaptive-learning-and-ai",
@@ -1567,10 +4046,46 @@
       "order" : 3
     },
     {
+      "parentId" : "hyperion",
+      "childId" : "hyperion/authoring-assistance/assessment-criteria-generation",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "hyperion",
+      "childId" : "hyperion/authoring-assistance/code-generation",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "hyperion",
+      "childId" : "hyperion/authoring-assistance/faq-rewrite",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "hyperion",
+      "childId" : "hyperion/authoring-assistance/problem-statement",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "hyperion",
+      "childId" : "hyperion/authoring-assistance/quiz-generation",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
       "parentId" : "adaptive-learning-and-ai",
       "childId" : "deimos",
       "relationType" : "optional",
       "order" : 4
+    },
+    {
+      "parentId" : "deimos",
+      "childId" : "deimos/malicious-code-analysis/batch-runs",
+      "relationType" : "mandatory",
+      "order" : 1
     },
     {
       "parentId" : "artemis",
@@ -1586,10 +4101,34 @@
       "order" : 1
     },
     {
+      "parentId" : "lti",
+      "childId" : "lti/lti/launch",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "lti",
+      "childId" : "lti/lti/oauth2-keys",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "lti",
+      "childId" : "lti/lti/platform-configuration",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
       "parentId" : "platform-integrations",
       "childId" : "theia",
       "relationType" : "optional",
       "order" : 2
+    },
+    {
+      "parentId" : "theia",
+      "childId" : "theia/participation/online-ide",
+      "relationType" : "mandatory",
+      "order" : 1
     },
     {
       "parentId" : "platform-integrations",
@@ -1598,10 +4137,28 @@
       "order" : 3
     },
     {
+      "parentId" : "apollon",
+      "childId" : "apollon/diagrams/apollon-conversion",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
       "parentId" : "platform-integrations",
       "childId" : "sharing",
       "relationType" : "optional",
       "order" : 4
+    },
+    {
+      "parentId" : "sharing",
+      "childId" : "sharing/authoring/sharing",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "sharing",
+      "childId" : "sharing/sharing/sharing-platform",
+      "relationType" : "mandatory",
+      "order" : 2
     },
     {
       "parentId" : "artemis",
@@ -1636,9 +4193,51 @@
       "order" : 1
     },
     {
+      "parentId" : "integrated-code-lifecycle",
+      "childId" : "integrated-code-lifecycle/build-system/after-due-date-builds",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "integrated-code-lifecycle",
+      "childId" : "integrated-code-lifecycle/build-system/build-logs",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "integrated-code-lifecycle",
+      "childId" : "integrated-code-lifecycle/build-system/build-phase-templates",
+      "relationType" : "mandatory",
+      "order" : 3
+    },
+    {
+      "parentId" : "integrated-code-lifecycle",
+      "childId" : "integrated-code-lifecycle/build-system/build-queue",
+      "relationType" : "mandatory",
+      "order" : 4
+    },
+    {
+      "parentId" : "integrated-code-lifecycle",
+      "childId" : "integrated-code-lifecycle/build-system/build-queue-administration",
+      "relationType" : "mandatory",
+      "order" : 5
+    },
+    {
       "parentId" : "ci-provider",
       "childId" : "jenkins",
       "relationType" : "optional",
+      "order" : 2
+    },
+    {
+      "parentId" : "jenkins",
+      "childId" : "jenkins/build-system/build-plans",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "jenkins",
+      "childId" : "jenkins/submission/build-results",
+      "relationType" : "mandatory",
       "order" : 2
     },
     {
@@ -1646,6 +4245,24 @@
       "childId" : "localvc",
       "relationType" : "mandatory",
       "order" : 8
+    },
+    {
+      "parentId" : "localvc",
+      "childId" : "localvc/access/build-agent-address",
+      "relationType" : "mandatory",
+      "order" : 1
+    },
+    {
+      "parentId" : "localvc",
+      "childId" : "localvc/access/ssh-fingerprints",
+      "relationType" : "mandatory",
+      "order" : 2
+    },
+    {
+      "parentId" : "localvc",
+      "childId" : "localvc/access/ssh-keys",
+      "relationType" : "mandatory",
+      "order" : 3
     }
   ],
   "constraints" : [

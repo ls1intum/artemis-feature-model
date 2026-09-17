@@ -8,20 +8,30 @@ manifestVersion: 5
 
 features:
   - { id: lecture, group: teaching-and-content, order: 1 }
+
   - { id: tutorialgroup, group: teaching-and-content, order: 2 }
+
   - { id: text, group: exercise-system, order: 4 }
+
   - { id: modeling, group: exercise-system, order: 5 }
+
   - { id: fileupload, group: exercise-system, order: 6 }
+
   - { id: exam, group: assessment-and-integrity, order: 1 }
+
   - { id: plagiarism, group: assessment-and-integrity, order: 2 }
+
   - { id: athena, group: assessment-and-integrity, order: 3 }
+
   - id: atlas
     group: adaptive-learning-and-ai
     order: 1
     configuration:
       # Derivable by prefix but carrying a real default, so the classifier calls it a tunable; kept a deployment input.
       - { key: artemis.atlas.chat-model }
+
   - { id: iris, group: adaptive-learning-and-ai, order: 2 }
+
   - id: hyperion
     group: adaptive-learning-and-ai
     order: 3
@@ -29,10 +39,15 @@ features:
       # Read by the Spring AI auto-configuration and linked to hyperion only by a YAML comment, so derivation cannot see them.
       - { key: spring.ai.openai.api-key, secret: true }
       - { key: spring.ai.openai.base-url }
+
   - { id: lti, group: platform-integrations, order: 1 }
+
   - { id: theia, group: platform-integrations, order: 2 }
+
   - { id: apollon, group: platform-integrations, order: 3 }
+
   - { id: sharing, group: platform-integrations, order: 4 }
+
   - { id: deimos, group: adaptive-learning-and-ai }
 
 technical:
@@ -44,6 +59,7 @@ technical:
     order: 1
     name: MySQL
     description: MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.
+
   - anchor: infra:postgres
     id: postgresql
     group: database
@@ -51,6 +67,7 @@ technical:
     order: 2
     name: PostgreSQL
     description: PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.
+
   - anchor: profile:localci
     id: integrated-code-lifecycle
     group: ci-provider
@@ -59,6 +76,7 @@ technical:
     profiles: [localci, buildagent]
     name: Integrated Code Lifecycle
     description: Built-in CI provider activated by the localci and buildagent Spring profiles.
+
   - anchor: profile:jenkins
     id: jenkins
     group: ci-provider
@@ -72,6 +90,7 @@ technical:
       - { key: artemis.continuous-integration.vcs-credentials, secret: true }
       - { key: artemis.continuous-integration.artemis-authentication-token-key, secret: true }
       - { key: artemis.continuous-integration.artemis-authentication-token-value, secret: true }
+
   - anchor: profile:localvc
     id: localvc
     parent: artemis
