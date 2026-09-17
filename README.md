@@ -108,9 +108,8 @@ install is optional.
 
 One generated `local-docker` package supports both `start-demo.sh /path/to/Artemis`
 for a supplied checkout and argument-free `start-demo.sh` for the configured
-remote Artemis image. The manifest records the source commit, image repository,
-and original image digest. `latest` is rendered as a mutable image tag and is not
-guaranteed to correspond to the recorded source commit; other non-empty values
+remote Artemis image. The manifest records the image repository and original
+image digest. `latest` is rendered as a mutable image tag; other non-empty values
 are rendered as exact digest references.
 
 The generated `local-docker` package supports Linux with Docker Engine and

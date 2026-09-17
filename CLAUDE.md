@@ -90,10 +90,12 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `local-docker` generates an extends-based Compose stack for the selected
   database and CI provider plus a self-contained stack using the configured
   `ghcr.io/ls1intum/artemis` image. `start-demo.sh` uses the local checkout when
-  given a path and the remote image without an argument. Runtime provenance is
-  resolved strictly from active snapshot metadata or the classpath runtime
-  properties; `latest` is rendered as a mutable tag and other values as digest
-  references. Both stacks retain selection-consistency runtime checks.
+  given a path and the remote image without an argument. The runtime image
+  digest is resolved strictly from active snapshot metadata or the classpath
+  runtime properties; `latest` is rendered as a mutable tag and other values as
+  digest references. Packages record no Artemis source commit; the static
+  config validation report names the commit the overlay keys were verified
+  against. Both stacks retain selection-consistency runtime checks.
   Its integrated-code-lifecycle stack points LocalVC at the containerized
   Artemis server and supplies the host Docker socket group through a
   platform-aware `FM_DOCKER_GID`.
