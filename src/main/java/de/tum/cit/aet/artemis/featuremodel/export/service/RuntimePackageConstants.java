@@ -147,7 +147,4 @@ public final class RuntimePackageConstants {
 
     /** Package-scoped PostgreSQL service name. */
     public static final String POSTGRES_SERVICE = "artemis-feature-model-postgresql";
-
-    /** Abbreviated Artemis commit used by the independent static configuration-key catalog. */
-    public static final String VERIFIED_ARTEMIS_COMMIT = "b1e27eeaaa";
 }
