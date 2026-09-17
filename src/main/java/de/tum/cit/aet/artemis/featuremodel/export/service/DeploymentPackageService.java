@@ -419,7 +419,7 @@ public class DeploymentPackageService {
         StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(shared.overlay().content());
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
-                runtimeSource);
+                runtimeSource, localDockerRequirements);
         String envExample = envExampleWriter.write(localDockerRequirements);
         String envDemo = templateWriter.envDemo(localDockerRequirements);
         String stackContent = technicalStack ? stackWriter.write(selection) : null;

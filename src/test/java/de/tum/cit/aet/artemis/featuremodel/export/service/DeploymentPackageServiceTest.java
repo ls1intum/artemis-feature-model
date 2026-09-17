@@ -150,6 +150,15 @@ class DeploymentPackageServiceTest {
     }
 
     @Test
+    void listsTheSelectedEnvironmentVariablesInThePackageReadme() {
+        GeneratedArtifactPackage result = service.generate(request(withExtra("iris", "athena"), null));
+
+        List<String> variableRows = content(result, "README.md").lines().filter(line -> line.startsWith("| `ARTEMIS_")).toList();
+        assertThat(variableRows).anyMatch(row -> row.startsWith("| `ARTEMIS_IRIS_SECRET_TOKEN` |") && row.endsWith("| yes |"))
+                .anyMatch(row -> row.startsWith("| `ARTEMIS_ATHENA_SECRET` |") && row.endsWith("| yes |"));
+    }
+
+    @Test
     void generatesALocalRepoComposeOverrideThatLayersTheOverlay() {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 

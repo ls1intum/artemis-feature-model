@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.EnvironmentRequirement;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 
 class RuntimeTemplateWriterTest {
@@ -15,11 +16,12 @@ class RuntimeTemplateWriterTest {
     private final RuntimeTemplateWriter writer = new RuntimeTemplateWriter();
 
     @Test
-    void packageReadmeLeadsWithSupportedEnvironmentsAndTheQuickStart() {
+    void packageReadmeLeadsWithSupportedEnvironmentsTheQuickStartAndTheVariables() {
         String readme = readme(iclSelection());
 
         assertThat(readme).startsWith("# Artemis Feature Model — Local Docker Deployment Package\n");
-        assertThat(sectionHeadings(readme)).containsExactly("## Supported environments", "## Quick start", "## Runtime image", "## Package checks");
+        assertThat(sectionHeadings(readme)).containsExactly("## Supported environments", "## Quick start", "## Variables", "## Runtime image",
+                "## Package checks");
     }
 
     @Test
@@ -43,9 +45,51 @@ class RuntimeTemplateWriterTest {
         assertThat(readme(jenkinsSelection())).contains("`docker/postgres.yml`, and its repository-root `.env`");
     }
 
+    @Test
+    void packageReadmeListsEachEnvironmentVariableOnceByNameWithItsFeatureAndSecretFlag() {
+        List<EnvironmentRequirement> requirements = List.of(requirement("ARTEMIS_IRIS_URL", "Iris", false),
+                requirement("ARTEMIS_ATHENA_SECRET", "Athena", true), requirement("ARTEMIS_IRIS_URL", "Iris", false));
+
+        String readme = readme(iclSelection(), requirements);
+
+        String table = """
+                | Variable | Feature | Secret |
+                | --- | --- | --- |
+                | `ARTEMIS_ATHENA_SECRET` | Athena | yes |
+                | `ARTEMIS_IRIS_URL` | Iris | no |
+
+                """;
+        assertThat(readme).contains(table, "`demo-change-me`", "`https://feature-model-demo.invalid`", "bash scripts/prepare-env.sh");
+    }
+
+    @Test
+    void packageReadmeStatesWhenTheSelectionNeedsNoEnvironmentVariables() {
+        String readme = readme(iclSelection(), List.of());
+
+        assertThat(readme).contains("This selection needs no variables").doesNotContain("| Variable | Feature | Secret |");
+    }
+
+    @Test
+    void packageReadmeListsTheDockerSocketGroupOnlyForIntegratedCodeLifecycle() {
+        String iclReadme = readme(iclSelection());
+        String jenkinsReadme = readme(jenkinsSelection());
+
+        assertThat(iclReadme).contains("### Script settings", "| `FM_DOCKER_GID` |", "| `FM_ARTEMIS_ENV_FILE` |", "| `FM_ARTEMIS_COMPOSE_FILE` |")
+                .doesNotContain("### Jenkins connection");
+        assertThat(jenkinsReadme).contains("### Jenkins connection", "| `FM_ARTEMIS_ENV_FILE` |").doesNotContain("| `FM_DOCKER_GID` |");
+    }
+
     private String readme(TechnicalSelection selection) {
+        return readme(selection, List.of(requirement("ARTEMIS_ATLAS_CHAT_MODEL", "Atlas", false)));
+    }
+
+    private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements) {
         ArtemisRuntimeSource runtimeSource = new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", "latest");
-        return writer.packageReadme("model", "1.0.0", "profile", "2.0.0", selection, runtimeSource);
+        return writer.packageReadme("model", "1.0.0", "profile", "2.0.0", selection, runtimeSource, requirements);
+    }
+
+    private EnvironmentRequirement requirement(String name, String featureName, boolean secret) {
+        return new EnvironmentRequirement(name, "feature", featureName, null, null, secret, EnvironmentRequirement.SOURCE_RUNTIME_PACKAGE, "purpose");
     }
 
     private TechnicalSelection iclSelection() {

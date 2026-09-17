@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -27,7 +28,8 @@ public class RuntimeTemplateWriter {
 
     /**
      * Builds the package README for the two local-docker runtime paths. The sections follow the order in which a user
-     * needs them: supported environments and the quick start come first, background and checks afterwards.
+     * needs them: supported environments, the quick start, and the variables come first, background and checks
+     * afterwards.
      *
      * @param modelId active feature model id.
      * @param modelVersion active feature model version.
@@ -35,10 +37,11 @@ public class RuntimeTemplateWriter {
      * @param profileVersion active deployment profile version.
      * @param selection resolved technical selection.
      * @param runtimeSource resolved Artemis runtime image.
+     * @param environmentRequirements environment requirements of the package.
      * @return package README.
      */
     public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
-            TechnicalSelection selection, ArtemisRuntimeSource runtimeSource) {
+            TechnicalSelection selection, ArtemisRuntimeSource runtimeSource, List<EnvironmentRequirement> environmentRequirements) {
         String database = selection.databaseId().orElse("mysql");
         String databaseComposeFile = selection.databaseComposeFile().orElse("docker/mysql.yml");
         String ciProvider = selection.ciProviderId().orElse("integrated-code-lifecycle");
@@ -47,6 +50,7 @@ public class RuntimeTemplateWriter {
                 readmeIntroduction(modelId, modelVersion, profileId, profileVersion, database, ciProvider, jenkins),
                 readmeSupportedEnvironments(databaseComposeFile, jenkins),
                 readmeQuickStart(),
+                readmeVariables(environmentRequirements, jenkins),
                 readmeRuntimeImage(runtimeSource),
                 readmePackageChecks());
         return String.join("\n", sections);
@@ -101,9 +105,8 @@ public class RuntimeTemplateWriter {
                 for local development and validation. Docker Desktop Enhanced Container Isolation blocks the mount
                 unless you allow it for the Artemis image.
 
-                The start scripts give Artemis the socket group through `FM_DOCKER_GID`: `0` on macOS and the group of
-                `/var/run/docker.sock` on Linux. If builds report Docker socket permission errors, set `FM_DOCKER_GID`
-                explicitly and start again.
+                If builds report Docker socket permission errors, set `FM_DOCKER_GID` as described in
+                [Script settings](#script-settings).
                 """;
         return """
                 ## Supported environments
@@ -175,6 +178,127 @@ public class RuntimeTemplateWriter {
 
                    To delete the database and Artemis data as well, run `bash scripts/stop.sh --volumes`.
                 """;
+    }
+
+    /**
+     * Builds the variables section: the Artemis settings in {@code env/.env}, the Jenkins connection note, and the
+     * optional shell variables of the start scripts.
+     *
+     * @param environmentRequirements environment requirements of the package.
+     * @param jenkins whether Jenkins is the selected CI provider.
+     * @return variables markdown.
+     */
+    private String readmeVariables(List<EnvironmentRequirement> environmentRequirements, boolean jenkins) {
+        List<String> subsections = new ArrayList<>();
+        subsections.add("## Variables\n");
+        subsections.add(readmeArtemisSettings(environmentRequirements));
+        if (jenkins) {
+            subsections.add(readmeJenkinsConnection());
+        }
+        subsections.add(readmeScriptSettings(jenkins));
+        return String.join("\n", subsections);
+    }
+
+    /**
+     * Describes the environment variables the Artemis container reads from {@code env/.env} and how to fill them.
+     *
+     * @param environmentRequirements environment requirements of the package.
+     * @return Artemis settings markdown.
+     */
+    private String readmeArtemisSettings(List<EnvironmentRequirement> environmentRequirements) {
+        if (environmentRequirements.isEmpty()) {
+            return """
+                    ### Artemis settings in `env/.env`
+
+                    Both runtime paths pass `env/.env` to the Artemis container. This selection needs no variables, so
+                    `env/.env` can stay empty.
+                    """;
+        }
+        return """
+                ### Artemis settings in `env/.env`
+
+                Both runtime paths pass `env/.env` to the Artemis container. This selection needs these variables:
+
+                | Variable | Feature | Secret |
+                | --- | --- | --- |
+                %s
+
+                `start-demo.sh` fills them with the DEMO values from `env/.env.demo`, such as
+                `%s` or `%s`. DEMO values let Artemis start, but a selected external
+                service works only with real values. To provide real values, create `env/.env` from `env/.env.example`,
+                which lists every variable with an empty value and its configuration key, and fill it in before you start
+                Artemis:
+
+                ```bash
+                bash scripts/prepare-env.sh
+                ```
+
+                Neither script replaces an existing `env/.env`. Run `bash scripts/prepare-env.sh --force` to recreate it
+                from `env/.env.example`, or add `--demo` to copy the DEMO values instead. Do not commit `env/.env`.
+                """.formatted(readmeVariableRows(environmentRequirements), DemoDefaultValues.DEMO_PLACEHOLDER, DemoDefaultValues.DEMO_URL);
+    }
+
+    /**
+     * Renders one table row per environment variable, sorted by name and without duplicates.
+     *
+     * @param environmentRequirements environment requirements of the package.
+     * @return markdown table rows separated by line breaks.
+     */
+    private String readmeVariableRows(List<EnvironmentRequirement> environmentRequirements) {
+        List<String> rows = new ArrayList<>();
+        Set<String> writtenNames = new HashSet<>();
+        for (EnvironmentRequirement requirement : environmentRequirements.stream().sorted(Comparator.comparing(EnvironmentRequirement::name)).toList()) {
+            if (writtenNames.add(requirement.name())) {
+                String secret = requirement.secret() ? "yes" : "no";
+                rows.add("| `" + requirement.name() + "` | " + requirement.featureName() + " | " + secret + " |");
+            }
+        }
+        return String.join("\n", rows);
+    }
+
+    /**
+     * Explains how a Jenkins package reaches the separately managed Jenkins instance.
+     *
+     * @return Jenkins connection markdown.
+     */
+    private String readmeJenkinsConnection() {
+        return """
+                ### Jenkins connection
+
+                This package contains no Jenkins service. Point the Jenkins variables in `env/.env` at a Jenkins instance
+                that the Artemis container can reach. Inside the container, `localhost` is Artemis itself; with Docker
+                Desktop, `host.docker.internal` reaches services on your host.
+                """;
+    }
+
+    /**
+     * Describes the optional shell variables the start scripts read and the path variables they set themselves.
+     *
+     * @param jenkins whether Jenkins is the selected CI provider; the Jenkins stacks use no Docker socket group.
+     * @return script settings markdown.
+     */
+    private String readmeScriptSettings(boolean jenkins) {
+        List<String> rows = new ArrayList<>();
+        if (!jenkins) {
+            rows.add("| `FM_DOCKER_GID` | `0` on macOS, the socket group on Linux | Docker socket group for Integrated Code Lifecycle builds. |");
+        }
+        rows.add("| `FM_ARTEMIS_ENV_FILE` | `.env` in the checkout | Local checkout only: Compose values such as database image versions. |");
+        rows.add("| `FM_ARTEMIS_COMPOSE_FILE` | the generated local-repo stack "
+                + "| Local checkout only: replacement stack, absolute or relative to the checkout. |");
+        return """
+                ### Script settings
+
+                The start scripts read these optional shell variables:
+
+                | Variable | Default | Purpose |
+                | --- | --- | --- |
+                %s
+
+                Set a variable for a single start, for example
+                `FM_ARTEMIS_ENV_FILE=/path/to/.env bash scripts/start-demo.sh /absolute/path/to/Artemis`. The scripts
+                also set `FM_OVERLAY_HOST_PATH`, `FM_ENV_FILE`, and, for a local checkout, `FM_ARTEMIS_REPO` for Docker
+                Compose; you need these only when you run `docker compose` by hand.
+                """.formatted(String.join("\n", rows));
     }
 
     /**
