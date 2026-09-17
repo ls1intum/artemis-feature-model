@@ -12,11 +12,12 @@ import { Feature, FeatureTreeNode, IncomingRelation } from '../../core/feature-m
 import { GuidedDecisionOption } from '../../core/guided-workflow.types';
 import { FeatureModelDiagramComponent } from '../../explorer/feature-model-diagram.component';
 import { LocalizedViolation, LocalizedWarning } from '../shared/configurator-view.types';
+import { ValidationIssueListComponent } from '../shared/validation-issue-list.component';
 
 @Component({
     selector: 'fm-configurator-tree',
     standalone: true,
-    imports: [FeatureModelDiagramComponent],
+    imports: [FeatureModelDiagramComponent, ValidationIssueListComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './configurator-tree.component.html',
     styleUrl: './configurator-tree.component.scss',

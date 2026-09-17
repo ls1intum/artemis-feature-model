@@ -277,22 +277,6 @@
     border-radius: var(--bs-border-radius-lg);
 }
 
-.validation-detail ul {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    font-size: 0.87rem;
-}
-
-.validation-detail li {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-
 .validation-detail--danger {
     border-color: var(--bs-danger-border-subtle);
     background: var(--bs-danger-bg-subtle);
