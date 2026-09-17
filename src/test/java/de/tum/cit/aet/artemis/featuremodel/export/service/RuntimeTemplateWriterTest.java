@@ -21,7 +21,7 @@ class RuntimeTemplateWriterTest {
 
         assertThat(readme).startsWith("# Artemis Feature Model — Local Docker Deployment Package\n");
         assertThat(sectionHeadings(readme)).containsExactly("## Supported environments", "## Quick start", "## Variables",
-                "## How the package runs Artemis", "## Package checks");
+                "## How the package runs Artemis", "## Package checks", "## Scripts", "## Troubleshooting", "## Package contents");
     }
 
     @Test
@@ -88,6 +88,15 @@ class RuntimeTemplateWriterTest {
         assertThat(pinnedReadme).contains("runs the pinned image `ghcr.io/ls1intum/artemis@sha256:abc123`").doesNotContain("mutable tag");
     }
 
+    @Test
+    void packageReadmeTroubleshootsDockerSocketPermissionsOnlyForIntegratedCodeLifecycle() {
+        String iclTroubleshooting = section(readme(iclSelection()), "## Troubleshooting");
+        String jenkinsTroubleshooting = section(readme(jenkinsSelection()), "## Troubleshooting");
+
+        assertThat(iclTroubleshooting).contains("Docker socket permission errors", "`MYSQL_IMAGE`", "metadata/static-config-validation.json");
+        assertThat(jenkinsTroubleshooting).doesNotContain("Docker socket permission errors").contains("`env/.env not found`");
+    }
+
     private String readme(TechnicalSelection selection) {
         return readme(selection, List.of(requirement("ARTEMIS_ATLAS_CHAT_MODEL", "Atlas", false)));
     }
@@ -116,5 +125,11 @@ class RuntimeTemplateWriterTest {
 
     private List<String> sectionHeadings(String readme) {
         return readme.lines().filter(line -> line.startsWith("## ")).toList();
+    }
+
+    private String section(String readme, String heading) {
+        int start = readme.indexOf(heading);
+        int end = readme.indexOf("\n## ", start + heading.length());
+        return end < 0 ? readme.substring(start) : readme.substring(start, end);
     }
 }

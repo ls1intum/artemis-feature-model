@@ -28,8 +28,8 @@ public class RuntimeTemplateWriter {
 
     /**
      * Builds the package README for the two local-docker runtime paths. The sections follow the order in which a user
-     * needs them: supported environments, the quick start, and the variables come first, background and checks
-     * afterwards.
+     * needs them: supported environments, the quick start, and the variables come first, followed by background,
+     * checks, and reference material.
      *
      * @param modelId active feature model id.
      * @param modelVersion active feature model version.
@@ -52,7 +52,10 @@ public class RuntimeTemplateWriter {
                 readmeQuickStart(),
                 readmeVariables(environmentRequirements, jenkins),
                 readmeRuntime(database, databaseComposeFile, runtimeSource),
-                readmePackageChecks());
+                readmePackageChecks(),
+                readmeScripts(),
+                readmeTroubleshooting(jenkins),
+                readmePackageContents());
         return String.join("\n", sections);
     }
 
@@ -383,6 +386,90 @@ public class RuntimeTemplateWriter {
                 | `generation-report.json` | Selected features, environment requirements, and warnings. |
                 | `selected-features.json` | Selected features. |
                 | `deployment-profile-summary.json` | Deployment profile used for generation. |
+                """;
+    }
+
+    /**
+     * Builds a reference table of the helper scripts.
+     *
+     * @return scripts markdown.
+     */
+    private String readmeScripts() {
+        return """
+                ## Scripts
+
+                All scripts are in `scripts/`. Run them with `bash`, for example `bash scripts/validate-package.sh`, because
+                extracting a ZIP archive does not keep their executable bit.
+
+                | Script | Purpose |
+                | --- | --- |
+                | `start-demo.sh [checkout]` | Creates `env/.env` with DEMO values if needed and starts either runtime path. |
+                | `start-remote-image.sh` | Starts the published image with the existing `env/.env`. |
+                | `start-local-repo.sh <checkout>` | Starts a local checkout with the existing `env/.env`. |
+                | `stop.sh [--volumes]` | Stops either runtime path; `--volumes` also deletes the package data. |
+                | `stop-local-repo.sh <checkout> [--volumes]` | Stops the local checkout path. |
+                | `prepare-env.sh [--demo] [--force]` | Creates `env/.env` from `env/.env.example`, or from `env/.env.demo` with `--demo`. |
+                | `validate-package.sh` | Runs the package checks. |
+                | `print-runtime-summary.sh` | Prints the runtime paths, the metadata files, and the next steps. |
+                """;
+    }
+
+    /**
+     * Builds solutions for common startup problems.
+     *
+     * @param jenkins whether Jenkins is the selected CI provider; Docker socket problems only affect Integrated Code
+     *            Lifecycle.
+     * @return troubleshooting markdown.
+     */
+    private String readmeTroubleshooting(boolean jenkins) {
+        List<String> problems = new ArrayList<>();
+        problems.add("""
+                - **`env/.env not found`:** run `bash scripts/prepare-env.sh --demo`, or start with
+                  `bash scripts/start-demo.sh`, which creates the file.
+                """);
+        problems.add("""
+                - **A port is already allocated:** another container uses port `8080`, `5005`, or the database port.
+                  Stop it, for example a normal Artemis development stack, and start again.
+                """);
+        problems.add("""
+                - **Docker Compose reports unset variables such as `MYSQL_IMAGE` or `POSTGRES_VERSION`:** the local
+                  checkout has no repository-root `.env`. Restore the file or point `FM_ARTEMIS_ENV_FILE` at it.
+                """);
+        if (!jenkins) {
+            problems.add("""
+                    - **Builds report Docker socket permission errors:** set `FM_DOCKER_GID` to the group of the Docker
+                      socket and start again.
+                    """);
+        }
+        problems.add("""
+                - **A selected external service fails:** DEMO values only satisfy the configuration placeholders. Put
+                  real values into `env/.env` and start again.
+                """);
+        problems.add("""
+                - **A local checkout behaves differently than expected:** a much older or newer checkout can rename
+                  configuration keys, Compose services, or environment variables. `metadata/static-config-validation.json`
+                  names the Artemis commit that the configuration keys were verified against.
+                """);
+        return "## Troubleshooting\n\n" + String.join("", problems);
+    }
+
+    /**
+     * Builds an overview of the package directories.
+     *
+     * @return package contents markdown.
+     */
+    private String readmePackageContents() {
+        return """
+                ## Package contents
+
+                | Path | Content |
+                | --- | --- |
+                | `config/application-feature-model.yml` | Generated Spring configuration for the selected features. |
+                | `env/` | `.env.example`, `.env.demo`, and a README about the environment files. |
+                | `metadata/` | Manifest, checks, and reports described in [Package checks](#package-checks). |
+                | `deployment/remote-image/` | Compose stack for the published Artemis image. |
+                | `deployment/local-repo/` | Compose stack, override, and README for a local Artemis checkout. |
+                | `scripts/` | Helper scripts described in [Scripts](#scripts). |
                 """;
     }
 
