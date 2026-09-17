@@ -6,7 +6,6 @@ import { FeatureModelService } from '../api/feature-model.service';
 import {
     collectExpandableNodeIds,
     countSubFeatures,
-    countTreeNodes,
     featureKindDotClass,
     featureKindLabel,
     filterTreeByQuery,
@@ -73,7 +72,8 @@ export class FeatureModelExplorerComponent implements OnInit {
 
     readonly model = computed(() => this.response()?.model);
     readonly tree = computed<FeatureTreeNode | null>(() => this.response()?.tree ?? null);
-    readonly featureCount = computed(() => countTreeNodes(this.tree()));
+    /** Selectable features only: the root and the group nodes are structure, not variability. */
+    readonly featureCount = computed(() => (this.response()?.features ?? []).filter((feature) => feature.selectable).length);
     readonly subFeatureCount = computed(() => countSubFeatures(this.tree()));
     readonly relationCount = computed(() => this.response()?.relations.length ?? 0);
     readonly constraintCount = computed(() => this.response()?.constraints.length ?? 0);

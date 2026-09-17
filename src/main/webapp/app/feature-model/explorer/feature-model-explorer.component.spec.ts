@@ -103,7 +103,7 @@ describe('FeatureModelExplorerComponent', () => {
             label: stat.querySelector('.explorer-stat__label')?.textContent?.trim(),
         }));
         expect(stats).toEqual([
-            { value: '24', label: 'Features' },
+            { value: '18', label: 'Features' },
             { value: '23', label: 'Relations' },
             { value: '0', label: 'Constraints' },
             { value: '13', label: 'Default on' },
@@ -391,10 +391,10 @@ describe('FeatureModelExplorerComponent', () => {
             }));
         }
 
-        it('counts features without sub-features and shows a Sub-features tile', () => {
+        it('counts only selectable features and shows a Sub-features tile', () => {
             load();
             expect(statTiles()).toEqual([
-                { value: '25', label: 'Features' },
+                { value: '19', label: 'Features' },
                 { value: '3', label: 'Sub-features' },
                 { value: '27', label: 'Relations' },
                 { value: '0', label: 'Constraints' },
