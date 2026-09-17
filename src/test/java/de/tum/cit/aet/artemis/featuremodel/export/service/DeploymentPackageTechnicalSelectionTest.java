@@ -71,7 +71,7 @@ class DeploymentPackageTechnicalSelectionTest {
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
                 new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(),
                 new ArtemisRuntimeSourceResolver(new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader, objectMapper).load(),
-                        new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
+                        new ArtemisRuntimeProperties("latest")), objectMapper);
     }
 
     @Test
@@ -228,7 +228,7 @@ class DeploymentPackageTechnicalSelectionTest {
                 "WSL2 distribution",
                 "Native PowerShell", "Command Prompt, Git Bash, and Windows containers are not supported",
                 "Enhanced Container Isolation", "## Quick Start", "bash scripts/start-demo.sh /absolute/path/to/Artemis",
-                "bash scripts/start-demo.sh", "## Runtime provenance", "latest", "not guaranteed", "./scripts/stop.sh");
+                "bash scripts/start-demo.sh", "## Runtime image", "latest", "mutable tag", "./scripts/stop.sh");
 
         if ("jenkins".equals(scenario.ciProviderId())) {
             assertThat(readme).contains("Jenkins limitation", "no Jenkins service is included");

@@ -7,7 +7,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
-/** Resolves Artemis runtime provenance from the active snapshot or the classpath runtime properties. */
+/** Resolves the Artemis runtime image from the active snapshot or the classpath runtime properties. */
 @Component
 public class ArtemisRuntimeSourceResolver {
 
@@ -29,23 +29,22 @@ public class ArtemisRuntimeSourceResolver {
     }
 
     /**
-     * Resolves and validates the provenance required by local-docker generation.
+     * Resolves and validates the runtime image required by local-docker generation.
      *
      * @return complete Artemis runtime source.
-     * @throws ArtifactGenerationException if the selected source lacks a required value.
+     * @throws ArtifactGenerationException if the selected source lacks an image digest.
      */
     public ArtemisRuntimeSource resolveForLocalDocker() {
         GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
         ArtemisRuntimeSource source = metadata == null ? fromClasspath() : fromSnapshot(metadata);
-        requireValue(source.sourceCommit(), sourceLabel(metadata, "sourceCommit"));
-        requireValue(source.imageDigest(), sourceLabel(metadata, "imageDigest"));
+        requireValue(source.imageDigest(), sourceLabel(metadata));
         return source;
     }
 
     /**
-     * Resolves available provenance for dev-ide without imposing remote-image requirements.
+     * Resolves the available runtime image for dev-ide without imposing remote-image requirements.
      *
-     * @return Artemis runtime source whose values may be absent for a legacy snapshot.
+     * @return Artemis runtime source whose image digest may be absent for a legacy snapshot.
      */
     public ArtemisRuntimeSource resolveForDevIde() {
         GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
@@ -59,7 +58,7 @@ public class ArtemisRuntimeSourceResolver {
      * @return snapshot-derived runtime source.
      */
     private ArtemisRuntimeSource fromSnapshot(GeneratedSnapshotMetadata metadata) {
-        return new ArtemisRuntimeSource(metadata.sourceCommit(), IMAGE_REPOSITORY, metadata.imageDigest());
+        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, metadata.imageDigest());
     }
 
     /**
@@ -68,27 +67,25 @@ public class ArtemisRuntimeSourceResolver {
      * @return classpath-derived runtime source.
      */
     private ArtemisRuntimeSource fromClasspath() {
-        return new ArtemisRuntimeSource(runtimeProperties.sourceCommit(), IMAGE_REPOSITORY, runtimeProperties.imageDigest());
+        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, runtimeProperties.imageDigest());
     }
 
     /**
-     * Builds an actionable source label for a missing value.
+     * Builds an actionable source label for a missing image digest.
      *
      * @param metadata active metadata, or null for classpath mode.
-     * @param field missing Java field name.
      * @return actionable source label.
      */
-    private String sourceLabel(GeneratedSnapshotMetadata metadata, String field) {
+    private String sourceLabel(GeneratedSnapshotMetadata metadata) {
         if (metadata != null) {
-            return "active snapshot '" + metadata.snapshotId() + "' metadata." + field
+            return "active snapshot '" + metadata.snapshotId() + "' metadata.imageDigest"
                     + "; regenerate the snapshot with current extraction metadata";
         }
-        String property = "sourceCommit".equals(field) ? "source-commit" : "image-digest";
-        return "property artemis.feature-model.runtime." + property;
+        return "property artemis.feature-model.runtime.image-digest";
     }
 
     /**
-     * Rejects a missing required local-docker provenance value.
+     * Rejects a missing required local-docker runtime value.
      *
      * @param value resolved value.
      * @param sourceLabel actionable source label.

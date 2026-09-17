@@ -60,7 +60,7 @@ class DeploymentPackageDeterminismTest {
         RuntimeFeatureModelBundleLoader bundleLoader = new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader,
                 objectMapper);
         ArtemisRuntimeSourceResolver runtimeSourceResolver = new ArtemisRuntimeSourceResolver(bundleLoader.load(),
-                new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest"));
+                new ArtemisRuntimeProperties("latest"));
         selectedFeatureIds = catalogService.defaultSelectedFeatureIds(catalogService.loadActiveModel());
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),

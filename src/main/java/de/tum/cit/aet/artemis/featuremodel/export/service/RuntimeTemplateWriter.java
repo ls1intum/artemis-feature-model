@@ -365,7 +365,7 @@ public class RuntimeTemplateWriter {
      * @param profileId active deployment profile id.
      * @param profileVersion active deployment profile version.
      * @param selection resolved technical selection.
-     * @param runtimeSource resolved Artemis runtime provenance.
+     * @param runtimeSource resolved Artemis runtime image.
      * @return package README.
      */
     public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
@@ -401,14 +401,13 @@ public class RuntimeTemplateWriter {
                 `artemis-feature-model-local`. Stop either package project with `./scripts/stop.sh`; add `--volumes`
                 only when you intentionally want to destroy its local data.
 
-                ## Runtime provenance
+                ## Runtime image
 
-                - Source commit: `%s`
                 - Image repository: `%s`
                 - Original image digest: `%s`
 
-                The value `latest` renders `%s:latest`. It is mutable and is **not guaranteed** to correspond to the
-                recorded source commit. Every other non-empty value renders an exact digest reference in the form
+                The value `latest` renders `%s:latest`. It is a mutable tag, so a later start can run a newer
+                Artemis build. Every other non-empty value renders an exact digest reference in the form
                 `%s@<imageDigest>`. Package generation never contacts the registry or resolves `latest`.
 
                 `deployment/remote-image/artemis-feature-model-stack.yml` directly declares Artemis and the selected
@@ -431,9 +430,8 @@ public class RuntimeTemplateWriter {
                 Run `./scripts/validate-package.sh` before startup. Review `metadata/package-manifest.json`,
                 `metadata/runtime-checks.json`, `metadata/static-config-validation.json`, and
                 `metadata/generation-report.json` for provenance, warnings, and validation results.
-                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, runtimeSource.sourceCommit(),
-                runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageRepository(), runtimeSource.imageRepository(),
-                jenkinsWarning);
+                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, runtimeSource.imageRepository(),
+                runtimeSource.imageDigest(), runtimeSource.imageRepository(), runtimeSource.imageRepository(), jenkinsWarning);
     }
 
     /**

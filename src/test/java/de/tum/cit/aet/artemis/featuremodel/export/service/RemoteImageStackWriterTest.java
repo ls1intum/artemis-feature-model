@@ -56,6 +56,6 @@ class RemoteImageStackWriterTest {
     }
 
     private ArtemisRuntimeSource source(String imageDigest) {
-        return new ArtemisRuntimeSource("commit", "ghcr.io/ls1intum/artemis", imageDigest);
+        return new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", imageDigest);
     }
 }
