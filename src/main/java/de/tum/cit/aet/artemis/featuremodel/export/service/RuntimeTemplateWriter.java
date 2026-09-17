@@ -51,7 +51,7 @@ public class RuntimeTemplateWriter {
                 readmeSupportedEnvironments(databaseComposeFile, jenkins),
                 readmeQuickStart(),
                 readmeVariables(environmentRequirements, jenkins),
-                readmeRuntimeImage(runtimeSource),
+                readmeRuntime(database, databaseComposeFile, runtimeSource),
                 readmePackageChecks());
         return String.join("\n", sections);
     }
@@ -302,32 +302,60 @@ public class RuntimeTemplateWriter {
     }
 
     /**
-     * Builds the runtime image description of the published-image path.
+     * Describes how both runtime paths start Artemis, how they load the generated configuration, and which Artemis
+     * image they run.
      *
+     * @param database selected database id.
+     * @param databaseComposeFile database Compose file that the local checkout path extends.
      * @param runtimeSource resolved Artemis runtime image.
-     * @return runtime image markdown.
+     * @return runtime markdown.
      */
-    private String readmeRuntimeImage(ArtemisRuntimeSource runtimeSource) {
+    private String readmeRuntime(String database, String databaseComposeFile, ArtemisRuntimeSource runtimeSource) {
         return """
-                ## Runtime image
+                ## How the package runs Artemis
 
-                - Image repository: `%s`
-                - Original image digest: `%s`
+                Both runtime paths start the Docker Compose project `artemis-feature-model-local` with their own container
+                names and volumes, so a normal Artemis development setup stays untouched. Both paths use this project,
+                so run only one of them at a time.
 
-                The value `latest` renders `%s:latest`. It is a mutable tag, so a later start can run a newer
-                Artemis build. Every other non-empty value renders an exact digest reference in the form
-                `%s@<imageDigest>`. Package generation never contacts the registry or resolves `latest`.
+                - **Published image:** `deployment/remote-image/artemis-feature-model-stack.yml` defines Artemis and the
+                  `%s` database directly. Starting it reads no Artemis checkout and fetches no files besides Docker
+                  images.
+                - **Local checkout:** `deployment/local-repo/artemis-feature-model-stack.yml` extends `docker/artemis.yml`
+                  and `%s` from your checkout. `deployment/local-repo/docker-compose.override.example.yml` adds the
+                  package configuration, and the checkout's `.env` provides Compose values such as database image
+                  versions.
 
-                `deployment/remote-image/artemis-feature-model-stack.yml` directly declares Artemis and the selected
-                database. Remote startup does not clone Git repositories, fetch files, download upstream `.env` files,
-                or read a local Artemis checkout. The local-repo path continues to extend the supplied checkout's
-                Compose definitions.
-                """.formatted(runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageRepository(),
-                runtimeSource.imageRepository());
+                Both paths mount `config/application-feature-model.yml` read-only into the Artemis container and set
+                `SPRING_CONFIG_ADDITIONAL_LOCATION`, so Spring Boot loads the generated configuration on top of the
+                Artemis defaults.
+
+                ### Artemis image
+
+                %s
+
+                A local checkout runs the image that its `docker/artemis.yml` defines. Package generation never contacts
+                the registry.
+                """.formatted(database, databaseComposeFile, readmeImageDescription(runtimeSource));
     }
 
     /**
-     * Builds the package check instructions.
+     * Describes the Artemis image of the published-image path.
+     *
+     * @param runtimeSource resolved Artemis runtime image.
+     * @return image description for the mutable latest tag or a pinned digest.
+     */
+    private String readmeImageDescription(ArtemisRuntimeSource runtimeSource) {
+        String imageReference = "`" + runtimeSource.imageReference() + "`";
+        if (runtimeSource.usesLatestTag()) {
+            return "The published-image path runs " + imageReference + " and pulls it on every start.\n"
+                    + "`latest` is a mutable tag, so a later start can run a newer Artemis build.";
+        }
+        return "The published-image path runs the pinned image " + imageReference + ",\nso every start runs the same Artemis build.";
+    }
+
+    /**
+     * Builds the package check instructions and an overview of the generated metadata files.
      *
      * @return package checks markdown.
      */
@@ -335,9 +363,26 @@ public class RuntimeTemplateWriter {
         return """
                 ## Package checks
 
-                Run `bash scripts/validate-package.sh` before startup. Review `metadata/package-manifest.json`,
-                `metadata/runtime-checks.json`, `metadata/static-config-validation.json`, and
-                `metadata/generation-report.json` for warnings and validation results.
+                Check the package without starting Artemis:
+
+                ```bash
+                bash scripts/validate-package.sh
+                ```
+
+                The script confirms that every package file exists, that the generated configuration contains no raw
+                `env:` secret references, that `env/.env.example` declares every `${VARIABLE}` placeholder, and that the
+                static configuration-key validation passed.
+
+                The `metadata/` directory records how the package was generated:
+
+                | File | Content |
+                | --- | --- |
+                | `package-manifest.json` | Package type, runtime paths, Artemis image, technical selection, and readiness. |
+                | `runtime-checks.json` | Checks that ran during generation. |
+                | `static-config-validation.json` | Result of the configuration-key check, including the Artemis commit the key catalog was verified against. |
+                | `generation-report.json` | Selected features, environment requirements, and warnings. |
+                | `selected-features.json` | Selected features. |
+                | `deployment-profile-summary.json` | Deployment profile used for generation. |
                 """;
     }
 

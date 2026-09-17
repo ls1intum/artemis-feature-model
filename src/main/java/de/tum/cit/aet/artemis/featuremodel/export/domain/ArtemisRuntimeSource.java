@@ -17,9 +17,18 @@ public record ArtemisRuntimeSource(String imageRepository, String imageDigest) {
      * @return tag reference for {@code latest}, otherwise a digest reference.
      */
     public String imageReference() {
-        if (LATEST.equals(imageDigest)) {
+        if (usesLatestTag()) {
             return imageRepository + ":" + LATEST;
         }
         return imageRepository + "@" + imageDigest;
+    }
+
+    /**
+     * Checks whether the configured digest selects the mutable {@code latest} tag.
+     *
+     * @return true if the image is referenced through the {@code latest} tag.
+     */
+    public boolean usesLatestTag() {
+        return LATEST.equals(imageDigest);
     }
 }

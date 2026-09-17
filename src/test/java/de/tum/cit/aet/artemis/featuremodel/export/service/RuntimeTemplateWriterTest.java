@@ -20,8 +20,8 @@ class RuntimeTemplateWriterTest {
         String readme = readme(iclSelection());
 
         assertThat(readme).startsWith("# Artemis Feature Model — Local Docker Deployment Package\n");
-        assertThat(sectionHeadings(readme)).containsExactly("## Supported environments", "## Quick start", "## Variables", "## Runtime image",
-                "## Package checks");
+        assertThat(sectionHeadings(readme)).containsExactly("## Supported environments", "## Quick start", "## Variables",
+                "## How the package runs Artemis", "## Package checks");
     }
 
     @Test
@@ -79,12 +79,25 @@ class RuntimeTemplateWriterTest {
         assertThat(jenkinsReadme).contains("### Jenkins connection", "| `FM_ARTEMIS_ENV_FILE` |").doesNotContain("| `FM_DOCKER_GID` |");
     }
 
+    @Test
+    void packageReadmeDescribesTheLatestTagAsMutableAndADigestAsPinned() {
+        String latestReadme = readme(iclSelection(), List.of(), "latest");
+        String pinnedReadme = readme(iclSelection(), List.of(), "sha256:abc123");
+
+        assertThat(latestReadme).contains("runs `ghcr.io/ls1intum/artemis:latest` and pulls it on every start", "`latest` is a mutable tag");
+        assertThat(pinnedReadme).contains("runs the pinned image `ghcr.io/ls1intum/artemis@sha256:abc123`").doesNotContain("mutable tag");
+    }
+
     private String readme(TechnicalSelection selection) {
         return readme(selection, List.of(requirement("ARTEMIS_ATLAS_CHAT_MODEL", "Atlas", false)));
     }
 
     private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements) {
-        ArtemisRuntimeSource runtimeSource = new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", "latest");
+        return readme(selection, requirements, "latest");
+    }
+
+    private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements, String imageDigest) {
+        ArtemisRuntimeSource runtimeSource = new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", imageDigest);
         return writer.packageReadme("model", "1.0.0", "profile", "2.0.0", selection, runtimeSource, requirements);
     }
 
