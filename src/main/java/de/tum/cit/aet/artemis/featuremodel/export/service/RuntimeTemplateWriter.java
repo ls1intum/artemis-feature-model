@@ -107,9 +107,6 @@ public class RuntimeTemplateWriter {
                 mounts `/var/run/docker.sock`. The mount gives Artemis broad control over Docker; use this package only
                 for local development and validation. Docker Desktop Enhanced Container Isolation blocks the mount
                 unless you allow it for the Artemis image.
-
-                If builds report Docker socket permission errors, set `FM_DOCKER_GID` as described in
-                [Script settings](#script-settings).
                 """;
         return """
                 ## Supported environments
@@ -236,8 +233,9 @@ public class RuntimeTemplateWriter {
                 bash scripts/prepare-env.sh
                 ```
 
-                Neither script replaces an existing `env/.env`. Run `bash scripts/prepare-env.sh --force` to recreate it
-                from `env/.env.example`, or add `--demo` to copy the DEMO values instead. Do not commit `env/.env`.
+                Neither `start-demo.sh` nor `prepare-env.sh` replaces an existing `env/.env`. Run
+                `bash scripts/prepare-env.sh --force` to recreate it from `env/.env.example`, or add `--demo` to copy the
+                DEMO values instead. Do not commit `env/.env`.
                 """.formatted(readmeVariableRows(environmentRequirements), DemoDefaultValues.DEMO_PLACEHOLDER, DemoDefaultValues.DEMO_URL);
     }
 
@@ -317,9 +315,9 @@ public class RuntimeTemplateWriter {
         return """
                 ## How the package runs Artemis
 
-                Both runtime paths start the Docker Compose project `artemis-feature-model-local` with their own container
-                names and volumes, so a normal Artemis development setup stays untouched. Both paths use this project,
-                so run only one of them at a time.
+                Both runtime paths start the Docker Compose project `artemis-feature-model-local` with package-specific
+                container names and volumes, so a normal Artemis development setup stays untouched. Both paths use this
+                project, so run only one of them at a time.
 
                 - **Published image:** `deployment/remote-image/artemis-feature-model-stack.yml` defines Artemis and the
                   `%s` database directly. Starting it reads no Artemis checkout and fetches no files besides Docker
