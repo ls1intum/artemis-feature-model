@@ -224,17 +224,16 @@ class DeploymentPackageTechnicalSelectionTest {
     }
 
     private void assertDetailedDockerReadme(String readme, TechnicalScenario scenario) {
-        assertThat(readme).contains("## Host support and Docker socket", "Linux with Docker Engine", "macOS with Docker Desktop",
-                "WSL2 distribution",
-                "Native PowerShell", "Command Prompt, Git Bash, and Windows containers are not supported",
-                "Enhanced Container Isolation", "## Quick Start", "bash scripts/start-demo.sh /absolute/path/to/Artemis",
-                "bash scripts/start-demo.sh", "## Runtime image", "latest", "mutable tag", "./scripts/stop.sh");
+        assertThat(readme).contains("## Supported environments", "| Linux | Docker Engine |", "| macOS | Docker Desktop |", "WSL2 distribution",
+                "Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported", "## Quick start",
+                "bash scripts/start-demo.sh /absolute/path/to/Artemis", "bash scripts/start-demo.sh", "bash scripts/stop.sh",
+                "`" + scenario.databaseComposeFile() + "`, and its repository-root `.env`", "latest", "mutable tag");
 
         if ("jenkins".equals(scenario.ciProviderId())) {
-            assertThat(readme).contains("Jenkins limitation", "no Jenkins service is included");
+            assertThat(readme).contains("Jenkins limitation", "no Jenkins service").doesNotContain("### Docker socket access");
         }
         else {
-            assertThat(readme).contains("Integrated Code Lifecycle mounts", "/var/run/docker.sock", "FM_DOCKER_GID");
+            assertThat(readme).contains("### Docker socket access", "/var/run/docker.sock", "Enhanced Container Isolation", "FM_DOCKER_GID");
         }
     }
 

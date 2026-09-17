@@ -26,7 +26,8 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 public class RuntimeTemplateWriter {
 
     /**
-     * Builds the package README for the two local-docker runtime paths.
+     * Builds the package README for the two local-docker runtime paths. The sections follow the order in which a user
+     * needs them: supported environments and the quick start come first, background and checks afterwards.
      *
      * @param modelId active feature model id.
      * @param modelVersion active feature model version.
@@ -39,36 +40,151 @@ public class RuntimeTemplateWriter {
     public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
             TechnicalSelection selection, ArtemisRuntimeSource runtimeSource) {
         String database = selection.databaseId().orElse("mysql");
+        String databaseComposeFile = selection.databaseComposeFile().orElse("docker/mysql.yml");
         String ciProvider = selection.ciProviderId().orElse("integrated-code-lifecycle");
-        String jenkinsWarning = "jenkins".equals(ciProvider)
-                ? "\n> **Jenkins limitation:** profiles and configuration are generated, but no Jenkins service is included; the readiness check fails deliberately.\n"
-                : "";
+        boolean jenkins = "jenkins".equals(ciProvider);
+        List<String> sections = List.of(
+                readmeIntroduction(modelId, modelVersion, profileId, profileVersion, database, ciProvider, jenkins),
+                readmeSupportedEnvironments(databaseComposeFile, jenkins),
+                readmeQuickStart(),
+                readmeRuntimeImage(runtimeSource),
+                readmePackageChecks());
+        return String.join("\n", sections);
+    }
+
+    /**
+     * Builds the README title and a summary of what the package runs, including the Jenkins limitation.
+     *
+     * @param modelId active feature model id.
+     * @param modelVersion active feature model version.
+     * @param profileId active deployment profile id.
+     * @param profileVersion active deployment profile version.
+     * @param database selected database id.
+     * @param ciProvider selected CI provider id.
+     * @param jenkins whether Jenkins is the selected CI provider.
+     * @return introduction markdown.
+     */
+    private String readmeIntroduction(String modelId, String modelVersion, String profileId, String profileVersion, String database, String ciProvider,
+            boolean jenkins) {
+        String jenkinsWarning = jenkins ? """
+
+                > **Jenkins limitation:** this package configures the Jenkins profiles but includes no Jenkins service, so
+                > the `jenkins-stack-available` check in `metadata/runtime-checks.json` fails on purpose. Creating
+                > programming exercises and running builds need a separately managed Jenkins instance.
+                """ : "";
         return """
                 # Artemis Feature Model — Local Docker Deployment Package
 
                 Generated from feature model `%s` version `%s` and deployment context `%s` version `%s` in DEMO mode.
-                The selected database is `%s`; the selected CI provider is `%s`.
 
-                This package is for local validation, not production. It never writes plaintext secrets.
+                This package runs Artemis locally with your feature selection, the `%s` database, and the `%s` CI
+                provider. Use it to check that Artemis starts with the generated configuration. It is not a production
+                deployment and never contains plaintext secrets.
+                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider) + jenkinsWarning;
+    }
 
-                ## Quick Start
+    /**
+     * Builds the supported host environments, their prerequisites, and the Docker socket note of Integrated Code
+     * Lifecycle.
+     *
+     * @param databaseComposeFile database Compose file that a local checkout must provide.
+     * @param jenkins whether Jenkins is the selected CI provider; the Jenkins stacks mount no Docker socket.
+     * @return supported environments markdown.
+     */
+    private String readmeSupportedEnvironments(String databaseComposeFile, boolean jenkins) {
+        String dockerSocket = jenkins ? "" : """
 
-                Use a local Artemis checkout when you provide one path argument:
+                ### Docker socket access
 
-                ```bash
-                bash scripts/start-demo.sh /absolute/path/to/Artemis
-                ```
+                Integrated Code Lifecycle runs builds as containers on your Docker daemon, so the Artemis container
+                mounts `/var/run/docker.sock`. The mount gives Artemis broad control over Docker; use this package only
+                for local development and validation. Docker Desktop Enhanced Container Isolation blocks the mount
+                unless you allow it for the Artemis image.
 
-                Use the self-contained remote-image stack when you provide no argument:
+                The start scripts give Artemis the socket group through `FM_DOCKER_GID`: `0` on macOS and the group of
+                `/var/run/docker.sock` on Linux. If builds report Docker socket permission errors, set `FM_DOCKER_GID`
+                explicitly and start again.
+                """;
+        return """
+                ## Supported environments
 
-                ```bash
-                bash scripts/start-demo.sh
-                ```
+                | Host | Supported setup |
+                | --- | --- |
+                | Linux | Docker Engine |
+                | macOS | Docker Desktop |
+                | Windows | Docker Desktop with WSL integration and Linux containers, running every command inside a WSL2 distribution |
 
-                Both forms prepare `env/.env` non-destructively and use the stable Compose project name
-                `artemis-feature-model-local`. Stop either package project with `./scripts/stop.sh`; add `--volumes`
-                only when you intentionally want to destroy its local data.
+                Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported. On Windows,
+                keeping the package and any Artemis checkout in the WSL file system is recommended.
 
+                Every environment also needs:
+
+                - Docker Compose v2 or later, so that `docker compose version` succeeds.
+                - Free host ports `8080` for Artemis and `5005` for remote debugging.
+                - Network access to pull Docker images.
+                - Enough disk space for the Docker images and the package volumes.
+
+                To run your own Artemis checkout instead of the published image, the checkout needs `docker/artemis.yml`,
+                `%s`, and its repository-root `.env`. This path also publishes the database port defined in `%s`.
+                """.formatted(databaseComposeFile, databaseComposeFile) + dockerSocket;
+    }
+
+    /**
+     * Builds the quick start: start either runtime path, follow the startup, open Artemis, and stop it.
+     *
+     * @return quick start markdown.
+     */
+    private String readmeQuickStart() {
+        return """
+                ## Quick start
+
+                Run every command from this extracted package directory.
+
+                1. Start Artemis. Without an argument, the package runs the published Artemis image and needs no
+                   checkout:
+
+                   ```bash
+                   bash scripts/start-demo.sh
+                   ```
+
+                   To run your local Artemis checkout instead, pass its path:
+
+                   ```bash
+                   bash scripts/start-demo.sh /absolute/path/to/Artemis
+                   ```
+
+                   The script makes the package scripts executable, creates `env/.env` with DEMO values if it does not
+                   exist yet, and starts Artemis in the background.
+
+                2. Follow the startup. The first start can take several minutes while Docker pulls images and Artemis
+                   prepares its database:
+
+                   ```bash
+                   docker compose -p artemis-feature-model-local logs -f artemis-app
+                   ```
+
+                   Artemis is ready when the log shows `Started ArtemisApp`. Press `Ctrl+C` to stop following the log.
+
+                3. Open http://localhost:8080.
+
+                4. Stop Artemis when you are done. Its data stays in Docker volumes for the next start:
+
+                   ```bash
+                   bash scripts/stop.sh
+                   ```
+
+                   To delete the database and Artemis data as well, run `bash scripts/stop.sh --volumes`.
+                """;
+    }
+
+    /**
+     * Builds the runtime image description of the published-image path.
+     *
+     * @param runtimeSource resolved Artemis runtime image.
+     * @return runtime image markdown.
+     */
+    private String readmeRuntimeImage(ArtemisRuntimeSource runtimeSource) {
+        return """
                 ## Runtime image
 
                 - Image repository: `%s`
@@ -82,24 +198,23 @@ public class RuntimeTemplateWriter {
                 database. Remote startup does not clone Git repositories, fetch files, download upstream `.env` files,
                 or read a local Artemis checkout. The local-repo path continues to extend the supplied checkout's
                 Compose definitions.
+                """.formatted(runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageRepository(),
+                runtimeSource.imageRepository());
+    }
 
-                ## Host support and Docker socket
-
-                Linux with Docker Engine and macOS with Docker Desktop are supported. Windows is supported only from a
-                WSL2 distribution with Docker Desktop WSL integration and Linux containers enabled; Native PowerShell,
-                Command Prompt, Git Bash, and Windows containers are not supported.
-
-                Integrated Code Lifecycle mounts `/var/run/docker.sock`. On Linux the start scripts derive
-                `FM_DOCKER_GID` from the socket; on macOS they use `0`. Docker Desktop Enhanced Container Isolation
-                requires an explicit socket-mount exception. Mounting the socket grants broad control over Docker.
-                %s
+    /**
+     * Builds the package check instructions.
+     *
+     * @return package checks markdown.
+     */
+    private String readmePackageChecks() {
+        return """
                 ## Package checks
 
-                Run `./scripts/validate-package.sh` before startup. Review `metadata/package-manifest.json`,
+                Run `bash scripts/validate-package.sh` before startup. Review `metadata/package-manifest.json`,
                 `metadata/runtime-checks.json`, `metadata/static-config-validation.json`, and
-                `metadata/generation-report.json` for provenance, warnings, and validation results.
-                """.formatted(modelId, modelVersion, profileId, profileVersion, database, ciProvider, runtimeSource.imageRepository(),
-                runtimeSource.imageDigest(), runtimeSource.imageRepository(), runtimeSource.imageRepository(), jenkinsWarning);
+                `metadata/generation-report.json` for warnings and validation results.
+                """;
     }
 
     /**
