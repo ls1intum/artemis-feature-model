@@ -3,17 +3,19 @@ package de.tum.cit.aet.artemis.featuremodel.extraction.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 import de.tum.cit.aet.artemis.featuremodel.extraction.pipeline.ModelAssemblyOutcome;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Turns the source facts of one scan into the generated artifacts the manifest describes: it applies manifest
- * membership to the extracted candidates, gates on complete manifest conformance, assembles the generated feature
- * model and the regenerated config key catalog, and validates the model-side rules. A run whose curation is incomplete stops at the gate and produces diagnostics only, so no model
+ * membership to the extracted candidates, gates on complete manifest conformance, derives the mappings and capabilities
+ * of the members, joins the persisted feature usages to their guarding members, assembles the generated feature model
+ * with its sub-feature nodes and the regenerated config key catalog, and
+ * validates the model-side rules. A run whose curation is incomplete stops at the gate and produces diagnostics only, so no model
  * can silently omit what the manifest never decided about. It never reopens the Artemis checkout — everything it
  * needs comes from the scan artifacts and the manifest.
  */
@@ -35,39 +37,47 @@ class ModelAssemblyService {
      *
      * @param manifest loaded scope manifest.
      * @param scan source facts of the consumed scan.
-     * @param bundledProfile bundled deployment profile for the capability cross-check.
      * @param artemisCommit resolved commit the scan was taken from.
      * @return generated artifacts and diagnostics.
      */
-    ModelAssemblyOutcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, DeploymentProfile bundledProfile, String artemisCommit) {
+    ModelAssemblyOutcome assemble(FeatureScopeManifest manifest, ExtractedSourceFacts scan, String artemisCommit) {
         List<ReportItem> items = new ArrayList<>();
-        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), scan.annotations(), artemisCommit);
+        ScopeCurationService.Result curation = new ScopeCurationService().curate(manifest, scan.candidates(), artemisCommit);
         items.addAll(curation.items());
         ManifestConformanceService.Result conformance = new ManifestConformanceService().evaluate(manifest, curation.includedFeatures(),
                 scan.relationCandidates(), curation.report(), curation.items(), scan.items());
         items.addAll(conformance.items());
         if (!conformance.conformance().conformant()) {
-            return new ModelAssemblyOutcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, false, false, false,
+            return new ModelAssemblyOutcome(curation.includedFeatures(), curation.report(), conformance.conformance(), null, null, null, false, false, false,
                     List.copyOf(items));
         }
 
-        GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, curation.includedFeatures(), scan.candidates(),
-                scan.evidence(), artemisCommit);
+        ConfigMappingDeriver.Result derivation = new ConfigMappingDeriver().derive(curation.includedFeatures(), scan.configInjections(), scan.configDefaults(),
+                scan.candidates(), scan.evidence());
+        items.addAll(derivation.items());
+        boolean derivationEligible = derivation.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
+        List<ResolvedFeatureScope> resolvedFeatures = derivation.resolvedFeatures();
+
+        FeatureUsageJoin.Result usageJoin = FeatureUsageJoin.join(resolvedFeatures, scan.candidates(), scan.featureUsages());
+        items.addAll(usageJoin.items());
+
+        GeneratedModelAssembler.Result generated = new GeneratedModelAssembler(objectMapper).assemble(manifest, resolvedFeatures, scan.candidates(),
+                scan.evidence(), usageJoin.subFeaturesByOwner(), artemisCommit);
         items.addAll(generated.items());
 
         GeneratedCatalogAssembler.Result generatedCatalog = new GeneratedCatalogAssembler().assemble(generated.model(), scan.configDefaults(), artemisCommit);
         items.addAll(generatedCatalog.items());
 
-        List<ReportItem> generatedOutputFindings = new GeneratedModelConformanceService(objectMapper).validate(manifest, curation.includedFeatures(),
-                scan.candidates(), generated.model(), artemisCommit);
+        List<ReportItem> generatedOutputFindings = new GeneratedModelConformanceService(objectMapper).validate(manifest, resolvedFeatures,
+                scan.candidates(), scan.featureUsages(), generated.model(), artemisCommit);
         items.addAll(generatedOutputFindings);
 
-        GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model(), curation.includedFeatures(), bundledProfile);
+        GeneratedModelValidator.Result validation = new GeneratedModelValidator().validate(generated.model());
         items.addAll(validation.items());
 
         boolean catalogEligible = generatedCatalog.items().stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
-        return new ModelAssemblyOutcome(curation.includedFeatures(), curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(),
-                generatedOutputFindings.isEmpty(), validation.modelIntegrityValid(),
-                validation.deliveryEligible() && catalogEligible && generatedOutputFindings.isEmpty(), List.copyOf(items));
+        return new ModelAssemblyOutcome(resolvedFeatures, curation.report(), conformance.conformance(), generated.model(), generatedCatalog.catalog(),
+                derivation.derivation(), generatedOutputFindings.isEmpty(), validation.modelIntegrityValid(),
+                validation.deliveryEligible() && catalogEligible && derivationEligible && generatedOutputFindings.isEmpty(), List.copyOf(items));
     }
 }

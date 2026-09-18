@@ -11,31 +11,34 @@ import java.util.Map;
 import java.util.Set;
 import org.yaml.snakeyaml.Yaml;
 
-import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureManifestException;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ExcludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IgnoredRelationEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.RenameEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.NotModeledEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.TechnicalEntry;
 
 /**
  * Loads the relocatable YAML feature scope manifest and fails fast on authoring errors that are wrong regardless of
- * any Artemis checkout: malformed YAML, unknown fields, retired identity fields, missing required values, duplicate
- * anchors or ids, and parent or group references that do not exist in the manifest itself. Problems that only a scan
- * can reveal, such as anchors no longer present in Artemis, are reported by the curation step instead of failing here.
+ * any Artemis checkout: malformed YAML, unknown fields, retired sections and fields, missing required values,
+ * duplicate anchors or ids, and parent, group, or constraint references that do not exist in the manifest itself.
+ * Problems that only a scan can reveal, such as anchors no longer present in Artemis, are reported by the curation
+ * step instead of failing here.
  */
 public class FeatureManifestLoader {
 
-    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "include", "exclude", "conceptualNodes",
-            "constraints", "ignoredRelations", "renames");
+    private static final Set<String> ROOT_FIELDS = Set.of("manifestVersion", "features", "technical", "notModeled", "conceptualNodes", "constraints",
+            "ignoredRelations");
 
-    private static final Set<String> INCLUDE_FIELDS = Set.of("anchor", "id", "group", "parent", "kind", "optionality", "category", "defaultState", "order",
-            "requiresCapabilities", "providesCapabilities", "artifactMappings", "name", "description", "documentationUrl", "rationale");
+    private static final Set<String> FEATURE_FIELDS = Set.of("id", "group", "parent", "optionality", "category", "defaultState", "order", "configuration", "name",
+            "description", "documentationUrl", "rationale");
 
-    private static final Set<String> EXCLUDE_FIELDS = Set.of("anchor", "reason", "rationale");
+    private static final Set<String> TECHNICAL_FIELDS = Set.of("anchor", "id", "group", "parent", "optionality", "defaultState", "order", "profiles",
+            "configuration", "name", "description", "documentationUrl", "rationale");
+
+    private static final Set<String> NOT_MODELED_FIELDS = Set.of("anchor", "reason", "rationale");
 
     private static final Set<String> CONCEPTUAL_FIELDS = Set.of("id", "parent", "kind", "optionality", "category", "groupType", "order", "name", "description");
 
@@ -43,11 +46,10 @@ public class FeatureManifestLoader {
 
     private static final Set<String> IGNORED_RELATION_FIELDS = Set.of("id", "rationale");
 
-    private static final Set<String> RENAME_FIELDS = Set.of("from", "to", "rationale");
+    private static final Set<String> CONFIGURATION_FIELDS = Set.of("key", "secret", "action");
 
-    private static final Set<String> MAPPING_FIELDS = Set.of("target", "path", "source", "valueWhenSelected", "valueWhenDeselected", "secret");
-
-    private static final Set<String> MAPPING_SOURCE_VALUES = Set.of(ArtifactMappingSource.SELECTION, ArtifactMappingSource.ENVIRONMENT);
+    private static final Set<String> CONFIGURATION_ACTION_VALUES = Set.of(FeatureScopeManifest.CONFIGURATION_ACTION_INCLUDE,
+            FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE);
 
     private static final Set<String> OPTIONALITY_VALUES = Set.of(FeatureScopeManifest.OPTIONALITY_MANDATORY, FeatureScopeManifest.OPTIONALITY_OPTIONAL);
 
@@ -90,33 +92,50 @@ public class FeatureManifestLoader {
             throw new FeatureManifestException("Could not parse feature manifest " + sourceLabel + ": " + e.getMessage());
         }
         Map<String, Object> root = asMap(loaded, "Manifest root");
-        rejectRetiredIdentityFields(root);
+        rejectRetiredFields(root);
         rejectUnknownFields(root, ROOT_FIELDS, "manifest root");
         int manifestVersion = requiredInteger(root, "manifestVersion", "manifest root");
         if (manifestVersion != FeatureScopeManifest.CURRENT_VERSION) {
-            throw new FeatureManifestException("Unsupported manifestVersion " + manifestVersion + "; expected " + FeatureScopeManifest.CURRENT_VERSION + ".");
+            throw new FeatureManifestException("Unsupported manifestVersion " + manifestVersion + "; expected " + FeatureScopeManifest.CURRENT_VERSION
+                    + ". Since manifestVersion 5 a 'features' entry keyed by the Artemis module id declares membership and semantics, technical entries derive "
+                    + "their mappings from the anchor, and capabilities, alternative-group exclusions, and the root node are derived.");
         }
-        List<IncludeEntry> includes = parseIncludes(root.get("include"));
-        List<ExcludeEntry> excludes = parseExcludes(root.get("exclude"));
+        List<FeatureEntry> features = parseFeatures(root.get("features"));
+        List<TechnicalEntry> technical = parseTechnical(root.get("technical"));
+        List<NotModeledEntry> notModeled = parseNotModeled(root.get("notModeled"));
         List<ConceptualNode> conceptualNodes = parseConceptualNodes(root.get("conceptualNodes"));
         List<ConstraintEntry> constraints = parseConstraints(root.get("constraints"));
         List<IgnoredRelationEntry> ignoredRelations = parseIgnoredRelations(root.get("ignoredRelations"));
-        List<RenameEntry> renames = parseRenames(root.get("renames"));
-        validateUniqueness(includes, excludes, conceptualNodes);
-        validateInternalReferences(includes, conceptualNodes);
-        validateConstraintReferences(constraints, includes, conceptualNodes);
-        validateRenames(renames, includes, conceptualNodes);
-        return new FeatureScopeManifest(manifestVersion, includes, excludes, conceptualNodes, constraints, ignoredRelations, renames);
+        Set<String> knownIds = validateUniqueness(features, technical, notModeled, conceptualNodes);
+        validateInternalReferences(features, technical, conceptualNodes, knownIds);
+        validateConstraintReferences(constraints, knownIds);
+        return new FeatureScopeManifest(manifestVersion, features, technical, notModeled, conceptualNodes, constraints, ignoredRelations);
     }
 
     /**
-     * Rejects the identity fields manifest version 3 removed with actionable migration messages instead of the
-     * generic unknown-field failure.
+     * Rejects the sections manifest versions 4 and 5 replaced and the identity fields version 3 removed with actionable
+     * migration messages instead of the generic unknown-field failure.
      *
      * @param root parsed manifest root.
-     * @throws FeatureManifestException if a retired identity field is present.
+     * @throws FeatureManifestException if a retired section or identity field is present.
      */
-    private void rejectRetiredIdentityFields(Map<String, Object> root) {
+    private void rejectRetiredFields(Map<String, Object> root) {
+        if (root.containsKey("include")) {
+            throw new FeatureManifestException("manifest root.include was removed in manifestVersion 4: a functional member is one 'features' entry keyed by "
+                    + "its Artemis module id, technical members move to 'technical'.");
+        }
+        if (root.containsKey("provisional")) {
+            throw new FeatureManifestException("manifest root.provisional was removed in manifestVersion 5: the 'features' entry keyed by the Artemis module "
+                    + "id declares the membership itself, so delete the provisional entries and key every features entry by its module id.");
+        }
+        if (root.containsKey("renames")) {
+            throw new FeatureManifestException("manifest root.renames was removed in manifestVersion 5: rename workflow references directly in the authored "
+                    + "guided workflow.");
+        }
+        if (root.containsKey("exclude")) {
+            throw new FeatureManifestException("manifest root.exclude was removed in manifestVersion 4: rename the section to 'notModeled'; its entries keep "
+                    + "the anchor, reason, and rationale fields.");
+        }
         if (root.containsKey("artemisCommitSha")) {
             throw new FeatureManifestException("manifest root.artemisCommitSha was removed in manifestVersion 3: the source revision is derived from the "
                     + "verified Artemis checkout, so the manifest no longer pins a commit. Delete the field.");
@@ -128,45 +147,144 @@ public class FeatureManifestLoader {
     }
 
     /**
-     * Parses the include section.
+     * Parses the features section. Each entry is keyed by the Artemis module id, which implies its anchor.
      *
-     * @param value raw YAML value of the include section, or null when absent.
-     * @return parsed include entries in manifest order.
-     * @throws FeatureManifestException if an entry is malformed.
+     * @param value raw YAML value of the features section, or null when absent.
+     * @return parsed feature entries in manifest order.
+     * @throws FeatureManifestException if an entry is malformed or carries a retired field.
      */
-    private List<IncludeEntry> parseIncludes(Object value) {
-        List<IncludeEntry> entries = new ArrayList<>();
+    private List<FeatureEntry> parseFeatures(Object value) {
+        List<FeatureEntry> entries = new ArrayList<>();
         int index = 0;
-        for (Object item : asList(value, "include")) {
-            String location = "include[" + index + "]";
+        for (Object item : asList(value, "features")) {
+            String location = "features[" + index + "]";
             Map<String, Object> entry = asMap(item, location);
-            rejectUnknownFields(entry, INCLUDE_FIELDS, location);
-            entries.add(new IncludeEntry(requiredString(entry, "anchor", location), requiredString(entry, "id", location), optionalString(entry, "group", location),
-                    optionalString(entry, "parent", location), optionalString(entry, "kind", location), optionality(entry, location),
-                    enumeratedString(entry, "category", CATEGORY_VALUES, location), enumeratedString(entry, "defaultState", DEFAULT_STATE_VALUES, location),
-                    optionalOrder(entry, location), stringList(entry, "requiresCapabilities", location), stringList(entry, "providesCapabilities", location),
-                    parseMappingHints(entry.get("artifactMappings"), location), optionalString(entry, "name", location),
-                    optionalString(entry, "description", location), optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location)));
+            rejectRetiredEntryFields(entry, location);
+            if (entry.containsKey("anchor")) {
+                throw new FeatureManifestException(location + ".anchor was removed in manifestVersion 5: the anchor of a features entry is implied as "
+                        + "module:<id>, so key the entry by the Artemis module id and delete the field.");
+            }
+            rejectUnknownFields(entry, FEATURE_FIELDS, location);
+            entries.add(parseFeatureEntry(entry, location));
             index++;
         }
         return List.copyOf(entries);
     }
 
     /**
-     * Parses the exclude section.
+     * Parses the technical section, whose entries carry an anchor, the semantics of a features entry, and optionally
+     * the Spring profile tokens the member activates.
      *
-     * @param value raw YAML value of the exclude section, or null when absent.
-     * @return parsed exclude entries in manifest order.
+     * @param value raw YAML value of the technical section, or null when absent.
+     * @return parsed technical entries in manifest order.
+     * @throws FeatureManifestException if an entry is malformed or carries a retired field.
+     */
+    private List<TechnicalEntry> parseTechnical(Object value) {
+        List<TechnicalEntry> entries = new ArrayList<>();
+        int index = 0;
+        for (Object item : asList(value, "technical")) {
+            String location = "technical[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectRetiredEntryFields(entry, location);
+            for (String implied : List.of("kind", "category")) {
+                if (entry.containsKey(implied)) {
+                    throw new FeatureManifestException(location + "." + implied + " was removed in manifestVersion 5: kind 'feature' and category "
+                            + "'technical' are implied by the technical section. Delete the field.");
+                }
+            }
+            rejectUnknownFields(entry, TECHNICAL_FIELDS, location);
+            entries.add(new TechnicalEntry(requiredString(entry, "anchor", location), parseFeatureEntry(entry, location), stringList(entry, "profiles", location)));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Rejects the fields manifest version 5 derives with migration messages naming the replacement.
+     *
+     * @param entry parsed features or technical entry.
+     * @param location location label of the entry.
+     * @throws FeatureManifestException if a retired field is present.
+     */
+    private void rejectRetiredEntryFields(Map<String, Object> entry, String location) {
+        if (entry.containsKey("artifactMappings")) {
+            throw new FeatureManifestException(location + ".artifactMappings was removed in manifestVersion 5: functional environment mappings are derived from "
+                    + "guarded Artemis structure and technical compose, profile, and environment mappings from the anchor, the 'profiles' list, and the "
+                    + "@Profile-guarded injection sites; declare only confirmations and exceptions under 'configuration'.");
+        }
+        if (entry.containsKey("requiresCapabilities")) {
+            throw new FeatureManifestException(location + ".requiresCapabilities was removed in manifestVersion 5: required capabilities are derived from the "
+                    + "member's deployment inputs as <id>-service and <id>-secret. Delete the field.");
+        }
+        if (entry.containsKey("providesCapabilities")) {
+            throw new FeatureManifestException(location + ".providesCapabilities was removed in manifestVersion 5: the bundled deployment profile provides every "
+                    + "capability the active model requires, so nothing declares provided capabilities. Delete the field.");
+        }
+    }
+
+    /**
+     * Parses the id and modeling semantics shared by features and technical entries.
+     *
+     * @param entry parsed entry mapping.
+     * @param location location label of the entry.
+     * @return parsed feature semantics.
+     * @throws FeatureManifestException if a field is malformed.
+     */
+    private FeatureEntry parseFeatureEntry(Map<String, Object> entry, String location) {
+        return new FeatureEntry(requiredString(entry, "id", location), optionalString(entry, "group", location), optionalString(entry, "parent", location),
+                optionality(entry, location), enumeratedString(entry, "category", CATEGORY_VALUES, location),
+                enumeratedString(entry, "defaultState", DEFAULT_STATE_VALUES, location), optionalOrder(entry, location),
+                parseConfigurationEntries(entry.get("configuration"), location), optionalString(entry, "name", location),
+                optionalString(entry, "description", location), optionalString(entry, "documentationUrl", location), optionalString(entry, "rationale", location));
+    }
+
+    /**
+     * Parses the configuration-key confirmations and exceptions of a features or technical entry. Keys must be unique within the
+     * entry, the action must be a known one, and an exclude entry may not carry a secret flag, because a rejected key
+     * is never emitted.
+     *
+     * @param value raw YAML value of the configuration field, or null when absent.
+     * @param entryLocation location label of the owning entry.
+     * @return parsed configuration entries in declaration order.
      * @throws FeatureManifestException if an entry is malformed.
      */
-    private List<ExcludeEntry> parseExcludes(Object value) {
-        List<ExcludeEntry> entries = new ArrayList<>();
+    private List<FeatureScopeManifest.ConfigurationEntry> parseConfigurationEntries(Object value, String entryLocation) {
+        List<FeatureScopeManifest.ConfigurationEntry> entries = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
         int index = 0;
-        for (Object item : asList(value, "exclude")) {
-            String location = "exclude[" + index + "]";
+        for (Object item : asList(value, entryLocation + ".configuration")) {
+            String location = entryLocation + ".configuration[" + index + "]";
             Map<String, Object> entry = asMap(item, location);
-            rejectUnknownFields(entry, EXCLUDE_FIELDS, location);
-            entries.add(new ExcludeEntry(requiredString(entry, "anchor", location), optionalString(entry, "reason", location), optionalString(entry, "rationale", location)));
+            rejectUnknownFields(entry, CONFIGURATION_FIELDS, location);
+            String key = requiredString(entry, "key", location);
+            requireUnique(keys, key, location + " repeats key '" + key + "'.");
+            String action = enumeratedString(entry, "action", CONFIGURATION_ACTION_VALUES, location);
+            Boolean secret = optionalBoolean(entry, "secret", location);
+            if (FeatureScopeManifest.CONFIGURATION_ACTION_EXCLUDE.equals(action) && secret != null) {
+                throw new FeatureManifestException(location + " declares action 'exclude' and a secret flag; a rejected key is never emitted.");
+            }
+            entries.add(new FeatureScopeManifest.ConfigurationEntry(key, secret, action));
+            index++;
+        }
+        return List.copyOf(entries);
+    }
+
+    /**
+     * Parses the notModeled section.
+     *
+     * @param value raw YAML value of the notModeled section, or null when absent.
+     * @return parsed exclusion entries in manifest order.
+     * @throws FeatureManifestException if an entry is malformed.
+     */
+    private List<NotModeledEntry> parseNotModeled(Object value) {
+        List<NotModeledEntry> entries = new ArrayList<>();
+        int index = 0;
+        for (Object item : asList(value, "notModeled")) {
+            String location = "notModeled[" + index + "]";
+            Map<String, Object> entry = asMap(item, location);
+            rejectUnknownFields(entry, NOT_MODELED_FIELDS, location);
+            entries.add(new NotModeledEntry(requiredString(entry, "anchor", location), optionalString(entry, "reason", location),
+                    optionalString(entry, "rationale", location)));
             index++;
         }
         return List.copyOf(entries);
@@ -248,106 +366,70 @@ public class FeatureManifestLoader {
     }
 
     /**
-     * Parses the explicit workflow rename section.
+     * Rejects duplicate anchors across the implied features anchors, the technical, and the notModeled sections, and
+     * duplicate ids across the features, technical, and conceptualNodes sections. When no root is declared, the
+     * implicit root id is reserved as well.
      *
-     * @param value raw YAML value of the renames section, or null when absent.
-     * @return parsed rename entries in declaration order.
-     * @throws FeatureManifestException if a rename is malformed.
-     */
-    private List<RenameEntry> parseRenames(Object value) {
-        List<RenameEntry> entries = new ArrayList<>();
-        int index = 0;
-        for (Object item : asList(value, "renames")) {
-            String location = "renames[" + index + "]";
-            Map<String, Object> entry = asMap(item, location);
-            rejectUnknownFields(entry, RENAME_FIELDS, location);
-            entries.add(new RenameEntry(requiredString(entry, "from", location), requiredString(entry, "to", location),
-                    requiredString(entry, "rationale", location)));
-            index++;
-        }
-        return List.copyOf(entries);
-    }
-
-    /**
-     * Parses the artifact mapping hints of an include entry. Every hint must declare exactly one valid form: a known
-     * explicit source, at least one toggle value for a selection mapping, and no toggle value for an environment
-     * mapping. The retired implicit shape ({@code valueFromProfile}, {@code requiredWhenSelected}) is rejected as an
-     * unknown field.
-     *
-     * @param value raw YAML value of the artifactMappings field, or null when absent.
-     * @param entryLocation location label of the owning entry.
-     * @return parsed mapping hints in declaration order.
-     * @throws FeatureManifestException if a mapping hint is malformed, mixes forms, or declares an unknown source.
-     */
-    private List<FeatureScopeManifest.MappingHint> parseMappingHints(Object value, String entryLocation) {
-        List<FeatureScopeManifest.MappingHint> hints = new ArrayList<>();
-        int index = 0;
-        for (Object item : asList(value, entryLocation + ".artifactMappings")) {
-            String location = entryLocation + ".artifactMappings[" + index + "]";
-            Map<String, Object> hint = asMap(item, location);
-            rejectUnknownFields(hint, MAPPING_FIELDS, location);
-            String source = requiredString(hint, "source", location);
-            if (!MAPPING_SOURCE_VALUES.contains(source)) {
-                throw new FeatureManifestException(location + ".source must be one of " + MAPPING_SOURCE_VALUES + ".");
-            }
-            boolean hasToggleValue = hint.get("valueWhenSelected") != null || hint.get("valueWhenDeselected") != null;
-            if (ArtifactMappingSource.SELECTION.equals(source) && !hasToggleValue) {
-                throw new FeatureManifestException(location + " declares source 'selection' but no valueWhenSelected or valueWhenDeselected.");
-            }
-            if (ArtifactMappingSource.ENVIRONMENT.equals(source) && hasToggleValue) {
-                throw new FeatureManifestException(location + " declares source 'environment' but carries a selection value.");
-            }
-            hints.add(new FeatureScopeManifest.MappingHint(requiredString(hint, "target", location), requiredString(hint, "path", location), source,
-                    hint.get("valueWhenSelected"), hint.get("valueWhenDeselected"), optionalBoolean(hint, "secret", location)));
-            index++;
-        }
-        return List.copyOf(hints);
-    }
-
-    /**
-     * Rejects duplicate anchors across the include and exclude sections and duplicate curated ids across the include
-     * and conceptualNodes sections.
-     *
-     * @param includes parsed include entries.
-     * @param excludes parsed exclude entries.
+     * @param features parsed feature entries.
+     * @param technical parsed technical entries.
+     * @param notModeled parsed exclusion entries.
      * @param conceptualNodes parsed conceptual nodes.
+     * @return every id the features, technical, and conceptualNodes sections declare plus the implicit root when no
+     *         root is declared, in declaration order.
      * @throws FeatureManifestException if a duplicate is found.
      */
-    private void validateUniqueness(List<IncludeEntry> includes, List<ExcludeEntry> excludes, List<ConceptualNode> conceptualNodes) {
+    private Set<String> validateUniqueness(List<FeatureEntry> features, List<TechnicalEntry> technical, List<NotModeledEntry> notModeled,
+            List<ConceptualNode> conceptualNodes) {
         Set<String> anchors = new LinkedHashSet<>();
-        for (IncludeEntry entry : includes) {
+        for (FeatureEntry entry : features) {
+            String anchor = FeatureScopeManifest.moduleAnchor(entry.id());
+            requireUnique(anchors, anchor, "Duplicate manifest anchor '" + anchor + "'.");
+        }
+        for (TechnicalEntry entry : technical) {
             requireUnique(anchors, entry.anchor(), "Duplicate manifest anchor '" + entry.anchor() + "'.");
         }
-        for (ExcludeEntry entry : excludes) {
+        for (NotModeledEntry entry : notModeled) {
             requireUnique(anchors, entry.anchor(), "Duplicate manifest anchor '" + entry.anchor() + "'.");
         }
         Set<String> ids = new LinkedHashSet<>();
-        for (IncludeEntry entry : includes) {
-            requireUnique(ids, entry.id(), "Duplicate curated id '" + entry.id() + "' across include and conceptualNodes.");
+        for (FeatureEntry entry : features) {
+            requireUnique(ids, entry.id(), "Duplicate manifest id '" + entry.id() + "' across features, technical, and conceptualNodes.");
+        }
+        for (TechnicalEntry entry : technical) {
+            requireUnique(ids, entry.feature().id(), "Duplicate manifest id '" + entry.feature().id() + "' across features, technical, and conceptualNodes.");
         }
         for (ConceptualNode node : conceptualNodes) {
-            requireUnique(ids, node.id(), "Duplicate curated id '" + node.id() + "' across include and conceptualNodes.");
+            requireUnique(ids, node.id(), "Duplicate manifest id '" + node.id() + "' across features, technical, and conceptualNodes.");
         }
+        if (conceptualNodes.stream().noneMatch(node -> FeatureScopeManifest.KIND_ROOT.equals(node.kind()))) {
+            requireUnique(ids, FeatureScopeManifest.IMPLICIT_ROOT_ID, "Manifest id '" + FeatureScopeManifest.IMPLICIT_ROOT_ID
+                    + "' collides with the implicit root; declare a conceptual node of kind 'root' or rename the entry.");
+        }
+        return ids;
     }
 
     /**
-     * Rejects parent and group references that do not point at another manifest-declared id. This is a static check:
-     * the referenced id universe is fully known from the manifest alone.
+     * Rejects parent and group references that do not point at another manifest-declared id or the implicit root. This
+     * is a static check: the referenced id universe is fully known from the manifest alone.
      *
-     * @param includes parsed include entries.
+     * @param features parsed feature entries.
+     * @param technical parsed technical entries.
      * @param conceptualNodes parsed conceptual nodes.
+     * @param knownIds every id the manifest declares.
      * @throws FeatureManifestException if a reference points at an undeclared id.
      */
-    private void validateInternalReferences(List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
-        Set<String> knownIds = new LinkedHashSet<>();
-        includes.forEach(entry -> knownIds.add(entry.id()));
-        conceptualNodes.forEach(node -> knownIds.add(node.id()));
+    private void validateInternalReferences(List<FeatureEntry> features, List<TechnicalEntry> technical, List<ConceptualNode> conceptualNodes,
+            Set<String> knownIds) {
         for (ConceptualNode node : conceptualNodes) {
             requireKnownReference(knownIds, node.id(), node.parent());
         }
-        for (IncludeEntry entry : includes) {
+        for (FeatureEntry entry : features) {
             requireKnownReference(knownIds, entry.id(), entry.parent());
             requireKnownReference(knownIds, entry.id(), entry.group());
+        }
+        for (TechnicalEntry entry : technical) {
+            requireKnownReference(knownIds, entry.feature().id(), entry.feature().parent());
+            requireKnownReference(knownIds, entry.feature().id(), entry.feature().group());
         }
     }
 
@@ -355,48 +437,15 @@ public class FeatureManifestLoader {
      * Rejects constraint endpoints that do not point at a manifest-declared id.
      *
      * @param constraints parsed constraint entries.
-     * @param includes parsed include entries.
-     * @param conceptualNodes parsed conceptual nodes.
+     * @param knownIds every id the manifest declares.
      * @throws FeatureManifestException if a constraint references an undeclared feature id.
      */
-    private void validateConstraintReferences(List<ConstraintEntry> constraints, List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
-        Set<String> knownIds = new LinkedHashSet<>();
-        includes.forEach(entry -> knownIds.add(entry.id()));
-        conceptualNodes.forEach(node -> knownIds.add(node.id()));
+    private void validateConstraintReferences(List<ConstraintEntry> constraints, Set<String> knownIds) {
         Set<String> constraintIds = new LinkedHashSet<>();
         for (ConstraintEntry constraint : constraints) {
             requireUnique(constraintIds, constraint.id(), "Duplicate constraint id '" + constraint.id() + "'.");
             requireKnownReference(knownIds, constraint.id(), constraint.source());
             requireKnownReference(knownIds, constraint.id(), constraint.target());
-        }
-    }
-
-    /**
-     * Rejects ambiguous, chained, self-referential, and unknown-target workflow renames.
-     *
-     * @param renames parsed rename entries.
-     * @param includes parsed include entries.
-     * @param conceptualNodes parsed conceptual nodes.
-     * @throws FeatureManifestException if a rename is unsafe or ambiguous.
-     */
-    private void validateRenames(List<RenameEntry> renames, List<IncludeEntry> includes, List<ConceptualNode> conceptualNodes) {
-        Set<String> currentIds = new LinkedHashSet<>();
-        includes.forEach(entry -> currentIds.add(entry.id()));
-        conceptualNodes.forEach(node -> currentIds.add(node.id()));
-        Set<String> sources = new LinkedHashSet<>();
-        Set<String> targets = new LinkedHashSet<>();
-        for (RenameEntry rename : renames) {
-            if (rename.from().equals(rename.to())) {
-                throw new FeatureManifestException("Rename source and target must differ: '" + rename.from() + "'.");
-            }
-            requireUnique(sources, rename.from(), "Duplicate rename source '" + rename.from() + "'.");
-            requireUnique(targets, rename.to(), "Duplicate rename target '" + rename.to() + "'.");
-            if (!currentIds.contains(rename.to())) {
-                throw new FeatureManifestException("Rename target '" + rename.to() + "' is not a current manifest-declared id.");
-            }
-            if (currentIds.contains(rename.from())) {
-                throw new FeatureManifestException("Rename source '" + rename.from() + "' is still a current manifest-declared id.");
-            }
         }
     }
 

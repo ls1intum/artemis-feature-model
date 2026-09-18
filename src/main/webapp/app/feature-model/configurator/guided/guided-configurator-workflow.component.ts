@@ -5,6 +5,7 @@ import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } fro
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
 import { DEPLOYMENT_TARGETS, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from '../shared/deployment-targets';
+import { ValidationIssueListComponent } from '../shared/validation-issue-list.component';
 import {
     ConfiguratorScreen,
     DecisionChangeSummary,
@@ -21,7 +22,7 @@ export type OptionInfoTab = 'outcome' | 'recommended' | 'caveats';
 @Component({
     selector: 'fm-guided-configurator-workflow',
     standalone: true,
-    imports: [],
+    imports: [ValidationIssueListComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './guided-configurator-workflow.component.html',
     styleUrl: './guided-configurator-workflow.component.scss',

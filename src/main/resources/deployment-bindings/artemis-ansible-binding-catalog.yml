@@ -173,11 +173,11 @@ features:
       ---
       artemis_modules:
         modeling: false
-  file-upload:
+  fileupload:
     binding: "bound"
     gating: "deselected"
     membership: "artemistests_without_fileupload"
-    evidence: "artemis_modules.fileupload renders ARTEMIS_FILEUPLOAD_ENABLED in artemis.env.j2 at the pinned fork commit (Artemis spells fileupload without the feature model's hyphen); an absent key keeps the Artemis default (enabled)."
+    evidence: "artemis_modules.fileupload renders ARTEMIS_FILEUPLOAD_ENABLED in artemis.env.j2 at the pinned fork commit ; an absent key keeps the Artemis default (enabled)."
     content: |-
       ---
       artemis_modules:

@@ -26,6 +26,7 @@ interface FeatureSpec {
     springProfile?: string;
     clientConstant?: string;
     serverConditionClass?: string;
+    usageLabel?: string;
     evidence?: string[];
 }
 
@@ -85,12 +86,12 @@ const FEATURE_SPECS: FeatureSpec[] = [
         clientConstant: 'MODULE_FEATURE_MODELING',
     },
     {
-        id: 'file-upload',
+        id: 'fileupload',
         name: 'File Upload',
         kind: 'module',
         selectable: true,
         defaultState: 'enabled',
-        configKey: 'artemis.file-upload.enabled',
+        configKey: 'artemis.fileupload.enabled',
         clientConstant: 'MODULE_FEATURE_FILEUPLOAD',
     },
     { id: 'assessment-and-integrity', name: 'Assessment and Integrity', kind: 'group', selectable: false, defaultState: 'not_applicable' },
@@ -118,7 +119,7 @@ const RELATION_SPECS: RelationSpec[] = [
     { parentId: 'exercise-system', childId: 'quiz', relationType: 'mandatory', order: 3 },
     { parentId: 'exercise-system', childId: 'text', relationType: 'optional', order: 4 },
     { parentId: 'exercise-system', childId: 'modeling', relationType: 'optional', order: 5 },
-    { parentId: 'exercise-system', childId: 'file-upload', relationType: 'optional', order: 6 },
+    { parentId: 'exercise-system', childId: 'fileupload', relationType: 'optional', order: 6 },
     { parentId: 'artemis', childId: 'assessment-and-integrity', relationType: 'group', groupType: 'and', order: 3 },
     { parentId: 'assessment-and-integrity', childId: 'exam', relationType: 'optional', order: 1 },
     { parentId: 'assessment-and-integrity', childId: 'plagiarism', relationType: 'optional', order: 2 },
@@ -132,9 +133,78 @@ const RELATION_SPECS: RelationSpec[] = [
     { parentId: 'platform-integrations', childId: 'theia', relationType: 'optional', order: 2 },
 ];
 
+/**
+ * Sub-feature extension of the MVP fixture (contract C-1): the functional member `lecture` owns two sub-features in
+ * two areas and a technical member `localvc` owns one. Sub-features carry a `mandatory` relation from their owner,
+ * ordered by area then feature as the server emits them.
+ */
+const SUB_FEATURE_FEATURE_SPECS: FeatureSpec[] = [
+    {
+        id: 'localvc',
+        name: 'Local Version Control',
+        kind: 'feature',
+        selectable: true,
+        defaultState: 'enabled',
+        category: 'technical',
+        springProfile: 'localvc',
+    },
+    {
+        id: 'lecture/ai/transcription',
+        name: 'Transcription',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled ai/transcription in module lecture, guarded by LectureEnabled.',
+        serverConditionClass: 'LectureEnabled',
+        usageLabel: 'ai/transcription',
+        evidence: ['LectureTranscriptionResource.java:25'],
+    },
+    {
+        id: 'lecture/authoring/lectures',
+        name: 'Lectures',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled authoring/lectures in module lecture, guarded by LectureEnabled.',
+        serverConditionClass: 'LectureEnabled',
+        usageLabel: 'authoring/lectures',
+        evidence: ['LectureResource.java:88'],
+    },
+    {
+        id: 'localvc/vcs/repositories',
+        name: 'Repositories',
+        kind: 'sub-feature',
+        selectable: false,
+        defaultState: 'not_applicable',
+        category: 'derived',
+        description: 'REST endpoints labelled vcs/repositories in module programming, guarded by PROFILE_LOCALVC.',
+        springProfile: 'localvc',
+        usageLabel: 'vcs/repositories',
+        evidence: ['LocalVCResource.java:40'],
+    },
+];
+
+const SUB_FEATURE_RELATION_SPECS: RelationSpec[] = [
+    { parentId: 'artemis', childId: 'localvc', relationType: 'mandatory', order: 6 },
+    { parentId: 'lecture', childId: 'lecture/ai/transcription', relationType: 'mandatory', order: 1 },
+    { parentId: 'lecture', childId: 'lecture/authoring/lectures', relationType: 'mandatory', order: 2 },
+    { parentId: 'localvc', childId: 'localvc/vcs/repositories', relationType: 'mandatory', order: 1 },
+];
+
 export function buildMvpFeatureModelResponse(overrides: Partial<FeatureModelResponse> = {}): FeatureModelResponse {
-    const features = FEATURE_SPECS.map((spec) => toFeature(spec));
-    const relations: Relation[] = RELATION_SPECS.map((spec) => ({
+    return buildResponse(FEATURE_SPECS, RELATION_SPECS, overrides);
+}
+
+/** The MVP fixture plus the sub-feature extension; existing specs keep using the plain MVP fixture. */
+export function buildFeatureModelResponseWithSubFeatures(overrides: Partial<FeatureModelResponse> = {}): FeatureModelResponse {
+    return buildResponse([...FEATURE_SPECS, ...SUB_FEATURE_FEATURE_SPECS], [...RELATION_SPECS, ...SUB_FEATURE_RELATION_SPECS], overrides);
+}
+
+function buildResponse(featureSpecs: FeatureSpec[], relationSpecs: RelationSpec[], overrides: Partial<FeatureModelResponse>): FeatureModelResponse {
+    const features = featureSpecs.map((spec) => toFeature(spec));
+    const relations: Relation[] = relationSpecs.map((spec) => ({
         parentId: spec.parentId,
         childId: spec.childId,
         relationType: spec.relationType,
@@ -265,7 +335,7 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 id: 'enable-written-exercise-types',
                                 label: 'Written exercise types',
                                 description: 'Enable text, modeling, and file upload exercises.',
-                                selects: ['text', 'modeling', 'file-upload'],
+                                selects: ['text', 'modeling', 'fileupload'],
                                 deselects: [],
                                 requiresCapabilities: [],
                                 artifactImpacts: ['Sets artemis.text.enabled = true in the generated external configuration overlay.'],
@@ -296,7 +366,7 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                                 description: 'Enable AI tutoring support through Iris.',
                                 selects: ['iris'],
                                 deselects: [],
-                                requiresCapabilities: ['pyris-service', 'pyris-secret'],
+                                requiresCapabilities: ['iris-service', 'iris-secret'],
                                 artifactImpacts: ['Sets artemis.iris.enabled = true in the generated external configuration overlay.'],
                                 enabledOutcome: ['Students and instructors can receive AI tutoring support.'],
                                 recommendedWhen: ['Your course wants AI-assisted help for recurring questions or learning progress.'],
@@ -315,7 +385,7 @@ export function buildGuidedWorkflowFixture(overrides: Partial<GuidedWorkflow> = 
                 groupNodeId: 'exercise-system',
                 title: 'Exercise Types',
                 order: 2,
-                featureIds: ['exercise-common', 'programming', 'quiz', 'text', 'modeling', 'file-upload'],
+                featureIds: ['exercise-common', 'programming', 'quiz', 'text', 'modeling', 'fileupload'],
             },
             { id: 'adaptive-learning-and-ai', groupNodeId: 'adaptive-learning-and-ai', title: 'AI and Adaptive Learning', order: 3, featureIds: ['iris'] },
         ],
@@ -425,6 +495,7 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
         spec.springProfile !== undefined ||
         spec.clientConstant !== undefined ||
         spec.serverConditionClass !== undefined ||
+        spec.usageLabel !== undefined ||
         (spec.evidence !== undefined && spec.evidence.length > 0);
     if (!hasSourceData) {
         return null;
@@ -434,6 +505,7 @@ function buildSource(spec: FeatureSpec): FeatureSource | null {
         springProfile: spec.springProfile ?? null,
         clientConstant: spec.clientConstant ?? null,
         serverConditionClass: spec.serverConditionClass ?? null,
+        usageLabel: spec.usageLabel ?? null,
         evidence: spec.evidence ?? [],
     };
 }

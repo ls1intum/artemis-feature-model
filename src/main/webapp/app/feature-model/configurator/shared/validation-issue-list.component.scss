@@ -1,0 +1,94 @@
+:host {
+    display: block;
+}
+
+.issue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+/* One card per issue; the coloured left edge carries the severity, the rows carry the content. */
+.issue {
+    padding: 0.45rem 0.6rem 0.5rem;
+    border: 1px solid var(--bs-border-color);
+    border-left: 3px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+}
+
+.issue--blocking {
+    border-left-color: var(--bs-danger);
+}
+
+.issue--warning {
+    border-left-color: var(--bs-warning);
+}
+
+.issue__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.issue__severity {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.issue--blocking .issue__severity {
+    color: var(--bs-danger-text-emphasis);
+}
+
+.issue--warning .issue__severity {
+    color: var(--bs-warning-text-emphasis);
+}
+
+.issue__code {
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+/* Label column left, content right; labels are quiet so the content stays the thing you read. */
+.issue__rows {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.2rem 0.75rem;
+    margin: 0;
+}
+
+.issue__rows dt {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    line-height: 1.6;
+    text-transform: uppercase;
+}
+
+.issue__rows dd {
+    margin: 0;
+}
+
+.issue__features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.issue__feature {
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: var(--bs-tertiary-bg);
+    font-size: 0.78rem;
+    font-weight: 500;
+}

@@ -9,8 +9,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.ConfigKeyResolution;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport.MemberConfigDerivation;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.CurationReport.CurationDecision;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
@@ -93,7 +97,7 @@ class ExtractionHtmlReportRendererTest {
         List<ReportItem> items = List.of(ReportItem.warning(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "alpha", "First subject."),
                 ReportItem.warning(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, "beta", "Second subject."));
         ExtractionReport report = new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, ExtractionReport.STATUS_PASS, COMMIT, MANIFEST_DIGEST,
-                curation(List.of(included("module:alpha"))), Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, meaning),
+                curation(List.of(included("module:alpha"))), null, Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, meaning),
                 Map.of(ReportItem.SEVERITY_WARNING, 2), Map.of(ReportItem.CODE_MODULE_CONSTANT_ASYMMETRY, 2), items);
 
         String html = render(report);
@@ -116,9 +120,10 @@ class ExtractionHtmlReportRendererTest {
     }
 
     @Test
-    void rendersTheKindByStateMatrixAndTheSemanticSourceOfIncludedCandidates() {
+    void rendersTheKindByStateMatrixAndTheMembershipSourceOfIncludedCandidates() {
         List<CurationDecision> decisions = List.of(included("module:alpha"), excluded("infra:mysql", "internal-mechanism"),
-                excluded("infra:postgres", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null));
+                excluded("infra:postgres", "internal-mechanism"), excluded("profile:delta", "deferred"), excluded("profile:epsilon", null),
+                unmodeled("toggle:RateLimit"));
         ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(decisions), List.of());
 
         String html = render(report);
@@ -126,9 +131,49 @@ class ExtractionHtmlReportRendererTest {
         assertThat(html).contains("<caption>Candidate decisions by kind</caption>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>module-feature</code></th><td class=\"num\">1</td>");
         assertThat(html).contains("<tr><th scope=\"row\"><code>infrastructure</code></th><td class=\"num zero\">0</td><td class=\"num\">2</td>");
-        assertThat(html).contains("<span class=\"tag\">manifest</span>");
+        assertThat(html).contains("<th scope=\"col\">Membership</th>", "<span class=\"tag\">features</span>");
         assertThat(html).contains("<summary><code>internal-mechanism</code> <span class=\"count\">2</span></summary>");
         assertThat(html).contains("<summary><code>unspecified</code> <span class=\"count\">1</span></summary>");
+        assertThat(html).contains("Unmodeled anchors <span class=\"count\">1</span>", "toggle:RateLimit");
+    }
+
+    @Test
+    void rendersConfigurationKeyResolutionsWithShortEvidenceReferences() {
+        EvidenceItem yamlEvidence = new EvidenceItem("module:alpha", EvidenceItem.KIND_USAGE_CONFIG_YAML,
+                "src/main/resources/config/application-artemis.yml", 42, "artemis.alpha.url", "scanned YAML default");
+        ConfigDerivationReport configDerivation = new ConfigDerivationReport(List.of(
+                new MemberConfigDerivation("alpha-feature", "module:alpha", List.of(
+                        new ConfigKeyResolution("artemis.alpha.url", ConfigDerivationReport.ORIGIN_DERIVED, ConfigDerivationReport.DECISION_DERIVED, false,
+                                List.of(yamlEvidence), null),
+                        new ConfigKeyResolution("artemis.alpha.mode", ConfigDerivationReport.ORIGIN_DERIVED, ConfigDerivationReport.DECISION_SKIPPED, false,
+                                List.of(), null))),
+                new MemberConfigDerivation("beta-feature", "module:beta", List.of())));
+        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"))), configDerivation, List.of());
+
+        String html = render(report);
+
+        assertThat(html).contains("Configuration derivation <span class=\"count\">2</span>", "<code>alpha-feature</code>", "<code>artemis.alpha.url</code>",
+                "<span class=\"tag\">derived</span>", "<span class=\"tag\">skipped</span>", "<code>application-artemis.yml:42</code>");
+        assertThat(html).contains("No configuration keys were declared or derived for: beta-feature.");
+        assertThat(html).doesNotContain("[path]");
+    }
+
+    @Test
+    void statesWhenARunFailedBeforeConfigurationDerivation() {
+        ExtractionReport report = report(ExtractionReport.STATUS_FAIL, curation(List.of()), List.of());
+
+        String html = render(report);
+
+        assertThat(html).contains("did not reach configuration derivation");
+    }
+
+    @Test
+    void omitsTheUnmodeledGroupWhenEveryCandidateIsDecided() {
+        ExtractionReport report = report(ExtractionReport.STATUS_PASS, curation(List.of(included("module:alpha"))), List.of());
+
+        String html = render(report);
+
+        assertThat(html).doesNotContain("Unmodeled anchors");
     }
 
     @Test
@@ -180,14 +225,27 @@ class ExtractionHtmlReportRendererTest {
      * @return report ready to render.
      */
     private ExtractionReport report(String status, CurationReport curation, List<ReportItem> items) {
+        return report(status, curation, null, items);
+    }
+
+    /**
+     * Builds a report with a configuration-derivation section whose counts are derived from its items.
+     *
+     * @param status overall verdict.
+     * @param curation curation section.
+     * @param configDerivation configuration-derivation section, or null.
+     * @param items diagnostics of the run.
+     * @return report ready to render.
+     */
+    private ExtractionReport report(String status, CurationReport curation, ConfigDerivationReport configDerivation, List<ReportItem> items) {
         Map<String, Integer> severityCounts = new LinkedHashMap<>();
         Map<String, Integer> codeCounts = new LinkedHashMap<>();
         for (ReportItem item : items) {
             severityCounts.merge(item.severity(), 1, Integer::sum);
             codeCounts.merge(item.code(), 1, Integer::sum);
         }
-        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, COMMIT, MANIFEST_DIGEST, curation, Map.of(), severityCounts, codeCounts,
-                items);
+        return new ExtractionReport(ExtractionReport.CURRENT_SCHEMA_VERSION, status, COMMIT, MANIFEST_DIGEST, curation, configDerivation, Map.of(),
+                severityCounts, codeCounts, items);
     }
 
     /**
@@ -201,9 +259,7 @@ class ExtractionHtmlReportRendererTest {
         Map<String, Map<String, Integer>> countsByKind = new LinkedHashMap<>();
         List<String> undeclaredIds = decisions.stream().filter(decision -> CurationReport.STATE_UNDECLARED.equals(decision.state()))
                 .map(CurationDecision::candidateId).toList();
-        for (String state : List.of(CurationReport.STATE_INCLUDE, CurationReport.STATE_EXCLUDE, CurationReport.STATE_UNDECLARED)) {
-            stateCounts.put(state, 0);
-        }
+        CurationReport.STATES.forEach(state -> stateCounts.put(state, 0));
         for (CurationDecision decision : decisions) {
             stateCounts.merge(decision.state(), 1, Integer::sum);
             countsByKind.computeIfAbsent(decision.candidateKind(), ignored -> new LinkedHashMap<>(stateCountTemplate())).merge(decision.state(), 1, Integer::sum);
@@ -217,24 +273,27 @@ class ExtractionHtmlReportRendererTest {
      * @return state counts initialized to zero.
      */
     private Map<String, Integer> stateCountTemplate() {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        counts.put(CurationReport.STATE_INCLUDE, 0);
-        counts.put(CurationReport.STATE_EXCLUDE, 0);
-        counts.put(CurationReport.STATE_UNDECLARED, 0);
-        return counts;
+        return CurationReport.zeroStateCounts();
     }
 
     private CurationDecision included(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null, "manifest");
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_INCLUDE, "alpha-feature", null,
+                CurationReport.SOURCE_FEATURES);
     }
 
     private CurationDecision excluded(String candidateId, String reason) {
         String kind = candidateId.startsWith("profile:") ? FeatureCandidate.KIND_SPRING_PROFILE
                 : candidateId.startsWith("infra:") ? FeatureCandidate.KIND_INFRASTRUCTURE : FeatureCandidate.KIND_MODULE_FEATURE;
-        return new CurationDecision(candidateId, kind, CurationReport.STATE_EXCLUDE, null, reason, null);
+        return new CurationDecision(candidateId, kind, CurationReport.STATE_EXCLUDE, null, reason, CurationReport.SOURCE_NOT_MODELED);
     }
 
     private CurationDecision undeclared(String candidateId) {
-        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_UNDECLARED, null, null, null);
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_MODULE_FEATURE, CurationReport.STATE_UNDECLARED, null, null,
+                CurationReport.SOURCE_UNDECLARED);
+    }
+
+    private CurationDecision unmodeled(String candidateId) {
+        return new CurationDecision(candidateId, FeatureCandidate.KIND_RUNTIME_TOGGLE, CurationReport.STATE_UNMODELED, null, null,
+                CurationReport.SOURCE_UNMODELED);
     }
 }

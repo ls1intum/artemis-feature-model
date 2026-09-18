@@ -1,0 +1,32 @@
+# Copy of the mini-Artemis manifest with the module:delta exclusion removed. Delta is neither enumerated by the
+# fixture's getEnabledFeatures nor displayed on its admin page, so the missing decision is informational only and the
+# run still publishes.
+manifestVersion: 5
+features:
+  - id: alpha
+    group: fixture-root
+notModeled:
+  - { anchor: infra:mysql, reason: test-fixture }
+  - { anchor: infra:postgres, reason: test-fixture }
+  - { anchor: module:beta, reason: test-fixture }
+  - { anchor: module:beta-extra, reason: test-fixture }
+  - { anchor: module:gamma, reason: test-fixture }
+  - { anchor: profile:agentx, reason: test-fixture }
+  - { anchor: profile:cione, reason: test-fixture }
+  - { anchor: profile:feprofile, reason: test-fixture }
+  - { anchor: profile:jenkins, reason: test-fixture }
+  - anchor: toggle:ClientOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate client-only fixture toggle.
+  - anchor: toggle:ServerOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate server-only fixture toggle.
+  - anchor: toggle:ToggleOne
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+  - anchor: toggle:ToggleTwo
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+conceptualNodes:
+  - id: fixture-root
+    kind: root

@@ -6,6 +6,8 @@
     --fm-kind-feature: #198754;
     /* Groups are scaffolding rather than a choice, so they stay the quietest of the four kinds. */
     --fm-kind-group: var(--bs-secondary-color);
+    /* Sub-features are derived from FeatureUsage placements and never selectable; they read as informational. */
+    --fm-kind-sub-feature: var(--bs-info);
 }
 
 html,
@@ -78,4 +80,8 @@ main {
 
 .fm-kind-dot--feature {
     --fm-dot-color: var(--fm-kind-feature);
+}
+
+.fm-kind-dot--sub-feature {
+    --fm-dot-color: var(--fm-kind-sub-feature);
 }

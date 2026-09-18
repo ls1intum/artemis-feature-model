@@ -3,7 +3,7 @@ import { Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FeatureModelService } from '../api/feature-model.service';
-import { buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
+import { buildFeatureModelResponseWithSubFeatures, buildMvpFeatureModelResponse } from '../core/feature-model.test-fixtures';
 import { FeatureModelResponse } from '../core/feature-model.types';
 import { FeatureModelExplorerComponent } from './feature-model-explorer.component';
 
@@ -103,7 +103,7 @@ describe('FeatureModelExplorerComponent', () => {
             label: stat.querySelector('.explorer-stat__label')?.textContent?.trim(),
         }));
         expect(stats).toEqual([
-            { value: '24', label: 'Features' },
+            { value: '18', label: 'Features' },
             { value: '23', label: 'Relations' },
             { value: '0', label: 'Constraints' },
             { value: '13', label: 'Default on' },
@@ -185,15 +185,15 @@ describe('FeatureModelExplorerComponent', () => {
         expect(matchCount?.textContent).toContain('1 match');
     });
 
-    it('filters by feature id and finds file-upload', () => {
+    it('filters by feature id and finds fileupload', () => {
         fixture.detectChanges();
         stub.subject.next(buildMvpFeatureModelResponse());
         fixture.detectChanges();
 
-        setSearch(fixture, 'file-upload');
+        setSearch(fixture, 'fileupload');
 
         const ids = getRenderedFeatureIds(fixture);
-        expect(ids).toContain('file-upload');
+        expect(ids).toContain('fileupload');
         expect(ids).toContain('exercise-system');
         expect(ids).not.toContain('lecture');
     });
@@ -375,5 +375,124 @@ describe('FeatureModelExplorerComponent', () => {
         fixture.detectChanges();
 
         expect(rootElement(fixture).querySelector('[data-testid="details-name"]')?.textContent).toContain('Lecture');
+    });
+
+    describe('with FeatureUsage sub-features', () => {
+        function load(): void {
+            fixture.detectChanges();
+            stub.subject.next(buildFeatureModelResponseWithSubFeatures());
+            fixture.detectChanges();
+        }
+
+        function statTiles(): { value: string | undefined; label: string | undefined }[] {
+            return Array.from(rootElement(fixture).querySelectorAll('.explorer-stat')).map((stat) => ({
+                value: stat.querySelector('.explorer-stat__value')?.textContent?.trim(),
+                label: stat.querySelector('.explorer-stat__label')?.textContent?.trim(),
+            }));
+        }
+
+        it('counts only selectable features and shows a Sub-features tile', () => {
+            load();
+            expect(statTiles()).toEqual([
+                { value: '19', label: 'Features' },
+                { value: '3', label: 'Sub-features' },
+                { value: '27', label: 'Relations' },
+                { value: '0', label: 'Constraints' },
+                { value: '14', label: 'Default on' },
+            ]);
+        });
+
+        it('omits the Sub-features tile for a model without sub-features', () => {
+            fixture.detectChanges();
+            stub.subject.next(buildMvpFeatureModelResponse());
+            fixture.detectChanges();
+            expect(rootElement(fixture).querySelector('[data-testid="stat-sub-features"]')).toBeNull();
+        });
+
+        it('adds a hollow Sub-feature entry to the kind legend', () => {
+            load();
+            const entries = Array.from(rootElement(fixture).querySelectorAll('.kind-legend > span')).filter((span) => span.querySelector('.fm-kind-dot'));
+            const subFeature = entries.find((span) => span.textContent?.trim() === 'Sub-feature');
+            expect(subFeature).toBeDefined();
+            const dot = subFeature?.querySelector('.fm-kind-dot');
+            expect(dot?.classList.contains('fm-kind-dot--sub-feature')).toBe(true);
+            expect(dot?.classList.contains('fm-kind-dot--hollow')).toBe(true);
+        });
+
+        it('renders sub-feature rows below their owner with the area chip and a hollow dot', () => {
+            load();
+            clickToggle(fixture, 'teaching-and-content');
+            clickToggle(fixture, 'lecture');
+
+            const row = rootElement(fixture).querySelector('.tree-node[data-feature-id="lecture/ai/transcription"] .tree-row');
+            expect(row).not.toBeNull();
+            expect(row?.classList.contains('tree-row--sub-feature')).toBe(true);
+            expect(row?.querySelector('[data-testid="tree-area"]')?.textContent?.trim()).toBe('ai');
+            expect(row?.querySelector('.fm-kind-dot')?.classList.contains('fm-kind-dot--hollow')).toBe(true);
+            expect(row?.querySelector('.tree-toggle')).toBeNull();
+            expect(getRenderedFeatureIds(fixture)).toContain('lecture/authoring/lectures');
+        });
+
+        it('lists the sub-features of the selected member grouped by area and selects one on click', () => {
+            load();
+            clickToggle(fixture, 'teaching-and-content');
+            clickRow(fixture, 'lecture');
+
+            const section = rootElement(fixture).querySelector('[data-testid="details-sub-features"]');
+            expect(section).not.toBeNull();
+            const areas = Array.from(section?.querySelectorAll('[data-testid="details-sub-feature-area"]') ?? []).map((area) => area.textContent?.trim());
+            expect(areas).toEqual(['ai', 'authoring']);
+
+            const link = section?.querySelector('.sub-feature-link[data-feature-id="lecture/authoring/lectures"]') as HTMLButtonElement | null;
+            link?.click();
+            fixture.detectChanges();
+            expect(rootElement(fixture).querySelector('[data-testid="details-id"]')?.textContent).toContain('lecture/authoring/lectures');
+        });
+
+        it('shows area, label, owner, and evidence for a selected sub-feature', () => {
+            load();
+            clickToggle(fixture, 'teaching-and-content');
+            clickToggle(fixture, 'lecture');
+            clickRow(fixture, 'lecture/ai/transcription');
+
+            const details = rootElement(fixture);
+            expect(details.querySelector('[data-testid="details-name"]')?.textContent).toContain('Transcription');
+            expect(details.querySelector('[data-testid="details-usage-area"]')?.textContent?.trim()).toBe('ai');
+            expect(details.querySelector('[data-testid="details-usage-label"]')?.textContent?.trim()).toBe('ai/transcription');
+            expect(details.querySelector('[data-testid="details-parent-id"]')?.textContent?.trim()).toBe('lecture');
+            expect(details.querySelector('[data-testid="details-evidence"]')?.textContent).toContain('LectureTranscriptionResource.java:25');
+            expect(details.querySelector('[data-testid="details-sub-features"]')).toBeNull();
+
+            expandSourceMetadata(fixture);
+            expect(details.querySelector('[data-testid="details-source"]')?.textContent).toContain('LectureEnabled');
+        });
+
+        it('finds a sub-feature through its usage label in the search', () => {
+            load();
+            setSearch(fixture, 'vcs/');
+
+            expect(rootElement(fixture).querySelector('[data-testid="match-count"]')?.textContent).toContain('1 match');
+            expect(getRenderedFeatureIds(fixture)).toEqual(['artemis', 'localvc', 'localvc/vcs/repositories']);
+            expect(rootElement(fixture).querySelector('.tree-node[data-feature-id="localvc/vcs/repositories"] .tree-row--match')).not.toBeNull();
+        });
+
+        it('lays out no sub-feature node in the diagram and badges the owners instead', () => {
+            load();
+            (rootElement(fixture).querySelector('[data-testid="expand-all"]') as HTMLButtonElement | null)?.click();
+            fixture.detectChanges();
+            (rootElement(fixture).querySelector('[data-testid="view-diagram"]') as HTMLButtonElement | null)?.click();
+            fixture.detectChanges();
+
+            const nodeIds = Array.from(rootElement(fixture).querySelectorAll('.diagram-node')).map((node) => node.getAttribute('data-feature-id'));
+            expect(nodeIds).toHaveLength(25);
+            expect(nodeIds).not.toContain('lecture/ai/transcription');
+            const badges = Array.from(rootElement(fixture).querySelectorAll('[data-testid="sub-feature-badge"]'))
+                .map((badge) => [badge.getAttribute('data-feature-id') ?? '', badge.querySelector('.diagram-subfeatures__label')?.textContent?.trim() ?? ''])
+                .sort((left, right) => left[0].localeCompare(right[0]));
+            expect(badges).toEqual([
+                ['lecture', '2 sub'],
+                ['localvc', '1 sub'],
+            ]);
+        });
     });
 });

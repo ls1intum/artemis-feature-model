@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { HierarchyPointLink, HierarchyPointNode, hierarchy as d3Hierarchy, tree as d3Tree } from 'd3-hierarchy';
 
+import { isSubFeature } from '../core/feature-model-tree.utils';
 import { Feature, FeatureTreeNode, IncomingRelation, RelationType } from '../core/feature-model.types';
 
 interface DiagramTreeData {
@@ -9,6 +10,8 @@ interface DiagramTreeData {
     children: DiagramTreeData[];
     hiddenDescendantCount: number;
     hasChildrenInSource: boolean;
+    /** Sub-features below this node; they are never laid out and only surface as a badge on their owner. */
+    subFeatureCount: number;
 }
 
 interface DiagramNode {
@@ -34,6 +37,9 @@ interface DiagramNode {
     isViolation: boolean;
     isWarning: boolean;
     isToggleable: boolean;
+    subFeatureCount: number;
+    subFeatureLabel: string;
+    subFeatureBadgeTransform: string;
 }
 
 interface DiagramLink {
@@ -61,6 +67,11 @@ const GROUP_MARKER_RADIUS = 28;
 const NODE_RADIUS = 4;
 const TOGGLE_BADGE_WIDTH = 28;
 const TOGGLE_BADGE_HEIGHT = 18;
+const SUB_FEATURE_BADGE_GAP = 2;
+const SUB_FEATURE_BADGE_WIDTH = 40;
+const SUB_FEATURE_BADGE_HEIGHT = 16;
+// Pushes the wider badge outward so its right edge ends where the toggle's would and it covers less of the label.
+const SUB_FEATURE_BADGE_OFFSET_X = NODE_WIDTH / 2 + (TOGGLE_BADGE_WIDTH - SUB_FEATURE_BADGE_WIDTH / 2);
 const MAX_NAME_LENGTH = 18;
 const HORIZONTAL_PADDING = NODE_WIDTH / 2 + TOGGLE_BADGE_WIDTH;
 const VERTICAL_PADDING = NODE_HEIGHT;
@@ -102,6 +113,10 @@ export class FeatureModelDiagramComponent {
     readonly toggleBadgeHalfHeight = TOGGLE_BADGE_HEIGHT / 2;
     readonly toggleBadgeOffsetX = NODE_WIDTH / 2;
     readonly toggleTransform = `translate(${NODE_WIDTH / 2}, 0)`;
+    readonly subFeatureBadgeWidth = SUB_FEATURE_BADGE_WIDTH;
+    readonly subFeatureBadgeHeight = SUB_FEATURE_BADGE_HEIGHT;
+    readonly subFeatureBadgeHalfWidth = SUB_FEATURE_BADGE_WIDTH / 2;
+    readonly subFeatureBadgeHalfHeight = SUB_FEATURE_BADGE_HEIGHT / 2;
     readonly statusIndicatorRadius = STATUS_INDICATOR_RADIUS;
     readonly statusIndicatorOffsetX = STATUS_INDICATOR_OFFSET_X;
     readonly statusIndicatorOffsetY = STATUS_INDICATOR_OFFSET_Y;
@@ -128,6 +143,8 @@ export class FeatureModelDiagramComponent {
             decorateNode(node, selectedId, matched, selectedSet, violations, warnings, toggleable),
         );
     });
+
+    readonly hasSubFeatureBadges = computed(() => this.nodes().some((node) => node.subFeatureCount > 0));
 
     readonly links = computed<DiagramLink[]>(() =>
         this.layout()
@@ -215,14 +232,17 @@ export class FeatureModelDiagramComponent {
  * Builds the augmented tree that is fed to `d3.hierarchy`. Collapsed subtrees (parents whose id is
  * not in `expandedIds`) become childless leaves carrying a `hiddenDescendantCount`, while expanded
  * subtrees recurse normally. `hasChildrenInSource` is preserved on every node so the renderer can
- * still show a toggle badge on collapsed nodes that had children originally.
+ * still show a toggle badge on collapsed nodes that had children originally. Sub-feature children
+ * are dropped before layout and only counted on their owner.
  *
  * @param node Source feature-tree node.
  * @param expandedIds Set of ids whose subtrees should remain expanded.
  * @returns Augmented node ready for `d3.hierarchy(...)`.
  */
 function buildDiagramTree(node: FeatureTreeNode, expandedIds: ReadonlySet<string>): DiagramTreeData {
-    const hasChildrenInSource = node.children.length > 0;
+    const children = featureChildren(node);
+    const subFeatureCount = node.children.length - children.length;
+    const hasChildrenInSource = children.length > 0;
     const isExpanded = !hasChildrenInSource || expandedIds.has(node.feature.id);
     if (!isExpanded) {
         return {
@@ -231,20 +251,27 @@ function buildDiagramTree(node: FeatureTreeNode, expandedIds: ReadonlySet<string
             children: [],
             hiddenDescendantCount: countDescendants(node),
             hasChildrenInSource,
+            subFeatureCount,
         };
     }
     return {
         feature: node.feature,
         incomingRelation: node.incomingRelation,
-        children: node.children.map((child) => buildDiagramTree(child, expandedIds)),
+        children: children.map((child) => buildDiagramTree(child, expandedIds)),
         hiddenDescendantCount: 0,
         hasChildrenInSource,
+        subFeatureCount,
     };
 }
 
+function featureChildren(node: FeatureTreeNode): FeatureTreeNode[] {
+    return node.children.filter((child) => !isSubFeature(child.feature));
+}
+
 function countDescendants(node: FeatureTreeNode): number {
-    let count = node.children.length;
-    for (const child of node.children) {
+    const children = featureChildren(node);
+    let count = children.length;
+    for (const child of children) {
         count += countDescendants(child);
     }
     return count;
@@ -283,6 +310,9 @@ function decorateNode(
     const isCollapsed = hasChildren && data.children.length === 0;
     const toggleLabel = isCollapsed ? `+${data.hiddenDescendantCount}` : '−';
     const incomingRelationType = relationMarkerType(node);
+    // The sub-feature badge shares the right edge with the toggle and moves below it when both are present. It reads
+    // "n sub" in a square-cornered dashed box, so it cannot be mistaken for the round "+n" expand toggle.
+    const subFeatureBadgeY = hasChildren ? TOGGLE_BADGE_HEIGHT + SUB_FEATURE_BADGE_GAP : 0;
     return {
         id: feature.id,
         name: feature.name,
@@ -306,6 +336,9 @@ function decorateNode(
         isViolation: violations.has(feature.id),
         isWarning: warnings.has(feature.id),
         isToggleable: toggleable.has(feature.id),
+        subFeatureCount: data.subFeatureCount,
+        subFeatureLabel: `${data.subFeatureCount} sub`,
+        subFeatureBadgeTransform: `translate(${SUB_FEATURE_BADGE_OFFSET_X}, ${subFeatureBadgeY})`,
     };
 }
 

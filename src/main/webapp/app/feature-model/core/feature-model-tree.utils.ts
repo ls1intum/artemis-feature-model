@@ -1,4 +1,7 @@
-import { FeatureTreeNode } from './feature-model.types';
+import { Feature, FeatureTreeNode } from './feature-model.types';
+
+const SUB_FEATURE_KIND = 'sub-feature';
+const USAGE_LABEL_SEPARATOR = '/';
 
 export interface TreeFilterResult {
     tree: FeatureTreeNode | null;
@@ -6,21 +9,89 @@ export interface TreeFilterResult {
     ancestorIds: ReadonlySet<string>;
 }
 
+/** True for the derived FeatureUsage sub-feature nodes, which are never selectable and count separately. */
+export function isSubFeature(feature: Feature): boolean {
+    return feature.kind === SUB_FEATURE_KIND;
+}
+
 /**
- * Counts every node in the tree, including the root.
+ * Counts every feature node in the tree, including the root, excluding sub-features.
  *
  * @param root Tree root, or `null` when no tree is loaded.
- * @returns Total number of nodes; `0` when `root` is `null`.
+ * @returns Number of non-sub-feature nodes; `0` when `root` is `null`.
  */
 export function countTreeNodes(root: FeatureTreeNode | null): number {
     if (!root) {
         return 0;
     }
-    let count = 1;
+    let count = isSubFeature(root.feature) ? 0 : 1;
     for (const child of root.children) {
         count += countTreeNodes(child);
     }
     return count;
+}
+
+/**
+ * Counts the sub-feature nodes in the tree.
+ *
+ * @param root Tree root, or `null` when no tree is loaded.
+ * @returns Number of sub-feature nodes; `0` when `root` is `null`.
+ */
+export function countSubFeatures(root: FeatureTreeNode | null): number {
+    if (!root) {
+        return 0;
+    }
+    let count = isSubFeature(root.feature) ? 1 : 0;
+    for (const child of root.children) {
+        count += countSubFeatures(child);
+    }
+    return count;
+}
+
+/**
+ * Returns a copy of the tree without its sub-feature nodes, for views that must not show them (D-6).
+ * Returns the same reference when the tree carries no sub-feature, so unchanged trees stay `===`.
+ *
+ * @param root Tree root, or `null` when no tree is loaded.
+ */
+export function withoutSubFeatures(root: FeatureTreeNode | null): FeatureTreeNode | null {
+    if (!root) {
+        return null;
+    }
+    if (countSubFeatures(root) === 0) {
+        return root;
+    }
+    return pruneSubFeatures(root);
+}
+
+function pruneSubFeatures(node: FeatureTreeNode): FeatureTreeNode {
+    return {
+        feature: node.feature,
+        incomingRelation: node.incomingRelation,
+        children: node.children.filter((child) => !isSubFeature(child.feature)).map(pruneSubFeatures),
+    };
+}
+
+/**
+ * Area segment of a FeatureUsage label, i.e. the part before the first slash. A label without a slash is
+ * its own area.
+ *
+ * @param label `<area>/<feature>` label from `source.usageLabel`.
+ */
+export function usageArea(label: string): string {
+    const separator = label.indexOf(USAGE_LABEL_SEPARATOR);
+    return separator < 0 ? label : label.slice(0, separator);
+}
+
+/**
+ * Feature segment of a FeatureUsage label, i.e. the part after the first slash. A label without a slash is
+ * returned whole.
+ *
+ * @param label `<area>/<feature>` label from `source.usageLabel`.
+ */
+export function usageFeature(label: string): string {
+    const separator = label.indexOf(USAGE_LABEL_SEPARATOR);
+    return separator < 0 ? label : label.slice(separator + 1);
 }
 
 /**
@@ -137,7 +208,7 @@ function collectAncestorsInto(
  * @param root Tree root, or `null` when no tree is loaded.
  * @param rawQuery Raw user search input; whitespace is trimmed and casing is normalized internally.
  * @returns `tree` is the filtered subtree (or the original root on an empty query, or `null` when
- *     no node matches); `matchedIds` are the ids whose own name or id matched; `ancestorIds` are
+ *     no node matches); `matchedIds` are the ids whose own name, id, or usage label matched; `ancestorIds` are
  *     the ids that were kept only because they have a matching descendant.
  */
 export function filterTreeByQuery(root: FeatureTreeNode | null, rawQuery: string): TreeFilterResult {
@@ -191,7 +262,8 @@ function filterNode(
 function matchesNode(node: FeatureTreeNode, needle: string): boolean {
     const id = node.feature.id.toLowerCase();
     const name = node.feature.name.toLowerCase();
-    return id.includes(needle) || name.includes(needle);
+    const usageLabel = node.feature.source?.usageLabel?.toLowerCase() ?? '';
+    return id.includes(needle) || name.includes(needle) || usageLabel.includes(needle);
 }
 
 /**
@@ -210,6 +282,8 @@ export function formatFeatureKind(kind: string): string {
             return 'Module';
         case 'feature':
             return 'Feature';
+        case 'sub-feature':
+            return 'Sub-feature';
         default:
             return kind;
     }
@@ -266,6 +340,8 @@ export function featureKindDotClass(kind: string): string {
             return 'fm-kind-dot--module';
         case 'feature':
             return 'fm-kind-dot--feature';
+        case 'sub-feature':
+            return 'fm-kind-dot--sub-feature';
         default:
             return '';
     }

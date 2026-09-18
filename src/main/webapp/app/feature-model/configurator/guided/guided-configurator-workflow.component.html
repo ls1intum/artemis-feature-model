@@ -172,49 +172,13 @@
                         @if (localizedViolations().length > 0) {
                             <section class="validation-detail validation-detail--danger" data-testid="guided-violations-panel">
                                 <h4 class="h6 mb-2">Violations</h4>
-                                <ul>
-                                    @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                        <li data-testid="guided-violation-item">
-                                            <span>{{ violation.message }}</span>
-                                            @if (violation.features.length > 0) {
-                                                <p class="d-flex flex-wrap gap-1 m-0">
-                                                    Affects
-                                                    @for (feature of violation.features; track feature.id) {
-                                                        <strong>{{ feature.name }}</strong>
-                                                    }
-                                                </p>
-                                            }
-                                            @if (violation.suggestion) {
-                                                <p class="m-0">{{ violation.suggestion }}</p>
-                                            }
-                                            <code>{{ violation.code }}</code>
-                                        </li>
-                                    }
-                                </ul>
+                                <fm-validation-issue-list [issues]="localizedViolations()" severity="blocking" itemTestId="guided-violation-item" />
                             </section>
                         }
                         @if (localizedWarnings().length > 0) {
                             <section class="validation-detail validation-detail--warning" data-testid="guided-warnings-panel">
                                 <h4 class="h6 mb-2">Warnings</h4>
-                                <ul>
-                                    @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                        <li data-testid="guided-warning-item">
-                                            <span>{{ warning.message }}</span>
-                                            @if (warning.features.length > 0) {
-                                                <p class="d-flex flex-wrap gap-1 m-0">
-                                                    Affects
-                                                    @for (feature of warning.features; track feature.id) {
-                                                        <strong>{{ feature.name }}</strong>
-                                                    }
-                                                </p>
-                                            }
-                                            @if (warning.suggestion) {
-                                                <p class="m-0">{{ warning.suggestion }}</p>
-                                            }
-                                            <code>{{ warning.code }}</code>
-                                        </li>
-                                    }
-                                </ul>
+                                <fm-validation-issue-list [issues]="localizedWarnings()" severity="warning" itemTestId="guided-warning-item" />
                             </section>
                         }
                     }
@@ -545,17 +509,7 @@
                     <p class="fm-eyebrow">Issues and notes</p>
 
                     @if (localizedViolations().length > 0) {
-                        <ul class="list-unstyled mb-0" data-testid="review-violation-summary">
-                            @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                <li class="issue issue--blocking">
-                                    <span class="issue__severity">Blocking</span>
-                                    <span>{{ violation.message }}</span>
-                                    @if (violation.suggestion) {
-                                        <span class="text-body-secondary">{{ violation.suggestion }}</span>
-                                    }
-                                </li>
-                            }
-                        </ul>
+                        <fm-validation-issue-list class="mb-2" [issues]="localizedViolations()" severity="blocking" data-testid="review-violation-summary" />
                     }
 
                     @if (reconciliationNote(); as note) {
@@ -568,14 +522,7 @@
                     }
 
                     @if (reviewWarningCount() > 0) {
-                        <ul class="list-unstyled mb-0" data-testid="warning-summary">
-                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                <li class="issue issue--warning">
-                                    <span class="issue__severity">Warning</span>
-                                    <span>{{ warning.message }}</span>
-                                </li>
-                            }
-                        </ul>
+                        <fm-validation-issue-list class="mb-2" [issues]="localizedWarnings()" severity="warning" data-testid="warning-summary" />
                     }
 
                     @if (profileDependentFeatures().length > 0) {

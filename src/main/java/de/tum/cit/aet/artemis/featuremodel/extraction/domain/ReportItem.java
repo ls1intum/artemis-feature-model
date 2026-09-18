@@ -41,22 +41,37 @@ public record ReportItem(String severity, String code, String subject, String me
     /** A server property name constant has no matching server module feature constant, or vice versa. */
     public static final String CODE_MODULE_CONSTANT_ASYMMETRY = "MODULE_CONSTANT_ASYMMETRY";
 
-    /** An extracted candidate is absent from both manifest membership lists, so its scope is undecided. */
+    /** A module candidate Artemis presents as a feature has no manifest decision; blocking. */
     public static final String CODE_UNDECLARED_CANDIDATE = "UNDECLARED_CANDIDATE";
 
-    /** A source annotation exists on a candidate that the manifest does not include. */
-    public static final String CODE_ANNOTATED_BUT_UNSCOPED = "ANNOTATED_BUT_UNSCOPED";
+    /** A candidate Artemis does not present as a feature has no decision; listed as information, never modeled. */
+    public static final String CODE_UNMODELED_ANCHOR = "UNMODELED_ANCHOR";
 
-    /** A source annotation declares an attribute differently from the manifest entry; the manifest value is used. */
-    public static final String CODE_MANIFEST_OVERRIDES_ANNOTATION = "MANIFEST_OVERRIDES_ANNOTATION";
+    /** A deployment-input mapping was derived from guarded Artemis structure without a declaration. */
+    public static final String CODE_CONFIG_MAPPING_DERIVED = "CONFIG_MAPPING_DERIVED";
 
-    /** A source annotation could not be joined to an extracted candidate. */
-    public static final String CODE_ANNOTATED_ANCHOR_NOT_EXTRACTED = "ANNOTATED_ANCHOR_NOT_EXTRACTED";
+    /** A derived configuration-key candidate stays a tunable and is listed instead of emitted. */
+    public static final String CODE_CONFIG_MAPPING_TUNABLE_SKIPPED = "CONFIG_MAPPING_TUNABLE_SKIPPED";
 
-    /** A manifest anchor matches no extraction candidate of this scan, or matches more than one. */
+    /** A manifest configuration entry rejects a key, so no mapping is emitted for it. */
+    public static final String CODE_CONFIG_MAPPING_REJECTED = "CONFIG_MAPPING_REJECTED";
+
+    /** A {@code @FeatureUsage} label is not an area/feature kebab-case label; the placement is kept. */
+    public static final String CODE_FEATURE_USAGE_LABEL_MALFORMED = "FEATURE_USAGE_LABEL_MALFORMED";
+
+    /** A {@code @FeatureUsage} type is guarded by a condition class that names no model member; informational. */
+    public static final String CODE_FEATURE_USAGE_UNATTACHED = "FEATURE_USAGE_UNATTACHED";
+
+    /** A manifest anchor, declared or implied by a features entry, matches no extraction candidate of this scan, or matches more than one. */
     public static final String CODE_MANIFEST_ORPHAN_ANCHOR = "MANIFEST_ORPHAN_ANCHOR";
 
-    /** Manifest entries, annotations, or resolved semantics collide for this scan; the entry needs review. */
+    /** A declared constraint duplicates a derived alternative-group exclusion; it is dropped. */
+    public static final String CODE_MANIFEST_CONSTRAINT_REDUNDANT = "MANIFEST_CONSTRAINT_REDUNDANT";
+
+    /** A technical member's compose or profile mapping cannot be derived from its anchor; blocking. */
+    public static final String CODE_TECHNICAL_MAPPING_UNDERIVABLE = "TECHNICAL_MAPPING_UNDERIVABLE";
+
+    /** Manifest entries or resolved semantics collide for this scan; the entry needs review. */
     public static final String CODE_MANIFEST_CURATION_CONFLICT = "MANIFEST_CURATION_CONFLICT";
 
     /** An excluded candidate omitted its optional reason and uses the stable unspecified fallback. */
@@ -76,9 +91,6 @@ public record ReportItem(String severity, String code, String subject, String me
 
     /** A technical feature of the generated model is visible or configurable for teachers. */
     public static final String CODE_TECHNICAL_FEATURE_ROLE_LEAK = "TECHNICAL_FEATURE_ROLE_LEAK";
-
-    /** An included technical feature provides a capability the bundled deployment profile does not list. */
-    public static final String CODE_PROFILE_CAPABILITY_MISMATCH = "PROFILE_CAPABILITY_MISMATCH";
 
     /** A relation candidate between included features has neither a declared constraint nor an explicit ignore entry. */
     public static final String CODE_RELATION_CANDIDATE_UNDECLARED = "RELATION_CANDIDATE_UNDECLARED";

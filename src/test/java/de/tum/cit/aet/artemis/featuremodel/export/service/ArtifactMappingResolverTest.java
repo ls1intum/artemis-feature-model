@@ -39,6 +39,14 @@ public class ArtifactMappingResolverTest {
     }
 
     @Test
+    void subFeatureNodesContributeNoMappingsOrRequirements() {
+        ResolutionResult baseline = resolver.resolve(model, Set.of("iris"));
+        ResolutionResult withSubFeature = resolver.resolve(RemoteAnsibleEmissionPlannerTest.withSubFeature(model, "iris", "chat/chat-sessions"), Set.of("iris"));
+
+        assertThat(withSubFeature).isEqualTo(baseline);
+    }
+
+    @Test
     void writesUnselectedSelectionFeaturesAsFalse() {
         ResolutionResult result = resolver.resolve(model, Set.of());
 

@@ -1,0 +1,28 @@
+<ul class="issue-list">
+    @for (issue of issues(); track issue.code + '-' + $index) {
+        <li class="issue" [class.issue--blocking]="isBlocking()" [class.issue--warning]="!isBlocking()" [attr.data-testid]="itemTestId()">
+            <div class="issue__head">
+                <span class="issue__severity">{{ severityLabel() }}</span>
+                <code class="issue__code" title="Validation code">{{ issue.code }}</code>
+            </div>
+            <dl class="issue__rows">
+                <dt>Problem</dt>
+                <dd data-testid="issue-message">{{ issue.message }}</dd>
+
+                @if (issue.features.length > 0) {
+                    <dt>Affects</dt>
+                    <dd class="issue__features" data-testid="issue-affects">
+                        @for (feature of issue.features; track feature.id) {
+                            <span class="issue__feature" [title]="feature.id">{{ feature.name }}</span>
+                        }
+                    </dd>
+                }
+
+                @if (issue.suggestion) {
+                    <dt>Fix</dt>
+                    <dd data-testid="issue-suggestion">{{ issue.suggestion }}</dd>
+                }
+            </dl>
+        </li>
+    }
+</ul>

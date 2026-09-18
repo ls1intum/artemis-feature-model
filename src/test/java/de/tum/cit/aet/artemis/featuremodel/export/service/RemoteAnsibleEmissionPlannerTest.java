@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
@@ -32,12 +34,30 @@ import tools.jackson.databind.ObjectMapper;
 class RemoteAnsibleEmissionPlannerTest {
 
     private static final List<String> MINIMAL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
+            "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
             "sharing", "postgresql", "integrated-code-lifecycle", "localvc");
 
     private AnsibleBindingCatalog catalog;
 
     private FeatureModel model;
+
+    /**
+     * Adds one non-selectable sub-feature node below a member of the classpath model.
+     *
+     * @param base classpath model.
+     * @param ownerId member id.
+     * @param label usage label.
+     * @return model with the sub-feature.
+     */
+    static FeatureModel withSubFeature(FeatureModel base, String ownerId, String label) {
+        java.util.List<FeatureNode> features = new java.util.ArrayList<>(base.features());
+        features.add(new FeatureNode(ownerId + "/" + label, "Sub feature", "sub-feature", false, null, "not_applicable",
+                new FeatureSource(null, null, null, null, label, java.util.List.of("OwnerResource.java:1")), "derived", java.util.List.of("teacher", "maintainer"),
+                java.util.List.of(), java.util.List.of(), java.util.List.of(), null));
+        java.util.List<FeatureRelation> relations = new java.util.ArrayList<>(base.relations());
+        relations.add(new FeatureRelation(ownerId, ownerId + "/" + label, "mandatory", null, 1));
+        return new FeatureModel(base.model(), features, relations, base.constraints());
+    }
 
     private RemoteAnsibleEmissionPlanner planner;
 
@@ -49,6 +69,14 @@ class RemoteAnsibleEmissionPlannerTest {
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         model = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), new FeatureModelTreeService()).loadActiveModel();
         planner = new RemoteAnsibleEmissionPlanner(catalog);
+    }
+
+    @Test
+    void subFeatureNodesAreNeverClassifiedAgainstTheCatalog() {
+        RemoteAnsibleEmissionPlan withSubFeature = planner.plan(withSubFeature(model, "iris", "chat/chat-sessions"), fullSelection(), labEnvironment());
+        RemoteAnsibleEmissionPlan baseline = planner.plan(model, fullSelection(), labEnvironment());
+
+        assertThat(withSubFeature).isEqualTo(baseline);
     }
 
     @Test
@@ -153,7 +181,7 @@ class RemoteAnsibleEmissionPlannerTest {
 
     @Test
     void deselectedFileUploadMapsToTheUnhyphenatedArtemisModuleKey() {
-        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("file-upload"), labEnvironment());
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, selectionWithout("fileupload"), labEnvironment());
 
         assertThat(fileContent(plan, "inventory/group_vars/artemistests_without_fileupload.yml"))
                 .isEqualTo("---\nartemis_modules:\n  fileupload: false");

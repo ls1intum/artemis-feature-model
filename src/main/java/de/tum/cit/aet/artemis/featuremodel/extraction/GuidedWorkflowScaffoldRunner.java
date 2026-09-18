@@ -80,9 +80,6 @@ public final class GuidedWorkflowScaffoldRunner {
             if (!result.report().addedReviewGroupNodeIds().isEmpty()) {
                 System.out.println("  Added review groups: " + result.report().addedReviewGroupNodeIds());
             }
-            if (!result.report().renamedIds().isEmpty()) {
-                System.out.println("  Renamed ids: " + result.report().renamedIds());
-            }
             System.out.println("  The stubs carry TODO prose; author the teacher-facing text before committing.");
         }
         if (!result.report().orphanReferences().isEmpty()) {

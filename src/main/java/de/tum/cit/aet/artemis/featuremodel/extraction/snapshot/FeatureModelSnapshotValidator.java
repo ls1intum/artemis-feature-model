@@ -176,8 +176,7 @@ public class FeatureModelSnapshotValidator {
     private void validateProvenance(Path directory, SnapshotProvenance provenance, GeneratedSnapshotMetadata metadata, ExtractionReport report,
             ArtemisConfigKeyCatalog catalog) throws IOException {
         if (provenance.snapshotFormatVersion() != SnapshotProvenance.CURRENT_FORMAT_VERSION || !COMMIT_SHA.matcher(provenance.artemisCommit()).matches()
-                || !COMMIT_SHA.matcher(provenance.featureModelRepositoryCommit()).matches() || !SHA_256.matcher(provenance.manifestDigest()).matches()
-                || !SHA_256.matcher(provenance.deploymentProfileDigest()).matches()) {
+                || !COMMIT_SHA.matcher(provenance.featureModelRepositoryCommit()).matches() || !SHA_256.matcher(provenance.manifestDigest()).matches()) {
             fail("Snapshot provenance contains an invalid version, commit, or digest.");
         }
         if (!SnapshotProvenance.MANIFEST_SOURCE_REPOSITORY.equals(provenance.manifestSource())

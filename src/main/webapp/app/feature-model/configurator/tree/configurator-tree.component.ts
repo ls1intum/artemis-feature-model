@@ -5,17 +5,19 @@ import {
     collectExpandableNodeIds,
     filterTreeByQuery,
     findNodeById,
+    withoutSubFeatures,
 } from '../../core/feature-model-tree.utils';
 import { DeploymentProfileSummary, FeatureAvailability } from '../../core/deployment-profile.types';
 import { Feature, FeatureTreeNode, IncomingRelation } from '../../core/feature-model.types';
 import { GuidedDecisionOption } from '../../core/guided-workflow.types';
 import { FeatureModelDiagramComponent } from '../../explorer/feature-model-diagram.component';
 import { LocalizedViolation, LocalizedWarning } from '../shared/configurator-view.types';
+import { ValidationIssueListComponent } from '../shared/validation-issue-list.component';
 
 @Component({
     selector: 'fm-configurator-tree',
     standalone: true,
-    imports: [FeatureModelDiagramComponent],
+    imports: [FeatureModelDiagramComponent, ValidationIssueListComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './configurator-tree.component.html',
     styleUrl: './configurator-tree.component.scss',
@@ -39,6 +41,9 @@ export class ConfiguratorTreeComponent {
     readonly selectionChange = output<ReadonlySet<string>>();
     readonly closeTree = output<void>();
 
+    /** The Configurator never shows FeatureUsage sub-features (D-6); every tree read below goes through this view. */
+    private readonly visibleTree = computed(() => withoutSubFeatures(this.tree()));
+
     readonly searchQuery = signal<string>('');
     readonly selectedFeatureId = signal<string | undefined>(undefined);
     private readonly userExpandedIds = signal<ReadonlySet<string>>(new Set<string>());
@@ -47,7 +52,7 @@ export class ConfiguratorTreeComponent {
     constructor() {
         effect(() => {
             // Prime selection and expansion once per loaded tree, without overriding later user navigation.
-            const root = this.tree();
+            const root = this.visibleTree();
             if (!root || this.primedRootId === root.feature.id) {
                 return;
             }
@@ -57,11 +62,11 @@ export class ConfiguratorTreeComponent {
         });
     }
 
-    readonly filterResult = computed(() => filterTreeByQuery(this.tree(), this.searchQuery()));
+    readonly filterResult = computed(() => filterTreeByQuery(this.visibleTree(), this.searchQuery()));
     readonly matchedIds = computed<ReadonlySet<string>>(() => this.filterResult().matchedIds);
     readonly matchCount = computed(() => this.matchedIds().size);
     readonly hasActiveSearch = computed(() => this.searchQuery().trim().length > 0);
-    readonly expandableIds = computed(() => collectExpandableNodeIds(this.tree()));
+    readonly expandableIds = computed(() => collectExpandableNodeIds(this.visibleTree()));
     readonly allExpanded = computed(() => {
         const expandable = this.expandableIds();
         if (expandable.length === 0) {
@@ -73,7 +78,7 @@ export class ConfiguratorTreeComponent {
     /** Keeps validation-related branches visible even if the user has not manually expanded them. */
     readonly forcedExpandedIds = computed<ReadonlySet<string>>(() => {
         const flagged = new Set<string>([...this.violationIds(), ...this.warningIds()]);
-        return collectAncestorIds(this.tree(), flagged);
+        return collectAncestorIds(this.visibleTree(), flagged);
     });
     /** Merges manual expansion, search expansion, and validation expansion into the tree's rendered state. */
     readonly effectiveExpandedIds = computed<ReadonlySet<string>>(() => {
@@ -88,13 +93,13 @@ export class ConfiguratorTreeComponent {
     });
     readonly selectedNode = computed<FeatureTreeNode | null>(() => {
         const id = this.selectedFeatureId();
-        return id ? findNodeById(this.tree(), id) : null;
+        return id ? findNodeById(this.visibleTree(), id) : null;
     });
     readonly selectedFeature = computed<Feature | null>(() => this.selectedNode()?.feature ?? null);
     readonly selectedIncomingRelation = computed<IncomingRelation | null>(() => this.selectedNode()?.incomingRelation ?? null);
     readonly treeToggleableFeatureIds = computed<ReadonlySet<string>>(() => {
         const toggleable = new Set(this.selectableFeatureIds());
-        collectLockedTechnicalFeatureIds(this.tree(), toggleable);
+        collectLockedTechnicalFeatureIds(this.visibleTree(), toggleable);
         return toggleable;
     });
     readonly isSelectedFeatureToggleable = computed(() => {
@@ -107,7 +112,7 @@ export class ConfiguratorTreeComponent {
     });
     readonly selectedAlternativeGroup = computed<FeatureTreeNode | null>(() => {
         const selectedId = this.selectedFeatureId();
-        return selectedId ? findAlternativeGroup(this.tree(), selectedId) : null;
+        return selectedId ? findAlternativeGroup(this.visibleTree(), selectedId) : null;
     });
     readonly isSelectedFeatureAlternative = computed(() => this.selectedAlternativeGroup() !== null);
     readonly canClearSelectedFeature = computed(() => {
@@ -165,7 +170,7 @@ export class ConfiguratorTreeComponent {
             return;
         }
         const next = new Set(this.selectedFeatureIds());
-        const alternativeGroup = findAlternativeGroup(this.tree(), id);
+        const alternativeGroup = findAlternativeGroup(this.visibleTree(), id);
         if (alternativeGroup) {
             this.toggleAlternative(next, alternativeGroup, id);
             return;
@@ -213,7 +218,7 @@ export class ConfiguratorTreeComponent {
     }
 
     onCollapseAll(): void {
-        const rootId = this.tree()?.feature.id;
+        const rootId = this.visibleTree()?.feature.id;
         this.userExpandedIds.set(rootId ? new Set<string>([rootId]) : new Set<string>());
     }
 

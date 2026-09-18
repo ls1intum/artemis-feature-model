@@ -7,6 +7,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import tools.jackson.databind.JsonNode;
 
@@ -70,6 +71,25 @@ public final class TestFeatureModels {
         FeatureModel model = baseModel();
         List<FeatureNode> remainingFeatures = model.features().stream().filter(feature -> !feature.id().equals(featureId)).toList();
         return new FeatureModel(model.model(), remainingFeatures, model.relations(), model.constraints());
+    }
+
+    /**
+     * Adds one non-selectable {@code sub-feature} node with a mandatory relation below an existing member, the shape
+     * the extraction emits for a {@code @FeatureUsage} label.
+     *
+     * @param ownerId member the sub-feature belongs to.
+     * @param label {@code area/feature} usage label.
+     * @return base model plus the sub-feature.
+     */
+    public static FeatureModel withSubFeature(String ownerId, String label) {
+        FeatureModel model = baseModel();
+        List<FeatureNode> features = new ArrayList<>(model.features());
+        features.add(new FeatureNode(ownerId + "/" + label, "Sub feature", "sub-feature", false, "Synthetic sub-feature.", DEFAULT_STATE_NOT_APPLICABLE,
+                new FeatureSource(null, null, null, null, label, List.of("OwnerResource.java:1")), "derived", List.of("teacher", "maintainer"), List.of(),
+                List.of(), List.of(), null));
+        List<FeatureRelation> relations = new ArrayList<>(model.relations());
+        relations.add(relation(ownerId, ownerId + "/" + label, RELATION_TYPE_MANDATORY, 1));
+        return new FeatureModel(model.model(), features, relations, model.constraints());
     }
 
     public static FeatureModel duplicateFeatureIdModel() {

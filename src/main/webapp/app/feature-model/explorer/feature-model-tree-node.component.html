@@ -3,6 +3,7 @@
         class="tree-row"
         [class.tree-row--selected]="isSelected()"
         [class.tree-row--match]="isMatched()"
+        [class.tree-row--sub-feature]="isSubFeature()"
         role="button"
         tabindex="0"
         [attr.aria-expanded]="hasChildren() ? isExpanded() : null"
@@ -26,6 +27,9 @@
 
         <span class="fm-kind-dot {{ kindDotClass() }}" [class.fm-kind-dot--hollow]="isStructural()" role="img" [attr.aria-label]="kindTitle()" [title]="kindTitle()"></span>
 
+        @if (usageArea()) {
+            <span class="tree-area" data-testid="tree-area">{{ usageArea() }}</span>
+        }
         <span class="tree-name" [class.tree-name--structural]="isStructural()" [class.fw-semibold]="isMatched()">{{ node().feature.name }}</span>
         <small class="tree-id text-body-secondary d-none d-md-inline">{{ featureId() }}</small>
 

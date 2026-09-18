@@ -72,9 +72,7 @@ class RealArtemisCheckoutSmokeTest {
     private FeatureExtractionInputs inputs() {
         return new FeatureExtractionInputs(Path.of(System.getProperty("artemisPath")),
                 Path.of("src/main/resources/feature-model/extraction/artemis-feature-manifest.yml"),
-                Path.of("src/main/resources/feature-model/guided-workflow.json"),
-                Path.of("src/main/resources/deployment-profiles/default-artemis-profile.json"),
-                Path.of("delivery/artemis-runtime-image.json"), outputRoot);
+                Path.of("src/main/resources/feature-model/guided-workflow.json"), Path.of("delivery/artemis-runtime-image.json"), outputRoot);
     }
 
     /**

@@ -204,9 +204,16 @@ class FeatureExtractionServiceTest {
     }
 
     @Test
+    void recordsFeatureUsagePlacementsInFileOrder() {
+        assertThat(outcome.featureUsages()).extracting(usage -> usage.type()).containsExactly("AlphaResource", "BetaResource", "CioneStatusResource");
+        assertThat(outcome.featureUsages().getFirst().conditionGuards()).containsExactly("AlphaEnabled");
+        assertThat(outcome.featureUsages().getLast().profileGuards()).containsExactly("PROFILE_CIONE");
+        assertThat(itemsWithCode(ReportItem.CODE_FEATURE_USAGE_LABEL_MALFORMED)).isEmpty();
+    }
+
+    @Test
     void completesWithoutExtractorErrors() {
         assertThat(itemsWithCode(ReportItem.CODE_EXTRACTOR_ERROR)).isEmpty();
-        assertThat(outcome.annotations()).isEmpty();
         assertThat(outcome.configDefaults().occurrencesByKey()).containsKey("artemis.alpha.enabled");
     }
 

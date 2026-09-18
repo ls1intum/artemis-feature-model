@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -11,19 +12,21 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureConstraint;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedFeatureUsage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureCandidate;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConceptualNode;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.ConstraintEntry;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.IncludeEntry;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.FeatureEntry;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest.MappingHint;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 import tools.jackson.databind.ObjectMapper;
 
-/** Covers hierarchy assembly, kind-based defaults, mapping derivation, evidence merging, and deterministic ordering. */
+/** Covers hierarchy assembly, kind-based defaults, mapping layout, evidence merging, derived constraints, the implicit root, sub-feature nodes, and deterministic ordering. */
 class GeneratedModelAssemblerTest {
 
     private static final String ARTEMIS_COMMIT = "0123456789abcdef0123456789abcdef01234567";
@@ -32,7 +35,7 @@ class GeneratedModelAssemblerTest {
 
     @Test
     void assemblesHierarchyInDepthFirstManifestOrder() {
-        GeneratedModelAssembler.Result result = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT);
+        GeneratedModelAssembler.Result result = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT);
 
         assertThat(result.model().features()).extracting(FeatureNode::id).containsExactly("root", "alpha-group", "alpha", "always-on", "tech-group", "tech-a",
                 "tech-b");
@@ -46,7 +49,7 @@ class GeneratedModelAssemblerTest {
 
     @Test
     void appliesKindAndCategoryDefaults() {
-        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
 
         FeatureNode root = feature(model, "root");
         assertThat(root.selectable()).isFalse();
@@ -77,8 +80,8 @@ class GeneratedModelAssemblerTest {
     }
 
     @Test
-    void derivesEnabledKeyMappingAndAppendsDeclaredHints() {
-        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+    void derivesEnabledKeyMappingAndAppendsResolvedMappings() {
+        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
 
         FeatureNode alpha = feature(model, "alpha");
         assertThat(alpha.artifactMappings()).hasSize(2);
@@ -98,7 +101,7 @@ class GeneratedModelAssemblerTest {
 
     @Test
     void mergesAnchorEvidenceAndSkipsUsageEvidence() {
-        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
 
         FeatureNode alpha = feature(model, "alpha");
         assertThat(alpha.source().configKey()).isEqualTo("artemis.alpha.enabled");
@@ -107,8 +110,8 @@ class GeneratedModelAssemblerTest {
     }
 
     @Test
-    void carriesDeclaredConstraintsAndGroupTypes() {
-        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+    void carriesDeclaredAndDerivedConstraintsAndGroupTypes() {
+        FeatureModel model = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
 
         FeatureRelation techGroupRelation = model.relations().stream().filter(relation -> relation.childId().equals("tech-group")).findFirst().orElseThrow();
         assertThat(techGroupRelation.relationType()).isEqualTo("group");
@@ -116,32 +119,73 @@ class GeneratedModelAssemblerTest {
         FeatureRelation alwaysOnRelation = model.relations().stream().filter(relation -> relation.childId().equals("always-on")).findFirst().orElseThrow();
         assertThat(alwaysOnRelation.relationType()).isEqualTo("mandatory");
 
-        assertThat(model.constraints()).singleElement().satisfies(constraint -> {
-            assertThat(constraint.id()).isEqualTo("tech-a-excludes-tech-b");
+        assertThat(model.constraints()).extracting(FeatureConstraint::id).as("declared constraints first, then the derived alternative-group exclusions")
+                .containsExactly("alpha-requires-tech-a", "tech-a-excludes-tech-b");
+        assertThat(model.constraints().getLast()).satisfies(constraint -> {
             assertThat(constraint.type()).isEqualTo("excludes");
+            assertThat(constraint.source()).isEqualTo("tech-a");
+            assertThat(constraint.target()).isEqualTo("tech-b");
+            assertThat(constraint.description()).isEqualTo("A deployment selects exactly one option of Tech Group; Tech A and Tech B are mutually exclusive.");
         });
+    }
+
+    @Test
+    void dropsADeclaredConstraintThatDuplicatesADerivedExclusionWithAWarning() {
+        ConstraintEntry redundant = new ConstraintEntry("tech-b-excludes-tech-a", "excludes", "tech-b", "tech-a", "Declared twice.");
+        FeatureScopeManifest manifest = manifest(List.of(redundant));
+
+        GeneratedModelAssembler.Result result = assembler.assemble(manifest, includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT);
+
+        assertThat(result.model().constraints()).extracting(FeatureConstraint::id).containsExactly("tech-a-excludes-tech-b");
+        assertThat(result.items()).singleElement().satisfies(item -> {
+            assertThat(item.code()).isEqualTo(ReportItem.CODE_MANIFEST_CONSTRAINT_REDUNDANT);
+            assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_WARNING);
+            assertThat(item.subject()).isEqualTo("tech-b-excludes-tech-a");
+        });
+        assertThat(new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest, includes(), candidates(), List.of(), result.model(), ARTEMIS_COMMIT)).isEmpty();
+    }
+
+    @Test
+    void emitsTheImplicitRootWhenTheManifestDeclaresNone() {
+        List<ConceptualNode> withoutRoot = List.of(new ConceptualNode("alpha-group", FeatureScopeManifest.IMPLICIT_ROOT_ID, "group", null, null, null, 1, "Alpha Group", null),
+                new ConceptualNode("tech-group", FeatureScopeManifest.IMPLICIT_ROOT_ID, "group", null, "technical", "alternative", 2, "Tech Group", null));
+        FeatureScopeManifest manifest = new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, List.of(), List.of(), List.of(), withoutRoot, List.of(),
+                List.of());
+
+        GeneratedModelAssembler.Result result = assembler.assemble(manifest, includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT);
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.model().features()).extracting(FeatureNode::id).containsExactly("artemis", "alpha-group", "alpha", "tech-group", "tech-a", "tech-b");
+        FeatureNode root = feature(result.model(), "artemis");
+        assertThat(root.name()).isEqualTo("Artemis");
+        assertThat(root.description()).isEqualTo("Root of the Artemis feature model.");
+        assertThat(root.kind()).isEqualTo("root");
+        assertThat(root.selectable()).isFalse();
+        assertThat(result.model().relations().getFirst().parentId()).isEqualTo("artemis");
+        assertThat(new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest, includes(), candidates(), List.of(), result.model(), ARTEMIS_COMMIT)).isEmpty();
     }
 
 
     @Test
     void reportsConstraintEndpointMissingFromEmittedFeatures() {
-        List<ResolvedFeatureScope> curatedWithoutTechB = includes().stream().filter(feature -> !feature.id().equals("tech-b")).toList();
+        List<ResolvedFeatureScope> curatedWithoutTechA = includes().stream().filter(feature -> !feature.id().equals("tech-a")).toList();
 
-        GeneratedModelAssembler.Result result = assembler.assemble(manifest(), curatedWithoutTechB, candidates(), evidence(), ARTEMIS_COMMIT);
+        GeneratedModelAssembler.Result result = assembler.assemble(manifest(), curatedWithoutTechA, candidates(), evidence(), Map.of(), ARTEMIS_COMMIT);
 
-        assertThat(result.model().features()).extracting(FeatureNode::id).doesNotContain("tech-b");
-        assertThat(result.model().constraints()).extracting(constraint -> constraint.id()).containsExactly("tech-a-excludes-tech-b");
+        assertThat(result.model().features()).extracting(FeatureNode::id).doesNotContain("tech-a");
+        assertThat(result.model().constraints()).extracting(constraint -> constraint.id()).as("a single remaining alternative derives no exclusion")
+                .containsExactly("alpha-requires-tech-a");
         assertThat(result.items()).singleElement().satisfies(item -> {
             assertThat(item.code()).isEqualTo(ReportItem.CODE_DANGLING_GENERATED_CONSTRAINT);
             assertThat(item.severity()).isEqualTo(ReportItem.SEVERITY_ERROR);
-            assertThat(item.subject()).isEqualTo("tech-a-excludes-tech-b");
-            assertThat(item.message()).contains("target 'tech-b'").contains("not emitted");
+            assertThat(item.subject()).isEqualTo("alpha-requires-tech-a");
+            assertThat(item.message()).contains("target 'tech-a'").contains("not emitted");
         });
     }
 
     @Test
     void semanticConformanceRejectsEveryManifestControlledSurface() {
-        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
         List<FeatureNode> features = new ArrayList<>(assembled.features());
         FeatureNode alpha = feature(assembled, "alpha");
         FeatureNode changedAlpha = new FeatureNode(alpha.id(), alpha.name(), alpha.kind(), alpha.selectable(), alpha.description(), "disabled", alpha.source(),
@@ -160,18 +204,18 @@ class GeneratedModelAssemblerTest {
             return relation;
         }).toList();
         var constraint = assembled.constraints().getFirst();
-        var constraints = List.of(new FeatureConstraint(constraint.id(), "requires", constraint.source(), constraint.target(), constraint.expression(),
-                constraint.description()));
+        var constraints = List.of(new FeatureConstraint(constraint.id(), "excludes", constraint.source(), constraint.target(), constraint.expression(),
+                constraint.description()), assembled.constraints().getLast());
         ModelMetadata metadata = new ModelMetadata(assembled.model().id(), assembled.model().name(), assembled.model().version(), "failed",
                 assembled.model().sourceCommitSha());
         FeatureModel changed = new FeatureModel(metadata, features, relations, constraints);
 
-        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), changed,
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), List.of(), changed,
                 ARTEMIS_COMMIT);
 
         assertThat(findings).allMatch(item -> item.code().equals(ReportItem.CODE_GENERATED_MODEL_CONFORMANCE_MISMATCH));
         assertThat(findings).extracting(ReportItem::subject).contains("model", "alpha", "tech-b", "undeclared", "tech-group",
-                "tech-a-excludes-tech-b");
+                "alpha-requires-tech-a");
         assertThat(findings).extracting(ReportItem::message).anyMatch(message -> message.contains("category"))
                 .anyMatch(message -> message.contains("default state"))
                 .anyMatch(message -> message.contains("required capabilities"))
@@ -182,7 +226,7 @@ class GeneratedModelAssemblerTest {
 
     @Test
     void semanticConformanceRejectsAManifestControlledNameChange() {
-        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
         FeatureNode alpha = feature(assembled, "alpha");
         FeatureNode changedAlpha = copyWithText(alpha, "Assembler ignored manifest name", alpha.description());
 
@@ -191,7 +235,7 @@ class GeneratedModelAssemblerTest {
 
     @Test
     void semanticConformanceRejectsAManifestControlledDescriptionChange() {
-        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), ARTEMIS_COMMIT).model();
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidates(), evidence(), Map.of(), ARTEMIS_COMMIT).model();
         FeatureNode techA = feature(assembled, "tech-a");
         FeatureNode changedTechA = copyWithText(techA, techA.name(), "Assembler ignored manifest description");
 
@@ -209,7 +253,7 @@ class GeneratedModelAssemblerTest {
         features.set(features.indexOf(original), changed);
         FeatureModel changedModel = new FeatureModel(assembled.model(), features, assembled.relations(), assembled.constraints());
 
-        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), changedModel,
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidates(), List.of(), changedModel,
                 ARTEMIS_COMMIT);
 
         assertThat(findings).singleElement().satisfies(finding -> {
@@ -219,20 +263,103 @@ class GeneratedModelAssemblerTest {
         });
     }
 
+    @Test
+    void emitsSubFeatureNodesBelowTheirOwnersPerContract() {
+        FeatureUsageJoin.Result join = FeatureUsageJoin.join(includes(), candidatesWithTechProfile(), usages());
+
+        GeneratedModelAssembler.Result result = assembler.assemble(manifest(), includes(), candidatesWithTechProfile(), evidence(), join.subFeaturesByOwner(),
+                ARTEMIS_COMMIT);
+
+        FeatureModel model = result.model();
+        assertThat(result.items()).isEmpty();
+        assertThat(model.features()).extracting(FeatureNode::id).containsExactly("root", "alpha-group", "alpha", "alpha/authoring/items", "alpha/chat/chat-sessions",
+                "always-on", "tech-group", "tech-a", "tech-a/build/agents", "tech-b");
+        assertThat(model.relations()).filteredOn(relation -> relation.parentId().equals("alpha"))
+                .extracting(FeatureRelation::childId, FeatureRelation::relationType, FeatureRelation::groupType, FeatureRelation::order)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("alpha/authoring/items", "mandatory", null, 1),
+                        org.assertj.core.groups.Tuple.tuple("alpha/chat/chat-sessions", "mandatory", null, 2));
+
+        FeatureNode chat = feature(model, "alpha/chat/chat-sessions");
+        assertThat(chat.name()).isEqualTo("Chat sessions");
+        assertThat(chat.kind()).isEqualTo("sub-feature");
+        assertThat(chat.selectable()).isFalse();
+        assertThat(chat.description()).isEqualTo("REST endpoints labelled chat/chat-sessions in module alpha, guarded by AlphaEnabled.");
+        assertThat(chat.defaultState()).isEqualTo("not_applicable");
+        assertThat(chat.category()).isEqualTo("derived");
+        assertThat(chat.visibleTo()).containsExactly("teacher", "maintainer");
+        assertThat(chat.configurableBy()).isEmpty();
+        assertThat(chat.requiresCapabilities()).isEmpty();
+        assertThat(chat.artifactMappings()).isEmpty();
+        assertThat(chat.source().usageLabel()).isEqualTo("chat/chat-sessions");
+        assertThat(chat.source().serverConditionClass()).isEqualTo("AlphaEnabled");
+        assertThat(chat.source().springProfile()).isNull();
+        assertThat(chat.source().evidence()).containsExactly("AlphaChatResource.java:57");
+        assertThat(chat.extraction().method()).isEqualTo("feature-usage-annotation");
+
+        FeatureNode agents = feature(model, "tech-a/build/agents");
+        assertThat(agents.visibleTo()).as("sub-features of technical owners are maintainer-only").containsExactly("maintainer");
+        assertThat(agents.source().springProfile()).isEqualTo("tech-a");
+        assertThat(agents.source().serverConditionClass()).isNull();
+        assertThat(agents.description()).isEqualTo("REST endpoints labelled build/agents in module tech, guarded by PROFILE_TECH_A.");
+
+        assertThat(new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidatesWithTechProfile(), usages(), model,
+                ARTEMIS_COMMIT)).as("the conformance step recomputes the same sub-features from the usages").isEmpty();
+    }
+
+    @Test
+    void conformanceRejectsMissingAndExtraSubFeatureNodes() {
+        FeatureUsageJoin.Result join = FeatureUsageJoin.join(includes(), candidatesWithTechProfile(), usages());
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidatesWithTechProfile(), evidence(), join.subFeaturesByOwner(), ARTEMIS_COMMIT)
+                .model();
+        List<FeatureNode> features = new ArrayList<>(assembled.features());
+        FeatureNode chat = feature(assembled, "alpha/chat/chat-sessions");
+        features.remove(chat);
+        features.add(new FeatureNode("alpha/chat/extra", "Extra", "sub-feature", false, null, "not_applicable", chat.source(), "derived", chat.visibleTo(),
+                List.of(), List.of(), List.of(), chat.extraction()));
+        FeatureModel changed = new FeatureModel(assembled.model(), features, assembled.relations(), assembled.constraints());
+
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidatesWithTechProfile(), usages(),
+                changed, ARTEMIS_COMMIT);
+
+        assertThat(findings).extracting(ReportItem::subject).contains("alpha/chat/chat-sessions", "alpha/chat/extra");
+        assertThat(findings).extracting(ReportItem::message).anyMatch(message -> message.contains("missing sub-feature"))
+                .anyMatch(message -> message.contains("undeclared feature 'alpha/chat/extra'"));
+    }
+
+    @Test
+    void conformanceRejectsASubFeatureWithTheWrongVisibilityOrEvidence() {
+        FeatureUsageJoin.Result join = FeatureUsageJoin.join(includes(), candidatesWithTechProfile(), usages());
+        FeatureModel assembled = assembler.assemble(manifest(), includes(), candidatesWithTechProfile(), evidence(), join.subFeaturesByOwner(), ARTEMIS_COMMIT)
+                .model();
+        List<FeatureNode> features = new ArrayList<>(assembled.features());
+        FeatureNode agents = feature(assembled, "tech-a/build/agents");
+        features.set(features.indexOf(agents), new FeatureNode(agents.id(), agents.name(), agents.kind(), agents.selectable(), agents.description(),
+                agents.defaultState(), new FeatureSource(null, "tech-a", null, null, "build/agents", List.of("Other.java:1")), agents.category(),
+                List.of("teacher", "maintainer"), List.of(), List.of(), List.of(), agents.extraction()));
+        FeatureModel changed = new FeatureModel(assembled.model(), features, assembled.relations(), assembled.constraints());
+
+        List<ReportItem> findings = new GeneratedModelConformanceService(new ObjectMapper()).validate(manifest(), includes(), candidatesWithTechProfile(), usages(),
+                changed, ARTEMIS_COMMIT);
+
+        assertThat(findings).allMatch(item -> item.subject().equals("tech-a/build/agents"));
+        assertThat(findings).extracting(ReportItem::message).anyMatch(message -> message.contains("visibility")).anyMatch(message -> message.contains("evidence"));
+    }
+
     private FeatureScopeManifest manifest() {
-        List<IncludeEntry> declarations = List.of(declaration("module:alpha", "alpha", "alpha-group"),
-                declaration("infra:tech-a", "tech-a", "tech-group"), declaration("infra:tech-b", "tech-b", "tech-group"));
+        return manifest(List.of(new ConstraintEntry("alpha-requires-tech-a", "requires", "alpha", "tech-a", "Alpha needs tech A.")));
+    }
+
+    private FeatureScopeManifest manifest(List<ConstraintEntry> constraints) {
+        List<FeatureEntry> declarations = List.of(declaration("alpha", "alpha-group"));
         List<ConceptualNode> conceptualNodes = List.of(new ConceptualNode("root", null, "root", null, null, null, null, "Root", null),
                 new ConceptualNode("alpha-group", "root", "group", null, null, null, 1, "Alpha Group", null),
                 new ConceptualNode("always-on", "alpha-group", "module", "mandatory", null, null, 2, "Always On", null),
                 new ConceptualNode("tech-group", "root", "group", null, "technical", "alternative", 2, "Tech Group", null));
-        List<ConstraintEntry> constraints = List.of(new ConstraintEntry("tech-a-excludes-tech-b", "excludes", "tech-a", "tech-b", "Exactly one tech."));
-        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, declarations, List.of(), conceptualNodes, constraints,
-                List.of(), List.of());
+        return new FeatureScopeManifest(FeatureScopeManifest.CURRENT_VERSION, declarations, List.of(), List.of(), conceptualNodes, constraints, List.of());
     }
 
-    private IncludeEntry declaration(String anchor, String id, String group) {
-        return new IncludeEntry(anchor, id, group, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null, null, null);
+    private FeatureEntry declaration(String id, String group) {
+        return new FeatureEntry(id, group, null, null, null, null, null, List.of(), null, null, null, null);
     }
 
     private List<ResolvedFeatureScope> includes() {
@@ -240,11 +367,11 @@ class GeneratedModelAssemblerTest {
         MappingHint techHint = new MappingHint(".env", "SPRING_PROFILES_ACTIVE", "selection", "tech-a-profile", null, null);
         return List.of(
                 new ResolvedFeatureScope("module:alpha", "alpha", "alpha-group", null, "module", "optional", null, null, 1, List.of("alpha-service"), List.of(),
-                        List.of(alphaHint), null, null, null, "manifest"),
-                new ResolvedFeatureScope("infra:tech-a", "tech-a", "tech-group", null, "feature", "optional", "technical", "enabled", 1, List.of(),
-                        List.of("tech-capability"), List.of(techHint), "Tech A", "Technical alternative A.", null, "manifest"),
+                        List.of(alphaHint), List.of(), null, null, null, "features"),
+                new ResolvedFeatureScope("infra:tech-a", "tech-a", "tech-group", null, "feature", "optional", "technical", "enabled", 1, List.of(), List.of(),
+                        List.of(techHint), List.of(), "Tech A", "Technical alternative A.", null, "technical"),
                 new ResolvedFeatureScope("infra:tech-b", "tech-b", "tech-group", null, "feature", "optional", "technical", "disabled", 2, List.of(), List.of(),
-                        List.of(), "Tech B", "Technical alternative B.", null, "manifest"));
+                        List.of(), List.of(), "Tech B", "Technical alternative B.", null, "technical"));
     }
 
     private List<FeatureCandidate> candidates() {
@@ -252,6 +379,25 @@ class GeneratedModelAssemblerTest {
                 "artemis.alpha.enabled", Boolean.TRUE, "ALPHA_ENABLED_PROPERTY_NAME", "MODULE_FEATURE_ALPHA", "AlphaEnabled", null, true, true, null),
                 new FeatureCandidate("infra:tech-a", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null, null, null, null, null, null),
                 new FeatureCandidate("infra:tech-b", FeatureCandidate.KIND_INFRASTRUCTURE, null, null, null, null, null, null, null, null, null, null, null, null));
+    }
+
+    private List<FeatureCandidate> candidatesWithTechProfile() {
+        return List.of(candidates().getFirst(),
+                new FeatureCandidate("infra:tech-a", FeatureCandidate.KIND_SPRING_PROFILE, null, null, null, null, null, "PROFILE_TECH_A", null, null, "tech-a", null,
+                        null, null),
+                candidates().getLast());
+    }
+
+    private List<ExtractedFeatureUsage> usages() {
+        return List.of(
+                new ExtractedFeatureUsage("src/main/java/de/tum/cit/aet/artemis/alpha/web/AlphaChatResource.java", 57, "alpha", "AlphaChatResource",
+                        "chat/chat-sessions", List.of(), List.of("AlphaEnabled"), List.of()),
+                new ExtractedFeatureUsage("src/main/java/de/tum/cit/aet/artemis/alpha/web/AlphaItemsResource.java", 10, "alpha", "AlphaItemsResource",
+                        "authoring/items", List.of(), List.of("AlphaEnabled"), List.of()),
+                new ExtractedFeatureUsage("src/main/java/de/tum/cit/aet/artemis/tech/web/TechAgentResource.java", 12, "tech", "TechAgentResource",
+                        "build/agents", List.of(), List.of(), List.of("PROFILE_TECH_A")),
+                new ExtractedFeatureUsage("src/main/java/de/tum/cit/aet/artemis/core/web/CoreResource.java", 3, "core", "CoreResource", "management/core",
+                        List.of(), List.of(), List.of("PROFILE_CORE")));
     }
 
     private List<EvidenceItem> evidence() {
