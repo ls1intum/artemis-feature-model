@@ -419,7 +419,7 @@ public class DeploymentPackageService {
         StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(shared.overlay().content());
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
-                runtimeSource);
+                runtimeSource, localDockerRequirements);
         String envExample = envExampleWriter.write(localDockerRequirements);
         String envDemo = templateWriter.envDemo(localDockerRequirements);
         String stackContent = technicalStack ? stackWriter.write(selection) : null;
@@ -565,10 +565,9 @@ public class DeploymentPackageService {
      */
     private DeploymentPackageManifest buildDevIdeManifest(GenerationReport report, List<String> requiredEnvVars) {
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(),
-                runtimeSource.imageRepository(), null,
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), null,
                 "The dev-ide package configures a local IntelliJ IDEA development run of an existing Artemis checkout. The overlay keys were verified against the "
-                        + "referenced Artemis commit; a checkout at a different commit may not match all keys.");
+                        + "Artemis commit recorded in " + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
                 "Configuration-only package for IDE development; generated in DEMO mode and never resolves real secrets.");
         DeploymentPackageManifest.Database database = selectedDatabase(report, "developer-managed");
@@ -642,8 +641,7 @@ public class DeploymentPackageService {
      */
     private DeploymentPackageManifest buildRemoteAnsibleManifest(GenerationReport report, List<String> packagePaths) {
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(),
-                runtimeSource.imageRepository(), null,
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), null,
                 "The package deploys the official Artemis image through the pinned Ansible collection; the deployed tag is set by artemis_version in the "
                         + "generated inventory values.");
         DeploymentPackageManifest.Database database = selectedDatabase(report, "ansible-managed");
@@ -723,24 +721,23 @@ public class DeploymentPackageService {
      * Builds a selection-aware Artemis runtime note.
      *
      * @param report generation report.
-     * @param runtimeSource resolved runtime provenance.
+     * @param runtimeSource resolved runtime image.
      * @return runtime information.
      */
     private DeploymentPackageManifest.ArtemisRuntimeInfo localDockerRuntimeInfo(GenerationReport report, ArtemisRuntimeSource runtimeSource) {
         TechnicalSelectionMetadata metadata = report.technicalSelection();
         if (metadata == null) {
             String curatedNote = "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including "
-                    + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the referenced Artemis commit; a checkout at a "
-                    + "different commit may not match all keys.";
-            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(), runtimeSource.imageRepository(), runtimeSource.imageDigest(),
-                    curatedNote);
+                    + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the Artemis commit recorded in "
+                    + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
+            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), curatedNote);
         }
 
         String runtimeDescription = "a generated stack for database '" + metadata.databaseId() + "' and CI provider '"
                 + metadata.ciProviderId() + "'";
-        String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the "
-                + "referenced Artemis commit; a checkout at a different commit may not match all keys.";
-        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.sourceCommit(), runtimeSource.imageRepository(), runtimeSource.imageDigest(), note);
+        String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the Artemis commit recorded in "
+                + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
+        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), note);
     }
 
     /**

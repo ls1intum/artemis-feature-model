@@ -1,11 +1,34 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
 /**
- * Provenance and image coordinates for the Artemis runtime used by a generated deployment package.
+ * Image coordinates for the Artemis runtime used by a generated deployment package.
  *
- * @param sourceCommit Artemis source commit associated with the active feature model.
  * @param imageRepository official Artemis application image repository.
  * @param imageDigest original configured digest, or the special value {@code latest}.
  */
-public record ArtemisRuntimeSource(String sourceCommit, String imageRepository, String imageDigest) {
+public record ArtemisRuntimeSource(String imageRepository, String imageDigest) {
+
+    /** Special digest value that selects the mutable {@code latest} tag instead of an exact digest. */
+    private static final String LATEST = "latest";
+
+    /**
+     * Renders the configured Artemis image reference.
+     *
+     * @return tag reference for {@code latest}, otherwise a digest reference.
+     */
+    public String imageReference() {
+        if (usesLatestTag()) {
+            return imageRepository + ":" + LATEST;
+        }
+        return imageRepository + "@" + imageDigest;
+    }
+
+    /**
+     * Checks whether the configured digest selects the mutable {@code latest} tag.
+     *
+     * @return true if the image is referenced through the {@code latest} tag.
+     */
+    public boolean usesLatestTag() {
+        return LATEST.equals(imageDigest);
+    }
 }

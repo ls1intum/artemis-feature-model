@@ -16,45 +16,55 @@ class ArtemisRuntimeSourceResolverTest {
 
     @Test
     void usesClasspathPropertiesWithoutAnActiveSnapshot() {
-        ArtemisRuntimeSource source = resolver(null, "classpath-commit", "sha256:classpath").resolveForLocalDocker();
+        ArtemisRuntimeSource source = classpathResolver("sha256:classpath").resolveForLocalDocker();
 
-        assertThat(source.sourceCommit()).isEqualTo("classpath-commit");
         assertThat(source.imageDigest()).isEqualTo("sha256:classpath");
         assertThat(source.imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
     }
 
     @Test
-    void activeSnapshotValuesWinOverClasspathProperties() throws Exception {
-        ArtemisRuntimeSource source = resolver("active", "classpath-commit", "sha256:classpath").resolveForLocalDocker();
+    void activeSnapshotValuesWinOverClasspathProperties() {
+        ArtemisRuntimeSource source = snapshotResolver("active", "snapshot-commit", "sha256:snapshot").resolveForLocalDocker();
 
-        assertThat(source.sourceCommit()).isEqualTo("snapshot-commit");
         assertThat(source.imageDigest()).isEqualTo("sha256:snapshot");
     }
 
     @Test
-    void missingActiveSnapshotValueDoesNotFallBack() throws Exception {
-        assertThatThrownBy(() -> resolver("legacy", "classpath-commit", "latest").resolveForLocalDocker())
+    void doesNotRequireASnapshotSourceCommit() {
+        ArtemisRuntimeSource source = snapshotResolver("active", null, "sha256:snapshot").resolveForLocalDocker();
+
+        assertThat(source.imageDigest()).isEqualTo("sha256:snapshot");
+    }
+
+    @Test
+    void missingActiveSnapshotValueDoesNotFallBack() {
+        assertThatThrownBy(() -> snapshotResolver("legacy", "snapshot-commit", null).resolveForLocalDocker())
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("active snapshot 'legacy' metadata.imageDigest")
                 .hasMessageContaining("regenerate the snapshot");
     }
 
     @Test
     void missingClasspathValueNamesTheExactProperty() {
-        assertThatThrownBy(() -> resolver(null, null, "latest").resolveForLocalDocker())
-                .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("artemis.feature-model.runtime.source-commit");
-        assertThatThrownBy(() -> resolver(null, "commit", " ").resolveForLocalDocker())
+        assertThatThrownBy(() -> classpathResolver(" ").resolveForLocalDocker())
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("artemis.feature-model.runtime.image-digest");
     }
 
-    private ArtemisRuntimeSourceResolver resolver(String activeSnapshotId, String sourceCommit, String imageDigest) {
-        String snapshotImageDigest = "active".equals(activeSnapshotId) ? "sha256:snapshot" : null;
-        GeneratedSnapshotMetadata metadata = activeSnapshotId == null ? null
-                : new GeneratedSnapshotMetadata(2, 2, "model", activeSnapshotId, "1", "generated", "snapshot-commit", snapshotImageDigest,
-                        "feature-model-extractor@0.3.0", "feature-model.json", "guided-workflow.json", "config-key-catalog.json",
-                        "generation-report.json", "provenance.json", "checksums.txt");
+    private ArtemisRuntimeSourceResolver classpathResolver(String imageDigest) {
+        return resolver(null, imageDigest);
+    }
+
+    private ArtemisRuntimeSourceResolver snapshotResolver(String snapshotId, String sourceCommit, String imageDigest) {
+        GeneratedSnapshotMetadata metadata = new GeneratedSnapshotMetadata(2, 2, "model", snapshotId, "1", "generated", sourceCommit, imageDigest,
+                "feature-model-extractor@0.3.0", "feature-model.json", "guided-workflow.json", "config-key-catalog.json", "generation-report.json",
+                "provenance.json", "checksums.txt");
+        return resolver(metadata, "latest");
+    }
+
+    private ArtemisRuntimeSourceResolver resolver(GeneratedSnapshotMetadata metadata, String classpathImageDigest) {
         FeatureModelSourceMode mode = metadata == null ? FeatureModelSourceMode.CLASSPATH : FeatureModelSourceMode.SNAPSHOT;
-        RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(mode, "model", "1", activeSnapshotId, null, null, null, null, null);
+        String snapshotId = metadata == null ? null : metadata.snapshotId();
+        RuntimeFeatureModelProvenance provenance = new RuntimeFeatureModelProvenance(mode, "model", "1", snapshotId, null, null, null, null, null);
         RuntimeFeatureModelBundle bundle = new RuntimeFeatureModelBundle(null, null, null, provenance, metadata);
-        return new ArtemisRuntimeSourceResolver(bundle, new ArtemisRuntimeProperties(sourceCommit, imageDigest));
+        return new ArtemisRuntimeSourceResolver(bundle, new ArtemisRuntimeProperties(classpathImageDigest));
     }
 }

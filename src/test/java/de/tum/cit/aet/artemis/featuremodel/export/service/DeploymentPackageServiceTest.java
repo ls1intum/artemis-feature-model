@@ -95,9 +95,10 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.readiness().localRuntimeReady()).isTrue();
         assertThat(manifest.generatedFiles()).hasSize(23);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
-        assertThat(manifest.artemisRuntime().sourceCommit()).isEqualTo("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6");
         assertThat(manifest.artemisRuntime().imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
         assertThat(manifest.artemisRuntime().imageDigest()).isEqualTo("latest");
+        assertThat(manifest.artemisRuntime().note()).contains("metadata/static-config-validation.json");
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit");
         assertThat(manifest.database().type()).isEqualTo("mysql");
         assertThat(manifest.database().mode()).isEqualTo("local-container");
     }
@@ -149,6 +150,15 @@ class DeploymentPackageServiceTest {
     }
 
     @Test
+    void listsTheSelectedEnvironmentVariablesInThePackageReadme() {
+        GeneratedArtifactPackage result = service.generate(request(withExtra("iris", "athena"), null));
+
+        List<String> variableRows = content(result, "README.md").lines().filter(line -> line.startsWith("| `ARTEMIS_")).toList();
+        assertThat(variableRows).anyMatch(row -> row.startsWith("| `ARTEMIS_IRIS_SECRET_TOKEN` |") && row.endsWith("| yes |"))
+                .anyMatch(row -> row.startsWith("| `ARTEMIS_ATHENA_SECRET` |") && row.endsWith("| yes |"));
+    }
+
+    @Test
     void generatesALocalRepoComposeOverrideThatLayersTheOverlay() {
         GeneratedArtifactPackage result = service.generate(request(MINIMAL_SELECTION, null));
 
@@ -176,7 +186,7 @@ class DeploymentPackageServiceTest {
         assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh")
                 .contains("start-remote-image.sh").contains("expected zero arguments or one Artemis checkout path");
         assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /absolute/path/to/Artemis", "bash scripts/start-demo.sh")
-                .contains("not guaranteed");
+                .contains("mutable tag").doesNotContain("Source commit");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         String stopScript = content(result, "scripts/stop.sh");
@@ -264,6 +274,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.readiness().localRuntimeReady()).isFalse();
         assertThat(manifest.readiness().productionReady()).isFalse();
         assertThat(manifest.generatedFiles()).hasSize(10);
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit");
     }
 
     @Test
@@ -335,6 +346,6 @@ class DeploymentPackageServiceTest {
 
     private ArtemisRuntimeSourceResolver runtimeSourceResolver(SnapshotProperties properties) {
         return new ArtemisRuntimeSourceResolver(new RuntimeFeatureModelBundleLoader(properties, resourceLoader, objectMapper).load(),
-                new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest"));
+                new ArtemisRuntimeProperties("latest"));
     }
 }

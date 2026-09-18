@@ -1,5 +1,9 @@
 package de.tum.cit.aet.artemis.featuremodel;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -32,5 +37,19 @@ class FeatureModelAppTest {
         mockMvc.perform(get("/api/feature-model/snapshots/anything")).andExpect(status().isNotFound());
         mockMvc.perform(post("/api/feature-model/snapshots/import")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/feature-model/snapshots/anything/export")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void generatesALocalDockerPackageFromTheApplicationRuntimeProperties() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(applicationContext).build();
+        String request = """
+                {"selectedFeatureIds": ["course-workflow", "communication", "exercise-common", "programming", "quiz", "mysql",
+                "integrated-code-lifecycle", "localvc"]}
+                """;
+        String manifestContent = "$.files[?(@.path == 'metadata/package-manifest.json')].preview";
+
+        mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isOk()).andExpect(jsonPath(manifestContent, hasItem(containsString("\"imageDigest\" : \"latest\""))))
+                .andExpect(jsonPath(manifestContent, everyItem(not(containsString("sourceCommit")))));
     }
 }

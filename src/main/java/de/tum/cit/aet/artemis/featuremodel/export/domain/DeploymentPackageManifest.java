@@ -102,14 +102,13 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
     }
 
     /**
-     * Artemis runtime provenance recorded for generated packages.
+     * Artemis runtime image recorded for generated packages.
      *
-     * @param sourceCommit Artemis source commit associated with the runtime package.
      * @param imageRepository official Artemis application image repository.
      * @param imageDigest original configured image digest, or the special value {@code latest}.
-     * @param note human-readable runtime provenance note.
+     * @param note human-readable runtime note.
      */
-    public record ArtemisRuntimeInfo(String sourceCommit, String imageRepository, String imageDigest, String note) {
+    public record ArtemisRuntimeInfo(String imageRepository, String imageDigest, String note) {
     }
 
     /**

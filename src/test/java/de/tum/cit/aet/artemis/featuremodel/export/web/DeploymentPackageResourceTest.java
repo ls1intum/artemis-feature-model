@@ -102,7 +102,7 @@ class DeploymentPackageResourceTest {
                 new RuntimeStackWriter(), new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
                 new RemoteAnsibleValuesWriter(catalogLoader), new EnvExampleWriter(), new ArtemisRuntimeSourceResolver(
                         new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader, objectMapper).load(),
-                        new ArtemisRuntimeProperties("b1e27eeaaa03e4b41d72cbfe7f503e648dd544a6", "latest")), objectMapper);
+                        new ArtemisRuntimeProperties("latest")), objectMapper);
         mockMvc = mockMvcFor(deploymentPackageService, catalogLoader, objectMapper,
                 new DeploymentRepositoryProperties(true, seededRemoteUrl(), "deployment", null, null, null, null));
         unconfiguredMockMvc = mockMvcFor(deploymentPackageService, catalogLoader, objectMapper,
