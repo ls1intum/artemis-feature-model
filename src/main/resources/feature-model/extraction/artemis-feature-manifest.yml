@@ -211,6 +211,10 @@ exclude:
     reason: sub-option
     rationale: The curated model treats AtlasML as an extra sub-switch of Atlas rather than an independent feature.
 
+  - anchor: module:atlasllm
+    reason: sub-option
+    rationale: The curated model treats AtlasLLM as an extra sub-switch of Atlas rather than an independent feature.
+
   # Source-level discoveries kept outside the model to match the curated scope until parity is reached.
 
   - anchor: module:ldap
