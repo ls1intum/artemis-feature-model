@@ -291,6 +291,10 @@ exclude:
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
 
+  - anchor: toggle:IrisProactiveStruggle
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
+
   - anchor: toggle:Deimos
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope.
