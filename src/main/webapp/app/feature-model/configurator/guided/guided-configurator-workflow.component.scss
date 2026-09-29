@@ -188,9 +188,11 @@
 }
 
 /* Three tabs instead of three stacked sections: same prose, a third of the height. */
+/* Equal columns keep the tabs on one row at every panel width; a label that does not fit wraps inside its own tab
+   instead of pushing a whole tab onto a second row. */
 .info-tabs {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.15rem;
     border-bottom: 1px solid var(--bs-border-color);
 }
@@ -203,7 +205,8 @@
     background: none;
     color: var(--bs-secondary-color);
     font-size: 0.78rem;
-    white-space: nowrap;
+    line-height: 1.25;
+    text-align: center;
 }
 
 .info-tab--active {
