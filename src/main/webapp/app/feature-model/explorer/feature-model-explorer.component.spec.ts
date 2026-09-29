@@ -103,7 +103,7 @@ describe('FeatureModelExplorerComponent', () => {
             label: stat.querySelector('.explorer-stat__label')?.textContent?.trim(),
         }));
         expect(stats).toEqual([
-            { value: '24', label: 'Features' },
+            { value: '18', label: 'Features' },
             { value: '23', label: 'Relations' },
             { value: '0', label: 'Constraints' },
             { value: '13', label: 'Default on' },

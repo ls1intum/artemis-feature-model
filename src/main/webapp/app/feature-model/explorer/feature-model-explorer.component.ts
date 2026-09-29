@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { FeatureModelService } from '../api/feature-model.service';
 import {
     collectExpandableNodeIds,
-    countTreeNodes,
     featureKindDotClass,
     featureKindLabel,
     filterTreeByQuery,
@@ -57,7 +56,8 @@ export class FeatureModelExplorerComponent implements OnInit {
 
     readonly model = computed(() => this.response()?.model);
     readonly tree = computed<FeatureTreeNode | null>(() => this.response()?.tree ?? null);
-    readonly featureCount = computed(() => countTreeNodes(this.tree()));
+    /** Counts actual features only; the non-selectable root and group nodes are conceptual structure. */
+    readonly featureCount = computed(() => this.response()?.features.filter((feature) => feature.selectable).length ?? 0);
     readonly relationCount = computed(() => this.response()?.relations.length ?? 0);
     readonly constraintCount = computed(() => this.response()?.constraints.length ?? 0);
     readonly warnings = computed(() => this.response()?.warnings ?? []);
