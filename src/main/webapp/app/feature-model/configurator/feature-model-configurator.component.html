@@ -92,7 +92,6 @@
                 [deploymentPackageErrorMessage]="deploymentPackageErrorMessage()"
                 [remoteSelectionError]="remoteSelectionError()"
                 [selectedDeploymentMode]="selectedDeploymentMode()"
-                [deploymentTargetName]="deploymentTargetName()"
                 [publishTarget]="publishTarget()"
                 [deploymentPackagePublishing]="deploymentPackagePublishing()"
                 [deploymentPackagePublishResult]="deploymentPackagePublishResult()"
@@ -112,7 +111,6 @@
                 (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
                 (publishAndDownloadDeploymentPackage)="onPublishAndDownloadDeploymentPackage()"
                 (selectDeploymentMode)="onSelectDeploymentMode($event)"
-                (deploymentTargetNameChange)="onDeploymentTargetNameChange($event)"
             />
         }
     }

@@ -413,24 +413,6 @@
                     </fieldset>
                     <p class="mt-2 mb-0 small text-body-secondary" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
 
-                    @if (remoteTargetSelected()) {
-                        <div class="mt-2 mb-2">
-                            <label class="form-label small fw-semibold mb-1" for="fm-deployment-target-name">Target name</label>
-                            <input
-                                id="fm-deployment-target-name"
-                                type="text"
-                                class="form-control form-control-sm"
-                                [value]="deploymentTargetName()"
-                                (input)="onDeploymentTargetNameInput($event)"
-                                placeholder="for example artemis-remote"
-                                data-testid="deployment-target-name-input"
-                            />
-                            <p class="mt-1 mb-0 small text-body-secondary">
-                                Names the inventory target group; publishing also routes the package to this target's repository directory.
-                            </p>
-                        </div>
-                    }
-
                     <button
                         type="button"
                         class="btn btn-primary w-100"
@@ -449,7 +431,7 @@
                             (click)="publishAndDownloadDeploymentPackage.emit()"
                             data-testid="publish-deployment-package-button"
                         >
-                            {{ deploymentPackagePublishing() ? 'Publishing...' : 'Publish and download' }}
+                            {{ deploymentPackagePublishing() ? 'Deploying...' : 'Deploy to test VM' }}
                         </button>
                         <p class="mt-1 mb-0 small text-body-secondary" data-testid="publish-destination">Publishes to {{ publishDestination() }}</p>
                     }

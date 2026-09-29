@@ -150,7 +150,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   lab's tracked inventory, value-bearing files are package-own expectations
   (see the fixture `PROVENANCE.md`). The review page offers "Remote server
   (Ansible)" as a third deployment target sending
-  `deploymentMode: "remote-ansible"` plus the typed target name.
+  `deploymentMode: "remote-ansible"` plus the fixed `artemis-remote` target name.
 - Deployment repository publishing commits the generated remote-ansible
   package to a Git deployment repository:
   `POST /api/feature-model/deployment-package/publish` generates through the
@@ -171,10 +171,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   Credentials are never logged or serialized, and a declared
   `expected-visibility` is verified against the GitHub API before the first
   push of a process lifetime. Controlled errors use the `PUBLISH_*` code
-  family. The review page adds a
-  localStorage-persisted target-name field and a "Publish and download"
-  action for the remote target, rendered only when the publish target is
-  configured and a target name is present; repository publish failures still
+  family. The review page has no target-name field; it adds a
+  "Deploy to test VM" publish-and-download action for the remote target,
+  rendered only when the publish target is configured; repository publish
+  failures still
   fall back to downloading. Unsupported remote selections return structured
   `featureId` and `reason` fields alongside the stable error code and message.
   The review page shows one actionable error card with a readable feature name,

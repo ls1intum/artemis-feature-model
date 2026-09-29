@@ -29,7 +29,7 @@ import {
     CONFIGURATOR_TUTORIAL_STEPS,
     buildConfiguratorTutorialSeenKey,
 } from './shared/configurator-tutorial';
-import { DEFAULT_DEPLOYMENT_MODE, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
+import { DEFAULT_DEPLOYMENT_MODE, DEFAULT_REMOTE_TARGET_NAME, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 interface DeploymentErrorBody {
@@ -45,7 +45,6 @@ const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please ver
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deployment package. Please verify that the server is running and try again.';
 const DEFAULT_PUBLISH_ERROR_MESSAGE = 'Failed to publish the deployment package. Please verify the deployment repository configuration and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
-const DEPLOYMENT_TARGET_NAME_STORAGE_KEY = 'artemis.configurator.deployment.target-name';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -83,7 +82,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly deploymentPackageDownloading = signal<boolean>(false);
     readonly deploymentPackageErrorMessage = signal<string | undefined>(undefined);
     readonly selectedDeploymentMode = signal<string>(DEFAULT_DEPLOYMENT_MODE);
-    readonly deploymentTargetName = signal<string>('');
     readonly publishTarget = signal<DeploymentPackagePublishTarget | undefined>(undefined);
     readonly deploymentPackagePublishing = signal<boolean>(false);
     readonly deploymentPackagePublishResult = signal<DeploymentPackagePublishResponse | undefined>(undefined);
@@ -249,7 +247,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly localizedWarnings = computed(() => this.warnings().map((warning) => localizeWarning(warning, this.featureNamesById())));
 
     ngOnInit(): void {
-        this.deploymentTargetName.set(this.readStoredDeploymentTargetName());
         forkJoin({
             featureModel: this.featureModelService.loadFeatureModel(),
             guidedWorkflow: this.featureModelService.loadGuidedWorkflow(),
@@ -461,22 +458,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.deploymentPackagePublishErrorMessage.set(undefined);
     }
 
-    /** Updates and persists the remote target name; the publish result of a previous target is stale afterwards. */
-    onDeploymentTargetNameChange(targetName: string): void {
-        this.deploymentTargetName.set(targetName);
-        this.deploymentPackagePublishResult.set(undefined);
-        this.deploymentPackagePublishErrorMessage.set(undefined);
-        const storage = this.browserStorage();
-        if (!storage) {
-            return;
-        }
-        try {
-            storage.setItem(DEPLOYMENT_TARGET_NAME_STORAGE_KEY, targetName);
-        } catch {
-            // Browser storage can be disabled; the field remains usable without persistence.
-        }
-    }
-
     /**
      * Downloads the deployment package ZIP for the current valid selection and the selected deployment target. The
      * default local Docker target sends the request without a deployment mode, preserving the pre-mode-axis behavior;
@@ -495,8 +476,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
      * downloading; unsupported selections stop once because neither action can generate their package.
      */
     onPublishAndDownloadDeploymentPackage(): void {
-        const targetName = this.deploymentTargetName().trim();
-        if (!this.isValid() || this.selectedDeploymentMode() !== REMOTE_DEPLOYMENT_MODE || !this.publishTarget()?.configured || targetName.length === 0) {
+        if (!this.isValid() || this.selectedDeploymentMode() !== REMOTE_DEPLOYMENT_MODE || !this.publishTarget()?.configured) {
             return;
         }
         const request = this.deploymentPackageRequest();
@@ -532,9 +512,8 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         if (deploymentMode !== DEFAULT_DEPLOYMENT_MODE) {
             request.deploymentMode = deploymentMode;
         }
-        const targetName = this.deploymentTargetName().trim();
-        if (deploymentMode === REMOTE_DEPLOYMENT_MODE && targetName.length > 0) {
-            request.remoteEnvironment = { targetName };
+        if (deploymentMode === REMOTE_DEPLOYMENT_MODE) {
+            request.remoteEnvironment = { targetName: DEFAULT_REMOTE_TARGET_NAME };
         }
         return request;
     }
@@ -865,19 +844,6 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             return storage.getItem(key) === 'true';
         } catch {
             return false;
-        }
-    }
-
-    /** Restores the persisted remote target name; storage failures fall back to an empty field. */
-    private readStoredDeploymentTargetName(): string {
-        const storage = this.browserStorage();
-        if (!storage) {
-            return '';
-        }
-        try {
-            return storage.getItem(DEPLOYMENT_TARGET_NAME_STORAGE_KEY) ?? '';
-        } catch {
-            return '';
         }
     }
 
