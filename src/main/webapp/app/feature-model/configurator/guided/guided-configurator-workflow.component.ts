@@ -4,7 +4,8 @@ import { DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
-import { DEPLOYMENT_TARGETS, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from '../shared/deployment-targets';
+import { DEFAULT_REMOTE_TARGET_NAME, DEPLOYMENT_TARGETS, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from '../shared/deployment-targets';
+import { ValidationIssueListComponent } from '../shared/validation-issue-list.component';
 import {
     ConfiguratorScreen,
     DecisionChangeSummary,
@@ -21,7 +22,7 @@ export type OptionInfoTab = 'outcome' | 'recommended' | 'caveats';
 @Component({
     selector: 'fm-guided-configurator-workflow',
     standalone: true,
-    imports: [],
+    imports: [ValidationIssueListComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './guided-configurator-workflow.component.html',
     styleUrl: './guided-configurator-workflow.component.scss',
@@ -63,7 +64,6 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly remoteSelectionError = input<RemoteSelectionError | undefined>(undefined);
     readonly deploymentPackageErrorMessage = input<string | undefined>(undefined);
     readonly selectedDeploymentMode = input.required<string>();
-    readonly deploymentTargetName = input<string>('');
     readonly publishTarget = input<DeploymentPackagePublishTarget | undefined>(undefined);
     readonly deploymentPackagePublishing = input<boolean>(false);
     readonly deploymentPackagePublishResult = input<DeploymentPackagePublishResponse | undefined>(undefined);
@@ -71,16 +71,14 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly deploymentTargets = DEPLOYMENT_TARGETS;
     readonly selectedDeploymentTarget = computed(() => deploymentTargetFor(this.selectedDeploymentMode()));
     readonly remoteTargetSelected = computed(() => this.selectedDeploymentMode() === REMOTE_DEPLOYMENT_MODE);
-    /** Directory-name form of the target name, mirroring the server-side sanitization for the destination preview. */
-    readonly sanitizedTargetDirectoryName = computed(() => this.deploymentTargetName().trim().toLowerCase().replace(/[^a-z0-9-]/g, ''));
-    /** The publish action needs a configured deployment repository and a routable target name. */
-    readonly publishActionAvailable = computed(() => (this.publishTarget()?.configured ?? false) && this.sanitizedTargetDirectoryName().length > 0);
+    /** The publish action needs a configured deployment repository. */
+    readonly publishActionAvailable = computed(() => this.publishTarget()?.configured ?? false);
     readonly publishDestination = computed(() => {
         const target = this.publishTarget();
         if (!target?.configured) {
             return '';
         }
-        return `${target.repositoryUrl}@${target.branch}/${target.targetDirectoryRoot}/${this.sanitizedTargetDirectoryName()}`;
+        return `${target.repositoryUrl}@${target.branch}/${target.targetDirectoryRoot}/${DEFAULT_REMOTE_TARGET_NAME}`;
     });
     readonly publishResultShortSha = computed(() => this.deploymentPackagePublishResult()?.commitSha.slice(0, 7) ?? '');
 
@@ -99,7 +97,6 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly downloadDeploymentPackage = output<void>();
     readonly publishAndDownloadDeploymentPackage = output<void>();
     readonly selectDeploymentMode = output<string>();
-    readonly deploymentTargetNameChange = output<string>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 
@@ -139,10 +136,6 @@ export class GuidedConfiguratorWorkflowComponent {
 
     onSelectInfoTab(tab: OptionInfoTab): void {
         this.infoTab.set(tab);
-    }
-
-    onDeploymentTargetNameInput(event: Event): void {
-        this.deploymentTargetNameChange.emit((event.target as HTMLInputElement).value);
     }
 
     isOptionSelected(decision: GuidedDecision, option: GuidedDecisionOption): boolean {

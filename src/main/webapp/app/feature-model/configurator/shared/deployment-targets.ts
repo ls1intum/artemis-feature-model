@@ -14,6 +14,8 @@ export const DEFAULT_DEPLOYMENT_MODE = 'local-docker';
 
 /** Mode id of the remote target; the only target with a target-name field and a publish action. */
 export const REMOTE_DEPLOYMENT_MODE = 'remote-ansible';
+/** The review page has no target-name field; every remote export and publish uses this inventory target group. */
+export const DEFAULT_REMOTE_TARGET_NAME = 'artemis-remote';
 
 /** Deployment targets in picker order; the first entry is the default. */
 export const DEPLOYMENT_TARGETS: readonly DeploymentTarget[] = [

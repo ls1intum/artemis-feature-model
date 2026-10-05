@@ -128,10 +128,6 @@
                                         <span class="d-block small text-danger-emphasis" data-testid="option-unavailable-reason">
                                             {{ optionAvailabilityText(option) }}
                                         </span>
-                                    } @else if (option.requiresCapabilities.length > 0) {
-                                        <span class="d-block small text-body-secondary" data-testid="option-availability-note">
-                                            {{ optionAvailabilityText(option) }}
-                                        </span>
                                     }
                                 </button>
                             }
@@ -172,49 +168,13 @@
                         @if (localizedViolations().length > 0) {
                             <section class="validation-detail validation-detail--danger" data-testid="guided-violations-panel">
                                 <h4 class="h6 mb-2">Violations</h4>
-                                <ul>
-                                    @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                        <li data-testid="guided-violation-item">
-                                            <span>{{ violation.message }}</span>
-                                            @if (violation.features.length > 0) {
-                                                <p class="d-flex flex-wrap gap-1 m-0">
-                                                    Affects
-                                                    @for (feature of violation.features; track feature.id) {
-                                                        <strong>{{ feature.name }}</strong>
-                                                    }
-                                                </p>
-                                            }
-                                            @if (violation.suggestion) {
-                                                <p class="m-0">{{ violation.suggestion }}</p>
-                                            }
-                                            <code>{{ violation.code }}</code>
-                                        </li>
-                                    }
-                                </ul>
+                                <fm-validation-issue-list [issues]="localizedViolations()" severity="blocking" itemTestId="guided-violation-item" />
                             </section>
                         }
                         @if (localizedWarnings().length > 0) {
                             <section class="validation-detail validation-detail--warning" data-testid="guided-warnings-panel">
                                 <h4 class="h6 mb-2">Warnings</h4>
-                                <ul>
-                                    @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                        <li data-testid="guided-warning-item">
-                                            <span>{{ warning.message }}</span>
-                                            @if (warning.features.length > 0) {
-                                                <p class="d-flex flex-wrap gap-1 m-0">
-                                                    Affects
-                                                    @for (feature of warning.features; track feature.id) {
-                                                        <strong>{{ feature.name }}</strong>
-                                                    }
-                                                </p>
-                                            }
-                                            @if (warning.suggestion) {
-                                                <p class="m-0">{{ warning.suggestion }}</p>
-                                            }
-                                            <code>{{ warning.code }}</code>
-                                        </li>
-                                    }
-                                </ul>
+                                <fm-validation-issue-list [issues]="localizedWarnings()" severity="warning" itemTestId="guided-warning-item" />
                             </section>
                         }
                     }
@@ -453,24 +413,6 @@
                     </fieldset>
                     <p class="mt-2 mb-0 small text-body-secondary" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
 
-                    @if (remoteTargetSelected()) {
-                        <div class="mt-2 mb-2">
-                            <label class="form-label small fw-semibold mb-1" for="fm-deployment-target-name">Target name</label>
-                            <input
-                                id="fm-deployment-target-name"
-                                type="text"
-                                class="form-control form-control-sm"
-                                [value]="deploymentTargetName()"
-                                (input)="onDeploymentTargetNameInput($event)"
-                                placeholder="for example artemis-remote"
-                                data-testid="deployment-target-name-input"
-                            />
-                            <p class="mt-1 mb-0 small text-body-secondary">
-                                Names the inventory target group; publishing also routes the package to this target's repository directory.
-                            </p>
-                        </div>
-                    }
-
                     <button
                         type="button"
                         class="btn btn-primary w-100"
@@ -489,7 +431,7 @@
                             (click)="publishAndDownloadDeploymentPackage.emit()"
                             data-testid="publish-deployment-package-button"
                         >
-                            {{ deploymentPackagePublishing() ? 'Publishing...' : 'Publish and download' }}
+                            {{ deploymentPackagePublishing() ? 'Deploying...' : 'Deploy to test VM' }}
                         </button>
                         <p class="mt-1 mb-0 small text-body-secondary" data-testid="publish-destination">Publishes to {{ publishDestination() }}</p>
                     }
@@ -545,17 +487,7 @@
                     <p class="fm-eyebrow">Issues and notes</p>
 
                     @if (localizedViolations().length > 0) {
-                        <ul class="list-unstyled mb-0" data-testid="review-violation-summary">
-                            @for (violation of localizedViolations(); track violation.code + '-' + $index) {
-                                <li class="issue issue--blocking">
-                                    <span class="issue__severity">Blocking</span>
-                                    <span>{{ violation.message }}</span>
-                                    @if (violation.suggestion) {
-                                        <span class="text-body-secondary">{{ violation.suggestion }}</span>
-                                    }
-                                </li>
-                            }
-                        </ul>
+                        <fm-validation-issue-list class="mb-2" [issues]="localizedViolations()" severity="blocking" data-testid="review-violation-summary" />
                     }
 
                     @if (reconciliationNote(); as note) {
@@ -568,14 +500,7 @@
                     }
 
                     @if (reviewWarningCount() > 0) {
-                        <ul class="list-unstyled mb-0" data-testid="warning-summary">
-                            @for (warning of localizedWarnings(); track warning.code + '-' + $index) {
-                                <li class="issue issue--warning">
-                                    <span class="issue__severity">Warning</span>
-                                    <span>{{ warning.message }}</span>
-                                </li>
-                            }
-                        </ul>
+                        <fm-validation-issue-list class="mb-2" [issues]="localizedWarnings()" severity="warning" data-testid="warning-summary" />
                     }
 
                     @if (profileDependentFeatures().length > 0) {
