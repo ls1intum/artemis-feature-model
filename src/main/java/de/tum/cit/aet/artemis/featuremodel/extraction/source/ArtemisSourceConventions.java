@@ -34,7 +34,7 @@ public final class ArtemisSourceConventions {
         public static final String ENGLISH_I18N = WEBAPP + "/i18n/en";
 
         /** Top-level Docker Compose inputs. */
-        public static final String DOCKER = "docker";
+        public static final String DOCKER = "deployment/docker";
 
         /** Roots eligible for curated evidence relocation checks. */
         public static final List<String> EVIDENCE = List.of(JAVA, RESOURCES, WEBAPP, DOCKER);
