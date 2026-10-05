@@ -547,7 +547,7 @@ public class RuntimeTemplateWriter {
                             - "${FM_ENV_FILE}"
                         environment:
                             SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/opt/artemis/config/application-feature-model.yml"
-                            SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC"
+                            SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&useSSL=false&serverTimezone=UTC"
                     mysql:
                         container_name: artemis-feature-model-local-mysql
                         volumes:

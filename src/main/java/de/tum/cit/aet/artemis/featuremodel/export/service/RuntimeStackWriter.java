@@ -63,7 +63,7 @@ public class RuntimeStackWriter {
             return new DatabasePlan("mysql", RuntimePackageConstants.MYSQL_SERVICE, composeFile,
                     "jdbc:mysql://" + RuntimePackageConstants.MYSQL_SERVICE
                             + ":3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true"
-                            + "&characterEncoding=utf8&useSSL=false&serverTimezone=UTC",
+                            + "&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&useSSL=false&serverTimezone=UTC",
                     null, "/var/lib/mysql", "artemis-feature-model-local-mysqldata");
         }
         if ("postgresql".equals(databaseId) && "deployment/docker/postgres.yml".equals(composeFile)) {

@@ -110,7 +110,7 @@ public final class RuntimePackageConstants {
      * container host), so our renamed database container still resolves. Artemis creates the database if absent.
      */
     public static final String DATASOURCE_URL = "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true"
-            + "&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
+            + "&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&useSSL=false&serverTimezone=UTC";
 
     /** URL Artemis is reachable at after a successful local-repo start. */
     public static final String ARTEMIS_LOCAL_URL = "http://localhost:8080";
