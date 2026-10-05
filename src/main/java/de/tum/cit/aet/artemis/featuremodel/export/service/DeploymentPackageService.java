@@ -482,7 +482,7 @@ public class DeploymentPackageService {
         if (!selection.isEmpty()) {
             return selection;
         }
-        return new TechnicalSelection(List.of("localci", "buildagent", "localvc"), Optional.of("docker/mysql.yml"), Optional.of("mysql"),
+        return new TechnicalSelection(List.of("localci", "buildagent", "localvc"), Optional.of("deployment/docker/mysql.yml"), Optional.of("mysql"),
                 Optional.of("integrated-code-lifecycle"));
     }
 

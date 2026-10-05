@@ -44,14 +44,14 @@ public class RemoteImageStackWriter {
     private DatabasePlan databasePlan(TechnicalSelection selection) {
         String databaseId = selection.databaseId().orElse("");
         String composeFile = selection.databaseComposeFile().orElse("");
-        if ("mysql".equals(databaseId) && "docker/mysql.yml".equals(composeFile)) {
+        if ("mysql".equals(databaseId) && "deployment/docker/mysql.yml".equals(composeFile)) {
             String url = "jdbc:mysql://" + RuntimePackageConstants.MYSQL_SERVICE
                     + ":3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true"
                     + "&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
             return new DatabasePlan("mysql", RuntimePackageConstants.MYSQL_SERVICE, url, null,
                     "artemis-feature-model-local-mysqldata", "/var/lib/mysql");
         }
-        if ("postgresql".equals(databaseId) && "docker/postgres.yml".equals(composeFile)) {
+        if ("postgresql".equals(databaseId) && "deployment/docker/postgres.yml".equals(composeFile)) {
             String url = "jdbc:postgresql://" + RuntimePackageConstants.POSTGRES_SERVICE + ":5432/Artemis?sslmode=disable";
             return new DatabasePlan("postgresql", RuntimePackageConstants.POSTGRES_SERVICE, url, "Artemis",
                     "artemis-feature-model-local-postgresdata", "/var/lib/postgresql");

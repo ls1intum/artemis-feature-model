@@ -237,7 +237,7 @@ public class RuntimeScriptWriter {
                   echo "Usage: $(basename "$0") /path/to/Artemis"
                   echo "  Starts Artemis from a local checkout with the generated overlay layered on top."
                   echo "  Uses the CI-capable local-VC/local-CI (MySQL) stack so any selection can start."
-                  echo "  Override the Artemis Compose file with FM_ARTEMIS_COMPOSE_FILE (default docker/artemis-dev-local-vc-local-ci-mysql.yml)."
+                  echo "  Override the Artemis Compose file with FM_ARTEMIS_COMPOSE_FILE (default deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml)."
                   exit 0
                 fi
 
@@ -251,13 +251,13 @@ public class RuntimeScriptWriter {
                   exit 1
                 fi
 
-                ARTEMIS_DOCKER_DIR="$ARTEMIS_REPO/docker"
+                ARTEMIS_DOCKER_DIR="$ARTEMIS_REPO/deployment/docker"
                 if [ ! -f "$ARTEMIS_DOCKER_DIR/artemis.yml" ]; then
-                  echo "ERROR: $ARTEMIS_REPO does not look like an Artemis repository (missing docker/artemis.yml)." >&2
+                  echo "ERROR: $ARTEMIS_REPO does not look like an Artemis repository (missing deployment/docker/artemis.yml)." >&2
                   exit 1
                 fi
 
-                COMPOSE_FILE_REL="${FM_ARTEMIS_COMPOSE_FILE:-docker/artemis-dev-local-vc-local-ci-mysql.yml}"
+                COMPOSE_FILE_REL="${FM_ARTEMIS_COMPOSE_FILE:-deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml}"
                 ARTEMIS_COMPOSE_FILE="$ARTEMIS_REPO/$COMPOSE_FILE_REL"
                 if [ ! -f "$ARTEMIS_COMPOSE_FILE" ]; then
                   echo "ERROR: Artemis Compose file not found: $ARTEMIS_COMPOSE_FILE" >&2
@@ -274,7 +274,7 @@ public class RuntimeScriptWriter {
                 OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
 
                 # Artemis resolves image versions (e.g. POSTGRES_VERSION) from its repo-root .env during Compose
-                # interpolation. --project-directory points at docker/, where no .env lives, so pass it explicitly.
+                # interpolation. --project-directory points at deployment/docker/, where no .env lives, so pass it explicitly.
                 ARTEMIS_ENV_FILE="${FM_ARTEMIS_ENV_FILE:-$ARTEMIS_REPO/.env}"
 
                 # Inject absolute host paths so the override does not depend on Compose's relative-path resolution.
@@ -339,7 +339,7 @@ public class RuntimeScriptWriter {
                 fi
 
                 ARTEMIS_REPO="$1"
-                ARTEMIS_DOCKER_DIR="$ARTEMIS_REPO/docker"
+                ARTEMIS_DOCKER_DIR="$ARTEMIS_REPO/deployment/docker"
                 if [ ! -f "$ARTEMIS_DOCKER_DIR/artemis.yml" ]; then
                   echo "ERROR: $ARTEMIS_REPO does not look like an Artemis repository." >&2
                   exit 1
@@ -569,7 +569,7 @@ public class RuntimeScriptWriter {
                 OVERRIDE_FILE="$PACKAGE_ROOT/deployment/local-repo/docker-compose.override.example.yml"
                 COMPOSE_ARGS=(
                   -p artemis-feature-model-local
-                  --project-directory "$ARTEMIS_REPO/docker"
+                  --project-directory "$ARTEMIS_REPO/deployment/docker"
                   -f "$STACK_FILE"
                   -f "$OVERRIDE_FILE"
                 )

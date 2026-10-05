@@ -79,7 +79,7 @@ public final class RuntimePackageConstants {
      * local-VC/local-CI stack is used so that CI-dependent features (for example Hyperion, which hard-requires a CI
      * trigger bean) can start; a plain database-only stack shuts Artemis down when such a feature is enabled.
      */
-    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "docker/artemis-dev-local-vc-local-ci-mysql.yml";
+    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml";
 
     /** Compose project name shared by the local-repo start and stop scripts so stop finds the started stack. */
     public static final String COMPOSE_PROJECT_NAME = "artemis-feature-model-local";

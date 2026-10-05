@@ -1180,7 +1180,7 @@
           "target" : "docker-compose.override.yml",
           "path" : "database.composeFile",
           "source" : "selection",
-          "valueWhenSelected" : "docker/mysql.yml",
+          "valueWhenSelected" : "deployment/docker/mysql.yml",
           "valueWhenDeselected" : null,
           "secret" : false
         }
@@ -1226,7 +1226,7 @@
           "target" : "docker-compose.override.yml",
           "path" : "database.composeFile",
           "source" : "selection",
-          "valueWhenSelected" : "docker/postgres.yml",
+          "valueWhenSelected" : "deployment/docker/postgres.yml",
           "valueWhenDeselected" : null,
           "secret" : false
         }

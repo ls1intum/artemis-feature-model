@@ -59,14 +59,14 @@ public class RuntimeStackWriter {
     private DatabasePlan databasePlan(TechnicalSelection selection) {
         String databaseId = selection.databaseId().orElse("");
         String composeFile = selection.databaseComposeFile().orElse("");
-        if ("mysql".equals(databaseId) && "docker/mysql.yml".equals(composeFile)) {
+        if ("mysql".equals(databaseId) && "deployment/docker/mysql.yml".equals(composeFile)) {
             return new DatabasePlan("mysql", RuntimePackageConstants.MYSQL_SERVICE, composeFile,
                     "jdbc:mysql://" + RuntimePackageConstants.MYSQL_SERVICE
                             + ":3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true"
                             + "&characterEncoding=utf8&useSSL=false&serverTimezone=UTC",
                     null, "/var/lib/mysql", "artemis-feature-model-local-mysqldata");
         }
-        if ("postgresql".equals(databaseId) && "docker/postgres.yml".equals(composeFile)) {
+        if ("postgresql".equals(databaseId) && "deployment/docker/postgres.yml".equals(composeFile)) {
             return new DatabasePlan("postgres", RuntimePackageConstants.POSTGRES_SERVICE, composeFile,
                     "jdbc:postgresql://" + RuntimePackageConstants.POSTGRES_SERVICE + ":5432/Artemis?sslmode=disable",
                     "Artemis", "/var/lib/postgresql", "artemis-feature-model-local-postgresdata");
@@ -118,7 +118,7 @@ public class RuntimeStackWriter {
     private void appendArtemisService(StringBuilder yaml, DatabasePlan database, CiPlan ci) {
         yaml.append("    artemis-app:\n");
         yaml.append("        extends:\n");
-        yaml.append("            file: \"${FM_ARTEMIS_REPO}/docker/artemis.yml\"\n");
+        yaml.append("            file: \"${FM_ARTEMIS_REPO}/deployment/docker/artemis.yml\"\n");
         yaml.append("            service: artemis-app\n");
         yaml.append("        container_name: artemis-feature-model-local-app\n");
         yaml.append("        ports:\n");

@@ -3,7 +3,7 @@
 services:
     artemis-app:
         extends:
-            file: "${FM_ARTEMIS_REPO}/docker/artemis.yml"
+            file: "${FM_ARTEMIS_REPO}/deployment/docker/artemis.yml"
             service: artemis-app
         container_name: artemis-feature-model-local-app
         ports:
@@ -23,7 +23,7 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock
     artemis-feature-model-postgresql:
         extends:
-            file: "${FM_ARTEMIS_REPO}/docker/postgres.yml"
+            file: "${FM_ARTEMIS_REPO}/deployment/docker/postgres.yml"
             service: postgres
         container_name: artemis-feature-model-local-postgres
         volumes:
