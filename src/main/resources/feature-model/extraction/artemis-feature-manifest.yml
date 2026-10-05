@@ -237,6 +237,10 @@ exclude:
     reason: deferred
     rationale: External lecture-video integration the curated model does not represent; revisit after generated-model parity.
 
+  - anchor: module:globalsearch
+    reason: deferred
+    rationale: Revisit in the future.
+
   # Runtime switches: the curated functional model contains no runtime toggles.
 
   - anchor: toggle:AtlasML
@@ -300,6 +304,14 @@ exclude:
     rationale: Runtime toggle outside the curated functional scope; revisit as a child of iris after parity.
 
   - anchor: toggle:Deimos
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope.
+
+  - anchor: toggle:GlobalSearchReconcile
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope.
+
+  - anchor: toggle:GlobalSearchReconcileOrphan
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope.
 
