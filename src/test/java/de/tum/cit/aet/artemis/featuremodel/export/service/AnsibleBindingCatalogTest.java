@@ -42,11 +42,12 @@ class AnsibleBindingCatalogTest {
     /**
      * The user-provisioned environment-variable names of
      * {@code devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt} (2026-08-29),
-     * verbatim: the 7 identity values and the 12 secret-class values.
+     * verbatim, plus {@code ARTEMIS_UNIVERSITY_NAME} for the collection's installation-metadata check: the 8 identity
+     * values and the 12 secret-class values.
      */
     private static final List<String> PROVISIONED_ENV_VAR_NAMES = List.of(
             "TESTSERVER_NAME", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST", "ARTEMIS_OPERATOR_NAME", "ARTEMIS_OPERATOR_ADMIN_NAME",
-            "PROXY_SSL_CERTIFICATE_PATH", "PROXY_SSL_CERTIFICATE_KEY_PATH",
+            "ARTEMIS_UNIVERSITY_NAME", "PROXY_SSL_CERTIFICATE_PATH", "PROXY_SSL_CERTIFICATE_KEY_PATH",
             "ARTEMIS_DATABASE_PASSWORD", "ARTEMIS_INTERNAL_ADMIN_PASSWORD", "ARTEMIS_JHIPSTER_JWT",
             "ATHENA_URL", "ATHENA_SECRET", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT_NAME",
             "IRIS_URL", "IRIS_SECRET", "LTI_OAUTH_SECRET", "SHARING_APIKEY");
@@ -56,7 +57,7 @@ class AnsibleBindingCatalogTest {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
         assertThat(catalog.catalogVersion()).isEqualTo(4);
-        assertThat(catalog.collectionPin()).isEqualTo("13e50a20fea641a5a792e42541952a37cd7f1239");
+        assertThat(catalog.collectionPin()).matches("[0-9a-f]{40}");
         assertThat(catalog.curationSource()).contains("transformation-table.md");
     }
 

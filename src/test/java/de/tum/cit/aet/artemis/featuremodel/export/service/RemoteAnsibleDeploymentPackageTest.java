@@ -47,10 +47,14 @@ class RemoteAnsibleDeploymentPackageTest {
 
     private ObjectMapper objectMapper;
 
+    private String collectionPin;
+
     @BeforeEach
     void setUp() {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
         objectMapper = new ObjectMapper();
+        AnsibleBindingCatalogLoader catalogLoader = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper);
+        collectionPin = catalogLoader.catalog().collectionPin();
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
@@ -63,7 +67,7 @@ class RemoteAnsibleDeploymentPackageTest {
         service = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
-                new RemoteAnsibleValuesWriter(new AnsibleBindingCatalogLoader(resourceLoader, objectMapper)), new EnvExampleWriter(),
+                new RemoteAnsibleValuesWriter(catalogLoader), new EnvExampleWriter(),
                 new ArtemisRuntimeSourceResolver(new RuntimeFeatureModelBundleLoader(SnapshotProperties.classpathFallback(), resourceLoader, objectMapper).load(),
                         new ArtemisRuntimeProperties("latest")), objectMapper);
     }
@@ -80,7 +84,7 @@ class RemoteAnsibleDeploymentPackageTest {
         assertThat(content(result, "inventory/hosts")).contains("[artemistests_postgres:children]\nartemistarget")
                 .contains("[artemistests_local_vc_ci:children]\nartemistarget").contains("[artemistests_without_atlas:children]\nartemistarget")
                 .doesNotContain("artemistests_mysql");
-        assertThat(content(result, "requirements.yml")).contains("version: 13e50a20fea641a5a792e42541952a37cd7f1239");
+        assertThat(content(result, "requirements.yml")).contains("version: " + collectionPin);
         assertThat(content(result, "ansible.cfg")).contains("hash_behaviour = merge").contains("[ssh_connection]\npipelining = True");
     }
 
@@ -159,7 +163,7 @@ class RemoteAnsibleDeploymentPackageTest {
         }
         assertThat(requiredNames).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST");
         assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(4);
-        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo("13e50a20fea641a5a792e42541952a37cd7f1239");
+        assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo(collectionPin);
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }
 
@@ -225,7 +229,7 @@ class RemoteAnsibleDeploymentPackageTest {
         GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
         String requirements = content(result, "requirements.yml");
-        assertThat(requirements).contains("version: 13e50a20fea641a5a792e42541952a37cd7f1239").contains("- name: ansible.posix")
+        assertThat(requirements).contains("version: " + collectionPin).contains("- name: ansible.posix")
                 .contains("- name: community.crypto").contains("- name: community.general").doesNotContain("hashi_vault");
         assertThat(content(result, "README.md")).contains("lookup('ansible.builtin.env', …)").contains("env-references.json");
     }

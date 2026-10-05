@@ -21,6 +21,7 @@ use_docker: true
 
 artemis_operator_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}"
 artemis_operator_admin_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_ADMIN_NAME') }}"
+artemis_university_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_UNIVERSITY_NAME') }}"
 
 artemis_global_search_enabled: true
 
