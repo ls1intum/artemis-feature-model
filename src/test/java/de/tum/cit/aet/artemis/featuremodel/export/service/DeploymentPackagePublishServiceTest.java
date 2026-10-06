@@ -64,6 +64,8 @@ class DeploymentPackagePublishServiceTest {
 
     private String remoteUrl;
 
+    private AnsibleBindingCatalogLoader catalogLoader;
+
     @BeforeEach
     void setUp() throws IOException, GitAPIException {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
@@ -77,7 +79,7 @@ class DeploymentPackagePublishServiceTest {
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);
-        AnsibleBindingCatalogLoader catalogLoader = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper);
+        catalogLoader = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper);
         deploymentPackageService = new DeploymentPackageService(artifactGenerationService, catalogService, profileService, new TechnicalSelectionResolver(),
                 new StaticConfigValidationService(resourceLoader, objectMapper), new RuntimeTemplateWriter(), new RuntimeStackWriter(),
                 new RemoteImageStackWriter(), new RuntimeScriptWriter(), new ActiveProfilesDeriver(), new DevIdeTemplateWriter(),
@@ -127,7 +129,7 @@ class DeploymentPackagePublishServiceTest {
 
         String message = headCommitMessage();
         assertThat(message).startsWith("deploy artemis-remote: model ");
-        assertThat(message).contains("catalog v4@13e50a2");
+        assertThat(message).contains("catalog v4@" + catalogLoader.catalog().collectionPin().substring(0, 7));
         assertThat(message).contains("\nprofile: ");
         assertThat(message).contains("database: postgresql   ci: integrated-code-lifecycle");
         assertThat(message).contains("modules off: atlas, exam, tutorialgroup");

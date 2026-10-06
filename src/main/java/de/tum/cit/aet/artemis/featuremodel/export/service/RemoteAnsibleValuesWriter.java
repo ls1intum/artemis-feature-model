@@ -97,8 +97,8 @@ public class RemoteAnsibleValuesWriter {
 
                 Ownership of the values:
 
-                - **Identity values** (`TESTSERVER_NAME`, `SERVER_HOSTNAME`, `ARTEMIS_EMAIL_TEST`, the operator
-                  names, the certificate paths): admin-owned inputs describing the target environment.
+                - **Identity values** (`TESTSERVER_NAME`, `SERVER_HOSTNAME`, `ARTEMIS_EMAIL_TEST`, the operator and
+                  university names, the certificate paths): admin-owned inputs describing the target environment.
                 - **Deployment-internal secrets**: both ends live inside this deployment, so self-generated random
                   values are fully functional. Generate them once:
 

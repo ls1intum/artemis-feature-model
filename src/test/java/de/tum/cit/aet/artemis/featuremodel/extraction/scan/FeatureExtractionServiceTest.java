@@ -198,7 +198,7 @@ class FeatureExtractionServiceTest {
         List<EvidenceItem> postgresEvidence = evidence("infra:postgres");
         assertThat(postgresEvidence).hasSize(3);
         assertThat(postgresEvidence).anySatisfy(item -> {
-            assertThat(item.file()).isEqualTo("docker/e2e-only-postgres.yml");
+            assertThat(item.file()).isEqualTo("deployment/docker/e2e-only-postgres.yml");
             assertThat(item.detail()).isEqualTo("no paired alternative found");
         });
     }

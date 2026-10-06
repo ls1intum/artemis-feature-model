@@ -3,7 +3,7 @@
 # Group filenames derive from membership + .yml.
 # Environment references and dotted consumers derive from lookups in parsed content.
 catalogVersion: 4
-collectionPin: "13e50a20fea641a5a792e42541952a37cd7f1239"
+collectionPin: "ef0024714b11f73fb5b01fbf7fc5c6809c09951a"
 curationSource: "2026-09-10 re-curation at upstream/main dfdc9fb: MySQL removal #245, valkey rename #246, rate-limit fixes #249, per-job build-agent auth #242; artemis-feature-model-deploy-lab evidence/transformation-table.md, 2026-08-14 baseline including the 2026-08-15 post-baseline deltas; value shapes verified against the lab inventory at commit 2d0385ff (with its 2026-08-15 working-tree deltas) and ls1intum/artemis-ansible at 52d44e162ea4753c97ea89c7b0f7d5ec28d81645; build-agent credential removal per evidence/incident-2026-08-26-build-agent-credentials-refused.md, lab inventory commit 2040df8; artemis_modules off-switches validated per evidence/collection-fork-validation-2026-08-25.md on the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names taken verbatim from the user-provisioned mapping of 2026-08-29 (devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt)"
 files:
   targetMain:
@@ -54,10 +54,12 @@ files:
       #: Selects the Docker deployment path of the collection.
       use_docker: true
 
-      #: INFO_OPERATORNAME is unguarded in artemis.env.j2 and therefore mandatory.
+      #: Installation metadata (INFO_OPERATORNAME); the collection's variable checks require it on core nodes.
       artemis_operator_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_NAME') }}"
-      #: INFO_OPERATORADMINNAME is unguarded in artemis.env.j2 and therefore mandatory.
+      #: Installation metadata (INFO_OPERATORADMINNAME); the collection's variable checks require it on core nodes.
       artemis_operator_admin_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_OPERATOR_ADMIN_NAME') }}"
+      #: Installation metadata (INFO_UNIVERSITYNAME); the collection's variable checks require it on core nodes.
+      artemis_university_name: "{{ lookup('ansible.builtin.env', 'ARTEMIS_UNIVERSITY_NAME') }}"
 
       artemis_global_search_enabled: true
 

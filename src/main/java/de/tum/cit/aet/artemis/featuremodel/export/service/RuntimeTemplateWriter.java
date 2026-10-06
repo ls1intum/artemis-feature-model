@@ -43,7 +43,7 @@ public class RuntimeTemplateWriter {
     public String packageReadme(String modelId, String modelVersion, String profileId, String profileVersion,
             TechnicalSelection selection, ArtemisRuntimeSource runtimeSource, List<EnvironmentRequirement> environmentRequirements) {
         String database = selection.databaseId().orElse("mysql");
-        String databaseComposeFile = selection.databaseComposeFile().orElse("docker/mysql.yml");
+        String databaseComposeFile = selection.databaseComposeFile().orElse("deployment/docker/mysql.yml");
         String ciProvider = selection.ciProviderId().orElse("integrated-code-lifecycle");
         boolean jenkins = "jenkins".equals(ciProvider);
         List<String> sections = List.of(
@@ -127,7 +127,7 @@ public class RuntimeTemplateWriter {
                 - Network access to pull Docker images.
                 - Enough disk space for the Docker images and the package volumes.
 
-                To run your own Artemis checkout instead of the published image, the checkout needs `docker/artemis.yml`,
+                To run your own Artemis checkout instead of the published image, the checkout needs `deployment/docker/artemis.yml`,
                 `%s`, and its repository-root `.env`. This path also publishes the database port defined in `%s`.
                 """.formatted(databaseComposeFile, databaseComposeFile) + dockerSocket;
     }
@@ -322,7 +322,7 @@ public class RuntimeTemplateWriter {
                 - **Published image:** `deployment/remote-image/artemis-feature-model-stack.yml` defines Artemis and the
                   `%s` database directly. Starting it reads no Artemis checkout and fetches no files besides Docker
                   images.
-                - **Local checkout:** `deployment/local-repo/artemis-feature-model-stack.yml` extends `docker/artemis.yml`
+                - **Local checkout:** `deployment/local-repo/artemis-feature-model-stack.yml` extends `deployment/docker/artemis.yml`
                   and `%s` from your checkout. `deployment/local-repo/docker-compose.override.example.yml` adds the
                   package configuration, and the checkout's `.env` provides Compose values such as database image
                   versions.
@@ -335,7 +335,7 @@ public class RuntimeTemplateWriter {
 
                 %s
 
-                A local checkout runs the image that its `docker/artemis.yml` defines. Package generation never contacts
+                A local checkout runs the image that its `deployment/docker/artemis.yml` defines. Package generation never contacts
                 the registry.
                 """.formatted(database, databaseComposeFile, readmeImageDescription(runtimeSource));
     }
@@ -525,7 +525,7 @@ public class RuntimeTemplateWriter {
                 # Local-repo runtime override (Layer 1) — DEMO / local validation only.
                 #
                 # scripts/start-local-repo.sh combines this override with the CI-capable Artemis local-VC/local-CI stack
-                # (docker/artemis-dev-local-vc-local-ci-mysql.yml), so CI-dependent features such as Hyperion can start. It
+                # (deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml), so CI-dependent features such as Hyperion can start. It
                 # only layers the generated Spring configuration overlay onto the existing artemis-app service; it does not
                 # redefine the Artemis stack.
                 #
@@ -547,7 +547,7 @@ public class RuntimeTemplateWriter {
                             - "${FM_ENV_FILE}"
                         environment:
                             SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/opt/artemis/config/application-feature-model.yml"
-                            SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC"
+                            SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&useSSL=false&serverTimezone=UTC"
                     mysql:
                         container_name: artemis-feature-model-local-mysql
                         volumes:
@@ -592,7 +592,7 @@ public class RuntimeTemplateWriter {
 
                 ## CI-capable stack
 
-                The default Artemis Compose file is `docker/artemis-dev-local-vc-local-ci-mysql.yml` — the local-VC/local-CI
+                The default Artemis Compose file is `deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml` — the local-VC/local-CI
                 stack (profiles `localci,localvc,buildagent`) backed by **MySQL**. This is deliberate: CI-dependent features
                 such as Hyperion hard-require a CI trigger bean at startup, so a database-only stack would shut Artemis down
                 when they are enabled. As a result any feature selection can start here. Trade-offs: the stack is heavier and
@@ -600,23 +600,23 @@ public class RuntimeTemplateWriter {
 
                 ## How it is used
 
-                `scripts/start-local-repo.sh /path/to/Artemis` runs, from the Artemis `docker/` directory:
+                `scripts/start-local-repo.sh /path/to/Artemis` runs, from the Artemis `deployment/docker/` directory:
 
                 ```bash
                 docker compose -p artemis-feature-model-local \\
-                  --project-directory /path/to/Artemis/docker \\
+                  --project-directory /path/to/Artemis/deployment/docker \\
                   --env-file /path/to/Artemis/.env \\
-                  -f /path/to/Artemis/docker/artemis-dev-local-vc-local-ci-mysql.yml \\
+                  -f /path/to/Artemis/deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml \\
                   -f <this-package>/deployment/local-repo/docker-compose.override.example.yml \\
                   up -d
                 ```
 
                 The Artemis Compose file can be changed with the `FM_ARTEMIS_COMPOSE_FILE` environment variable (default
-                `docker/artemis-dev-local-vc-local-ci-mysql.yml`). Note the override pins a MySQL datasource, so a different
+                `deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml`). Note the override pins a MySQL datasource, so a different
                 database stack would also need the override adapted.
 
                 The `--env-file` points at the Artemis repo-root `.env`, which Artemis uses to resolve image versions during
-                Compose interpolation (for example `MYSQL_VERSION`). Because `--project-directory` is the `docker/`
+                Compose interpolation (for example `MYSQL_VERSION`). Because `--project-directory` is the `deployment/docker/`
                 directory, that `.env` is not picked up automatically, so the start script passes it explicitly. Override
                 its location with `FM_ARTEMIS_ENV_FILE` if your Artemis `.env` lives elsewhere.
 
@@ -667,7 +667,7 @@ public class RuntimeTemplateWriter {
                 # Local repository runtime
 
                 `artemis-feature-model-stack.yml` applies `%s` with `%s`. It extends the local checkout's
-                `docker/artemis.yml` and `%s`; the adjacent override only mounts the generated overlay and environment.
+                `deployment/docker/artemis.yml` and `%s`; the adjacent override only mounts the generated overlay and environment.
 
                 The start script exports `FM_ARTEMIS_REPO`, `FM_OVERLAY_HOST_PATH`, and `FM_ENV_FILE`, then composes both
                 package files. `FM_ARTEMIS_COMPOSE_FILE` remains an explicit escape hatch.

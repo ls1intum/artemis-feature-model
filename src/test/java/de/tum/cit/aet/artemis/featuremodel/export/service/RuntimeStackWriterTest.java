@@ -19,7 +19,7 @@ class RuntimeStackWriterTest {
     @Test
     void postgresIclStackIsByteIdenticalToTheRecordedFixture() throws IOException {
         TechnicalSelection selection = new TechnicalSelection(List.of("localci", "buildagent", "localvc"),
-                Optional.of("docker/postgres.yml"), Optional.of("postgresql"), Optional.of("integrated-code-lifecycle"));
+                Optional.of("deployment/docker/postgres.yml"), Optional.of("postgresql"), Optional.of("integrated-code-lifecycle"));
 
         String stack = writer.write(selection);
 

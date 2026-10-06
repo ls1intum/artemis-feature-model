@@ -70,7 +70,7 @@ class TechnicalSelectionResolverTest {
         TechnicalSelection selection = resolver.resolve(model, selectedFeatureIds);
 
         assertThat(selection.databaseId()).contains("mysql");
-        assertThat(selection.databaseComposeFile()).contains("docker/mysql.yml");
+        assertThat(selection.databaseComposeFile()).contains("deployment/docker/mysql.yml");
         assertThat(selection.ciProviderId()).contains("integrated-code-lifecycle");
         assertThat(selection.springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
     }

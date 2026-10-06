@@ -79,7 +79,7 @@ public final class RuntimePackageConstants {
      * local-VC/local-CI stack is used so that CI-dependent features (for example Hyperion, which hard-requires a CI
      * trigger bean) can start; a plain database-only stack shuts Artemis down when such a feature is enabled.
      */
-    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "docker/artemis-dev-local-vc-local-ci-mysql.yml";
+    public static final String DEFAULT_ARTEMIS_COMPOSE_FILE = "deployment/docker/artemis-dev-local-vc-local-ci-mysql.yml";
 
     /** Compose project name shared by the local-repo start and stop scripts so stop finds the started stack. */
     public static final String COMPOSE_PROJECT_NAME = "artemis-feature-model-local";
@@ -110,7 +110,7 @@ public final class RuntimePackageConstants {
      * container host), so our renamed database container still resolves. Artemis creates the database if absent.
      */
     public static final String DATASOURCE_URL = "jdbc:mysql://mysql:3306/Artemis?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true"
-            + "&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
+            + "&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&useSSL=false&serverTimezone=UTC";
 
     /** URL Artemis is reachable at after a successful local-repo start. */
     public static final String ARTEMIS_LOCAL_URL = "http://localhost:8080";

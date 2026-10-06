@@ -16,7 +16,7 @@ class RemoteImageStackWriterTest {
 
     @Test
     void latestUsesTagSyntaxInAMySqlIclStack() {
-        String stack = writer.write(selection("mysql", "docker/mysql.yml", List.of("localci", "buildagent", "localvc")), source("latest"));
+        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("localci", "buildagent", "localvc")), source("latest"));
 
         assertThat(stack).contains("image: \"ghcr.io/ls1intum/artemis:latest\"")
                 .contains("image: \"docker.io/library/mysql:9.7.0\"")
@@ -26,7 +26,7 @@ class RemoteImageStackWriterTest {
 
     @Test
     void exactDigestUsesDigestSyntaxInAPostgreSqlIclStack() {
-        String stack = writer.write(selection("postgresql", "docker/postgres.yml", List.of("localci", "buildagent", "localvc")),
+        String stack = writer.write(selection("postgresql", "deployment/docker/postgres.yml", List.of("localci", "buildagent", "localvc")),
                 source("sha256:abc123"));
 
         assertThat(stack).contains("image: \"ghcr.io/ls1intum/artemis@sha256:abc123\"")
@@ -37,7 +37,7 @@ class RemoteImageStackWriterTest {
 
     @Test
     void jenkinsStackKeepsTheLimitationAndAddsNoJenkinsService() {
-        String stack = writer.write(selection("mysql", "docker/mysql.yml", List.of("jenkins", "localvc")), source("latest"));
+        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("jenkins", "localvc")), source("latest"));
 
         assertThat(stack).contains("WARNING: Jenkins profiles are configured", RuntimeStackWriter.JENKINS_DOCKER_PROFILES)
                 .doesNotContain("    jenkins:", "/var/run/docker.sock:/var/run/docker.sock", "group_add:");
@@ -45,7 +45,7 @@ class RemoteImageStackWriterTest {
 
     @Test
     void outputIsDeterministic() {
-        TechnicalSelection selection = selection("mysql", "docker/mysql.yml", List.of("localci", "buildagent", "localvc"));
+        TechnicalSelection selection = selection("mysql", "deployment/docker/mysql.yml", List.of("localci", "buildagent", "localvc"));
 
         assertThat(writer.write(selection, source("latest"))).isEqualTo(writer.write(selection, source("latest")));
     }

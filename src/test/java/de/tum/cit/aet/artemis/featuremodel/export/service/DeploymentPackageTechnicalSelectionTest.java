@@ -126,7 +126,7 @@ class DeploymentPackageTechnicalSelectionTest {
 
     private void assertTechnicalMetadata(TechnicalSelectionMetadata metadata, String databaseDisposition) {
         assertThat(metadata.databaseId()).isEqualTo("postgresql");
-        assertThat(metadata.databaseComposeFile()).isEqualTo("docker/postgres.yml");
+        assertThat(metadata.databaseComposeFile()).isEqualTo("deployment/docker/postgres.yml");
         assertThat(metadata.databaseDisposition()).isEqualTo(databaseDisposition);
         assertThat(metadata.ciProviderId()).isEqualTo("integrated-code-lifecycle");
         assertThat(metadata.springProfileTokens()).containsExactly("localci", "buildagent", "localvc");
@@ -174,7 +174,7 @@ class DeploymentPackageTechnicalSelectionTest {
     private void assertLocalDockerCombination(GeneratedArtifactPackage result, TechnicalScenario scenario) {
         String stack = content(file(result, DeploymentPackageService.TECHNICAL_STACK_FILE));
         String remoteStack = content(file(result, DeploymentPackageService.REMOTE_IMAGE_STACK_FILE));
-        assertThat(stack).contains("${FM_ARTEMIS_REPO}/docker/artemis.yml");
+        assertThat(stack).contains("${FM_ARTEMIS_REPO}/deployment/docker/artemis.yml");
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + scenario.databaseComposeFile());
         assertThat(stack).contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"");
         assertThat(stack).contains("ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
@@ -273,7 +273,7 @@ class DeploymentPackageTechnicalSelectionTest {
         selection.add(ciProviderId);
         selection.add("localvc");
         boolean jenkins = "jenkins".equals(ciProviderId);
-        String composeFile = "postgresql".equals(databaseId) ? "docker/postgres.yml" : "docker/mysql.yml";
+        String composeFile = "postgresql".equals(databaseId) ? "deployment/docker/postgres.yml" : "deployment/docker/mysql.yml";
         String ideProfiles = jenkins ? JENKINS_IDE_PROFILES : ICL_IDE_PROFILES;
         String dockerProfiles = jenkins ? RuntimeStackWriter.JENKINS_DOCKER_PROFILES : RuntimeStackWriter.ICL_DOCKER_PROFILES;
         return new TechnicalScenario(List.copyOf(selection), databaseId, composeFile, ciProviderId, ideProfiles, dockerProfiles);
@@ -284,9 +284,9 @@ class DeploymentPackageTechnicalSelectionTest {
         List<FeatureNode> features = new ArrayList<>(base.features());
         features.add(group("database"));
         features.add(technicalFeature("mysql", TechnicalSelectionResolver.COMPOSE_TARGET,
-                TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "docker/mysql.yml"));
+                TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "deployment/docker/mysql.yml"));
         features.add(technicalFeature("postgresql", TechnicalSelectionResolver.COMPOSE_TARGET,
-                TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "docker/postgres.yml"));
+                TechnicalSelectionResolver.DATABASE_COMPOSE_FILE_PATH, "deployment/docker/postgres.yml"));
         features.add(group("ci-provider"));
         features.add(technicalFeature("integrated-code-lifecycle", TechnicalSelectionResolver.ENV_TARGET,
                 TechnicalSelectionResolver.SPRING_PROFILES_PATH, "localci,buildagent"));

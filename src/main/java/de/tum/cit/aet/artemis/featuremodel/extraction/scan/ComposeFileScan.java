@@ -78,8 +78,9 @@ class ComposeFileScan {
      */
     private List<String> listTopLevelComposeFiles(ArtemisSourceRepository source) throws IOException {
         List<String> files = new ArrayList<>();
+        int fileNameStart = ArtemisSourceConventions.Roots.DOCKER.length() + 1;
         for (String file : source.findFiles(ArtemisSourceConventions.Roots.DOCKER, ArtemisSourceConventions.Naming.YAML_SUFFIX)) {
-            if (file.chars().filter(character -> character == '/').count() == 1) {
+            if (file.indexOf('/', fileNameStart) < 0) {
                 files.add(file);
             }
         }

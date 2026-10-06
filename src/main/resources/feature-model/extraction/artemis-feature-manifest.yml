@@ -136,7 +136,7 @@ include:
     name: MySQL
     description: MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.
     artifactMappings:
-      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: docker/mysql.yml }
+      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: deployment/docker/mysql.yml }
 
   - anchor: infra:postgres
     id: postgresql
@@ -149,7 +149,7 @@ include:
     name: PostgreSQL
     description: PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.
     artifactMappings:
-      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: docker/postgres.yml }
+      - { target: docker-compose.override.yml, path: database.composeFile, source: selection, valueWhenSelected: deployment/docker/postgres.yml }
 
   - anchor: profile:localci
     id: integrated-code-lifecycle
