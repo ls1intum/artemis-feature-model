@@ -1,0 +1,31 @@
+---
+id: intro
+title: Welcome to the Developer Guide
+sidebar_label: Introduction
+---
+
+This guide is for people who change the code of the Artemis Feature Model. It explains the conventions of the project
+and how its parts fit together.
+
+## What the Artemis Feature Model does
+
+Artemis is a learning platform with many optional features. Each Artemis installation switches features on or off,
+and some features depend on each other or exclude each other. The Artemis Feature Model describes these features and
+their rules as a feature model: a tree of features plus the constraints between them.
+
+The application has two views. The **Explorer** shows the feature model as a tree, a list, or a diagram. The
+**Configurator** guides you through decisions, validates your selection after every change, and generates
+configuration files and deployment packages for a valid selection.
+
+A Spring Boot server loads and validates the model and generates the files. An Angular client renders the two views.
+An extraction pipeline builds the model from the Artemis source code; the [Maintainer Guide](/maintainer/intro)
+explains how the model is kept in line with Artemis.
+
+## Where to start
+
+To run the application on your machine, follow the commands in the
+[repository README](https://github.com/ls1intum/artemis-feature-model#readme). The coding conventions of the project
+are in [`docs/guidelines/`](https://github.com/ls1intum/artemis-feature-model/tree/mvp/docs/guidelines) in the
+repository.
+
+Before you write or change a page of this site, read [Writing Documentation](/developer/guidelines/documentation).
