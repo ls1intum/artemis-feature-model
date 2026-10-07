@@ -30,7 +30,16 @@ npm run serve
 ```
 
 `npm run build` writes the static site to `build/` and fails on broken links and anchors. `npm run serve` serves that
-build locally. The site is configured for GitHub Pages, below the base path `/artemis-feature-model/`.
+build locally.
+
+## Deployment
+
+The site is published with GitHub Pages at `https://ls1intum.github.io/artemis-feature-model/`.
+
+- [`build-documentation.yml`](../.github/workflows/build-documentation.yml) runs the type check and the build on every
+  pull request that changes `documentation/`.
+- [`deploy-documentation.yml`](../.github/workflows/deploy-documentation.yml) builds and deploys the site when a push to
+  `mvp` changes `documentation/`. Run it manually to redeploy without a change.
 
 ## Structure
 
