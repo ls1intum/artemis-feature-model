@@ -214,19 +214,22 @@ The image embeds exactly one read-only snapshot under
 `/opt/artemis-feature-model/data/imported-models/<snapshot-id>/`, runs as uid
 `10001`, and selects snapshot mode through explicit environment variables. The
 container needs no data volume for normal operation. Image tags are convenient
-local names; registry delivery in the next stage must use an immutable digest.
+local names; registry consumers identify an image by its immutable digest.
 
-The repository delivery workflows build the client, resolve and check out the
-manifest-pinned Artemis commit, build the strict generated snapshot,
-upload HTML/raw reports, validate the snapshot offline, and smoke-test the
-snapshot-bearing image. Pull requests and development branches have read-only
-repository permission and cannot publish. Only a push to
-`deployment/image-publish-test` may publish the already-tested `linux/amd64`
-image to public GHCR, where its registry digest is the authoritative identity;
-no workflow publishes `latest` or deploys the image. See
+The repository delivery workflows build the client, check out one exact Artemis
+commit, build the strict generated snapshot, upload HTML/raw reports, validate
+the snapshot offline, and smoke-test the snapshot-bearing image. Pull request
+CI validates against the Artemis commit in `delivery/artemis-validation-pin`
+with read-only repository permission and cannot publish. Publication runs
+through `publish-snapshot-image.yml` in the `image-publish` environment,
+invoked by the scheduled delivery poller or manually with an immutable Artemis
+SHA. It publishes the already-tested `linux/amd64` image to public GHCR under
+its snapshot-id tag, and the registry digest is the authoritative identity.
+`promote-image.yml` tags a published digest as `verified`; rollback promotes an
+earlier digest from `delivery/verified-images.json`. No workflow publishes
+`latest` or deploys the image. See
 [`docs/extraction/automated-model-delivery.md`](docs/extraction/automated-model-delivery.md)
-for reproduction, manifest advancement, publication, and deferred rollback
-semantics.
+for reproduction, delivery configuration, publication, promotion, and rollback.
 
 ## Routes
 
