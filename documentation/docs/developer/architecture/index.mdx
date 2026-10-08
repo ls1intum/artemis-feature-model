@@ -44,7 +44,8 @@ snapshot. The extraction pipeline runs as Gradle commands, separate from the ser
 | Export | For a valid selection, the client asks the server for a deployment package. The server validates the selection again, generates the files, and returns them as a ZIP file. |
 | Publish | For the remote server target, the server can also commit the generated package to a Git deployment repository. |
 
-The server never trusts the client: it validates a selection again before it generates anything.
+The server validates a selection again before it generates anything, so every package comes from a valid
+selection.
 
 ## Technology stack
 
