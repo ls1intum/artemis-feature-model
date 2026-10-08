@@ -68,5 +68,6 @@ npm run test -- --watch=false
 npm run build
 ```
 
-Run `npm run build` after every client-relevant change, because the production build also checks the style
-budgets. If a command cannot run on your machine, name the command and the reason in the pull request description.
+Run `npm run build` after every client-relevant change. The **Application build** check in CI runs the production
+build, which also enforces the size budgets in `angular.json`; run `npm run build:prod` to check them locally. If a
+command cannot run on your machine, name the command and the reason in the pull request description.

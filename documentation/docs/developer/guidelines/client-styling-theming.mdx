@@ -18,7 +18,7 @@ component stylesheet or the global styles.
 Shared panel styles live in `src/main/webapp/content/scss/global.scss`: `.fm-surface` for panel chrome,
 `.fm-eyebrow` for small section labels, and `.fm-kind-dot` for the feature-kind marker. Reuse them instead of
 repeating the same rules. `angular.json` sets a size budget for every component stylesheet, and the production build
-fails when a stylesheet grows past it.
+(`npm run build:prod`) fails when a stylesheet grows past it.
 
 ## Colors and themes
 
