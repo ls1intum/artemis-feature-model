@@ -83,7 +83,7 @@ factory method for a new error. A raw `RuntimeException` would reach the client 
 | `DeploymentRepositoryPublishException` | Publishing that is not configured or fails | 400, 409, 502 |
 | `SnapshotException` | The legacy snapshot API | 400, 404 |
 
-The REST API Reference lists the error codes.
+The [REST API Reference](/developer/api-reference#errors) lists the error codes.
 
 ## Add an endpoint
 
@@ -92,7 +92,7 @@ The REST API Reference lists the error codes.
 3. Define the request and response records in its `dto` subpackage, with explicit conversion from domain records.
 4. Add a thin method to a resource in `web`, under `/api/feature-model` or `/api/deployment-profiles`.
 5. Throw a controlled exception for every expected failure.
-6. Add a web test for the contract, and add the endpoint to the REST API Reference.
+6. Add a web test for the contract, and add the endpoint to the [REST API Reference](/developer/api-reference).
 
 The [Java Conventions](/developer/guidelines/java) and [API and Server Design
 Conventions](/developer/guidelines/server-design) apply to every step.

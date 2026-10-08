@@ -52,6 +52,7 @@ const sidebars: SidebarsConfig = {
                 },
             ],
         },
+        'api-reference',
     ],
 };
 
