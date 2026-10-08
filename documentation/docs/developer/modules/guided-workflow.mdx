@@ -1,0 +1,83 @@
+---
+id: guided-workflow
+title: Guided Workflow
+sidebar_label: Guided Workflow
+---
+
+The guided workflow is the step-by-step path through the Configurator. This page explains how it is written, what the
+server adds before serving it, and which checks protect it. Read it when you change the workflow file or the code
+that serves it.
+
+## The authored file
+
+The workflow lives in `src/main/resources/feature-model/guided-workflow.json`, and
+`guided-workflow.schema.json` next to it describes its format. The file holds only two kinds of content:
+
+- The structure of the workflow: use-case templates, steps, decisions, options, and review groups.
+- The teacher-facing text: questions, descriptions, outcomes, recommendations, and things to know.
+
+An option names the features it selects and deselects. A shortened option looks like this:
+
+```json
+{
+  "id": "enable-lecture-materials",
+  "status": "published",
+  "label": "Enable lecture materials",
+  "selects": ["lecture"],
+  "enabledOutcome": ["Instructors can publish lecture material and organize lecture units."]
+}
+```
+
+Everything that follows from the model, such as the capabilities an option needs, is not written in this file. The
+server derives it, so it cannot go out of date when the model changes.
+
+## What the server adds
+
+`GuidedWorkflowAssembler` enriches the workflow every time the server serves it:
+
+| Field | Derived from |
+|---|---|
+| Option `requiresCapabilities` | The capabilities of the features the option selects |
+| Option `artifactImpacts` | The configuration entries those features write, as readable text |
+| Review group `featureIds` | The children of the model group named in `groupNodeId` |
+| Workflow `featureModelId` and `featureModelVersion` | The loaded model |
+
+The client receives the enriched workflow from `GET /api/feature-model/guided-workflow`. Before that, while loading
+the [runtime bundle](/developer/architecture/runtime-model), the server removes `draft` options and published options
+whose required text is missing. The client therefore only ever sees complete, published options.
+
+## Templates and the starting selection
+
+A use-case template lists features to select and to deselect, and the steps it recommends. The Configurator starts
+from the default selection of the model and applies the template on top. The `defaultTemplateId` of the workflow,
+"Custom configuration", changes nothing, so the user starts from the model defaults. Options whose features end up
+selected appear as selected in the Configurator.
+
+## Errors and findings
+
+Two kinds of checks protect the workflow:
+
+- **Integrity errors** stop the server at startup. `GuidedWorkflowIntegrityService` reports them, for example when an
+  option selects a feature that the model does not contain, or a review group names an unknown model group.
+- **Diagnostics findings** never stop the server. `GuidedWorkflowDiagnosticsService` logs them as warnings, for
+  example when a selectable functional feature has no option, a capability is provided by no profile, or published
+  text is still a stub.
+
+The extraction pipeline runs the same diagnostics and writes them to its report. There, findings with severity
+`error` block the delivery of a snapshot. The [Maintainer Guide](/maintainer/intro) covers how maintainers write
+workflow text for new features, including the `./gradlew syncGuidedWorkflowScaffold` task that adds placeholder
+options for them.
+
+## Where it lives in the code
+
+| Path | Responsibility |
+|---|---|
+| `selection/repository/JsonGuidedWorkflowStore` | Gives services the loaded workflow |
+| `selection/service/GuidedWorkflowProjectionService` | Removes draft and incomplete options while loading |
+| `selection/service/GuidedWorkflowIntegrityService` | Integrity errors |
+| `selection/service/GuidedWorkflowAssembler` | Adds the derived fields |
+| `selection/service/GuidedWorkflowDiagnosticsService` | Diagnostics findings |
+| `selection/service/GuidedWorkflowService` | Serves the enriched workflow |
+| `selection/web/GuidedWorkflowResource` | The endpoint |
+
+Paths are relative to `src/main/java/de/tum/cit/aet/artemis/featuremodel/`.

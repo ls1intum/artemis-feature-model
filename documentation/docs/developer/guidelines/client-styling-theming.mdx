@@ -1,0 +1,36 @@
+---
+id: client-styling-theming
+title: Client Styling and Theming
+sidebar_label: Styling and Theming
+---
+
+These conventions keep the client consistent and ready for more than one theme. Read them before you change a
+component stylesheet or the global styles.
+
+## SCSS structure
+
+- Use SCSS for component styles.
+- Prefer component-local styles over broad global styles.
+- Use BEM-style class names in custom component CSS where it improves readability, for example
+  `explorer-stat__value`.
+- Do not use `::ng-deep`.
+
+Shared panel styles live in `src/main/webapp/content/scss/global.scss`: `.fm-surface` for panel chrome,
+`.fm-eyebrow` for small section labels, and `.fm-kind-dot` for the feature-kind marker. Reuse them instead of
+repeating the same rules. `angular.json` sets a size budget for every component stylesheet, and the production build
+(`npm run build:prod`) fails when a stylesheet grows past it.
+
+## Colors and themes
+
+- Do not hard-code color values in component styles, templates, or TypeScript.
+- Prefer theme-aware defaults, Bootstrap utility classes, or CSS variables such as `var(--bs-body-color)` and
+  `var(--bs-body-bg)`.
+- If a custom color is unavoidable, define a named CSS variable and give it theme-aware values in the global theme
+  file. The feature-kind colors, such as `--fm-kind-module`, are an example.
+
+The client has a single light theme. When a dark theme exists, check every UI change in both themes.
+
+## Responsive layout
+
+- Use responsive layouts that adapt to small screens.
+- Prefer a `.container` or a deliberate responsive layout over brittle nested grid wrappers.

@@ -450,16 +450,35 @@ For multi-step tasks, state a brief plan:
 
 ## Guidelines and Conventions
 
-Detailed project guidelines are maintained in `docs/guidelines/`. Treat those
+Detailed project guidelines are maintained in the Developer Guide of the
+documentation site, under `documentation/docs/developer/guidelines/`. Treat those
 files as the source of truth and avoid duplicating their contents here.
 
-- [Java Conventions](docs/guidelines/java.md)
-- [TypeScript and Angular Conventions](docs/guidelines/typescript-angular.md)
-- [Client Styling and Theming](docs/guidelines/client-styling-theming.md)
-- [API and Server Design Conventions](docs/guidelines/server-design.md)
-- [Testing Guidelines](docs/guidelines/testing.md)
-- [Version Control Guidelines](docs/guidelines/version-control.md)
+- [Java Conventions](documentation/docs/developer/guidelines/java.mdx)
+- [TypeScript and Angular Conventions](documentation/docs/developer/guidelines/typescript-angular.mdx)
+- [Client Styling and Theming](documentation/docs/developer/guidelines/client-styling-theming.mdx)
+- [API and Server Design Conventions](documentation/docs/developer/guidelines/server-design.mdx)
+- [Testing Guidelines](documentation/docs/developer/guidelines/testing.mdx)
+- [Writing Documentation](documentation/docs/developer/guidelines/documentation.mdx)
 
 When a change touches one of these areas, read the corresponding guideline
-before editing code. Update the guideline document itself when a convention
+before editing code. Update the guideline page itself when a convention
 changes; keep `CLAUDE.md` as the project overview and navigation entry point.
+
+### Version Control
+
+- Use `feature/...` branches for implementation phases.
+- Keep commits small and reviewable.
+- Use concise imperative commit messages, scoped where useful.
+- Commit Gradle wrapper files and npm lock files.
+- Do not hand-edit `package-lock.json` unless resolving a targeted lockfile issue.
+- Do not commit generated build outputs, `node_modules`, `.angular`, or local IDE files.
+- Do not revert user changes unless the user explicitly asks.
+
+Recommended commit message examples:
+
+```text
+chore: add server feature model store
+test: cover mandatory feature validation
+docs: add phase 3 server api plan
+```

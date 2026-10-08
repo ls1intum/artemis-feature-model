@@ -1,0 +1,76 @@
+---
+id: java
+title: Java Conventions
+sidebar_label: Java
+---
+
+These conventions apply to all Java code under `src/main/java` and `src/test/java`. Read them before you change the
+server, the export code, or the extraction pipeline.
+
+## Package structure
+
+The server is organized by feature, not by layer. Each feature package, such as `catalog` or `export`, owns its own
+`web`, `service`, `repository`, `domain`, and `dto` subpackages. [Server Structure](/developer/architecture/server)
+lists the packages and explains what each one owns.
+
+- Use package-by-feature organization.
+- Do not create global top-level `dto`, `repository`, `service`, `web`, or `storage` packages.
+- Keep domain logic in the feature package that owns it, not in `shared`.
+- Keep server services dependent on `FeatureModelStore`, not directly on JSON files.
+
+## Naming and formatting
+
+- Use 4-space indentation.
+- Use PascalCase for classes and camelCase for fields and methods.
+- Avoid wildcard imports.
+- Prefer intention-revealing method and variable names over terse names.
+- Avoid horizontally long lines and deeply chained assertions or method calls. Break complex statements into named
+  local variables.
+- Define constants for repeated literal values. Use `private static final` by default and expose constants only when
+  another class genuinely needs them.
+
+## Spring beans and dependencies
+
+The application has no database, no login, and no user sessions. Keep it that way unless the project explicitly
+decides otherwise.
+
+- Prefer constructor injection for Spring beans.
+- Do not introduce JPA, repositories backed by a database, Liquibase, Spring Security, or user or session persistence.
+- Do not inject `EntityManager` or `EntityManagerFactory`.
+
+## Records, DTOs, and REST resources
+
+- Use Java records for DTOs and immutable value objects when practical.
+- Keep REST resources thin; delegate behavior to services.
+- Keep DTO conversion methods explicit and local to the owning DTO. Do not expose domain records directly from REST
+  resources.
+
+## Errors
+
+Callers of the API must get a stable error code and a readable message, never a raw parser stack trace.
+
+- Use controlled exceptions for model loading and integrity failures instead of letting raw parser errors leak to API
+  callers.
+
+[Server Structure](/developer/architecture/server#errors-and-controlled-exceptions) shows how a controlled exception
+becomes a JSON error response.
+
+## Readable methods
+
+- Keep methods small and focused on one action. When a method starts to do several things, split validation,
+  mapping, warning creation, and message construction into named helper methods.
+- Avoid long stream and lambda chains when they make control flow hard to read. Use clear local variables and
+  ordinary loops for multi-step validation or tree traversal.
+- Use the least possible access level for fields, methods, and constants. Increase visibility only when there is a
+  concrete caller outside the class.
+- Order methods from higher-level behavior to lower-level helpers, following the order in which they are used where
+  practical.
+
+## Javadoc and comments
+
+- Add Javadoc to server-side methods and constructors. Each Javadoc has a short description, `@param` for every
+  parameter, `@return` for non-void methods, and `@throws` for exceptions the method can throw.
+- Write comments and Javadoc in English. A comment clarifies intent or non-obvious behavior; it does not repeat the
+  code.
+- Document structural validation assumptions, for example that root and group nodes are active paths even though
+  users cannot toggle them.

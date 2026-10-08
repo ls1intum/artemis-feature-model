@@ -1,0 +1,72 @@
+---
+id: deployment-profiles
+title: Deployment Profiles and Capabilities
+sidebar_label: Deployment Profiles
+---
+
+Deployment profiles decide which features a deployment context can support. This page explains what a profile
+contains, how availability is computed, and why users never choose a profile. Read it when you add a capability or
+work on availability.
+
+## What a profile is
+
+Some features only work when the environment provides something. Iris needs a Pyris service and a secret; LTI needs
+a registered platform. A feature lists these needs in `requiresCapabilities`. A **deployment profile** lists the
+capabilities a deployment context provides:
+
+```json
+{
+  "id": "default-artemis-profile",
+  "name": "Default Artemis Deployment Context",
+  "providedCapabilities": ["pyris-service", "pyris-secret", "athena-service", "..."]
+}
+```
+
+A profile declares support only, never values. Service URLs and secrets come from the deployment environment
+through `${VARIABLE}` placeholders in the generated files.
+
+## Where profiles come from
+
+The application ships one profile, `src/main/resources/deployment-profiles/default-artemis-profile.json`, which
+provides every capability. For local experiments, you can add profiles as JSON files under
+`<data-root>/deployment-profiles/`. A local profile with the same id replaces the bundled one. The server reads the
+profiles on every request, so a changed file takes effect without a restart.
+
+A profile can also list `supportedDeploymentModes`. Without the field, it supports every
+[deployment mode](/developer/modules/deployment-packages); with it, generating a package for another mode fails with
+a controlled error.
+
+## Availability
+
+`GET /api/feature-model/profile-availability` tells the client which options and features are available under the
+active profile. A feature is available when the active profile provides all its capabilities and when the teacher
+role may see and configure it. The answer has two levels of detail:
+
+- `teacherReason`, a readable sentence for the guided workflow. It never shows raw capability ids.
+- `requiredCapabilities` and `missingCapabilities`, the exact ids for the advanced tree.
+
+An option's availability follows from the capabilities of the features it selects, which the
+[guided workflow](/developer/modules/guided-workflow) derives from the model.
+
+## Why the Configurator has no profile selector
+
+Teachers decide about functional features; they should not need to know about service registrations or secrets. The
+Configurator therefore always uses the default profile, `default-artemis-profile`, and never asks the user to pick
+one. Because this profile provides every capability, all features are available in a normal setup.
+
+Availability still matters when a maintainer restricts capabilities with a local profile. The Configurator then leaves
+features with missing capabilities out of a template's starting selection. When the advanced tree selects such a
+feature, the Configurator removes it again and shows a note. For tests, the availability endpoint accepts an optional
+`profileId` parameter.
+
+## Where it lives in the code
+
+| Path | Responsibility |
+|---|---|
+| `deployment/repository/DeploymentProfileRepository` | Reads bundled and local profiles |
+| `deployment/service/DeploymentProfileService` | Lists profiles and picks the default one |
+| `deployment/service/CapabilityResolutionService` | Computes availability |
+| `deployment/domain/DeploymentModes` | The ids of the deployment modes |
+| `deployment/web/` | The profile and availability endpoints |
+
+Paths are relative to `src/main/java/de/tum/cit/aet/artemis/featuremodel/`.
