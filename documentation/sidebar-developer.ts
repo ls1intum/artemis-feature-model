@@ -44,6 +44,12 @@ const sidebars: SidebarsConfig = {
                         'modules/extraction',
                     ],
                 },
+                {
+                    type: 'category',
+                    label: 'Client',
+                    collapsed: false,
+                    items: ['modules/explorer', 'modules/configurator', 'modules/client-foundations'],
+                },
             ],
         },
     ],
