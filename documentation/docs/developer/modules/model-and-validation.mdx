@@ -1,0 +1,87 @@
+---
+id: model-and-validation
+title: Feature Model, Tree, and Validation
+sidebar_label: Model and Validation
+---
+
+This module serves the feature model, derives the tree and the default selection from it, and validates selections.
+Read it when you change a validation rule or the model response.
+
+## What the model endpoint returns
+
+`GET /api/feature-model` returns everything the client needs to show and configure the model:
+
+| Field | Content |
+|---|---|
+| `model` | Id, name, version, and status of the model |
+| `features`, `relations`, `constraints` | The model as it is stored |
+| `tree` | The same features arranged as a tree |
+| `defaultSelectedFeatureIds` | The starting selection |
+| `warnings` | Model warnings, such as constraints the server cannot evaluate |
+
+The server sends both the flat lists and the tree, so the client never builds the tree itself.
+
+## Tree and default selection
+
+`FeatureModelTreeService` builds the tree from the root and the relations. Children appear in the `order` of their
+relation, and each tree node carries the relation that connects it to its parent. The same order is used everywhere
+the server returns feature ids, so lists are stable.
+
+The default selection is every selectable feature whose default state is `enabled`, in tree order.
+`FeatureModelCatalogService` computes it, and the Configurator starts from it.
+
+## Validating a selection
+
+`POST /api/feature-model/validate` takes a list of feature ids and checks them against the loaded model:
+
+```bash
+curl -X POST http://localhost:8090/api/feature-model/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"selectedFeatureIds": ["mysql", "postgresql"]}'
+```
+
+The answer says whether the selection is valid, returns the known ids in tree order as `normalizedSelection`, and
+lists violations and warnings. `FeatureModelValidationService` applies these rules:
+
+| Code | Rule |
+|---|---|
+| `UNKNOWN_SELECTED_FEATURE` | Every selected id exists in the model. |
+| `MANDATORY_FEATURE_MISSING` | When a parent is active, its mandatory selectable children are selected. Root and group nodes always count as active. |
+| `ALTERNATIVE_GROUP_SELECTION_MISSING` | An active alternative group has at least one selected child. |
+| `REQUIRES_CONSTRAINT_VIOLATED` | A selected source of a `requires` constraint has its target selected. |
+| `EXCLUDES_CONSTRAINT_VIOLATED` | The two features of an `excludes` constraint are not both selected. |
+| `UNSUPPORTED_EXPRESSION_CONSTRAINT` | A warning: `expression` constraints are reported but not evaluated. |
+
+An alternative group allows at most one child because the model pairs it with `excludes` constraints, such as
+`mysql` excludes `postgresql`.
+
+Every violation carries a `message`, the affected `featureIds`, and a `suggestion` such as "Enable 'modeling' or
+disable 'apollon'." The client shows these texts as they are, so a new rule needs no client change.
+
+## Model integrity
+
+Before the model is used, `FeatureModelIntegrityService` checks that it is well formed: unique ids, exactly one root,
+relations and constraints that point to existing features, artifact mappings with a known source, and no two
+environment mappings that produce the same variable name. These checks also run at startup as part of loading the
+[runtime bundle](/developer/architecture/runtime-model). A model that fails them never reaches a user.
+
+## Add a validation rule
+
+1. Add a code to `ValidationCode`.
+2. Add a small method to `FeatureModelValidationService` that returns violations for the rule, and call it from
+   `validationViolations`.
+3. Write a clear message and a suggestion that tells the user what to change.
+4. Test the rule in `FeatureModelValidationServiceTest` with a synthetic model from `TestFeatureModels`.
+
+## Where it lives in the code
+
+| Path | Responsibility |
+|---|---|
+| `catalog/service/FeatureModelCatalogService` | Builds the model response and the default selection |
+| `catalog/service/FeatureModelIntegrityService` | Checks that the model is well formed |
+| `catalog/repository/FeatureModelStore` | Gives services the loaded model |
+| `visualization/service/FeatureModelTreeService` | Builds the tree and the tree order |
+| `validation/service/FeatureModelValidationService` | Validates a selection |
+| `validation/domain/ValidationCode` | All integrity and validation codes |
+
+Paths are relative to `src/main/java/de/tum/cit/aet/artemis/featuremodel/`.
