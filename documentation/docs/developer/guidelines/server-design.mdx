@@ -1,0 +1,33 @@
+---
+id: server-design
+title: API and Server Design Conventions
+sidebar_label: Server and API Design
+---
+
+These conventions decide where a new endpoint, DTO, or loader goes in the server. Read them together with the
+[Java Conventions](/developer/guidelines/java) before you add or change a REST endpoint.
+
+## Route prefixes
+
+All public routes live under two prefixes:
+
+- `/api/feature-model` for the model, validation, the guided workflow, availability, and export.
+- `/api/deployment-profiles` for deployment profiles.
+
+## Where code belongs
+
+- The store abstraction (`FeatureModelStore`) and JSON-backed loading belong in `catalog.repository`.
+- API DTOs belong in the `dto` package of the module that owns the endpoint.
+- Tree DTOs belong in `visualization.dto`.
+- Validation request and result DTOs belong in `validation.dto`.
+- Deployment profile and availability DTOs belong in `deployment.dto`.
+- Bundled deployment profiles live in `src/main/resources/deployment-profiles`. Local overrides live under
+  `<data-root>/deployment-profiles`.
+
+## DTO rules
+
+A DTO is the contract with the client. Keeping it separate from the domain record lets the domain change without
+breaking the client.
+
+- Do not expose internal domain records directly from web resources when a REST DTO is more stable.
+- Convert explicitly in the owning DTO, for example with a static `fromDomain` method.

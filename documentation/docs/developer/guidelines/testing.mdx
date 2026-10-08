@@ -1,0 +1,72 @@
+---
+id: testing
+title: Testing Guidelines
+sidebar_label: Testing
+---
+
+This page explains how the server and client tests are written and run. Every change comes with tests, and the
+same commands run in CI on every pull request.
+
+## Server tests
+
+Run the server tests with Gradle:
+
+```bash
+./gradlew test
+```
+
+Gradle reuses earlier results when the inputs have not changed and reports the task as `UP-TO-DATE` or
+`FROM-CACHE`. To prove that the tests really ran, force a fresh run:
+
+```bash
+./gradlew test --rerun-tasks
+```
+
+- Server tests must not require Docker or a database.
+- Name server test classes `*Test.java`.
+- Prefer focused unit tests for services.
+- Use Spring tests only for the application context and for web and API contracts.
+- Build synthetic in-memory feature models for invalid cases. Do not change the runtime JSON in tests;
+  `TestFeatureModels` helps you build small models.
+- When you need exact test counts and pass or fail evidence, read `build/test-results/test/TEST-*.xml`.
+
+One test, `RealArtemisCheckoutSmokeTest`, runs the extraction pipeline against a real Artemis checkout. It runs only
+when you pass the checkout path, for example `./gradlew test -PartemisPath=/path/to/Artemis`, and is skipped
+otherwise.
+
+## Client tests
+
+Run the client tests with npm:
+
+```bash
+npm run test
+```
+
+In a terminal, the command keeps watching your files. Add `-- --watch=false` to run the tests once, as CI does.
+
+- Write client tests with Vitest. Use `vi.fn()`, `vi.spyOn()`, `vi.clearAllMocks()`, and `vi.restoreAllMocks()`
+  instead of Jest APIs.
+- Keep tests next to the component or service they test, as `*.spec.ts` files.
+- Test components in isolation. Do not import broad production modules when stubs or focused providers are enough.
+- Do not use `NO_ERRORS_SCHEMA`; stub or mock child components, pipes, and directives instead.
+- Do not use `overrideTemplate()` to hide a component template. The template is part of the behavior under test.
+- Mock services that only fetch server data. For services with logic, keep the real service and mock HTTP requests
+  with the Angular HTTP testing utilities.
+- Reset mocks in `afterEach` when they are created across tests.
+- Prefer user-interaction tests over direct tests of internal component methods.
+- Make expectations specific, for example `toBeUndefined()`, `toHaveLength(3)`, or `toHaveBeenCalledOnce()`, instead
+  of broad truthiness checks.
+- `src/main/webapp/app/feature-model/core/feature-model.test-fixtures.ts` provides shared model and workflow fixtures.
+
+## Before you open a pull request
+
+Run all three checks:
+
+```bash
+./gradlew test
+npm run test -- --watch=false
+npm run build
+```
+
+Run `npm run build` after every client-relevant change, because the production build also checks the style
+budgets. If a command cannot run on your machine, name the command and the reason in the pull request description.

@@ -7,7 +7,15 @@ const sidebars: SidebarsConfig = {
         {
             type: 'category',
             label: 'Coding Guidelines',
-            items: ['guidelines/documentation'],
+            link: { type: 'doc', id: 'guidelines/index' },
+            items: [
+                'guidelines/java',
+                'guidelines/server-design',
+                'guidelines/typescript-angular',
+                'guidelines/client-styling-theming',
+                'guidelines/testing',
+                'guidelines/documentation',
+            ],
         },
     ],
 };

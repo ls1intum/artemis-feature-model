@@ -1,0 +1,78 @@
+---
+id: typescript-angular
+title: TypeScript and Angular Conventions
+sidebar_label: TypeScript and Angular
+---
+
+These conventions apply to the Angular client under `src/main/webapp`. They follow current Angular practice:
+standalone components, signals, and the built-in template control flow.
+
+## Components and routes
+
+- Use standalone Angular components.
+- Use lazy loading for route-level features so that the initial bundle stays small.
+- Use `ChangeDetectionStrategy.OnPush`.
+- Keep route paths explicit: every variable segment is preceded by a unique textual segment.
+
+## Naming and formatting
+
+- Use kebab-case file names.
+- Use PascalCase for classes, types, and enums. Do not prefix interfaces with `I`.
+- Use camelCase for functions, properties, and local variables.
+- Use SCREAMING_SNAKE_CASE for constants.
+- Do not prefix private members with `_`.
+- Use descriptive whole words instead of terse abbreviations.
+- Use 4-space indentation and single quotes.
+- Use arrow functions instead of anonymous function expressions, and always wrap arrow parameters in parentheses.
+- Always use curly braces for loop and conditional bodies, except for same-line statements.
+
+## Signals and dependency injection
+
+Signals make change detection predictable with `OnPush`, so new code uses the signal-based APIs:
+
+- `input()` and `input.required()` instead of `@Input()`
+- `output()` instead of `@Output()`
+- `viewChild()` and `viewChild.required()` instead of `@ViewChild()`
+- `viewChildren()` instead of `@ViewChildren()`
+- `signal()`, `computed()`, and `effect()` for component state
+
+Do not add legacy decorators such as `@Input`, `@Output`, `@ViewChild`, `@ViewChildren`, `@ContentChild`, or
+`@ContentChildren` in new code. Prefer `inject()` over constructor injection.
+
+## Templates
+
+- Use the built-in control flow `@if`, `@for`, and `@switch`. Do not add new `*ngIf`, `*ngFor`, or `*ngSwitch`.
+- Do not call component methods or getters from templates; signals are the exception. Precompute values with
+  `computed()` or assign view-ready state before rendering.
+
+For example, the Explorer derives the number of selectable features once instead of counting in the template:
+
+```ts
+readonly featureCount = computed(() => this.response()?.features.filter((feature) => feature.selectable).length ?? 0);
+```
+
+## Types
+
+- Never use `any`; keep client code strictly typed.
+- Avoid `null` where `undefined` works.
+- Prefer interfaces over type aliases whenever an interface can express the shape.
+- Do not use anonymous object shapes for meaningful data. Define named interfaces.
+- Put local type definitions near the top of the file.
+- Do not export types, constants, or helpers unless another file needs them.
+- Do not introduce global types or global values.
+- Treat objects and arrays as immutable outside the component or helper that created them.
+
+## Services and API calls
+
+- Keep API calls in the feature-model API services, not in route components.
+- Keep validation display components separate from the validation service logic.
+
+## Accessibility basics
+
+- Use buttons for actions and links for navigation.
+- Associate labels with form controls using `for` and `id`, or by wrapping the input in the label.
+
+## Component libraries
+
+The client uses Bootstrap-compatible SCSS. Use Bootstrap utilities sparingly, and do not add `ng-bootstrap`,
+FontAwesome, PrimeNG, or another component library.
