@@ -10,7 +10,8 @@ server, the export code, or the extraction pipeline.
 ## Package structure
 
 The server is organized by feature, not by layer. Each feature package, such as `catalog` or `export`, owns its own
-`web`, `service`, `repository`, `domain`, and `dto` subpackages.
+`web`, `service`, `repository`, `domain`, and `dto` subpackages. [Server Structure](/developer/architecture/server)
+lists the packages and explains what each one owns.
 
 - Use package-by-feature organization.
 - Do not create global top-level `dto`, `repository`, `service`, `web`, or `storage` packages.
@@ -50,6 +51,9 @@ Callers of the API must get a stable error code and a readable message, never a 
 
 - Use controlled exceptions for model loading and integrity failures instead of letting raw parser errors leak to API
   callers.
+
+[Server Structure](/developer/architecture/server#errors-and-controlled-exceptions) shows how a controlled exception
+becomes a JSON error response.
 
 ## Readable methods
 

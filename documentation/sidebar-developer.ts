@@ -19,6 +19,12 @@ const sidebars: SidebarsConfig = {
                 'guidelines/documentation',
             ],
         },
+        {
+            type: 'category',
+            label: 'System Architecture',
+            link: { type: 'doc', id: 'architecture/index' },
+            items: ['architecture/concepts', 'architecture/runtime-model', 'architecture/server', 'architecture/client'],
+        },
     ],
 };
 
