@@ -43,6 +43,12 @@ const sidebars: SidebarsConfig = {
                 'tasks/manifest-cutover',
             ],
         },
+        'troubleshooting',
+        {
+            type: 'category',
+            label: 'Reference',
+            items: ['reference/gradle-tasks', 'reference/files', 'reference/diagnostic-codes'],
+        },
     ],
 };
 
