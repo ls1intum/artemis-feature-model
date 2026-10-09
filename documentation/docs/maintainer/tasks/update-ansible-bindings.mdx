@@ -1,0 +1,93 @@
+---
+id: update-ansible-bindings
+title: Update the Ansible Binding Catalog
+sidebar_label: Update Ansible Bindings
+---
+
+The remote deployment package turns a selection into values for the Artemis Ansible collection. The binding catalog
+decides which values each feature produces. This page explains the catalog and how to change it. You need it when
+you include a new feature, when the remote package should support a feature it does not support yet, or when you move
+to a newer version of the collection.
+
+## What the catalog is
+
+The catalog is `src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`. It is part of the
+application, not of a snapshot, and it is written for one exact commit of the Ansible collection, its
+`collectionPin`. The generated package installs the collection at this commit, so the values and the collection always
+fit together. The Developer Guide shows the resulting package on
+[Deployment Packages](/developer/modules/deployment-packages#remote-ansible).
+
+The catalog has four parts:
+
+| Part | Content |
+|---|---|
+| `collectionPin` | The commit of the collection that the values were written for |
+| `files` | The values every package contains: host identity, secrets, common configuration |
+| `technical` | One entry per database and per CI provider |
+| `features` | One entry per selectable feature |
+
+## Every feature is classified
+
+Every selectable feature of the model needs an entry with one of three classifications:
+
+| Classification | Meaning | Example |
+|---|---|---|
+| `bound` | The feature produces a group values file for the collection | `iris` adds its service URL and secret |
+| `no-op` | The feature needs no deployment value | Mandatory modules such as `programming` |
+| `unsupported` | The remote package cannot express the feature; the entry gives the `reason` | `mysql`, because the collection only deploys PostgreSQL |
+
+The export fails closed. A selection with an `unsupported` feature, or with a feature the catalog does not know, gets
+a clear error that names the feature instead of a package that silently leaves it out. A test fails as long as a
+selectable feature of the classpath model has no entry.
+
+## Change a binding
+
+A `bound` entry names its inventory group in `membership` and holds the values as a literal YAML block in `content`:
+
+```yaml
+iris:
+  binding: "bound"
+  membership: "artemistests_iris"
+  content: |-
+    ---
+    iris:
+      url: "{{ lookup('ansible.builtin.env', 'IRIS_URL') }}"
+      secret: "{{ lookup('ansible.builtin.env', 'IRIS_SECRET') }}"
+```
+
+Follow these rules:
+
+- Never write a real value for a host, an address, or a secret. Read it from an environment variable with
+  `lookup('ansible.builtin.env', '<NAME>')`. The package's `preflight.sh` refuses to run while such a variable is
+  unset.
+- A module that Artemis switches on by default uses `gating: "deselected"`: it produces its group only when the
+  feature is switched off, for example to set `lecture: false`.
+- Lines that start with `#:` are notes for maintainers; the package leaves them out. Plain `#` comments stay in the
+  package.
+
+A new environment variable name also needs an entry in the expected list of `AnsibleBindingCatalogTest`, which pins
+the full set of names that operators must provide.
+
+## Move the collection pin
+
+1. Read what changed in the collection between the old and the new commit, especially variable names and defaults.
+2. Adapt the entries that the change affects, and record the reason of every `unsupported` entry against the new
+   commit.
+3. Set `collectionPin` to the full new commit.
+
+Tests never hard-code the pin; they read it from the catalog, so moving it needs no test change.
+
+## Test and check
+
+```bash
+./gradlew test
+```
+
+`AnsibleBindingCatalogTest` checks the catalog structure and the classification of every feature.
+`RemoteAnsibleGoldenFixtureTest` compares generated files with the expected files in
+`src/test/resources/fixtures/remote-ansible/`; when you change values on purpose, update these files and keep
+`PROVENANCE.md` in that folder accurate.
+
+Finally, generate a package with the **Remote server (Ansible)** target on the review page of the **Configurator**.
+The database must be PostgreSQL, which you select in the advanced tree. Check the group files in the package for
+your change.

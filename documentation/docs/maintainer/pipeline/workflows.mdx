@@ -69,7 +69,7 @@ shows the registry digest of the new image.
 The promotion workflow takes a registry digest and, optionally, the snapshot id you expect. It checks that the image
 exists and that its labels are complete, moves the `verified` tag to exactly that digest, and opens a pull request
 on the branch `delivery/ledger-<run-id>` that appends the promotion to `delivery/verified-images.json`. It runs in the
-`image-promote` environment. Promote and Roll Back shows how to use it.
+`image-promote` environment. [Promote and Roll Back](/maintainer/tasks/promote-and-roll-back) shows how to use it.
 
 ## Discovery tag retention
 

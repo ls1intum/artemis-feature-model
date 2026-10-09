@@ -1,0 +1,63 @@
+---
+id: manifest-cutover
+title: Move the Manifest into Artemis
+sidebar_label: Manifest Cutover
+---
+
+The feature manifest lives in this repository. The cutover moves it into the Artemis repository, so that an Artemis
+pull request that adds a feature also adds its curation. This page describes the planned steps. The cutover has not
+been carried out, so the manifest in this repository is the one that counts.
+
+## Why the manifest moves
+
+With the manifest in this repository, a new Artemis feature first breaks a delivery run, and a maintainer then
+catches up here. With the manifest in Artemis, the developer who adds a feature also decides how the model shows it,
+in the same pull request. The pipeline already supports this through the `checkout` manifest source.
+
+## Preconditions
+
+- The Artemis maintainers agree to host the file at `supportingFiles/feature-model/artemis-feature-manifest.yml`.
+- The latest delivery run passed, so the manifest in this repository describes the current Artemis.
+
+## Steps
+
+1. **Add the file to Artemis.** Open a pull request in `ls1intum/Artemis` that adds the manifest of this repository,
+   byte for byte, as `supportingFiles/feature-model/artemis-feature-manifest.yml`. Mark the file `-text` in Artemis's
+   `.gitattributes`, so that Git never changes its line endings: different bytes mean a different manifest digest and
+   different snapshot ids. Check the pull request branch:
+
+   ```bash
+   ./gradlew featureModelManifestPreflight -PartemisPath=<checkout-of-the-pull-request> -PfeatureManifestSource=checkout
+   ```
+
+   The preflight passes when the file is complete and valid. Note the Artemis commit that merges the pull request.
+
+2. **Switch this repository in one pull request.**
+   - Set `featureManifestSource=checkout` in `gradle.properties`.
+   - Delete `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`.
+   - Set `delivery/artemis-validation-pin` to the merge commit from step 1.
+   - Change the snapshot id computation in `poll-artemis-delivery.yml` and `publish-snapshot-image.yml`. Both compute
+     the manifest digest from the file you delete, so they must read the manifest of the Artemis commit instead.
+
+3. **Let CI check it.** The pull request checks run the pipeline in `checkout` mode against the new pin. When they
+   pass, merge.
+
+Between the two merges, the pipeline still runs in `repository` mode, but it also compares the manifest with the copy
+in the Artemis checkout and fails when they differ. Do not change either file in that time.
+
+## After the cutover
+
+Manifest changes happen in Artemis pull requests. The snapshot provenance records `manifestSource` as `checkout`.
+`syncGuidedWorkflowScaffold` reads the manifest from the Artemis checkout, so it needs `-PartemisPath`:
+
+```bash
+./gradlew syncGuidedWorkflowScaffold -PartemisPath=../artemis-extraction
+```
+
+The guided workflow, the binding catalog, and all delivery workflows stay in this repository.
+
+## Going back
+
+Revert the switch pull request. The manifest returns to this repository, `featureManifestSource` returns to
+`repository`, and the workflows read the local file again. As long as the two files are byte-identical, the snapshot
+ids do not change.

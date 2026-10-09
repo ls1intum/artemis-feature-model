@@ -31,7 +31,7 @@ The property `featureManifestSource` in `gradle.properties` selects where the pi
 | `repository` | The file in this repository |
 | `checkout` | `supportingFiles/feature-model/artemis-feature-manifest.yml` inside the Artemis checkout |
 
-The `checkout` mode exists for the manifest cutover, which moves the manifest into
+The `checkout` mode exists for the [manifest cutover](/maintainer/tasks/manifest-cutover), which moves the manifest into
 Artemis so that a feature and its curation change together. In `repository` mode, the pipeline also looks at the
 Artemis path: when a copy exists there, it must be byte-identical to the file in this repository, or the run fails.
 
@@ -128,7 +128,7 @@ why the relation stays unenforced.
 
 ## Renames
 
-A rename tells the guided workflow scaffold that a feature id changed, so it
+A rename tells the [guided workflow scaffold](/maintainer/tasks/update-guided-workflow) that a feature id changed, so it
 can update every reference in `guided-workflow.json`:
 
 ```yaml

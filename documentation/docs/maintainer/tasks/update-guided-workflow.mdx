@@ -1,0 +1,85 @@
+---
+id: update-guided-workflow
+title: Update the Guided Workflow
+sidebar_label: Update the Guided Workflow
+---
+
+The guided workflow is the question-and-answer path that teachers follow in the **Configurator**. This page shows how
+to add an option for a new feature and how to write its text. You need it after you include a functional feature, and
+whenever a delivery pull request lists a coverage gap.
+
+## What you write and what the server adds
+
+You maintain one file, `src/main/resources/feature-model/guided-workflow.json`. It holds the structure (steps,
+decisions, options, templates, review groups) and the text that teachers read. Everything that follows from the
+model, such as the capabilities an option needs or the configuration it changes, the server adds when it serves the
+workflow. The Developer Guide describes this split on [Guided Workflow](/developer/modules/guided-workflow).
+
+An option has a status. A `draft` option is never shown; a `published` option is shown and must have complete text.
+
+## Sync the scaffold
+
+The scaffold task adds what the model has and the workflow lacks:
+
+```bash
+./gradlew syncGuidedWorkflowScaffold
+```
+
+For every included functional feature without an option, it adds a draft option named `enable-<feature-id>` with
+`TODO` text. The option goes into the decision of the feature's group, or into a new decision when the group has
+none yet. It adds a review group for a model group that has none, and applies
+the renames declared in the manifest. It only reports references to features that no longer exist; it never deletes
+anything. When nothing is missing, the file stays byte-identical.
+
+The task prints what it changed, for example `Added options: [enable-ldap]`, and writes a report to
+`build/guided-workflow-scaffold-report.json`.
+
+## Write the text
+
+Replace every `TODO` of the new option. Write for teachers, not for administrators: say what changes in a course, not
+which service or configuration key is involved. Technical ids belong in the advanced tree view, not in this text.
+
+| Field | Shown as | Write |
+|---|---|---|
+| `label` | The option title | A short name, such as "Text exercises" |
+| `description` | The text below the title | One sentence on what teachers get |
+| `enabledOutcome` | **What this enables** | What teachers and students can do with it |
+| `recommendedWhen` | **Recommended when** | The courses or situations it fits |
+| `thingsToKnow` | **Things to know** | Limits, requirements, and caveats |
+
+Then set `"status": "published"`. Check the decision of the option as well: its `question` and `description` must be
+complete too.
+
+Move the option to another decision when the scaffold's placement does not fit the teacher's view. A use-case template
+can preselect the feature through `selectedFeatureIds`; only do this when a published option covers the feature.
+
+## Check the findings
+
+Run the workflow stage and read `workflow/guided-workflow-validation.json`, or the **Findings** section of the report:
+
+```bash
+./gradlew prepareGuidedWorkflow packageFeatureModelSnapshot -PartemisPath=../artemis-extraction
+```
+
+| Code | Severity | Means |
+|---|---|---|
+| `GUIDED_WORKFLOW_COVERAGE_GAP` | warning | A selectable functional feature has no published option |
+| `GUIDED_WORKFLOW_REVIEW_GROUP_GAP` | warning | A model group has no review group |
+| `GUIDED_WORKFLOW_DRAFT_OPTION` | warning | A draft option exists; it is not shown |
+| `GUIDED_WORKFLOW_STUB_PROSE` | error | A published option or its decision still has `TODO` or empty text |
+| `GUIDED_WORKFLOW_UNKNOWN_CAPABILITY` | error | A feature needs a capability that no deployment profile provides |
+| `GUIDED_WORKFLOW_TEMPLATE_CONFLICT` | error | A template selects and deselects the same feature |
+| `GUIDED_WORKFLOW_TEMPLATE_UNCOVERED_PRESET` | error | A template preselects a feature that no published option covers |
+
+Errors stop the delivery. Diagnostic Codes lists the remaining codes.
+
+## Check the result in the Configurator
+
+Start the application as described in the [Developer Guide setup](/developer/setup) and open the **Configurator**. Walk
+through the workflow to the decision with your option, read its tabs, and select it. The server also logs every
+workflow finding at startup, so a warning in the log points to the same gaps as the report.
+
+## Related pages
+
+- [Curate a Feature](/maintainer/tasks/curate-a-feature)
+- [Review a Delivery PR](/maintainer/tasks/review-delivery-pr)

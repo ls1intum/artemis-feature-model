@@ -61,7 +61,7 @@ request.
 ```
 
 The `digest` is either `latest` or a pinned `sha256:` digest. The pipeline copies it into every snapshot, so a published
-image always generates packages with the same Artemis image. Update the Runtime Image
+image always generates packages with the same Artemis image. [Update the Runtime Image](/maintainer/tasks/update-runtime-image)
 explains how to change it.
 
 ## The fixture provenance
@@ -73,4 +73,4 @@ it by hand.
 ## The manifest source
 
 `featureManifestSource=repository` in `gradle.properties` makes the pipeline read the manifest from this repository.
-The manifest cutover changes it to `checkout`. Until then, leave it as it is.
+The [manifest cutover](/maintainer/tasks/manifest-cutover) changes it to `checkout`. Until then, leave it as it is.

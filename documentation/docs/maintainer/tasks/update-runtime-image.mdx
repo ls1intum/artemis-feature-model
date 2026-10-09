@@ -1,0 +1,73 @@
+---
+id: update-runtime-image
+title: Update the Artemis Runtime Image Reference
+sidebar_label: Update the Runtime Image
+---
+
+A Docker deployment package can start Artemis from a published Artemis image instead of a local checkout. This page
+shows how to choose which Artemis image that is. You need it when you want generated packages to use a fixed,
+tested Artemis version instead of the newest one.
+
+## What the reference controls
+
+The local Docker package contains a self-contained stack,
+`deployment/remote-image/artemis-feature-model-stack.yml`, which runs the image `ghcr.io/ls1intum/artemis`. The
+reference decides which version of this image the stack names:
+
+| Reference | Rendered as | Effect |
+|---|---|---|
+| `latest` | `ghcr.io/ls1intum/artemis:latest` | Every start pulls the newest Artemis image |
+| `sha256:<digest>` | `ghcr.io/ls1intum/artemis@sha256:<digest>` | Every start runs exactly this image |
+
+The reference lives in two places, one for each source mode of the application:
+
+- `delivery/artemis-runtime-image.json` for snapshots. The pipeline copies it into the snapshot's `metadata.json`, so
+  a published image of this application always generates the same reference.
+- `artemis.feature-model.runtime.image-digest` in `src/main/resources/application.yml` for local development, which
+  serves the classpath fixture.
+
+Keep both values equal.
+
+## Choose an image digest
+
+Look up the digest of the Artemis image you want, for example the image of a release tag:
+
+```bash
+docker buildx imagetools inspect ghcr.io/ls1intum/artemis:<tag>
+```
+
+Use the `Digest` line at the top of the output.
+
+## Edit the files
+
+Set the digest in `delivery/artemis-runtime-image.json`:
+
+```json
+{
+  "image": "ghcr.io/ls1intum/artemis",
+  "digest": "sha256:<digest>"
+}
+```
+
+Set the same value in `src/main/resources/application.yml`:
+
+```yaml
+artemis:
+  feature-model:
+    runtime:
+      image-digest: sha256:<digest>
+```
+
+## Verify
+
+1. Run the pipeline and check that `snapshot/metadata.json` shows the new value as `imageDigest`:
+
+   ```bash
+   ./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction
+   ```
+
+2. Run `./gradlew test`.
+3. Start the application, generate a package with the **Docker runtime** target on the review page of the
+   **Configurator**, and check the `image:` line in `deployment/remote-image/artemis-feature-model-stack.yml`.
+
+Open a pull request with both files. The next published image carries the new reference.

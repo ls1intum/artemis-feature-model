@@ -1,0 +1,111 @@
+---
+id: curate-a-feature
+title: Add, Change, or Exclude a Feature
+sidebar_label: Curate a Feature
+---
+
+Curation decides which Artemis candidates become features of the model, and how. This page walks through one
+curation change from the decision to the pull request. You need it when a run reports an undeclared candidate, or when
+a deferred candidate should finally become a feature.
+
+## Before you begin
+
+Run the pipeline locally once, as described in [Run the Pipeline Locally](/maintainer/extraction/running-locally), and
+open the report. Look at the candidate in `scan/feature-candidates.json` and its evidence in `scan/evidence.json`, so
+that you know what Artemis says about it.
+
+## Decide
+
+Ask whether someone setting up Artemis would choose this feature for a deployment. If yes, include it. If not, exclude
+it with one of the reasons the manifest already uses:
+
+| Reason | Use it when the candidate is… |
+|---|---|
+| `sub-option` | a detail of a feature the model already has |
+| `internal-mechanism` | infrastructure or a Spring profile that only serves other parts |
+| `operational` | a safeguard of operations, such as rate limiting |
+| `experimental` | a research or trial setting |
+| `deferred` | a real feature that the model does not cover yet |
+
+When you include a candidate, also decide:
+
+- where it sits in the tree (`group` or `parent`) and in which `order`;
+- whether it is `mandatory` or optional (the default);
+- whether it is `technical` (a deployment choice for maintainers) or functional (the default for modules);
+- which deployment capabilities it needs, for example a running external service;
+- which configuration keys it needs beyond its on/off key, for example a service URL or a secret;
+- whether it depends on or excludes another feature.
+
+## Edit the manifest
+
+Add the entry to `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`. A simple optional module
+needs only three lines:
+
+```yaml
+- anchor: module:ldap
+  id: ldap
+  group: platform-integrations
+```
+
+To include an excluded candidate, delete its exclude entry and add the include entry. The pipeline takes
+the name, the description, the default state, and the on/off configuration key from Artemis.
+[The Feature Manifest](/maintainer/extraction/manifest) lists every field.
+
+When the feature needs a capability that no deployment profile provides yet, add the capability id to
+`providedCapabilities` in `src/main/resources/deployment-profiles/default-artemis-profile.json`. Otherwise the workflow
+stage reports an unknown capability.
+
+## Run the pipeline
+
+```bash
+./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction
+```
+
+Check the report: the candidate appears under included or excluded candidates. For an included feature, look at
+its entry in `model/generated-feature-model.json`, including the configuration mappings.
+
+A `CONFIG_KEY_CATALOG_DRIFT` error means that a mapped key has no default in the Artemis `application*.yml` files.
+Check the spelling of the keys you added. When the error names the module's own on/off key, the module is switched on
+by a key without a default, for example a service URL. Such a module needs a developer to decide how its configuration
+is mapped before it can be included.
+
+## Update the guided workflow
+
+An included functional feature needs an option in the guided workflow, or teachers cannot choose it. Run the scaffold,
+which adds a draft option for every uncovered feature, and write its text:
+
+```bash
+./gradlew syncGuidedWorkflowScaffold
+```
+
+[Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) explains the details. Technical features need
+no guided option.
+
+## Update the Ansible bindings
+
+The remote deployment package must know every selectable feature. Classify the new feature in
+`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml` as `bound`, `no-op`, or `unsupported`,
+as described in [Update Ansible Bindings](/maintainer/tasks/update-ansible-bindings). The server tests fail until you
+do.
+
+## Refresh the fixture and test
+
+Copy the new model into the classpath fixture and run the tests:
+
+```bash
+./gradlew -q refreshFeatureModelFixture -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+./gradlew test
+```
+
+Start the application and look at the feature in the **Explorer** and the **Configurator**, as described in the
+[Developer Guide setup](/developer/setup).
+
+## Checklist
+
+1. The manifest has an include or exclude entry for the candidate.
+2. The pipeline passes locally.
+3. An included functional feature has a published guided option.
+4. The binding catalog classifies an included selectable feature.
+5. The classpath fixture is refreshed, and `./gradlew test` passes.
+6. When the change answers a failed run, the validation pin names the failing commit, see
+   [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction#open-a-pull-request).
