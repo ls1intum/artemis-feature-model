@@ -1,0 +1,98 @@
+---
+id: curation-and-conformance
+title: Curation and Conformance Checks
+sidebar_label: Curation and Conformance
+---
+
+The pipeline checks at several points whether the manifest, the Artemis source, and the generated model fit together.
+This page explains each check, so that you know why a run stopped and what it expects from you. For a lookup table of
+all codes, see [Diagnostic Codes](/maintainer/reference/diagnostic-codes).
+
+## Blocking findings and warnings
+
+Every check reports findings with a stable code. A blocking finding stops the run: there is no snapshot, and the
+delivery workflows publish nothing. A warning or an `info` finding appears in the report, but the run still passes.
+
+Curation gaps and conformance mismatches stop the model stage at once, because no trustworthy model can be built.
+The run then never reaches the workflow checks, so fix these findings first and run the pipeline again. All other
+blocking findings let the run continue, so that the report shows every finding; the package stage then refuses to
+write a snapshot.
+
+## Curation: does the manifest decide everything?
+
+Before it assembles a model, the model stage compares the manifest with the scan. It collects every gap in one pass,
+so the report lists all of them at once. These findings block the run:
+
+- `UNDECLARED_CANDIDATE`: a candidate has no include or exclude entry. This is the usual sign that Artemis added a
+  module, a toggle, or a profile.
+- `RELATION_CANDIDATE_UNDECLARED`: the scan found a dependency between two included features, and the manifest has
+  neither a constraint nor an ignored relation for it.
+- `MANIFEST_ORPHAN_ANCHOR`: a manifest entry names an anchor that matches no candidate, or more than one. Artemis
+  usually renamed or removed something.
+- `MANIFEST_CURATION_CONFLICT`: two entries collide, for example two entries for one candidate or two features with
+  the same id.
+- `EXTRACTOR_ERROR`: a scanner could not read its source. The facts of the run are incomplete, so the run stops.
+
+Two warnings point to missing explanations: `EXCLUSION_REASON_UNSPECIFIED` for an exclude entry without a reason, and
+`EXCLUDED_TOGGLE_RATIONALE_MISSING` for an excluded runtime toggle without a rationale.
+
+## Conformance: does the model match the manifest?
+
+After assembly, the pipeline compares the generated model with what the manifest declares: membership, names and
+descriptions, kind, category, defaults, tree position, group types, capabilities, configuration mappings,
+constraints, and order. Any difference is a `GENERATED_MODEL_CONFORMANCE_MISMATCH`. It does not mean that a decision
+is missing: the assembly code no longer produces what the manifest declares, so involve a developer.
+
+A constraint whose source or target is not part of the model is a `DANGLING_GENERATED_CONSTRAINT`. It usually means
+that a constraint names a feature you just excluded.
+
+## Model and catalog checks
+
+The model stage then validates the generated model with the same integrity rules that the application uses at
+startup (`GENERATED_MODEL_INVALID`). It adds two delivery rules:
+
+- `TECHNICAL_FEATURE_ROLE_LEAK`: a technical feature would be visible or configurable for teachers.
+- `PROFILE_CAPABILITY_MISMATCH`: a technical feature provides a capability that the bundled deployment profile does not
+  list.
+
+The stage also builds the config-key catalog from the configuration mappings of the model. When a mapped key has no
+default in the Artemis `application*.yml` files, the run fails with `CONFIG_KEY_CATALOG_DRIFT`: the pipeline cannot
+prove that Artemis knows the key.
+
+All of these findings block the run.
+
+## Guided workflow checks
+
+The workflow stage checks the authored guided workflow against the generated model. A broken reference, such as an
+option that selects a feature the model does not have, blocks the run as `GENERATED_WORKFLOW_INVALID`.
+
+The other workflow findings appear in `guided-workflow-validation.json` with codes that start with `GUIDED_WORKFLOW_`.
+Errors among them block the run, for example a published option with `TODO` text or a template that selects and
+deselects the same feature. Warnings do not, for example a feature that no published option covers yet. The report
+summarizes them as `GUIDED_WORKFLOW_FINDINGS`. [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow)
+explains how to resolve them.
+
+## Source observations
+
+The scan also reports what looks inconsistent inside Artemis itself. `CLIENT_SERVER_MIRROR_MISMATCH` means that the
+Artemis client and server disagree about a module or a toggle, and `MODULE_CONSTANT_ASYMMETRY` means that a module has
+a configuration key but no module constant, or the other way round. These findings describe Artemis, not your
+manifest, and they do not stop the run.
+
+## Source annotations
+
+Artemis code may carry an `@ArtemisFeature` annotation next to a feature's anchor, for example on an `*Enabled`
+condition class. The scan reads it as a suggestion for the feature's attributes, such as its group or capabilities.
+The contract of the annotation lives in this repository in
+`src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/annotation/ArtemisFeature.java`.
+
+The manifest always decides. An annotation never includes a candidate by itself, and an attribute in the manifest
+replaces the one in the annotation. Three warnings report where the two disagree: `ANNOTATED_BUT_UNSCOPED` (an annotated
+candidate is not included), `MANIFEST_OVERRIDES_ANNOTATION` (the manifest replaces an annotated value), and
+`ANNOTATED_ANCHOR_NOT_EXTRACTED` (an annotation sits on something the scan did not find).
+
+## Where findings show up
+
+Every finding of a run appears in `report/index.html` and `report/extraction-report.json`. The curation decisions and
+gaps are also in `model/manifest-conformance-report.json`, and the workflow findings in
+`workflow/guided-workflow-validation.json`. [Read the Report](/maintainer/extraction/reports) walks through them.

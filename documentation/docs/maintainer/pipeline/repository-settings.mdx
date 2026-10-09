@@ -1,0 +1,60 @@
+---
+id: repository-settings
+title: Repository Settings and Permissions
+sidebar_label: Repository Settings
+---
+
+Some of what the delivery workflows need cannot be written into a workflow file: it lives in the settings of the
+repository and of its container package. This page lists these settings. Only a repository owner can change them, so
+use the checklist at the end when you set up the repository or hand it over.
+
+## Permissions in the workflows
+
+Each job asks only for the permissions it needs. Pull request checks, validation, and the documentation build hold
+`contents: read`. Only these jobs hold more:
+
+| Job | Extra permissions | Environment |
+|---|---|---|
+| Publish (publication workflow) | `packages: write`, `id-token: write`, `attestations: write` | `image-publish` |
+| Promote (promotion workflow) | `packages: write`, `contents: write`, `pull-requests: write` | `image-promote` |
+| Delivery pull request (poller) | `contents: write`, `pull-requests: write` | none |
+| Retention | `packages: write` | none |
+| Deploy (documentation) | `pages: write`, `id-token: write` | `github-pages` |
+
+## Environments
+
+An environment adds rules to the jobs that use it. GitHub creates an environment without rules when a workflow first
+refers to it, so the owner has to add the rules:
+
+| Environment | Recommended rules |
+|---|---|
+| `image-publish` | Allow only the `mvp` branch. Add no required reviewers, so that the scheduled poller can publish without waiting. |
+| `image-promote` | Allow only the `mvp` branch. Add required reviewers if a promotion should need a second person. |
+| `github-pages` | Allow only the `mvp` branch. |
+
+Set them in **Settings → Environments**.
+
+## Pull requests from workflows
+
+The poller and the promotion workflow open pull requests with the workflow token. This needs the option **Allow
+GitHub Actions to create and approve pull requests** in **Settings → Actions → General**, or in the settings of the
+organization.
+
+## Package permission for retention
+
+Deleting image versions needs admin access to the container package `artemis-feature-model`. Without it, the
+retention workflow fails without deleting anything. Grant it in the package settings under **Manage Actions access**:
+add this repository with the role **Admin**.
+
+## GitHub Pages
+
+The documentation site deploys through GitHub Actions. **Settings → Pages → Source** must be **GitHub Actions**.
+
+## Owner checklist
+
+1. Restrict `image-publish`, `image-promote`, and `github-pages` to `mvp`, and decide on reviewers for `image-promote`.
+2. Allow GitHub Actions to create and approve pull requests.
+3. Give this repository admin access to the `artemis-feature-model` container package.
+4. Set the Pages source to GitHub Actions.
+5. Make sure the container package is public, so that anyone can pull the images. The publication workflow checks
+   this on every run with an anonymous pull.

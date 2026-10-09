@@ -1,0 +1,35 @@
+---
+id: index
+title: Maintenance Tasks
+sidebar_label: Maintenance Tasks
+---
+
+This section has one page per maintenance task, each with steps you can follow. Find your task in the table below.
+
+| I want to… | Page |
+|---|---|
+| Review and merge the pull request of a scheduled run | [Review a Delivery PR](/maintainer/tasks/review-delivery-pr) |
+| Find out why a run failed and fix it | [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction) |
+| Add a feature to the model, change one, or keep one out | [Curate a Feature](/maintainer/tasks/curate-a-feature) |
+| Write the Configurator text for a feature | [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) |
+| Adapt the pipeline to a change in the Artemis source layout | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
+| Deliver one specific Artemis commit | [Deliver a Commit](/maintainer/tasks/deliver-artemis-commit) |
+| Approve an image, or go back to an earlier one | [Promote and Roll Back](/maintainer/tasks/promote-and-roll-back) |
+| Change the Artemis image that generated packages start | [Update the Runtime Image](/maintainer/tasks/update-runtime-image) |
+| Change what the remote deployment package contains | [Update Ansible Bindings](/maintainer/tasks/update-ansible-bindings) |
+| Move the feature manifest into Artemis | [Manifest Cutover](/maintainer/tasks/manifest-cutover) |
+
+## Routine work
+
+The poller runs twice a week. After each scheduled run, open the **Actions** tab and check the **Artemis delivery
+poller** run:
+
+- When it passed and opened a delivery pull request, [review it](/maintainer/tasks/review-delivery-pr).
+- When it passed without a pull request, nothing changed since the last delivery.
+- When it failed, [fix the run](/maintainer/tasks/fix-failed-extraction) before the next one.
+
+## On-demand work
+
+Everything else comes up when something changes: a new Artemis feature that teachers should be able to choose, a
+change in the Artemis source layout, a new version of the Ansible collection, or an image that you want to approve or
+replace.

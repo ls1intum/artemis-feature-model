@@ -1,0 +1,132 @@
+---
+id: api-reference
+title: REST API Reference
+sidebar_label: REST API
+---
+
+This page lists every REST endpoint of the server with its request, its response, and its errors. Use it when you call
+the API from the client or a script, or when you add an endpoint.
+
+## Conventions
+
+All endpoints live under `/api/feature-model` or `/api/deployment-profiles`. Requests and responses are JSON, except
+the downloads, which return a ZIP file with `Content-Disposition: attachment`. The API needs no authentication.
+
+To try an endpoint, start the server with `./gradlew bootRun` and call it with `curl`:
+
+```bash
+curl http://localhost:8090/api/deployment-profiles
+```
+
+## Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/feature-model` | The model, its tree, the default selection, and model warnings |
+| `POST` | `/api/feature-model/validate` | Validates a selection |
+| `GET` | `/api/feature-model/guided-workflow` | The guided workflow, enriched from the model |
+| `GET` | `/api/feature-model/profile-availability` | Availability of options and features under the active profile |
+| `GET` | `/api/feature-model/provenance` | The identity of the loaded runtime bundle |
+| `GET` | `/api/deployment-profiles` | Summaries of all deployment profiles |
+| `GET` | `/api/deployment-profiles/{profileId}` | One deployment profile in detail |
+| `POST` | `/api/feature-model/artifacts/download` | The configuration artifacts as a ZIP file |
+| `POST` | `/api/feature-model/deployment-package/preview` | A deployment package as JSON, with the content of every file |
+| `POST` | `/api/feature-model/deployment-package/download` | A deployment package as a ZIP file |
+| `POST` | `/api/feature-model/deployment-package/publish` | Commits a `remote-ansible` package to the deployment repository |
+| `GET` | `/api/feature-model/deployment-package/publish-target` | Whether publishing is configured, and where it would go |
+
+## Model and validation
+
+`GET /api/feature-model` returns `model`, `features`, `relations`, `constraints`, `tree`, `defaultSelectedFeatureIds`,
+and `warnings`. [Model and Validation](/developer/modules/model-and-validation) describes the fields.
+
+`POST /api/feature-model/validate` takes the selected feature ids:
+
+```json
+{ "selectedFeatureIds": ["course-workflow", "communication", "mysql"] }
+```
+
+It returns `valid`, `normalizedSelection` (the known ids in tree order), `violations`, and `warnings`. Each violation
+or warning has a `code`, a `message`, the affected `featureIds`, and a `suggestion`. An invalid selection is a normal
+answer with status 200, not an error.
+
+## Guided workflow, profiles, and availability
+
+`GET /api/feature-model/guided-workflow` returns `workflow`, `useCaseTemplates`, `steps`, and `finalReviewGroups`.
+[Guided Workflow](/developer/modules/guided-workflow) lists the fields the server derives.
+
+`GET /api/feature-model/profile-availability` returns `activeProfile`, `availableProfiles`, and one entry per option
+and per feature with `available`, `requiredCapabilities`, `missingCapabilities`, and a readable `teacherReason`. The
+optional query parameter `profileId` selects another profile; without it, the default profile is used.
+
+`GET /api/deployment-profiles` returns `id`, `name`, `version`, `status`, and `defaultProfile` for each profile.
+`GET /api/deployment-profiles/{profileId}` adds `providedCapabilities` and the profile's notes.
+
+`GET /api/feature-model/provenance` returns `sourceMode`, `modelId`, and `modelVersion`. In snapshot mode, it also
+returns the snapshot id and digest, the Artemis commit, the manifest digest, the repository commit, and the extractor
+version.
+
+## Export and publishing
+
+All export endpoints take the same request body:
+
+| Field | Meaning |
+|---|---|
+| `selectedFeatureIds` | The selection; it must be valid |
+| `deploymentMode` | Optional: `local-docker` (default), `dev-ide`, or `remote-ansible` |
+| `profileId` | Optional: the deployment profile; defaults to `default-artemis-profile` |
+| `remoteEnvironment` | Optional, `remote-ansible` only: `{ "targetName": "artemis-remote" }` names the inventory target group |
+
+The artifacts download uses only `selectedFeatureIds` and `profileId`. The downloads return a ZIP file. The preview
+returns `status`, `files` with `path`, `contentType`, and `preview` (the file content), and the generation `report`.
+
+`POST /api/feature-model/deployment-package/publish` needs `deploymentMode` `remote-ansible` and a target name. It
+returns `repositoryUrl`, `branch`, `targetDirectory`, `commitSha`, `commitUrl` (set for `https://github.com/` URLs),
+and `upToDate`, which is `true` when the repository already held the same package.
+
+`GET /api/feature-model/deployment-package/publish-target` returns `configured`, `repositoryUrl`, `branch`, and
+`targetDirectoryRoot`. It never returns a credential. [Publishing](/developer/modules/deployment-publishing) explains
+the configuration.
+
+## Errors
+
+Every error response is JSON with a stable `code` and a readable `message`:
+
+```json
+{ "code": "ARTIFACT_GENERATION_UNKNOWN_DEPLOYMENT_MODE", "message": "Unknown deployment mode 'cloud'." }
+```
+
+When a `remote-ansible` package cannot express a selected feature, the response also contains `featureId` and
+`reason`, so that the client can name the feature.
+
+| Code | Status | Meaning |
+|---|---|---|
+| `ARTIFACT_GENERATION_INVALID_SELECTION` | 400 | The selection has violations |
+| `ARTIFACT_GENERATION_UNKNOWN_DEPLOYMENT_MODE` | 400 | The deployment mode is not known |
+| `ARTIFACT_GENERATION_UNSUPPORTED_DEPLOYMENT_MODE` | 400 | The profile does not support the deployment mode |
+| `ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE` | 400 | The pinned Ansible collection cannot express a selected feature |
+| `ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNCLASSIFIED_FEATURE` | 400 | The Ansible binding catalog does not classify a selected feature |
+| `ARTIFACT_GENERATION_REMOTE_ENVIRONMENT_NOT_APPLICABLE` | 400 | `remoteEnvironment` was sent for a mode other than `remote-ansible` |
+| `ARTIFACT_GENERATION_*` (others) | 400, 500 | Technical mappings or demo values that cannot be rendered |
+| `DEPLOYMENT_PROFILE_NOT_FOUND` | 404 | The profile id does not exist |
+| `DEPLOYMENT_PROFILE_*` (others) | 500 | A profile file is unreadable, duplicated, or uses removed fields |
+| `PUBLISH_*` | 400, 409, 502 | Publishing failed; see [Publishing](/developer/modules/deployment-publishing#errors) |
+| `FEATURE_MODEL_LOAD_FAILED` | 500 | The runtime bundle could not be loaded |
+| Integrity codes, such as `DUPLICATE_FEATURE_ID` | 500 | The loaded model or workflow is structurally invalid |
+
+The exception classes behind these codes are described in
+[Server Structure](/developer/architecture/server#errors-and-controlled-exceptions).
+
+## Optional endpoints
+
+The legacy snapshot administration API exists only when `artemis.feature-model.snapshot-admin-api-enabled` is `true`,
+which classpath mode allows for local development. Otherwise the server answers 404.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/feature-model/snapshots` | Lists the snapshots in the data root |
+| `GET` | `/api/feature-model/snapshots/{snapshotId}` | One snapshot in detail |
+| `POST` | `/api/feature-model/snapshots/import` | Imports a snapshot folder from `sourcePath` |
+| `GET` | `/api/feature-model/snapshots/{snapshotId}/export` | Exports a snapshot as a ZIP file |
+
+Snapshot errors use codes that start with `SNAPSHOT_`, for example `SNAPSHOT_NOT_FOUND`.

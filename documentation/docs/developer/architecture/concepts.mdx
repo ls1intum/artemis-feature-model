@@ -1,0 +1,119 @@
+---
+id: concepts
+title: Key Concepts
+sidebar_label: Key Concepts
+---
+
+This page defines the terms that the Developer Guide uses. Each term has one meaning, and other pages link here
+instead of explaining it again.
+
+## Feature model and features
+
+A **feature model** is a tree of features plus constraints between them. The server loads it from
+`functional-feature-model.json`; the model has metadata (id, name, version), a list of features, a list of relations,
+and a list of constraints.
+
+A **feature** is one node of the tree. Its `kind` says what it is:
+
+| Kind | Meaning | Example |
+|---|---|---|
+| `root` | The single top of the tree | `artemis` |
+| `group` | A structural node that groups other features; users cannot select it | `exercise-system` |
+| `module` | An Artemis module that can be switched on or off | `text`, `iris` |
+| `feature` | A smaller feature, often a technical choice | `postgresql` |
+
+Every feature also has a **category**. A `functional` feature is something a teacher cares about, such as text
+exercises. A `technical` feature is a deployment choice, such as the database. A `derived` node only gives the tree
+its structure.
+
+A feature is **selectable** when users can switch it on or off. Its **default state** is `enabled` or `disabled`;
+structural nodes have `not_applicable`.
+
+## Relations and groups
+
+A **relation** connects a parent with a child and has a `relationType`:
+
+- `mandatory`: when the parent is active, the child must be selected.
+- `optional`: the child may be selected or not.
+- `group`: the child is a group node, and `groupType` says how its children combine.
+
+With `groupType` `and`, the group's children follow their own relation types. With `alternative`, exactly one child
+is chosen, for example one database: `mysql` or `postgresql`.
+
+## Constraints
+
+A **constraint** is a rule across the tree:
+
+- `requires`: selecting the source feature requires the target feature. Example: `apollon` requires `modeling`.
+- `excludes`: the two features cannot both be selected. Example: `mysql` excludes `postgresql`.
+- `expression`: a free-form rule. The server does not evaluate it and reports a warning instead.
+
+## Selection and validation
+
+A **selection** is the set of selected feature ids. The client holds it; the server never stores it.
+
+The **default selection** is every selectable feature whose default state is `enabled`. The server computes it and
+sends it as `defaultSelectedFeatureIds`, so the client starts from the same selection as the server.
+
+**Validation** checks a selection against the model. A **violation** makes the selection invalid, for example a
+missing mandatory feature or a broken `requires` constraint. A **warning** does not make it invalid. Every violation
+and warning has a stable code, such as `MANDATORY_FEATURE_MISSING`, and a suggestion for how to fix it.
+
+## Guided workflow
+
+The **guided workflow** is the question-and-answer path of the Configurator. It is written in `guided-workflow.json`
+and consists of:
+
+- **Use-case templates**, such as "Programming course", that preselect a set of features.
+- **Steps**, the pages of the workflow. Each step holds one or more **decisions**.
+- **Decisions**, each with a question and **options**. An option selects or deselects features and explains the
+  outcome in teacher-facing language.
+- **Review groups**, which arrange the selected features on the review page by model group.
+
+An option has a status: `published` options are shown, `draft` options are hidden until their text is complete.
+
+## Capabilities and deployment profiles
+
+Some features need something from the deployment around Artemis. Iris, for example, needs a running Pyris service and
+a shared secret. The feature lists these needs as **capabilities**, such as `pyris-service`.
+
+A **deployment profile** describes a deployment context and lists the capabilities it provides. A feature is
+**available** when the active profile provides every capability it needs. The application ships one profile,
+`default-artemis-profile`, which provides all capabilities.
+
+## Artifact mappings and the configuration overlay
+
+An **artifact mapping** connects a feature to one configuration entry. It names a target file, a configuration
+path, and a source:
+
+- A `selection` mapping writes one value when the feature is selected and another when it is not, for example
+  `artemis.text.enabled: true` or `false`.
+- An `environment` mapping writes a `${VARIABLE}` placeholder that the deployment fills in, for example a service URL
+  or a secret. The application never writes a secret value itself.
+
+The **configuration overlay** is the generated file `application-feature-model.yml`. It collects every mapping that
+targets this file. Artemis loads it on top of its own configuration.
+
+Mappings to other targets are **structural mappings**. They choose the Docker Compose file of the database or the
+Spring profiles of the CI provider.
+
+## Deployment packages and deployment modes
+
+A **deployment package** is a ZIP file with the overlay and everything needed to use it in one kind of
+environment. The **deployment mode** decides which kind:
+
+| Mode | Package |
+|---|---|
+| `local-docker` | Docker Compose stacks and scripts to start Artemis locally (the default) |
+| `dev-ide` | An IntelliJ IDEA run configuration for an Artemis checkout |
+| `remote-ansible` | Ansible inventory values and a playbook for a remote server |
+
+## Runtime bundle and source mode
+
+The **runtime bundle** is the feature model, the guided workflow, and the Artemis config-key catalog, loaded and
+validated together at startup. The **source mode** decides where the bundle comes from: `classpath` reads the
+resources in the repository, `snapshot` reads one generated snapshot directory.
+
+A **snapshot** is the validated output of one extraction run. The Maintainer Guide explains
+[extraction](/maintainer/extraction), [snapshots](/maintainer/extraction/snapshots), and their
+[delivery](/maintainer/pipeline).

@@ -1,0 +1,95 @@
+---
+id: stages
+title: Stages and Artifacts
+sidebar_label: Stages and Artifacts
+---
+
+This page describes what each stage of the extraction pipeline reads and writes. You need it when you look for a
+specific file of a run, or when a stage refuses the output of an earlier one.
+
+## Run identity
+
+Every stage starts the same way. It checks that the Artemis checkout is a Git work tree without uncommitted changes,
+reads the commit from `HEAD`, and, when you pass `-PexpectedArtemisSha`, compares the two. It then reads the manifest
+once and computes its digest.
+
+The commit and the manifest digest are the identity of the run. All files of the run land under
+`build/feature-extraction/<source-revision>/`, and every stage records the identity it worked with.
+
+## How stages hand over their results
+
+Each stage writes its files into its own directory, plus an **envelope**: a small `*-result.json` file that records the
+Artemis commit, the extractor version, and the digests of the files the stage read and wrote. The next stage reads
+the envelope first and checks every digest before it uses anything.
+
+This is why a stage refuses stale input. If you edit the manifest after the model stage, the workflow stage sees a
+different manifest digest and stops:
+
+```text
+The model artifact was produced with manifest digest 'sha256:…' but this run requires 'sha256:…'; rerun the upstream command.
+```
+
+Run the named earlier stage again, or run all stages with `buildFeatureModelSnapshot`.
+
+## Scan
+
+The scan reads the Artemis checkout through the [source scanners](/maintainer/extraction/source-scanners) and writes
+`scan/`:
+
+| File | Content |
+|---|---|
+| `feature-candidates.json` | Every candidate with its namespace id, kind, and source facts |
+| `evidence.json` | The source locations that support each candidate |
+| `relation-candidates.json` | Dependencies between candidates found in the source |
+| `config-defaults.json` | The default values of the Artemis `application*.yml` files |
+| `annotations.json` | `@ArtemisFeature` annotations, when Artemis contains any |
+| `scan-diagnostics.json` | Findings of the scanners |
+| `scan-metadata.json` | Timestamps of the scan |
+| `scan-result.json` | The envelope |
+
+## Model
+
+The model stage applies the manifest to the scan and writes `model/`:
+
+| File | Content |
+|---|---|
+| `generated-feature-model.json` | The generated model |
+| `generated-config-key-catalog.json` | The config-key catalog, built from the model's configuration mappings and the scanned defaults |
+| `manifest-conformance-report.json` | The curation decisions and every gap the manifest leaves open |
+| `model-diagnostics.json` | Findings of the model checks |
+| `model-result.json` | The envelope |
+
+When the manifest leaves a candidate or a relation undecided, the stage writes the conformance report and stops
+before it assembles a model. Other blocking findings, such as an invalid model, let the stage finish; the package
+stage then refuses to write a snapshot. [Curation and Conformance](/maintainer/extraction/curation-and-conformance) lists every
+check.
+
+## Workflow
+
+The workflow stage checks the authored guided workflow against the generated model and writes `workflow/`:
+
+| File | Content |
+|---|---|
+| `guided-workflow.json` | The checked copy of the guided workflow |
+| `guided-workflow-validation.json` | Coverage, capability, and consistency findings |
+| `workflow-diagnostics.json` | Findings in the format of the report |
+| `workflow-result.json` | The envelope |
+
+## Package
+
+The package stage collects the findings of all stages into the report in `report/`. When no stage has a blocking
+finding, it also writes the [snapshot](/maintainer/extraction/snapshots) in `snapshot/` and validates it before it
+finishes.
+
+## When a stage fails
+
+A stage that stops still writes the report, so you can always open `report/index.html`. It also removes the outputs of
+the later stages. A snapshot from an earlier, passing run never survives a failed run of the same commit.
+
+Gradle reports a failed stage as a failed task, and the command exits with a non-zero code. CI relies on this.
+
+## Same input, same output
+
+Two runs with the same Artemis commit, manifest, and guided workflow produce byte-identical files. The only exception
+is `scan-metadata.json`, which records when the scan ran. This is why a snapshot id can name its content: the same
+inputs always give the same snapshot.

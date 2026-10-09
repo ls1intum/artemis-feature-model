@@ -1,0 +1,102 @@
+---
+id: running-locally
+title: Run the Pipeline Locally
+sidebar_label: Run the Pipeline Locally
+---
+
+This page shows how to run the extraction pipeline on your machine. Run it locally before you open a pull request that
+changes the manifest or the guided workflow, and whenever you need to reproduce a failed CI run.
+
+## Before you begin
+
+You need a clean Artemis checkout and Gradle must know where it is. [Setup](/maintainer/setup) covers both. The
+examples use `../artemis-extraction` as the path.
+
+## Run all stages
+
+```bash
+./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction
+```
+
+The task runs the four stages in order and prints a short summary after each one: the number of candidates, the
+curation counts, the size of the generated model, and the findings. A run usually takes less than a minute.
+
+To check against a specific commit, as CI does, add the commit you expect:
+
+```bash
+./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction \
+  -PexpectedArtemisSha="$(cat delivery/artemis-validation-pin)"
+```
+
+The run then stops at once when the checkout points to a different commit.
+
+## Run a single stage
+
+Each stage has its own task. A later stage reuses the output of the earlier ones, so you can repeat only the stage you
+care about:
+
+| Task | Stage |
+|---|---|
+| `extractFeatureCandidates` | Scan |
+| `assembleFeatureModel` | Model |
+| `prepareGuidedWorkflow` | Workflow |
+| `packageFeatureModelSnapshot` | Package |
+
+For example, after you change only the guided workflow, run the workflow and package stages again:
+
+```bash
+./gradlew prepareGuidedWorkflow packageFeatureModelSnapshot -PartemisPath=../artemis-extraction
+```
+
+Every stage needs `-PartemisPath`, because each one names its output after the commit of the checkout. After a change
+to the manifest, start from the model stage. A stage refuses output from an earlier stage that was produced with other
+inputs, and tells you which task to run again.
+
+## Where the output goes
+
+All output lands in `build/feature-extraction/<source-revision>/`, one directory per Artemis commit:
+
+```text
+build/feature-extraction/<source-revision>/
+├── scan/       candidates, evidence, relation candidates
+├── model/      generated model, config-key catalog, conformance report
+├── workflow/   validated guided workflow and its findings
+├── report/     index.html and the raw JSON reports
+└── snapshot/   the seven snapshot files, only when the run passes
+```
+
+Open `report/index.html` in a browser first. [Read the Report](/maintainer/extraction/reports) explains it.
+
+## Choose the manifest
+
+By default the pipeline reads the manifest of this repository. The `featureManifestSource` property selects another
+source:
+
+| Value | Manifest that the pipeline reads |
+|---|---|
+| `repository` (default) | `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml` in this repository |
+| `checkout` | `supportingFiles/feature-model/artemis-feature-manifest.yml` inside the Artemis checkout |
+
+The default is set in `gradle.properties`. To try out a manifest from another place, pass its path with
+`-PfeatureManifestPath=<file>`. [The Feature Manifest](/maintainer/extraction/manifest) explains why there are two
+sources.
+
+## Validate and build an image
+
+A passing run leaves a snapshot that you can validate on its own and turn into an image, the same way the delivery
+workflows do:
+
+```bash
+./gradlew validateFeatureModelSnapshot -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+./gradlew stageFeatureModelDockerContext -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+scripts/build-snapshot-image.sh build/docker/feature-model-snapshot artemis-feature-model:snapshot-local
+scripts/verify-snapshot-image.sh artemis-feature-model:snapshot-local build/docker/feature-model-snapshot
+```
+
+The last two commands need Docker. [Snapshots](/maintainer/extraction/snapshots) and
+[Images and Runtime](/maintainer/pipeline/images) explain each step.
+
+## If something goes wrong
+
+The pipeline names the problem and the fix in one line, for example a checkout with uncommitted changes or a missing
+`-PartemisPath`. [Troubleshooting](/maintainer/troubleshooting) lists the common messages.

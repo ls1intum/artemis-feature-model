@@ -1,0 +1,83 @@
+/* The homepage uses the theme variables only, so light and dark mode need no extra rules. */
+
+.header {
+    padding: 4.5rem 0 2.5rem;
+    text-align: center;
+}
+
+.title {
+    margin-bottom: 0.75rem;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+.subtitle {
+    max-width: 38rem;
+    margin: 0 auto;
+    color: var(--ifm-color-emphasis-700);
+    font-size: 1.15rem;
+}
+
+.guides {
+    display: grid;
+    max-width: 52rem;
+    margin: 0 auto;
+    padding-bottom: 5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+.guide {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    color: var(--ifm-font-color-base);
+    border: 1px solid var(--ifm-color-emphasis-300);
+    border-radius: 0.5rem;
+    background: var(--ifm-background-surface-color);
+    transition: border-color 150ms ease;
+}
+
+.guide:hover {
+    color: var(--ifm-font-color-base);
+    text-decoration: none;
+    border-color: var(--ifm-color-primary);
+}
+
+.guide:focus-visible {
+    outline: 2px solid var(--ifm-color-primary);
+    outline-offset: 2px;
+}
+
+.guideTitle {
+    margin-bottom: 0.5rem;
+    color: var(--ifm-color-primary);
+    font-size: 1.25rem;
+}
+
+.guideDescription {
+    flex-grow: 1;
+    margin-bottom: 1rem;
+    color: var(--ifm-color-emphasis-800);
+}
+
+.guideAction {
+    color: var(--ifm-color-primary);
+    font-weight: 600;
+}
+
+@media screen and (max-width: 768px) {
+    .header {
+        padding: 3rem 0 2rem;
+    }
+
+    .guides {
+        padding-bottom: 3rem;
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .guide {
+        transition: none;
+    }
+}

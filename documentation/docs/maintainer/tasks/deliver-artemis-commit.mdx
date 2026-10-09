@@ -1,0 +1,55 @@
+---
+id: deliver-artemis-commit
+title: Deliver a Specific Artemis Commit
+sidebar_label: Deliver a Commit
+---
+
+The poller delivers the latest Artemis commit on its schedule. This page shows how to deliver one specific commit
+right away instead. You need it after a fix for a failed run, when you want a model for a particular Artemis
+commit, or to repeat a delivery.
+
+## Before you begin
+
+You need write access to the repository, and the full 40-character SHA of the Artemis commit. The poller rejects
+branch names, tags, and short SHAs, because they could point to a different commit later.
+
+When the commit is newer than the validation pin, run the pipeline against it locally first, as described in
+[Run the Pipeline Locally](/maintainer/extraction/running-locally). A failing commit publishes nothing.
+
+## Start the poller
+
+Start **Artemis delivery poller** from the **Actions** tab with **Run workflow** on `mvp`, and enter the SHA as
+**artemis_sha**. Or use the GitHub CLI:
+
+```bash
+gh workflow run poll-artemis-delivery.yml --ref mvp -f artemis_sha=<full-artemis-commit-sha>
+```
+
+Leave the field empty to deliver the current head of the Artemis `develop` branch, which is what the schedule does.
+
+## What happens next
+
+The poller runs the same steps as a scheduled run, but with your commit:
+
+1. It computes the snapshot id and checks whether this snapshot was already published from the current commit of
+   this repository.
+2. If not, it validates the commit, publishes the image, and opens or updates the delivery pull request.
+
+Follow the run in the **Actions** tab. When it finishes, [review the delivery pull request](/maintainer/tasks/review-delivery-pr).
+
+## When the snapshot is already published
+
+When the same snapshot was already published from the current commit of this repository, the run ends after the
+first job with the summary **Delivery short-circuited**. Nothing is wrong: the image exists, and you can find it by
+its snapshot id tag. A new commit on `mvp` lifts the short-circuit, because the image would then be built from
+different code.
+
+## Publish without a pull request
+
+To publish an image without opening a delivery pull request, start **Publish snapshot image** with the same input
+instead. It validates and publishes the commit, but changes nothing in the repository.
+
+## Related pages
+
+- [Workflows](/maintainer/pipeline/workflows)
+- [Promote and Roll Back](/maintainer/tasks/promote-and-roll-back)

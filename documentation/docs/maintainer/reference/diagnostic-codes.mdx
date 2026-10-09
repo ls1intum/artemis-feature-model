@@ -1,0 +1,55 @@
+---
+id: diagnostic-codes
+title: Diagnostic Codes
+sidebar_label: Diagnostic Codes
+---
+
+This page lists every code that can appear in the extraction report and in the guided workflow validation. The codes
+are stable, so you can search for them. A finding with severity `error` blocks the delivery; the one exception is
+`CLIENT_SERVER_MIRROR_MISMATCH`, which only describes Artemis. [Curation and Conformance](/maintainer/extraction/curation-and-conformance)
+explains the checks behind the codes.
+
+## Extraction report
+
+| Code | Severity | Meaning | Fix |
+|---|---|---|---|
+| `UNDECLARED_CANDIDATE` | error | A candidate has no include or exclude entry | [Curate a Feature](/maintainer/tasks/curate-a-feature) |
+| `RELATION_CANDIDATE_UNDECLARED` | error | A relation between two included features has no constraint and no ignored relation | [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
+| `MANIFEST_ORPHAN_ANCHOR` | error | A manifest anchor matches no candidate, or more than one | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
+| `MANIFEST_CURATION_CONFLICT` | error | Manifest entries collide, for example two features with one id | Fix the entries the message names |
+| `EXTRACTOR_ERROR` | error | A scanner could not read its source | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
+| `GENERATED_MODEL_CONFORMANCE_MISMATCH` | error | The generated model differs from what the manifest declares | Ask a developer |
+| `DANGLING_GENERATED_CONSTRAINT` | error | A constraint names a feature that is not in the model | Fix or remove the constraint |
+| `GENERATED_MODEL_INVALID` | error | The generated model breaks an integrity rule of the application | Fix the manifest entry the message names |
+| `TECHNICAL_FEATURE_ROLE_LEAK` | error | A technical feature would be visible to teachers | Check the `category` of the feature |
+| `PROFILE_CAPABILITY_MISMATCH` | error | A technical feature provides a capability the deployment profile does not list | Add the capability to the profile |
+| `CONFIG_KEY_CATALOG_DRIFT` | error | A mapped configuration key has no default in Artemis | [Curate a Feature](/maintainer/tasks/curate-a-feature#run-the-pipeline) |
+| `GENERATED_WORKFLOW_INVALID` | error | The guided workflow refers to something the model does not have | [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) |
+| `GUIDED_WORKFLOW_FINDINGS` | error or warning | The guided workflow validation has findings; the severity is the highest among them | See the next table |
+| `PIPELINE_ARTIFACT_INVALID` | error | A stage could not read or verify the output of an earlier stage | Run the earlier stage again |
+| `CLIENT_SERVER_MIRROR_MISMATCH` | warning or error | The Artemis client and server disagree about a module or a toggle | None in this repository; it describes Artemis |
+| `EXCLUSION_REASON_UNSPECIFIED` | warning | An exclude entry has no reason | Add a `reason` |
+| `EXCLUDED_TOGGLE_RATIONALE_MISSING` | warning | An excluded runtime toggle has no rationale | Add a `rationale` |
+| `ANNOTATED_BUT_UNSCOPED` | warning | An `@ArtemisFeature` annotation sits on a candidate that is not included | Include the candidate, or ignore |
+| `MANIFEST_OVERRIDES_ANNOTATION` | warning | The manifest replaces a value of an annotation | None; the manifest wins |
+| `ANNOTATED_ANCHOR_NOT_EXTRACTED` | warning | An annotation sits on something the scan did not find | Check the annotation in Artemis |
+| `MODULE_CONSTANT_ASYMMETRY` | info | A module has a configuration key but no module constant, or the other way round | None; it describes Artemis |
+
+## Guided workflow validation
+
+These codes appear in `workflow/guided-workflow-validation.json`. The server also logs them at startup.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `GUIDED_WORKFLOW_STUB_PROSE` | error | A published option or its decision still has `TODO` or empty text |
+| `GUIDED_WORKFLOW_UNKNOWN_CAPABILITY` | error | A feature needs a capability that no deployment profile provides |
+| `GUIDED_WORKFLOW_TEMPLATE_CONFLICT` | error | A template selects and deselects the same feature |
+| `GUIDED_WORKFLOW_TEMPLATE_UNCOVERED_PRESET` | error | A template preselects a feature that no published option covers |
+| `GUIDED_WORKFLOW_COVERAGE_GAP` | warning | A selectable functional feature has no published option |
+| `GUIDED_WORKFLOW_REVIEW_GROUP_GAP` | warning | A model group with selectable features has no review group |
+| `GUIDED_WORKFLOW_DEFAULT_TEMPLATE_PRESET` | warning | The default template preselects features instead of using the model defaults |
+| `GUIDED_WORKFLOW_MISSING_STATUS` | warning | An option has no `status` and counts as published |
+| `GUIDED_WORKFLOW_DRAFT_OPTION` | warning | A draft option exists; it is not shown |
+| `GUIDED_WORKFLOW_DRAFT_UNKNOWN_REFERENCE` | warning | A draft option refers to a feature the model does not have |
+
+[Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) shows how to resolve them.

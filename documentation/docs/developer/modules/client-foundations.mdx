@@ -1,0 +1,69 @@
+---
+id: client-foundations
+title: API Services, Types, and Shared UI
+sidebar_label: Client Foundations
+---
+
+The Explorer and the Configurator build on a small set of shared client code: the types of the REST contract, the
+services that call the server, and a few shared helpers and components. Read this page before you add a REST call or
+a shared helper to the client.
+
+## Shared types
+
+`src/main/webapp/app/feature-model/core/` holds one TypeScript file per area of the REST contract:
+
+| File | Types for |
+|---|---|
+| `feature-model.types.ts` | The model response, the tree, and validation requests and results |
+| `guided-workflow.types.ts` | The served guided workflow |
+| `deployment-profile.types.ts` | Profiles and availability |
+| `artifact-generation.types.ts` | Export requests and publish responses |
+| `snapshot.types.ts` | The legacy snapshot API |
+
+These interfaces mirror the server DTOs. When a DTO changes, update its interface in the same pull request.
+
+The client keeps no copy of the model itself: no feature lists, rules, defaults, or workflow text. It always uses
+what the server sends. A change to the model or the workflow therefore reaches the client without a client change.
+
+## API services
+
+Components never call `HttpClient` directly. `api/feature-model.service.ts` wraps every REST call except validation:
+
+| Method | Endpoint |
+|---|---|
+| `loadFeatureModel` | `GET /api/feature-model` |
+| `loadGuidedWorkflow` | `GET /api/feature-model/guided-workflow` |
+| `loadWorkflowAvailability` | `GET /api/feature-model/profile-availability` |
+| `downloadArtifacts` | `POST /api/feature-model/artifacts/download` |
+| `downloadDeploymentPackage` | `POST /api/feature-model/deployment-package/download` |
+| `publishDeploymentPackage` | `POST /api/feature-model/deployment-package/publish` |
+| `loadDeploymentPackagePublishTarget` | `GET /api/feature-model/deployment-package/publish-target` |
+| `loadSnapshots` | `GET /api/feature-model/snapshots` |
+
+Each method returns the HTTP observable without catching errors, so the calling component decides how to show a
+failure. Downloads return a `Blob`, which the Configurator saves as a file.
+
+`validation/feature-model-validation.service.ts` sends a selection to `POST /api/feature-model/validate`. The
+Configurator calls it after every change and numbers its requests, so that only the newest answer is shown.
+
+## Shared helpers and components
+
+| File | Purpose |
+|---|---|
+| `core/feature-model-tree.utils.ts` | Pure tree helpers: find, filter by search query, collect ids, and kind labels |
+| `configurator/shared/configurator-selection.utils.ts` | Applies guided options to a selection and adds feature names to validation messages |
+| `configurator/shared/validation-issue-list.component.ts` | Renders violations or warnings with their code, message, affected features, and fix |
+
+Keep helpers pure where you can. A pure function is easy to test and can be shared by both views.
+
+## Add a REST call
+
+1. Add or extend the interfaces in `core/` to match the server DTO.
+2. Add a method to `FeatureModelService` that returns the HTTP observable.
+3. Test it in `feature-model.service.spec.ts` with `HttpTestingController`, checking the method, the URL, and the body.
+
+## Test fixtures
+
+`core/feature-model.test-fixtures.ts` builds realistic responses for tests: `buildMvpFeatureModelResponse`,
+`buildGuidedWorkflowFixture`, and `buildWorkflowAvailabilityFixture`. They accept overrides or options, so a test
+changes only what it needs.
