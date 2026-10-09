@@ -291,7 +291,8 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   and opens the delivery auto-PR (fixture refresh, validation-pin bump,
   coverage summary). No workflow publishes `latest` or deploys the image;
   deployment remains deferred. The cutover to the Artemis-hosted manifest is
-  documented in `docs/extraction/automated-model-delivery.md` and not
+  documented in the Maintainer Guide
+  (`documentation/docs/maintainer/tasks/manifest-cutover.mdx`) and not
   executed.
 - Runtime source mode is explicit under `artemis.feature-model.source-mode`.
   Local development defaults to `classpath`, which loads and validates the

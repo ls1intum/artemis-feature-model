@@ -227,9 +227,9 @@ SHA. It publishes the already-tested `linux/amd64` image to public GHCR under
 its snapshot-id tag, and the registry digest is the authoritative identity.
 `promote-image.yml` tags a published digest as `verified`; rollback promotes an
 earlier digest from `delivery/verified-images.json`. No workflow publishes
-`latest` or deploys the image. See
-[`docs/extraction/automated-model-delivery.md`](docs/extraction/automated-model-delivery.md)
-for reproduction, delivery configuration, publication, promotion, and rollback.
+`latest` or deploys the image. See the
+[Maintainer Guide](documentation/docs/maintainer/intro.mdx) for reproduction,
+delivery configuration, publication, promotion, and rollback.
 
 ## Routes
 
