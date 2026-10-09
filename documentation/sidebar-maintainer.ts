@@ -6,6 +6,20 @@ const sidebars: SidebarsConfig = {
         'intro',
         'setup',
         'concepts',
+        {
+            type: 'category',
+            label: 'Extraction System',
+            link: { type: 'doc', id: 'extraction/index' },
+            items: [
+                'extraction/running-locally',
+                'extraction/stages',
+                'extraction/manifest',
+                'extraction/curation-and-conformance',
+                'extraction/source-scanners',
+                'extraction/reports',
+                'extraction/snapshots',
+            ],
+        },
     ],
 };
 

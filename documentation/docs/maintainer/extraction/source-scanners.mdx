@@ -1,0 +1,76 @@
+---
+id: source-scanners
+title: What the Pipeline Reads from Artemis
+sidebar_label: Source Scanners
+---
+
+The scan stage reads a fixed set of files from the Artemis checkout. This page lists them and explains what the
+pipeline learns from each one. You need it when Artemis moves or renames one of these files and the scan stops
+finding what it used to find.
+
+## Source conventions
+
+All Artemis paths and symbols that the pipeline relies on are collected in one class:
+`src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/source/ArtemisSourceConventions.java`. It names the
+source roots (such as `src/main/java` and `deployment/docker`), the known files, and the naming patterns (such as the
+prefix `MODULE_FEATURE_` or the suffix `Enabled` of a condition class).
+
+For each known file, the class stores the expected path and a fallback: when the file is not at its path, the scanner
+searches the surrounding source root by file name. A file that moves within its root is therefore still found. A
+file that moves to another root or changes its name is not.
+
+## Scanners
+
+Each scanner reads one kind of source and records plain facts. None of them decides whether something becomes a
+feature; the manifest does that.
+
+| Scanner | Reads | Learns |
+|---|---|---|
+| Server constants | `Constants.java` | Module ids (`MODULE_FEATURE_*`), enabled-property names, Spring profile names |
+| Configuration helper | `ArtemisConfigHelper.java` | Which property each module reads, and the list of modules the server reports |
+| Condition classes | Every `*Enabled` class that implements `Condition` | Module conditions, and composite conditions that combine two modules |
+| Server feature enum | `Feature.java` | Runtime toggles |
+| Client constants | `app.constants.ts` | The client's copy of module and profile ids |
+| Client toggle enum | `feature-toggle.service.ts` | The client's copy of the runtime toggles |
+| Admin page | `admin-feature-toggle.component.ts` | Which features the Artemis admin page shows, and their documentation links |
+| Translations | `i18n/en/featureToggles.json` | Names, descriptions, and warnings of features |
+| Configuration | Every `application*.yml` file | Default values of configuration keys |
+| Compose files | Top-level files in `deployment/docker` | The MySQL and PostgreSQL stacks, and the Jenkins stack |
+| Usage | Production Java and client sources | Where toggles and conditions are used |
+| Annotations | Java files with `@ArtemisFeature` | Suggested feature attributes |
+
+The scanners are fail-soft: when one cannot parse a file, it reports an `EXTRACTOR_ERROR` and the others continue.
+The model stage then stops the run, because the facts are incomplete.
+
+## From facts to candidates
+
+After the scanners, the scan assembles candidates. It joins the facts of several scanners on their ids: the module
+`text`, for example, combines the constant `MODULE_FEATURE_TEXT`, its enabled property, its condition class, its
+default value, and its translated name into the candidate `module:text`. The source locations of these facts become
+the candidate's evidence in `scan/evidence.json`.
+
+There are four kinds of candidates, each with its own id namespace:
+
+| Kind | Namespace | Example |
+|---|---|---|
+| Module | `module:` | `module:iris` |
+| Runtime toggle | `toggle:` | `toggle:Science` |
+| Spring profile | `profile:` | `profile:localci` |
+| Infrastructure | `infra:` | `infra:postgres` |
+
+Composite condition classes, such as one that needs both modeling and Apollon, become relation candidates with ids
+like `relation:ModelingWithApollonEnabled`.
+
+## When Artemis moves or renames files
+
+A moved or renamed source usually shows up in one of three ways:
+
+- `MANIFEST_ORPHAN_ANCHOR`: a candidate disappeared, for example because the Compose files moved and the database
+  candidates are no longer found.
+- `EXTRACTOR_ERROR`: a scanner found a file but could not read its new structure.
+- `UNDECLARED_CANDIDATE` together with `MANIFEST_ORPHAN_ANCHOR`: Artemis renamed a module or a toggle, so the old
+  anchor matches nothing and the new id has no decision.
+
+To fix the first two, update the path or symbol in `ArtemisSourceConventions` and add the new layout to the test
+checkout in `src/test/resources/extraction/mini-artemis/`. A rename in Artemis is a curation change instead: update
+the manifest entry. Follow Artemis Changes walks through both cases.

@@ -1,0 +1,90 @@
+---
+id: snapshots
+title: Snapshots
+sidebar_label: Snapshots
+---
+
+A snapshot is the complete output of one successful extraction run, and the unit that delivery publishes. This page
+describes its files, its id, and the tasks that validate it, copy it into the classpath fixture, or prepare it for an
+image.
+
+## What a snapshot is
+
+A passing run writes the snapshot to `build/feature-extraction/<source-revision>/snapshot/`. It holds everything the
+application needs to serve one version of the model, and nothing else. A snapshot image contains exactly one snapshot,
+and the application in that image serves only this snapshot.
+
+Because the pipeline is deterministic, a snapshot is fully described by its inputs: the same Artemis commit, manifest,
+and guided workflow always produce the same files.
+
+## The seven files
+
+| File | Content |
+|---|---|
+| `feature-model.json` | The generated feature model |
+| `guided-workflow.json` | The checked guided workflow |
+| `config-key-catalog.json` | The Artemis configuration keys a generated configuration may contain |
+| `generation-report.json` | The findings of the run |
+| `provenance.json` | Where the snapshot comes from: Artemis commit, manifest digest and source, the commit of this repository, and the digest of every file |
+| `metadata.json` | The snapshot id, version, status, the Artemis runtime image reference, and the file names |
+| `checksums.txt` | The SHA-256 digest of every other file |
+
+## The snapshot id
+
+The snapshot id combines the first twelve characters of the Artemis commit and of the manifest digest:
+
+```text
+generated-<artemis-commit-prefix>-<manifest-digest-prefix>
+```
+
+The id names the Artemis source and the curation, but not the commit of this repository. Two commits of this
+repository that use the same Artemis commit and manifest produce snapshots with the same id.
+
+## Validate a snapshot
+
+```bash
+./gradlew -q validateFeatureModelSnapshot -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+```
+
+The task only reads. It checks the checksums, the file names, the metadata, and that all files agree on where the
+snapshot comes from. On success it prints the identity of the snapshot:
+
+```text
+snapshotId=generated-<artemis-commit-prefix>-<manifest-digest-prefix>
+snapshotDigest=sha256:<digest over the snapshot>
+artemisCommit=<commit>
+manifestDigest=sha256:<digest>
+payloadCount=6
+```
+
+The package stage runs the same check before it finishes, and the delivery workflows run it again before they build
+an image.
+
+## Refresh the classpath fixture
+
+Local development and the tests use a copy of the delivered model in `src/main/resources/feature-model/`. The refresh
+task copies a snapshot's `feature-model.json` and `config-key-catalog.json` over this copy and records the snapshot in
+`fixture-provenance.json`:
+
+```bash
+./gradlew -q refreshFeatureModelFixture -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+```
+
+The task validates the snapshot first and prints `changed=true` or `changed=false`. It never touches the authored
+`guided-workflow.json`. You rarely run it yourself: the delivery workflow runs it for every delivery pull request.
+
+## Prepare an image build
+
+```bash
+./gradlew stageFeatureModelDockerContext -PsnapshotPath=build/feature-extraction/<source-revision>/snapshot
+```
+
+The task validates the snapshot again and copies it to `build/docker/feature-model-snapshot/snapshot/`, together with
+`image-build.properties`, which holds the identity values for the image labels. The image build reads only this
+directory. Images and Runtime continues from here.
+
+## Snapshot mode at runtime
+
+An image starts the application in snapshot mode, which loads and validates the embedded snapshot at startup and never
+falls back to the classpath fixture. The Developer Guide explains the source modes on
+[Runtime Model](/developer/architecture/runtime-model).

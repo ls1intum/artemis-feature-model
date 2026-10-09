@@ -1,0 +1,74 @@
+---
+id: reports
+title: Read the Extraction Report
+sidebar_label: Read the Report
+---
+
+Every run of the extraction pipeline writes a report, whether it passes or stops. This page explains where to find
+the report and how to read it. Open it first whenever a run fails.
+
+## Where to find it
+
+A local run writes the report to `build/feature-extraction/<source-revision>/report/index.html`. The file has no
+external dependencies, so you can open it straight from disk.
+
+In CI, the **Model delivery gates** job uploads the report as an artifact named
+`feature-model-reports-<commit>-<attempt>`, even when the run fails. The job summary on the run page already shows
+the verdict and the curation counts. To get the full report, download the artifact:
+
+```bash
+gh run download <run-id> --pattern 'feature-model-reports-*'
+```
+
+GitHub keeps the artifact for 14 days. After that, reproduce the run locally with the same Artemis commit, as
+described in [Run the Pipeline Locally](/maintainer/extraction/running-locally).
+
+## The HTML report
+
+The top of the report shows the verdict, **PASS** or **FAIL**, with the Artemis commit and the manifest digest of the
+run. Below it, counters show the number of errors, warnings, `info` findings, undeclared candidates, and candidates in
+total. The rest of the page has four sections.
+
+**Findings** lists every finding, grouped by code. Each group shows the meaning of the code once, then one row per
+subject with its message. Filter buttons narrow the list to errors, warnings, or `info` findings. Start with the
+errors: they are the reason a run failed.
+
+**Candidate decisions** shows how the manifest decided about every candidate. A table counts the decisions by
+candidate kind. Below it, the report lists the undeclared candidates, the included candidates with the feature id they
+became, and the excluded candidates grouped by reason. When a run fails because of missing decisions, the undeclared
+list is your to-do list.
+
+**Release delta** is reserved for a comparison with an earlier release. The pipeline has no baseline input yet, so this
+section always says that the comparison was skipped.
+
+**Raw artifacts** names the JSON files behind the report.
+
+## The JSON files
+
+| File | Content |
+|---|---|
+| `report/extraction-report.json` | The verdict (`pass` or `fail`), the curation counts, and every finding |
+| `model/manifest-conformance-report.json` | Every curation decision and every gap, by candidate |
+| `workflow/guided-workflow-validation.json` | The guided workflow findings with their own `status` |
+| `report/release-delta-report.json` | The skipped release comparison |
+
+Use the JSON files when you want to process findings with a script; the delivery workflow, for example, reads the
+coverage gaps from `guided-workflow-validation.json`.
+
+## From a finding to a fix
+
+**A new Artemis module.** The report shows **FAIL** and one error, `UNDECLARED_CANDIDATE`, for the subject
+`module:tumlive`. Its message says what to do:
+
+```text
+Candidate has no manifest decision; add it to include or exclude before this scan can produce a model.
+```
+
+The candidate decisions section lists `module:tumlive` as undeclared. Decide whether the module belongs in the model,
+add an include or exclude entry, and run the pipeline again. Curate a Feature
+describes the decision.
+
+**A feature without guided text.** The report shows **PASS** with the warning `GUIDED_WORKFLOW_FINDINGS`.
+`guided-workflow-validation.json` contains a `GUIDED_WORKFLOW_COVERAGE_GAP` for the new feature: teachers cannot choose
+it in the guided workflow yet. The run still delivers, and the delivery pull request lists the gap.
+Update the Guided Workflow shows how to close it.
