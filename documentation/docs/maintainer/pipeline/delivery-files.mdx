@@ -1,0 +1,76 @@
+---
+id: delivery-files
+title: Delivery Configuration Files
+sidebar_label: Delivery Files
+---
+
+A few small files in the repository control what the delivery workflows do. This page describes each one: what it
+controls, and who changes it. Check here before you edit one of them by hand.
+
+## Overview
+
+| File | Controls | Changed by |
+|---|---|---|
+| `delivery/artemis-validation-pin` | The Artemis commit that pull request checks use | The delivery pull request |
+| `delivery/verified-images.json` | The history of promoted images | The ledger pull request of the promotion workflow |
+| `delivery/artemis-runtime-image.json` | The Artemis image that generated deployment packages run | A maintainer |
+| `src/main/resources/feature-model/fixture-provenance.json` | Which snapshot the classpath fixture is a copy of | The delivery pull request |
+| `featureManifestSource` in `gradle.properties` | Where the pipeline reads the manifest | A maintainer, at the cutover |
+
+## The validation pin
+
+`delivery/artemis-validation-pin` contains one full Artemis commit and nothing else. Every pull request runs the
+extraction against this commit, so the check is repeatable.
+
+The delivery pull request moves the pin to the commit it delivered. The pin therefore always names the last Artemis
+commit that this repository delivered successfully. You only move it by hand when you need pull requests to check
+against a specific commit, for example to prepare a manifest change for a commit that the poller has not reached yet.
+
+## The verified-image ledger
+
+`delivery/verified-images.json` lists every promotion, oldest first:
+
+```json
+{
+  "digest": "sha256:…",
+  "snapshotId": "generated-…",
+  "artemisCommit": "…",
+  "manifestDigest": "sha256:…",
+  "sourceCommit": "…",
+  "promotedBy": "…",
+  "runId": 123
+}
+```
+
+Each entry names the image by its registry digest and records where it came from and who promoted it. Once the
+ledger pull request of a promotion is merged, the last entry names the image that the `verified` tag points to. The retention workflow never deletes an image that the ledger lists,
+so every entry stays available for a rollback.
+
+Do not edit the ledger by hand. Promote an image instead; the promotion workflow appends the entry through a pull
+request.
+
+## The runtime image reference
+
+`delivery/artemis-runtime-image.json` names the Artemis container image that generated deployment packages start:
+
+```json
+{
+  "image": "ghcr.io/ls1intum/artemis",
+  "digest": "latest"
+}
+```
+
+The `digest` is either `latest` or a pinned `sha256:` digest. The pipeline copies it into every snapshot, so a published
+image always generates packages with the same Artemis image. Update the Runtime Image
+explains how to change it.
+
+## The fixture provenance
+
+`fixture-provenance.json` records the snapshot id, Artemis commit, and manifest digest of the snapshot that the
+classpath fixture was copied from. The fixture refresh writes it together with the model and the catalog; nobody edits
+it by hand.
+
+## The manifest source
+
+`featureManifestSource=repository` in `gradle.properties` makes the pipeline read the manifest from this repository.
+The manifest cutover changes it to `checkout`. Until then, leave it as it is.

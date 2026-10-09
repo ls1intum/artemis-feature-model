@@ -20,6 +20,12 @@ const sidebars: SidebarsConfig = {
                 'extraction/snapshots',
             ],
         },
+        {
+            type: 'category',
+            label: 'Delivery Pipeline',
+            link: { type: 'doc', id: 'pipeline/index' },
+            items: ['pipeline/workflows', 'pipeline/delivery-files', 'pipeline/images', 'pipeline/repository-settings'],
+        },
     ],
 };
 

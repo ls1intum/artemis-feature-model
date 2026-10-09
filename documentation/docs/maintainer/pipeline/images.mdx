@@ -1,0 +1,92 @@
+---
+id: images
+title: Images, Tags, and Runtime
+sidebar_label: Images and Runtime
+---
+
+The delivery pipeline publishes the application as a container image with one snapshot built in. This page explains
+how an image is identified, what its tags and labels mean, and how to run and check an image yourself.
+
+## The digest is the identity
+
+Images live in the public registry `ghcr.io/ls1intum/artemis-feature-model`. Each image has a registry digest, for
+example `sha256:9bb8…`, that never changes and always means the same bytes. Promotion, rollback, and the ledger all
+work with digests.
+
+Tags are readable pointers to a digest and can move. Refer to an image by digest whenever it matters which image you
+get:
+
+```text
+ghcr.io/ls1intum/artemis-feature-model@sha256:<digest>
+```
+
+## Tags
+
+| Tag | Points to |
+|---|---|
+| `<snapshot-id>` | The image last published for this snapshot id; the discovery tag |
+| `verified` | The image a maintainer promoted last |
+
+The discovery tag can move. A later commit of this repository that delivers the same Artemis commit and manifest
+publishes a new image under the same snapshot id, for example after a change to the application code.
+
+No workflow publishes a `latest` tag. There is no image that is "current" by default; you choose one by digest or
+use `verified`.
+
+## Labels
+
+Every image carries labels that say where it comes from:
+
+| Label | Value |
+|---|---|
+| `org.opencontainers.image.revision` | The commit of this repository that built the image |
+| `de.tum.cit.aet.artemis-feature-model.artemis-commit` | The Artemis commit of the snapshot |
+| `de.tum.cit.aet.artemis-feature-model.manifest-digest` | The digest of the manifest |
+| `de.tum.cit.aet.artemis-feature-model.snapshot-id` | The snapshot id |
+| `de.tum.cit.aet.artemis-feature-model.snapshot-digest` | The digest of the snapshot |
+| `de.tum.cit.aet.artemis-feature-model.extractor-version` | The version of the extraction pipeline |
+
+The workflows read these labels to skip work that was already done and to check an image before promotion. To read
+them yourself:
+
+```bash
+docker buildx imagetools inspect ghcr.io/ls1intum/artemis-feature-model:verified --format '{{ json .Image }}' | jq '.config.Labels'
+```
+
+The publication workflow also attaches a build provenance attestation, which proves that the image was built by
+this repository's workflow.
+
+## What is inside
+
+The image runs the application jar on Java 25 as user `10001`, without root rights. The snapshot sits read-only under
+`/opt/artemis-feature-model/data/imported-models/<snapshot-id>/`. Environment variables in the image select snapshot
+mode and the embedded snapshot, and switch off the legacy snapshot administration API. The application listens on port
+8080.
+
+At startup, the application validates the snapshot and refuses to start when a file is missing or changed. The image
+needs no volume.
+
+## Run an image
+
+```bash
+docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m -p 8090:8080 \
+  ghcr.io/ls1intum/artemis-feature-model:verified
+```
+
+Open `http://localhost:8090`. To see which snapshot the image serves, ask the server:
+
+```bash
+curl http://localhost:8090/api/feature-model/provenance
+```
+
+The answer names the source mode `snapshot`, the snapshot id, and the Artemis commit.
+
+## Check an image
+
+`scripts/verify-snapshot-image.sh` is the test that every delivery run applies to a new image. It checks the labels
+against the staged snapshot, starts the image read-only, compares the provenance endpoint with the snapshot, and
+confirms that the legacy API is off. It then builds two broken copies of the image, one with a changed file and one
+with a missing file, and confirms that both refuse to start.
+
+To run it on an image you built locally, follow [Run the Pipeline Locally](/maintainer/extraction/running-locally#validate-and-build-an-image).
+The script needs Docker, `curl`, and `jq`.

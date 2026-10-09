@@ -1,0 +1,90 @@
+---
+id: workflows
+title: GitHub Workflows
+sidebar_label: Workflows
+---
+
+This page describes every GitHub Actions workflow of the repository: when it runs, what it does, and which
+permissions it holds. Use it to find the right workflow to start, or to understand a run you are looking at. The files
+live in `.github/workflows/`.
+
+## Overview
+
+| File | Name in GitHub | Runs on | Purpose |
+|---|---|---|---|
+| `ci.yml` | CI | Every push and pull request, except documentation-only changes | Starts the application and model delivery checks |
+| `application-validation.yml` | Application validation | Called by `ci.yml` | Client tests, server tests, application build |
+| `model-delivery-validation.yml` | Model delivery validation | Called by `ci.yml` and by publication | Extraction, snapshot validation, image test |
+| `poll-artemis-delivery.yml` | Artemis delivery poller | Schedule, manual dispatch, `artemis-commit` event | Publishes the latest Artemis commit and opens the delivery pull request |
+| `publish-snapshot-image.yml` | Publish snapshot image | Called by the poller, manual dispatch | Validates and publishes one image |
+| `promote-image.yml` | Promote snapshot image | Manual dispatch | Moves the `verified` tag and records it in the ledger |
+| `tag-retention.yml` | Discovery tag retention | Weekly schedule, manual dispatch | Deletes old discovery tags |
+| `build-documentation.yml` | Build documentation | Pull requests that change the documentation | Builds this site |
+| `deploy-documentation.yml` | Deploy documentation | Pushes to `mvp` that change the documentation, manual dispatch | Publishes this site |
+| `static-config-validation.yml` | Static config validation | Manual dispatch, pushes to its original feature branch | Runs the static configuration validation tests |
+
+Pull request jobs, validation jobs, and the documentation build only read the repository. Write permissions exist only
+in the jobs that publish, promote, open pull requests, delete tags, or deploy the site.
+
+## Model delivery validation
+
+This is the shared gate of every delivery path. It takes an Artemis commit as input, or the commit in
+`delivery/artemis-validation-pin` when none is given. It then:
+
+1. builds the client;
+2. checks out Artemis at exactly that commit and verifies that the checkout is clean;
+3. runs `featureModelManifestPreflight` and `buildFeatureModelSnapshot` with the expected commit;
+4. uploads the reports, also when the extraction fails;
+5. validates the snapshot, builds the snapshot image, and starts it once to test it;
+6. uploads the snapshot and the tested image for the publication job.
+
+It holds only `contents: read` and never publishes. In `ci.yml` it appears as the **Model delivery gates** check.
+
+## Artemis delivery poller
+
+The poller runs twice a week, as set by its `cron` entry, and on manual dispatch. It resolves one Artemis commit: the
+`artemis_sha` input when you give one, otherwise the current head of the Artemis `develop` branch. It computes the
+snapshot id and stops early when the same snapshot was already published from the current commit of this repository.
+
+Otherwise it calls the publication workflow and, after a successful publication, opens the delivery pull request on the
+branch `delivery/auto-<commit-prefix>`. It skips the pull request when neither the classpath fixture nor the validation
+pin changes. When an open pull request for the same branch exists, the poller updates it.
+
+The poller also accepts a `repository_dispatch` event of type `artemis-commit` with the payload
+`{"artemis_sha": "<full commit sha>"}`. This lets Artemis trigger a delivery directly; the schedule remains the
+fallback.
+
+## Publish snapshot image
+
+The publication workflow takes one full Artemis commit. It stops early when the same snapshot was already published
+from the current commit of this repository. Otherwise it runs the model delivery validation for that commit, pushes the
+tested image to `ghcr.io/ls1intum/artemis-feature-model` with the snapshot id as its tag, attests its build
+provenance, and pulls it again anonymously by digest to prove that it is public and intact.
+
+The publish job runs in the `image-publish` environment and is the only job that can push images. Its run summary
+shows the registry digest of the new image.
+
+## Promote snapshot image
+
+The promotion workflow takes a registry digest and, optionally, the snapshot id you expect. It checks that the image
+exists and that its labels are complete, moves the `verified` tag to exactly that digest, and opens a pull request
+on the branch `delivery/ledger-<run-id>` that appends the promotion to `delivery/verified-images.json`. It runs in the
+`image-promote` environment. Promote and Roll Back shows how to use it.
+
+## Discovery tag retention
+
+Every Monday, the retention workflow cleans up the registry. It keeps the ten newest images with a discovery tag,
+every image that the ledger records, the image tagged `verified`, and images with any other tag. It deletes the rest.
+The number of kept discovery tags is set by `RETAINED_DISCOVERY_TAGS` in the workflow file. The workflow needs a package permission that the repository
+owner grants once, see [Repository Settings](/maintainer/pipeline/repository-settings).
+
+## Start a workflow by hand
+
+Start a workflow from the **Actions** tab with **Run workflow**, or with the GitHub CLI:
+
+```bash
+gh workflow run poll-artemis-delivery.yml --ref mvp -f artemis_sha=<full commit sha>
+```
+
+Run delivery workflows from `mvp`: the pull requests they open target the branch the workflow runs on. To repeat a
+failed run with the same inputs, use **Re-run jobs** on the run page.
