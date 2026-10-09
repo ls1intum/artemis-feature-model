@@ -50,8 +50,13 @@ comes up when Artemis changes in a way the pipeline cannot decide on its own. Th
 write the guided workflow text that the Configurator shows for a new feature, or update the Ansible binding catalog
 so that the remote deployment package supports the change. From time to time, you promote an image or roll one back.
 
-## Where to find the details
+## Where to start
 
-The delivery workflows, their settings, and the step-by-step maintainer flows are described in
-[`docs/extraction/automated-model-delivery.md`](https://github.com/ls1intum/artemis-feature-model/blob/mvp/docs/extraction/automated-model-delivery.md)
-in the repository. For the code of the application, see the [Developer Guide](/developer/intro).
+1. Set up your machine with [Setup](/maintainer/setup) and learn the terms on [Concepts](/maintainer/concepts).
+2. Read [How Extraction Works](/maintainer/extraction) and run the pipeline once with
+   [Run the Pipeline Locally](/maintainer/extraction/running-locally).
+3. Read [How Delivery Works](/maintainer/pipeline) to see what the workflows do for you.
+4. Keep [Maintenance Tasks](/maintainer/tasks) at hand: it has a page for every job in the loop above.
+
+When something fails, start with [Troubleshooting](/maintainer/troubleshooting). For the code of the application, see
+the [Developer Guide](/developer/intro).
