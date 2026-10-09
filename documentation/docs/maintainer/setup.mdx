@@ -1,0 +1,90 @@
+---
+id: setup
+title: Set Up for Maintenance Work
+sidebar_label: Setup
+---
+
+import Callout from '@site/src/components/Callout/Callout';
+import { CalloutVariant } from '@site/src/components/Callout/Callout.types';
+
+This page prepares your machine for maintenance work: running the extraction pipeline locally and operating the
+delivery workflows. Follow it once before your first maintenance task.
+
+## Tools
+
+| Tool | Why you need it |
+|---|---|
+| Java 25 | Runs the extraction pipeline through Gradle |
+| Node.js 24 | Builds and tests the application, as in the [Developer Guide setup](/developer/setup) |
+| Git | Checks out Artemis and this repository |
+| GitHub CLI (`gh`) | Starts workflows and reads their runs from the terminal |
+| Docker | Builds and checks a snapshot image locally; optional for most tasks |
+
+Clone this repository as described in the [Developer Guide setup](/developer/setup). All commands on this guide run
+from its root.
+
+## A clean Artemis checkout
+
+The pipeline reads the Artemis source code from a local checkout. It names every result after the commit that the
+checkout points to, so it refuses a checkout with uncommitted changes: such a result would describe no real commit.
+
+Keep a separate clone of Artemis only for extraction, and move it to the commit you want to read:
+
+```bash
+git clone https://github.com/ls1intum/Artemis.git ../artemis-extraction
+git -C ../artemis-extraction checkout --detach "$(cat delivery/artemis-validation-pin)"
+```
+
+`delivery/artemis-validation-pin` holds the Artemis commit that pull request checks use, so this checkout gives you
+the same results as CI.
+
+<Callout variant={CalloutVariant.warning}>
+
+Do not point the pipeline at the Artemis checkout you develop in. To make it clean, you would have to reset or
+discard your own work.
+
+</Callout>
+
+## Tell Gradle where Artemis is
+
+Every extraction task needs the path of the checkout. Pass it on the command line:
+
+```bash
+./gradlew featureModelManifestPreflight -PartemisPath=../artemis-extraction
+```
+
+To avoid repeating it, set `artemisPath` in your user-level `~/.gradle/gradle.properties` or export the environment
+variable `ARTEMIS_PATH`. A `-PartemisPath` property wins over the environment variable. Never commit the path to the
+repository's `gradle.properties`: it is specific to your machine.
+
+## First check
+
+The preflight task validates the [feature manifest](/maintainer/concepts#curation) and prints the identity of the run
+without scanning anything:
+
+```bash
+./gradlew -q featureModelManifestPreflight -PartemisPath=../artemis-extraction
+```
+
+```text
+manifestVersion=3
+artemisCommitSha=<commit of the checkout>
+manifestDigest=sha256:<digest of the manifest>
+includeCount=<number of include entries>
+excludeCount=<number of exclude entries>
+```
+
+When `artemisCommitSha` shows the commit you checked out, your setup works. Continue with
+Run the Pipeline Locally.
+
+## GitHub access
+
+Reading workflow runs and downloading their reports needs read access to the repository. Starting a workflow,
+promoting an image, and merging delivery pull requests need write access. Promotion may also wait for a reviewer of
+the `image-promote` environment, see Repository Settings.
+
+Log in to the GitHub CLI once:
+
+```bash
+gh auth login
+```
