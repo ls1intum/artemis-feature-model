@@ -9,9 +9,9 @@ how an image is identified, what its tags and labels mean, and how to run and ch
 
 ## The digest is the identity
 
-Images live in the public registry `ghcr.io/ls1intum/artemis-feature-model`. Each image has a registry digest, for
-example `sha256:9bb8…`, that never changes and always means the same bytes. Promotion, rollback, and the ledger all
-work with digests.
+Images live in the public registry `ghcr.io/ls1intum/artemis-feature-model`. Each image has a registry digest of the
+form `sha256:<64 hex characters>` that never changes and always means the same bytes. Promotion, rollback, and the
+ledger all work with digests.
 
 Tags are readable pointers to a digest and can move. Refer to an image by digest whenever it matters which image you
 get:
