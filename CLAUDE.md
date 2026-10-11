@@ -323,6 +323,31 @@ npm run test                      # Angular unit tests with Vitest
 
 The Angular dev server proxies `/api/**` to `http://localhost:8090`. The local ports deliberately avoid the Artemis dev defaults (8080/9000) so both applications can run side by side.
 
+## Documentation
+
+The documentation site lives in `documentation/`: a self-contained Docusaurus
+project with its own `package.json`, published to GitHub Pages at
+`https://ls1intum.github.io/artemis-feature-model/` when `documentation/**`
+changes on `mvp`. It has two guides: the Developer Guide
+(`documentation/docs/developer/`) for code changes and the Maintainer Guide
+(`documentation/docs/maintainer/`) for extraction, delivery, and maintenance
+tasks. A page appears only when `sidebar-developer.ts` or
+`sidebar-maintainer.ts` lists it.
+
+Run the site commands in `documentation/`:
+
+```bash
+npm ci                            # install site dependencies
+npm run start                     # preview on http://localhost:3000/artemis-feature-model/
+npm run typecheck                 # type check
+npm run build                     # static build; fails on broken links and anchors
+```
+
+Docs as code: a change that alters behavior a page describes updates that page
+in the same pull request. Follow
+[Writing Documentation](documentation/docs/developer/guidelines/documentation.mdx)
+for page rules.
+
 ## Project Structure
 
 ```text
@@ -342,6 +367,7 @@ src/main/java/de/tum/cit/aet/artemis/featuremodel/
 src/main/resources/
 src/main/webapp/
 src/test/java/de/tum/cit/aet/artemis/featuremodel/
+documentation/
 ```
 
 Server package areas:
