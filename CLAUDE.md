@@ -146,9 +146,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   variable before the syntax check. The `remoteEnvironment` request
   component reduces to an optional `targetName` naming the inventory target
   group; supplying the component on a non-remote mode is a controlled 400.
-  Fixtures split into two classes: structural files stay identical to the
-  lab's tracked inventory, value-bearing files are package-own expectations
-  (see the fixture `PROVENANCE.md`). The review page offers "Remote server
+  Fixtures split into two classes: structural files stay identical to a
+  hand-written reference inventory that was deployed successfully,
+  value-bearing files are package-own expectations (see the fixture
+  `PROVENANCE.md`). The review page offers "Remote server
   (Ansible)" as a third deployment target sending
   `deploymentMode: "remote-ansible"` plus the fixed `artemis-remote` target name.
 - Deployment repository publishing commits the generated remote-ansible

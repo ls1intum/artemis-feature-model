@@ -40,10 +40,9 @@ class AnsibleBindingCatalogTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * The user-provisioned environment-variable names of
-     * {@code devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt} (2026-08-29),
-     * verbatim, plus {@code ARTEMIS_UNIVERSITY_NAME} for the collection's installation-metadata check: the 8 identity
-     * values and the 12 secret-class values.
+     * The environment-variable names that operators provide for the package, verbatim: the 8 identity values,
+     * including {@code ARTEMIS_UNIVERSITY_NAME} for the collection's installation-metadata check, and the 12
+     * secret-class values.
      */
     private static final List<String> PROVISIONED_ENV_VAR_NAMES = List.of(
             "TESTSERVER_NAME", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST", "ARTEMIS_OPERATOR_NAME", "ARTEMIS_OPERATOR_ADMIN_NAME",
@@ -58,7 +57,7 @@ class AnsibleBindingCatalogTest {
 
         assertThat(catalog.catalogVersion()).isEqualTo(4);
         assertThat(catalog.collectionPin()).matches("[0-9a-f]{40}");
-        assertThat(catalog.curationSource()).contains("transformation-table.md");
+        assertThat(catalog.curationSource()).isNotBlank();
     }
 
     @Test

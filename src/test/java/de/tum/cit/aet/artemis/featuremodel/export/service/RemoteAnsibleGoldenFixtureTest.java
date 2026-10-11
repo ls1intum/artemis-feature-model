@@ -28,12 +28,12 @@ import de.tum.cit.aet.artemis.featuremodel.visualization.service.FeatureModelTre
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Golden-fixture acceptance of the remote-ansible package: a request with the lab target name must reproduce the
- * expected inventory bytes exactly. The fixtures under {@code fixtures/remote-ansible/} are derived from the
- * deploy-lab repository and split into two classes since the environment-channel switch: structural files stay
- * byte-identical to the lab's tracked files, while value-bearing files are package-own expectations rendering
- * environment lookup expressions. Provenance and the class split are recorded in {@code PROVENANCE.md} next to the
- * fixtures. Updating a fixture is a deliberate, reviewed act.
+ * Golden-fixture acceptance of the remote-ansible package: a request with the reference target name must reproduce the
+ * expected inventory bytes exactly. The fixtures under {@code fixtures/remote-ansible/} are derived from a hand-written
+ * reference inventory that was deployed successfully, and split into two classes: structural files stay byte-identical
+ * to the reference inventory, while value-bearing files are package-own expectations rendering environment lookup
+ * expressions. Provenance and the class split are recorded in {@code PROVENANCE.md} next to the fixtures. Updating a
+ * fixture is a deliberate, reviewed act.
  */
 class RemoteAnsibleGoldenFixtureTest {
 
@@ -69,8 +69,8 @@ class RemoteAnsibleGoldenFixtureTest {
     }
 
     @Test
-    void labEnvironmentRequestReproducesTheLabInventoryByteForByte() {
-        GeneratedArtifactPackage result = service.generate(labRequest(FULL_POSTGRES_SELECTION));
+    void referenceRequestReproducesTheReferenceInventoryByteForByte() {
+        GeneratedArtifactPackage result = service.generate(referenceRequest(FULL_POSTGRES_SELECTION));
 
         assertFixtureMatch(result, "inventory/hosts", "hosts");
         assertFixtureMatch(result, "inventory/group_vars/artemislocal/main.yml", "artemislocal-main.yml");
@@ -81,16 +81,16 @@ class RemoteAnsibleGoldenFixtureTest {
     }
 
     @Test
-    void reducedVariantReproducesTheLabWithoutGroupValuesByteForByte() {
+    void reducedVariantReproducesTheReferenceWithoutGroupValuesByteForByte() {
         List<String> selection = FULL_POSTGRES_SELECTION.stream().filter(id -> !"exam".equals(id) && !"tutorialgroup".equals(id)).toList();
 
-        GeneratedArtifactPackage result = service.generate(labRequest(selection));
+        GeneratedArtifactPackage result = service.generate(referenceRequest(selection));
 
         assertFixtureMatch(result, "inventory/group_vars/artemistests_without_exam.yml", "artemistests_without_exam.yml");
         assertFixtureMatch(result, "inventory/group_vars/artemistests_without_tutorialgroup.yml", "artemistests_without_tutorialgroup.yml");
     }
 
-    private ArtifactGenerationRequest labRequest(List<String> selection) {
+    private ArtifactGenerationRequest referenceRequest(List<String> selection) {
         return new ArtifactGenerationRequest(selection, null, null, "remote-ansible", new RemoteEnvironmentInput("artemis-local"));
     }
 
