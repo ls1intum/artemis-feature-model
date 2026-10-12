@@ -138,7 +138,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   (`artemistests_without_atlas`) while selection emits nothing. The package
   bakes no environment value at all: every identity and secret value is
   emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
-  user-provisioned environment-variable names (7 identity plus 12
+  user-provisioned environment-variable names (8 identity plus 13
   secret-class names; a mapping-conformance test pins the catalog's name set
   to them verbatim), the target-group section of `inventory/hosts` stays
   empty (the connection line is execution-environment-owned), and the
