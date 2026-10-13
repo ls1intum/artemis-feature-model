@@ -4,9 +4,10 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentRepositoryPub
 
 /**
  * Response of a deployment repository publish: where the package landed and the commit carrying it. The repository
- * URL is the configured, credential-free URL; the commit URL is derived for {@code github.com} remotes only.
+ * URL is the effective, credential-free URL of this publish; the commit URL is derived for {@code github.com} remotes
+ * only.
  *
- * @param repositoryUrl configured deployment repository URL, never carrying a credential.
+ * @param repositoryUrl effective deployment repository URL, never carrying a credential.
  * @param branch deployment branch the publish targeted.
  * @param targetDirectory repository-relative directory holding the published package.
  * @param commitSha commit carrying the published package.
@@ -19,10 +20,10 @@ public record DeploymentPackagePublishResponse(String repositoryUrl, String bran
     private static final String GITHUB_REMOTE_PREFIX = "https://github.com/";
 
     /**
-     * Builds the response from a publish result and the configured repository URL.
+     * Builds the response from a publish result and the effective repository URL.
      *
      * @param result publish result.
-     * @param repositoryUrl configured deployment repository URL.
+     * @param repositoryUrl effective deployment repository URL.
      * @return publish response.
      */
     public static DeploymentPackagePublishResponse from(DeploymentRepositoryPublishResult result, String repositoryUrl) {
@@ -33,7 +34,7 @@ public record DeploymentPackagePublishResponse(String repositoryUrl, String bran
     /**
      * Derives the browsable commit URL of a {@code github.com} remote.
      *
-     * @param repositoryUrl configured deployment repository URL.
+     * @param repositoryUrl effective deployment repository URL.
      * @param commitSha commit carrying the published package.
      * @return commit URL, or {@code null} for a non-GitHub remote.
      */

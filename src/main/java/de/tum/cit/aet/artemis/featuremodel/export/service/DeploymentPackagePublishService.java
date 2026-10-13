@@ -56,28 +56,31 @@ public class DeploymentPackagePublishService {
     }
 
     /**
-     * Generates the remote-ansible package for a request and publishes it to the deployment repository.
+     * Generates the remote-ansible package for a request and publishes it to the requested or default deployment
+     * repository.
      *
      * @param request artifact generation request; its deployment mode must be remote-ansible and its environment
-     *            component must carry a target name.
-     * @return publish result with the carrying commit.
-     * @throws DeploymentRepositoryPublishException if publishing is not configured, the deployment mode is wrong, or
-     *             the target name is missing.
+     *            component must carry a valid target name.
+     * @param requestedRepositoryUrl deployment repository URL of the publish request, or {@code null}/blank for the
+     *            configured default.
+     * @return publish result with the effective repository URL and the carrying commit.
+     * @throws DeploymentRepositoryPublishException if publishing is not configured, the repository URL is missing or
+     *             not allowed, the deployment mode is wrong, the target name is missing or invalid, or the repository
+     *             refuses the publish.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is
      *             invalid or cannot be expressed as a remote-ansible package.
      */
-    public DeploymentRepositoryPublishResult publish(ArtifactGenerationRequest request) {
-        publisher.requireConfigured();
+    public DeploymentRepositoryPublishResult publish(ArtifactGenerationRequest request, String requestedRepositoryUrl) {
+        String repositoryUrl = publisher.requireConfiguredFor(requestedRepositoryUrl);
         if (!DeploymentModes.REMOTE_ANSIBLE.equals(request.deploymentMode())) {
             throw DeploymentRepositoryPublishException.wrongDeploymentMode(request.deploymentMode());
         }
-        String targetName = request.remoteEnvironment() == null ? null : request.remoteEnvironment().targetName();
-        String sanitizedTargetName = publisher.sanitizedTargetName(targetName);
+        String targetName = publisher.validatedTargetName(request.remoteEnvironment() == null ? null : request.remoteEnvironment().targetName());
         GeneratedArtifactPackage generated = deploymentPackageService.generate(request);
-        String commitMessage = commitMessage(sanitizedTargetName, generated.report(), generated.files());
-        DeploymentRepositoryPublishResult result = publisher.publish(targetName, generated.files(), commitMessage);
-        log.info("Published a remote-ansible package for target '{}' to branch '{}': commit {}{}.", sanitizedTargetName, result.branch(),
-                result.commitSha(), result.upToDate() ? " (already up to date)" : "");
+        String commitMessage = commitMessage(targetName, generated.report(), generated.files());
+        DeploymentRepositoryPublishResult result = publisher.publish(repositoryUrl, targetName, generated.files(), commitMessage);
+        log.info("Published a remote-ansible package for target '{}' to branch '{}' of {}: commit {}{}.", targetName, result.branch(),
+                result.repositoryUrl(), result.commitSha(), result.upToDate() ? " (already up to date)" : "");
         return result;
     }
 
@@ -95,12 +98,12 @@ public class DeploymentPackagePublishService {
      * catalog identity, profile, technical choices, the emitted off-switch groups, and the emitted integration
      * groups.
      *
-     * @param sanitizedTargetName sanitized target directory name.
+     * @param targetName validated target name.
      * @param report generation report of the package.
      * @param files generated package files.
      * @return commit message.
      */
-    private String commitMessage(String sanitizedTargetName, GenerationReport report, List<GeneratedArtifactFile> files) {
+    private String commitMessage(String targetName, GenerationReport report, List<GeneratedArtifactFile> files) {
         TechnicalSelectionMetadata technical = report.technicalSelection();
         String database = technical == null || technical.databaseId() == null ? "none" : technical.databaseId();
         String ciProvider = technical == null || technical.ciProviderId() == null ? "none" : technical.ciProviderId();
@@ -115,7 +118,7 @@ public class DeploymentPackagePublishService {
                 database: %s   ci: %s
                 modules off: %s
                 integrations: %s
-                environment: env-channel""".formatted(sanitizedTargetName, report.modelId(), report.modelVersion(), catalog.catalogVersion(),
+                environment: env-channel""".formatted(targetName, report.modelId(), report.modelVersion(), catalog.catalogVersion(),
                 catalog.collectionPin().substring(0, 7), report.profileId(), database, ciProvider, joinedOrNone(emittedOffSwitchKeys(filePaths)),
                 joinedOrNone(emittedIntegrationIds(filePaths)));
     }
