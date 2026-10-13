@@ -19,10 +19,20 @@ export interface RemoteEnvironmentInput {
     targetName: string;
 }
 
-/** Where a deployment repository publish would go; `configured: false` hides the publish action. */
+/** Publish request: the unchanged generation request plus the deployment repository it is pushed to. */
+export interface DeploymentPackagePublishRequest {
+    request: ArtifactGenerationRequest;
+    /** Deployment repository URL; the server falls back to its default when blank. */
+    repositoryUrl: string;
+}
+
+/**
+ * Where a deployment repository publish would go; `configured: false` hides the repository field and the publish
+ * action. The default repository URL prefills the field.
+ */
 export interface DeploymentPackagePublishTarget {
     configured: boolean;
-    repositoryUrl: string | null;
+    defaultRepositoryUrl: string | null;
     branch: string;
     targetDirectoryRoot: string;
 }
