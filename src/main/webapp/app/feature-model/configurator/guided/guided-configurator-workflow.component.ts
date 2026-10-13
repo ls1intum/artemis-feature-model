@@ -4,7 +4,13 @@ import { DeploymentPackagePublishResponse, DeploymentPackagePublishTarget } from
 import { DeploymentProfileSummary, FeatureAvailability, OptionAvailability } from '../../core/deployment-profile.types';
 import { Feature, ModelMetadata } from '../../core/feature-model.types';
 import { GuidedDecision, GuidedDecisionOption, GuidedWorkflowStep, UseCaseTemplate } from '../../core/guided-workflow.types';
-import { DEFAULT_REMOTE_TARGET_NAME, DEPLOYMENT_TARGETS, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from '../shared/deployment-targets';
+import {
+    DEPLOYMENT_TARGETS,
+    DEPLOYMENT_TEMPLATE_REPOSITORY_URL,
+    REMOTE_DEPLOYMENT_MODE,
+    deploymentTargetFor,
+    isValidRemoteTargetName,
+} from '../shared/deployment-targets';
 import { ValidationIssueListComponent } from '../shared/validation-issue-list.component';
 import {
     ConfiguratorScreen,
@@ -68,17 +74,37 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly deploymentPackagePublishing = input<boolean>(false);
     readonly deploymentPackagePublishResult = input<DeploymentPackagePublishResponse | undefined>(undefined);
     readonly deploymentPackagePublishErrorMessage = input<string | undefined>(undefined);
+    readonly remoteTargetName = input.required<string>();
+    readonly deploymentRepositoryUrl = input.required<string>();
     readonly deploymentTargets = DEPLOYMENT_TARGETS;
+    readonly deploymentTemplateRepositoryUrl = DEPLOYMENT_TEMPLATE_REPOSITORY_URL;
     readonly selectedDeploymentTarget = computed(() => deploymentTargetFor(this.selectedDeploymentMode()));
     readonly remoteTargetSelected = computed(() => this.selectedDeploymentMode() === REMOTE_DEPLOYMENT_MODE);
-    /** The publish action needs a configured deployment repository. */
+    readonly remoteTargetNameValid = computed(() => isValidRemoteTargetName(this.remoteTargetName()));
+    /** An invalid target name blocks every remote action; other targets ignore the field. */
+    readonly remoteTargetNameBlocks = computed(() => this.remoteTargetSelected() && !this.remoteTargetNameValid());
+    /** The repository field and the publish action need an instance that can publish. */
     readonly publishActionAvailable = computed(() => this.publishTarget()?.configured ?? false);
+    readonly deploymentRepositoryUrlMissing = computed(() => this.deploymentRepositoryUrl().trim().length === 0);
+    readonly downloadDisabled = computed(() => this.exportBlocked() || this.deploymentPackageDownloading() || this.remoteTargetNameBlocks());
+    readonly publishDisabled = computed(
+        () =>
+            this.exportBlocked() ||
+            this.deploymentPackagePublishing() ||
+            this.deploymentPackageDownloading() ||
+            this.remoteTargetNameBlocks() ||
+            this.deploymentRepositoryUrlMissing(),
+    );
+    readonly publishLabel = computed(() => (this.deploymentPackagePublishing() ? 'Deploying...' : `Deploy to ${this.remoteTargetName()}`));
+    /** Repository, package directory, branch, and the GitHub Environment the administrator has to create. */
     readonly publishDestination = computed(() => {
         const target = this.publishTarget();
-        if (!target?.configured) {
+        const repositoryUrl = this.deploymentRepositoryUrl().trim();
+        if (!target?.configured || repositoryUrl.length === 0 || !this.remoteTargetNameValid()) {
             return '';
         }
-        return `${target.repositoryUrl}@${target.branch}/${target.targetDirectoryRoot}/${DEFAULT_REMOTE_TARGET_NAME}`;
+        const targetName = this.remoteTargetName();
+        return `${repositoryUrl} · ${target.targetDirectoryRoot}/${targetName}/package · branch ${target.branch} · Environment ${targetName}`;
     });
     readonly publishResultShortSha = computed(() => this.deploymentPackagePublishResult()?.commitSha.slice(0, 7) ?? '');
 
@@ -97,6 +123,8 @@ export class GuidedConfiguratorWorkflowComponent {
     readonly downloadDeploymentPackage = output<void>();
     readonly publishAndDownloadDeploymentPackage = output<void>();
     readonly selectDeploymentMode = output<string>();
+    readonly remoteTargetNameChange = output<string>();
+    readonly deploymentRepositoryUrlChange = output<string>();
 
     readonly activeStep = computed<GuidedWorkflowStep | undefined>(() => this.decisionSteps()[this.activeStepIndex()]);
 
@@ -132,6 +160,14 @@ export class GuidedConfiguratorWorkflowComponent {
             return;
         }
         this.toggleDecisionOption.emit({ decision, option });
+    }
+
+    onRemoteTargetNameInput(event: Event): void {
+        this.remoteTargetNameChange.emit((event.target as HTMLInputElement).value);
+    }
+
+    onDeploymentRepositoryUrlInput(event: Event): void {
+        this.deploymentRepositoryUrlChange.emit((event.target as HTMLInputElement).value);
     }
 
     onSelectInfoTab(tab: OptionInfoTab): void {

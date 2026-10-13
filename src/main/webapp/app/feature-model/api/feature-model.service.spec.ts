@@ -195,18 +195,17 @@ describe('FeatureModelService', () => {
         expect(received).toBe(blob);
     });
 
-    it('issues a POST request to /api/feature-model/deployment-package/publish with the target identity', () => {
+    it('issues a POST request to /api/feature-model/deployment-package/publish with the generation request and the repository URL', () => {
         let received: DeploymentPackagePublishResponse | undefined;
+        const generationRequest = { selectedFeatureIds: ['programming'], deploymentMode: 'remote-ansible', remoteEnvironment: { targetName: 'chair-vm' } };
 
-        service
-            .publishDeploymentPackage({ selectedFeatureIds: ['programming'], deploymentMode: 'remote-ansible', remoteEnvironment: { targetName: 'artemis-remote' } })
-            .subscribe((value) => {
-                received = value;
-            });
+        service.publishDeploymentPackage(generationRequest, 'https://github.com/example/deployments.git').subscribe((value) => {
+            received = value;
+        });
 
         const request = httpMock.expectOne('/api/feature-model/deployment-package/publish');
         expect(request.request.method).toBe('POST');
-        expect((request.request.body as { remoteEnvironment?: { targetName: string } }).remoteEnvironment).toEqual({ targetName: 'artemis-remote' });
+        expect(request.request.body).toEqual({ request: generationRequest, repositoryUrl: 'https://github.com/example/deployments.git' });
         const response: DeploymentPackagePublishResponse = {
             repositoryUrl: 'https://github.com/example/deployments.git',
             branch: 'deployment',
@@ -230,7 +229,7 @@ describe('FeatureModelService', () => {
         expect(request.request.method).toBe('GET');
         const target: DeploymentPackagePublishTarget = {
             configured: true,
-            repositoryUrl: 'https://github.com/example/deployments.git',
+            defaultRepositoryUrl: 'https://github.com/example/deployments.git',
             branch: 'deployment',
             targetDirectoryRoot: 'deployments',
         };

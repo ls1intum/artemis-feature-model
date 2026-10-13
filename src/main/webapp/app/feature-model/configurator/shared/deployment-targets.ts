@@ -14,8 +14,22 @@ export const DEFAULT_DEPLOYMENT_MODE = 'local-docker';
 
 /** Mode id of the remote target; the only target with a target-name field and a publish action. */
 export const REMOTE_DEPLOYMENT_MODE = 'remote-ansible';
-/** The review page has no target-name field; every remote export and publish uses this inventory target group. */
+/** Initial value of the remote target name field when the browser has no stored name. */
 export const DEFAULT_REMOTE_TARGET_NAME = 'artemis-remote';
+
+/**
+ * Exact target name accepted by the publish endpoint. The name is the package directory and the GitHub Environment,
+ * so it is validated instead of sanitized.
+ */
+const REMOTE_TARGET_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
+/** Public template from which administrators create a deployment repository. */
+export const DEPLOYMENT_TEMPLATE_REPOSITORY_URL = 'https://github.com/ls1intum/artemis-feature-model-deployment-template';
+
+/** Checks a remote target name against the exact identifier the publish endpoint accepts. */
+export function isValidRemoteTargetName(targetName: string): boolean {
+    return REMOTE_TARGET_NAME_PATTERN.test(targetName);
+}
 
 /** Deployment targets in picker order; the first entry is the default. */
 export const DEPLOYMENT_TARGETS: readonly DeploymentTarget[] = [

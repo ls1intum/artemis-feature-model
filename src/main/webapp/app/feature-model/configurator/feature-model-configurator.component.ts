@@ -29,7 +29,13 @@ import {
     CONFIGURATOR_TUTORIAL_STEPS,
     buildConfiguratorTutorialSeenKey,
 } from './shared/configurator-tutorial';
-import { DEFAULT_DEPLOYMENT_MODE, DEFAULT_REMOTE_TARGET_NAME, REMOTE_DEPLOYMENT_MODE, deploymentTargetFor } from './shared/deployment-targets';
+import {
+    DEFAULT_DEPLOYMENT_MODE,
+    DEFAULT_REMOTE_TARGET_NAME,
+    REMOTE_DEPLOYMENT_MODE,
+    deploymentTargetFor,
+    isValidRemoteTargetName,
+} from './shared/deployment-targets';
 import { ConfiguratorTreeComponent } from './tree/configurator-tree.component';
 
 interface DeploymentErrorBody {
@@ -45,6 +51,8 @@ const DEFAULT_ARTIFACT_ERROR_MESSAGE = 'Failed to generate artifacts. Please ver
 const DEFAULT_DEPLOYMENT_PACKAGE_ERROR_MESSAGE = 'Failed to generate the deployment package. Please verify that the server is running and try again.';
 const DEFAULT_PUBLISH_ERROR_MESSAGE = 'Failed to publish the deployment package. Please verify the deployment repository configuration and try again.';
 const ARTIFACT_PACKAGE_FILE_NAME = 'artemis-feature-model-artifacts.zip';
+const REMOTE_TARGET_NAME_STORAGE_KEY = 'artemis-feature-model.remote.target-name';
+const DEPLOYMENT_REPOSITORY_URL_STORAGE_KEY = 'artemis-feature-model.remote.repository-url';
 
 @Component({
     selector: 'fm-feature-model-configurator',
@@ -86,11 +94,16 @@ export class FeatureModelConfiguratorComponent implements OnInit {
     readonly deploymentPackagePublishing = signal<boolean>(false);
     readonly deploymentPackagePublishResult = signal<DeploymentPackagePublishResponse | undefined>(undefined);
     readonly deploymentPackagePublishErrorMessage = signal<string | undefined>(undefined);
+    /** Remote target name and deployment repository URL are per-browser conveniences kept in localStorage. */
+    readonly remoteTargetName = signal<string>(this.readStoredValue(REMOTE_TARGET_NAME_STORAGE_KEY) ?? DEFAULT_REMOTE_TARGET_NAME);
+    readonly deploymentRepositoryUrl = signal<string>(this.readStoredValue(DEPLOYMENT_REPOSITORY_URL_STORAGE_KEY) ?? '');
     readonly tutorialOpen = signal<boolean>(false);
     readonly tutorialStepIndex = signal<number>(0);
     readonly tutorialSeenKey = signal<string | undefined>(undefined);
     readonly tutorialSteps = CONFIGURATOR_TUTORIAL_STEPS;
     private validationToken = 0;
+    /** A stored or typed repository URL wins over the server default, even when it is empty. */
+    private deploymentRepositoryUrlChosen = this.readStoredValue(DEPLOYMENT_REPOSITORY_URL_STORAGE_KEY) !== undefined;
 
     readonly model = computed(() => this.response()?.model);
     readonly tree = computed(() => this.response()?.tree ?? null);
@@ -262,7 +275,12 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             .loadDeploymentPackagePublishTarget()
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
-                next: (target) => this.publishTarget.set(target),
+                next: (target) => {
+                    this.publishTarget.set(target);
+                    if (!this.deploymentRepositoryUrlChosen) {
+                        this.deploymentRepositoryUrl.set(target.defaultRepositoryUrl ?? '');
+                    }
+                },
                 error: () => this.publishTarget.set(undefined),
             });
     }
@@ -458,13 +476,28 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.deploymentPackagePublishErrorMessage.set(undefined);
     }
 
+    /** Updates the remote target name and remembers it in this browser. */
+    onRemoteTargetNameChange(targetName: string): void {
+        this.remoteTargetName.set(targetName);
+        this.writeStoredValue(REMOTE_TARGET_NAME_STORAGE_KEY, targetName);
+        this.clearPublishOutcome();
+    }
+
+    /** Updates the deployment repository URL and remembers it in this browser. */
+    onDeploymentRepositoryUrlChange(repositoryUrl: string): void {
+        this.deploymentRepositoryUrl.set(repositoryUrl);
+        this.deploymentRepositoryUrlChosen = true;
+        this.writeStoredValue(DEPLOYMENT_REPOSITORY_URL_STORAGE_KEY, repositoryUrl);
+        this.clearPublishOutcome();
+    }
+
     /**
      * Downloads the deployment package ZIP for the current valid selection and the selected deployment target. The
      * default local Docker target sends the request without a deployment mode, preserving the pre-mode-axis behavior;
-     * any other target is sent explicitly as `deploymentMode`.
+     * any other target is sent explicitly as `deploymentMode`. The remote target needs a valid target name.
      */
     onDownloadDeploymentPackage(): void {
-        if (!this.isValid()) {
+        if (!this.isValid() || !this.remoteTargetNameAcceptable()) {
             return;
         }
         this.startDeploymentPackageDownload(this.deploymentPackageRequest());
@@ -476,7 +509,11 @@ export class FeatureModelConfiguratorComponent implements OnInit {
      * downloading; unsupported selections stop once because neither action can generate their package.
      */
     onPublishAndDownloadDeploymentPackage(): void {
+        const repositoryUrl = this.deploymentRepositoryUrl().trim();
         if (!this.isValid() || this.selectedDeploymentMode() !== REMOTE_DEPLOYMENT_MODE || !this.publishTarget()?.configured) {
+            return;
+        }
+        if (!this.remoteTargetNameAcceptable() || repositoryUrl.length === 0) {
             return;
         }
         const request = this.deploymentPackageRequest();
@@ -486,7 +523,7 @@ export class FeatureModelConfiguratorComponent implements OnInit {
         this.deploymentPackagePublishResult.set(undefined);
         this.deploymentPackagePublishErrorMessage.set(undefined);
         this.featureModelService
-            .publishDeploymentPackage(request)
+            .publishDeploymentPackage(request, repositoryUrl)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
                 next: (result) => {
@@ -513,9 +550,20 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             request.deploymentMode = deploymentMode;
         }
         if (deploymentMode === REMOTE_DEPLOYMENT_MODE) {
-            request.remoteEnvironment = { targetName: DEFAULT_REMOTE_TARGET_NAME };
+            request.remoteEnvironment = { targetName: this.remoteTargetName() };
         }
         return request;
+    }
+
+    /** Only the remote target carries a target name; any other target is never blocked by it. */
+    private remoteTargetNameAcceptable(): boolean {
+        return this.selectedDeploymentMode() !== REMOTE_DEPLOYMENT_MODE || isValidRemoteTargetName(this.remoteTargetName());
+    }
+
+    /** A changed destination makes the previous publish result or error stale. */
+    private clearPublishOutcome(): void {
+        this.deploymentPackagePublishResult.set(undefined);
+        this.deploymentPackagePublishErrorMessage.set(undefined);
     }
 
     /** Starts the deployment package ZIP download for an already-built request. */
@@ -844,6 +892,32 @@ export class FeatureModelConfiguratorComponent implements OnInit {
             return storage.getItem(key) === 'true';
         } catch {
             return false;
+        }
+    }
+
+    /** Reads a stored string; blocked or failing storage reads as absent. */
+    private readStoredValue(key: string): string | undefined {
+        const storage = this.browserStorage();
+        if (!storage) {
+            return undefined;
+        }
+        try {
+            return storage.getItem(key) ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** Stores a string; the page keeps working with the in-memory value when storage fails. */
+    private writeStoredValue(key: string, value: string): void {
+        const storage = this.browserStorage();
+        if (!storage) {
+            return;
+        }
+        try {
+            storage.setItem(key, value);
+        } catch {
+            // Browser storage can be disabled or full; the field keeps its in-memory value.
         }
     }
 
