@@ -89,7 +89,7 @@ class DeploymentPackagePublishServiceTest {
         artifactPackageService = new ArtifactPackageService();
         remoteUrl = seedRemoteRepository();
         DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(
-                new DeploymentRepositoryProperties(true, remoteUrl, "deployment", null, null, null, null), objectMapper);
+                new DeploymentRepositoryProperties(true, remoteUrl, List.of(tempDir.toUri().toString()), "deployment", null, null, null, null), objectMapper);
         publishService = new DeploymentPackagePublishService(deploymentPackageService, publisher, catalogLoader);
     }
 
@@ -97,7 +97,7 @@ class DeploymentPackagePublishServiceTest {
     void publishTreeEqualsGenerateOutputAndDownloadZipContentByteForByte() throws Exception {
         ArtifactGenerationRequest request = remoteRequest(FULL_POSTGRES_SELECTION);
 
-        DeploymentRepositoryPublishResult result = publishService.publish(request);
+        DeploymentRepositoryPublishResult result = publishService.publish(request, null);
         GeneratedArtifactPackage generated = deploymentPackageService.generate(request);
 
         Map<String, byte[]> generatedBytes = new LinkedHashMap<>();
@@ -125,7 +125,7 @@ class DeploymentPackagePublishServiceTest {
         reducedWithIris.remove("tutorialgroup");
         reducedWithIris.add("iris");
 
-        publishService.publish(remoteRequest(reducedWithIris));
+        publishService.publish(remoteRequest(reducedWithIris), null);
 
         String message = headCommitMessage();
         assertThat(message).startsWith("deploy artemis-remote: model ");
@@ -150,6 +150,7 @@ class DeploymentPackagePublishServiceTest {
         Path seedDir = tempDir.resolve("seed");
         try (Git seed = Git.init().setInitialBranch("main").setDirectory(seedDir.toFile()).call()) {
             Files.writeString(seedDir.resolve("README.md"), "# deployment repository\n");
+            DeploymentRepositoryMarkers.writeValidMarker(seedDir);
             seed.add().addFilepattern(".").call();
             PersonIdent seeder = new PersonIdent("seed", "seed@example.invalid");
             seed.commit().setMessage("seed default branch").setAuthor(seeder).setCommitter(seeder).setSign(false).call();

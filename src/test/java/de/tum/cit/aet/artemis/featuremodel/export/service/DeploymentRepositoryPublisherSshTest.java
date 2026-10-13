@@ -42,6 +42,8 @@ class DeploymentRepositoryPublisherSshTest {
 
     private static final String COMMIT_MESSAGE = "deploy artemis-remote over ssh";
 
+    private static final String SSH_TEST_PREFIX = "ssh://" + TEST_USER + "@localhost:";
+
     @TempDir
     Path tempDir;
 
@@ -51,8 +53,8 @@ class DeploymentRepositoryPublisherSshTest {
         try (SshRepository repository = startRepository(algorithm)) {
             DeploymentRepositoryPublisher publisher = repository.publisher();
 
-            DeploymentRepositoryPublishResult first = publisher.publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
-            DeploymentRepositoryPublishResult second = publisher.publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
+            DeploymentRepositoryPublishResult first = publisher.publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
+            DeploymentRepositoryPublishResult second = publisher.publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
 
             assertThat(first.upToDate()).isFalse();
             assertThat(second.upToDate()).isTrue();
@@ -78,12 +80,12 @@ class DeploymentRepositoryPublisherSshTest {
                 protected void beforePush(int attempt) {
                     if (!advanced) {
                         advanced = true;
-                        concurrentPublisher.publish("other-target", packageFiles("concurrent"), "concurrent publish");
+                        concurrentPublisher.publish(null, "other-target", packageFiles("concurrent"), "concurrent publish");
                     }
                 }
             };
 
-            DeploymentRepositoryPublishResult result = racingPublisher.publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
+            DeploymentRepositoryPublishResult result = racingPublisher.publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE);
 
             assertThat(result.upToDate()).isFalse();
             try (Git verification = repository.cloneBranch("deployment")) {
@@ -101,7 +103,7 @@ class DeploymentRepositoryPublisherSshTest {
             writeKnownHosts(repository.knownHostsPath(), repository.port(), unknownHost);
             byte[] knownHostsBeforePublish = Files.readAllBytes(repository.knownHostsPath());
 
-            assertThatThrownBy(() -> repository.publisher().publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
+            assertThatThrownBy(() -> repository.publisher().publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
                     .isInstanceOfSatisfying(DeploymentRepositoryPublishException.class,
                             exception -> assertThat(exception.getCode()).isEqualTo("PUBLISH_REJECTED"));
 
@@ -115,7 +117,7 @@ class DeploymentRepositoryPublisherSshTest {
         try (SshRepository repository = startRepository(TestKeyAlgorithm.ED25519)) {
             writePrivateKey(repository.privateKeyPath(), TestKeyAlgorithm.ED25519.generate());
 
-            assertThatThrownBy(() -> repository.publisher().publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
+            assertThatThrownBy(() -> repository.publisher().publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
                     .isInstanceOfSatisfying(DeploymentRepositoryPublishException.class,
                             exception -> assertThat(exception.getCode()).isEqualTo("PUBLISH_AUTH_FAILED"));
 
@@ -128,7 +130,7 @@ class DeploymentRepositoryPublisherSshTest {
         try (SshRepository repository = startRepository(TestKeyAlgorithm.ED25519)) {
             Files.writeString(repository.privateKeyPath(), "not an OpenSSH private key");
 
-            assertThatThrownBy(() -> repository.publisher().publish("artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
+            assertThatThrownBy(() -> repository.publisher().publish(null, "artemis-remote", packageFiles("v1"), COMMIT_MESSAGE))
                     .isInstanceOfSatisfying(DeploymentRepositoryPublishException.class,
                             exception -> assertThat(exception.getCode()).isEqualTo("PUBLISH_REJECTED"));
 
@@ -136,13 +138,43 @@ class DeploymentRepositoryPublisherSshTest {
         }
     }
 
+    @Test
+    void publishesToTwoSshRepositoriesFromOneInstanceWithATransportPerUrl() throws Exception {
+        KeyPair clientKey = TestKeyAlgorithm.ED25519.generate();
+        try (SshRepository first = startRepository(TestKeyAlgorithm.ED25519, clientKey);
+                SshRepository second = startRepository(TestKeyAlgorithm.ED25519, clientKey)) {
+            Path knownHosts = tempDir.resolve("combined_known_hosts");
+            Files.writeString(knownHosts, Files.readString(first.knownHostsPath()) + Files.readString(second.knownHostsPath()));
+            Map<String, String> environment = Map.of(DeploymentRepositorySshTransport.SSH_KEY_PATH_ENV_VAR, first.privateKeyPath().toString(),
+                    DeploymentRepositorySshTransport.KNOWN_HOSTS_PATH_ENV_VAR, knownHosts.toString());
+            DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(first.properties(), new ObjectMapper(), environment::get);
+
+            DeploymentRepositoryPublishResult toDefault = publisher.publish(null, "artemis-remote", packageFiles("default"), COMMIT_MESSAGE);
+            DeploymentRepositoryPublishResult toRequested = publisher.publish(second.remoteUrl(), "chair-vm", packageFiles("requested"), COMMIT_MESSAGE);
+
+            assertThat(toDefault.repositoryUrl()).isEqualTo(first.remoteUrl());
+            assertThat(toRequested.repositoryUrl()).isEqualTo(second.remoteUrl());
+            try (Git firstClone = first.cloneBranch("deployment"); Git secondClone = second.cloneBranch("deployment")) {
+                Path firstTree = firstClone.getRepository().getWorkTree().toPath();
+                Path secondTree = secondClone.getRepository().getWorkTree().toPath();
+                assertThat(Files.readString(firstTree.resolve("deployments/artemis-remote/package/README.md"))).isEqualTo("readme default");
+                assertThat(firstTree.resolve("deployments/chair-vm")).doesNotExist();
+                assertThat(Files.readString(secondTree.resolve("deployments/chair-vm/package/README.md"))).isEqualTo("readme requested");
+                assertThat(secondTree.resolve("deployments/artemis-remote")).doesNotExist();
+            }
+        }
+    }
+
     private SshRepository startRepository(TestKeyAlgorithm algorithm) throws Exception {
+        return startRepository(algorithm, algorithm.generate());
+    }
+
+    private SshRepository startRepository(TestKeyAlgorithm algorithm, KeyPair clientKey) throws Exception {
         Path repositoryDirectory = Files.createTempDirectory(tempDir, "ssh-repository");
         Path remoteDirectory = repositoryDirectory.resolve("deployment-repo.git");
         Git remote = Git.init().setBare(true).setInitialBranch("main").setDirectory(remoteDirectory.toFile()).call();
         seedDefaultBranch(repositoryDirectory, remoteDirectory);
 
-        KeyPair clientKey = algorithm.generate();
         KeyPair hostKey = algorithm.generate();
         Path privateKeyPath = repositoryDirectory.resolve("id_key");
         Path publicKeyPath = repositoryDirectory.resolve("id_key.pub");
@@ -161,6 +193,7 @@ class DeploymentRepositoryPublisherSshTest {
         Path seedDirectory = repositoryDirectory.resolve("seed");
         try (Git seed = Git.init().setInitialBranch("main").setDirectory(seedDirectory.toFile()).call()) {
             Files.writeString(seedDirectory.resolve("README.md"), "# deployment repository\n");
+            DeploymentRepositoryMarkers.writeValidMarker(seedDirectory);
             seed.add().addFilepattern(".").call();
             PersonIdent seeder = new PersonIdent("seed", "seed@example.invalid");
             seed.commit().setMessage("seed default branch").setAuthor(seeder).setCommitter(seeder).setSign(false).call();
@@ -218,7 +251,7 @@ class DeploymentRepositoryPublisherSshTest {
         }
 
         private DeploymentRepositoryProperties properties() {
-            return new DeploymentRepositoryProperties(true, remoteUrl, "deployment", null, null, null, null);
+            return new DeploymentRepositoryProperties(true, remoteUrl, List.of(SSH_TEST_PREFIX), "deployment", null, null, null, null);
         }
 
         private UnaryOperator<String> environmentReader() {
