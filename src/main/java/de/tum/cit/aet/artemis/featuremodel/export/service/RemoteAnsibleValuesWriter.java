@@ -1,5 +1,6 @@
 package de.tum.cit.aet.artemis.featuremodel.export.service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -53,14 +54,16 @@ public class RemoteAnsibleValuesWriter {
     }
 
     /**
-     * Builds the package README for the admin consuming the package.
+     * Builds the package README for the admin consuming the package, including the table of exactly the environment
+     * variables this package references.
      *
      * @param modelId active feature model id.
      * @param modelVersion active feature model version.
      * @param profileId active deployment profile id.
+     * @param envReferences planned environment references in {@code env-references.json} order.
      * @return README markdown text.
      */
-    public String packageReadme(String modelId, String modelVersion, String profileId) {
+    public String packageReadme(String modelId, String modelVersion, String profileId, List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
         return """
                 # Artemis Remote Deployment Package (Ansible)
 
@@ -89,11 +92,16 @@ public class RemoteAnsibleValuesWriter {
                 No environment value — identity or secret, dummy or real — is stored in this package. Every value is
                 referenced as a `lookup('ansible.builtin.env', …)` expression that Ansible resolves on the control
                 node at run time; `metadata/env-references.json` lists each variable with its consuming value and the
-                file referencing it. Provide the variables where the playbook runs:
+                file referencing it. This package needs these variables:
+
+                %s
+
+                Provide the variables where the playbook runs:
 
                 - **Locally**: export the full set in the shell before running the preflight and the playbook.
-                - **GitHub Actions** (execution-plane stage): provision the same names as Actions secrets; the
-                  workflow injects them into the run environment.
+                - **GitHub Actions** (execution-plane stage): create each variable in the target's GitHub Environment,
+                  as an Environment secret or an Environment variable as the table above says; the workflow injects
+                  them into the run environment.
 
                 Ownership of the values:
 
@@ -152,7 +160,28 @@ public class RemoteAnsibleValuesWriter {
                 the values are generated, and environment values appear only as lookup expressions. It did **not**
                 prove the inventory renders or boots — that is the preflight's and the admin's job. See
                 `metadata/remote-readiness.json`.
-                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin());
+                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin(), environmentTable(envReferences));
+    }
+
+    /**
+     * Renders the Markdown table of the package's environment variables: one row per variable in reference order,
+     * with the GitHub place it belongs to and its catalog description.
+     *
+     * @param envReferences planned environment references in {@code env-references.json} order.
+     * @return Markdown table without a trailing newline.
+     */
+    private String environmentTable(List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
+        StringBuilder table = new StringBuilder("| Variable | Set on GitHub as | Description |\n|---|---|---|");
+        Set<String> listed = new HashSet<>();
+        for (RemoteAnsibleEmissionPlan.PlannedEnvReference reference : envReferences) {
+            if (!listed.add(reference.envVar())) {
+                continue;
+            }
+            String githubPlace = RemoteAnsibleEmissionPlan.ENV_KIND_SECRET.equals(reference.kind()) ? "Environment secret" : "Environment variable";
+            table.append("\n| `").append(reference.envVar()).append("` | ").append(githubPlace).append(" | ")
+                    .append(reference.description().replace("|", "\\|")).append(" |");
+        }
+        return table.toString();
     }
 
     /**

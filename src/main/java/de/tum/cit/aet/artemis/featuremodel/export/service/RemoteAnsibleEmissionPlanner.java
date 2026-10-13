@@ -239,7 +239,7 @@ public class RemoteAnsibleEmissionPlanner {
     }
 
     /**
-     * Resolves block references to their package file and classification.
+     * Resolves block references to their package file, classification, and catalog description.
      * @param references references derived from emitted content.
      * @param filePath package-relative path.
      * @param kind identity or secret classification.
@@ -248,7 +248,8 @@ public class RemoteAnsibleEmissionPlanner {
     private void collectReferences(List<AnsibleBindingCatalog.EnvReference> references, String filePath, String kind,
             List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
         for (AnsibleBindingCatalog.EnvReference reference : references) {
-            envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(reference.envVar(), reference.consumer(), filePath, kind));
+            String description = catalog.environment().get(reference.envVar());
+            envReferences.add(new RemoteAnsibleEmissionPlan.PlannedEnvReference(reference.envVar(), reference.consumer(), filePath, kind, description));
         }
     }
 
