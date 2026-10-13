@@ -413,10 +413,58 @@
                     </fieldset>
                     <p class="mt-2 mb-0 small text-body-secondary" data-testid="deployment-package-note">{{ selectedDeploymentTarget().note }}</p>
 
+                    @if (remoteTargetSelected()) {
+                        <div class="remote-target-fields" data-testid="remote-target-fields">
+                            <label class="form-label small fw-semibold mb-1" for="remote-target-name">Target name</label>
+                            <input
+                                id="remote-target-name"
+                                type="text"
+                                class="form-control form-control-sm"
+                                [class.is-invalid]="!remoteTargetNameValid()"
+                                [value]="remoteTargetName()"
+                                (input)="onRemoteTargetNameInput($event)"
+                                autocomplete="off"
+                                spellcheck="false"
+                                aria-describedby="remote-target-name-help"
+                                data-testid="remote-target-name-input"
+                            />
+                            @if (remoteTargetNameValid()) {
+                                <p id="remote-target-name-help" class="form-text mt-1 mb-0" data-testid="remote-target-environment">
+                                    GitHub Environment: <code>{{ remoteTargetName() }}</code>
+                                </p>
+                            } @else {
+                                <p id="remote-target-name-help" class="invalid-feedback d-block mt-1 mb-0" data-testid="remote-target-name-error">
+                                    Use 1 to 63 lowercase letters, digits, or hyphens, starting with a letter or digit.
+                                </p>
+                            }
+
+                            @if (publishActionAvailable()) {
+                                <label class="form-label small fw-semibold mt-3 mb-1" for="deployment-repository-url">Deployment repository</label>
+                                <input
+                                    id="deployment-repository-url"
+                                    type="url"
+                                    class="form-control form-control-sm"
+                                    placeholder="https://github.com/<owner>/<repo>.git"
+                                    [value]="deploymentRepositoryUrl()"
+                                    (input)="onDeploymentRepositoryUrlInput($event)"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    aria-describedby="deployment-repository-url-help"
+                                    data-testid="deployment-repository-url-input"
+                                />
+                                <p id="deployment-repository-url-help" class="form-text mt-1 mb-0">
+                                    No deployment repository yet?
+                                    <a [href]="deploymentTemplateRepositoryUrl" target="_blank" rel="noopener" data-testid="deployment-template-link">
+                                        Create one from the template</a>.
+                                </p>
+                            }
+                        </div>
+                    }
+
                     <button
                         type="button"
                         class="btn btn-primary w-100"
-                        [disabled]="exportBlocked() || deploymentPackageDownloading()"
+                        [disabled]="downloadDisabled()"
                         (click)="downloadDeploymentPackage.emit()"
                         data-testid="download-deployment-package-button"
                     >
@@ -427,13 +475,15 @@
                         <button
                             type="button"
                             class="btn btn-outline-primary w-100 mt-2"
-                            [disabled]="exportBlocked() || deploymentPackagePublishing() || deploymentPackageDownloading()"
+                            [disabled]="publishDisabled()"
                             (click)="publishAndDownloadDeploymentPackage.emit()"
                             data-testid="publish-deployment-package-button"
                         >
-                            {{ deploymentPackagePublishing() ? 'Deploying...' : 'Deploy to test VM' }}
+                            {{ publishLabel() }}
                         </button>
-                        <p class="mt-1 mb-0 small text-body-secondary" data-testid="publish-destination">Publishes to {{ publishDestination() }}</p>
+                        @if (publishDestination()) {
+                            <p class="mt-1 mb-0 small text-body-secondary text-break" data-testid="publish-destination">{{ publishDestination() }}</p>
+                        }
                     }
 
                     @if (deploymentPackagePublishResult(); as publishResult) {
