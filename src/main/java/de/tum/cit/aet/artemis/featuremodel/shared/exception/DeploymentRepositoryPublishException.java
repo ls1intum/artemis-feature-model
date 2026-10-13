@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.shared.exception;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 
 /**
@@ -46,6 +48,55 @@ public class DeploymentRepositoryPublishException extends RuntimeException {
     public static DeploymentRepositoryPublishException requiresTargetName() {
         return new DeploymentRepositoryPublishException("PUBLISH_REQUIRES_TARGET_NAME",
                 "Publishing requires a target name: it routes the package to its repository directory.", HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates the exception for a target name that is not an exact identifier; the name becomes the package directory
+     * and the GitHub Environment name, so it is validated instead of sanitized.
+     *
+     * @param targetName rejected target name.
+     * @return invalid-target-name publish exception.
+     */
+    public static DeploymentRepositoryPublishException invalidTargetName(String targetName) {
+        String message = "The target name '" + targetName + "' is not valid: use 1 to 63 lowercase letters, digits, or hyphens, "
+                + "starting with a letter or digit. It names the package directory and the GitHub Environment.";
+        return new DeploymentRepositoryPublishException("PUBLISH_INVALID_TARGET_NAME", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates the exception for a publish request without a repository URL while no default URL is configured.
+     *
+     * @return missing-repository-URL publish exception.
+     */
+    public static DeploymentRepositoryPublishException requiresRepositoryUrl() {
+        return new DeploymentRepositoryPublishException("PUBLISH_REQUIRES_REPOSITORY_URL",
+                "Publishing requires a deployment repository URL: the request has none and no default URL is configured.", HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates the exception for a repository URL that violates the URL policy. The message names the violation and the
+     * allowed prefixes but never repeats the URL, which may carry a credential.
+     *
+     * @param violation human-readable policy violation.
+     * @param allowedPrefixes allowed repository URL prefixes.
+     * @return repository-not-allowed publish exception.
+     */
+    public static DeploymentRepositoryPublishException repositoryNotAllowed(String violation, List<String> allowedPrefixes) {
+        return new DeploymentRepositoryPublishException("PUBLISH_REPOSITORY_NOT_ALLOWED",
+                "The deployment repository URL is not allowed: " + violation + ". Allowed URL prefixes: " + String.join(", ", allowedPrefixes) + ".",
+                HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Creates the exception for a repository that does not declare itself a compatible deployment repository through
+     * its marker file; nothing was committed or pushed.
+     *
+     * @param detail what is wrong with the marker and how to fix it.
+     * @return not-a-deployment-repository publish exception.
+     */
+    public static DeploymentRepositoryPublishException notADeploymentRepository(String detail) {
+        return new DeploymentRepositoryPublishException("PUBLISH_NOT_A_DEPLOYMENT_REPOSITORY", "The repository is not a deployment repository: " + detail,
+                HttpStatus.CONFLICT);
     }
 
     /**

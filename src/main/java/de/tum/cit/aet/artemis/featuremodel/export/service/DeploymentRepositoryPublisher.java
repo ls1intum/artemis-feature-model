@@ -12,7 +12,10 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.eclipse.jgit.api.CloneCommand;
@@ -40,20 +43,24 @@ import org.springframework.stereotype.Component;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentRepositoryPublishResult;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentRepositoryPublishException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Publishes a generated deployment package as a commit to the configured deployment repository. One publish is a
- * fresh shallow single-branch clone into a temporary directory, a wholesale replacement of the target's package
- * directory, and an atomic push — never a force push, so no existing commit can be discarded by construction. A push
- * the remote rejects because the branch advanced concurrently is retried from a fresh clone of the new head, up to
- * three attempts; the retried commit lands on top of the concurrent winner's commit.
+ * Publishes a generated deployment package as a commit to a deployment repository. The repository is the one named by
+ * the publish request, or the configured default; its URL must pass {@link DeploymentRepositoryUrlPolicy} and the
+ * repository must declare itself a compatible deployment repository through its marker file. One publish is a fresh
+ * shallow single-branch clone into a temporary directory, a wholesale replacement of the target's package directory,
+ * and an atomic push — never a force push, so no existing commit can be discarded by construction. A push the remote
+ * rejects because the branch advanced concurrently is retried from a fresh clone of the new head, up to three
+ * attempts; the retried commit lands on top of the concurrent winner's commit.
  *
  * <p>
  * HTTPS credentials come exclusively from the {@code FM_DEPLOYMENT_REPO_TOKEN} environment variable. SSH remotes use
  * an explicitly configured deploy key and known-hosts file. Credentials are never logged, serialized, or embedded in
- * a URL. {@code file://} remotes need no credential, which keeps the full publish flow unit-testable offline.
+ * a URL. {@code file://} remotes need no credential and are only reachable through an explicitly allowed
+ * {@code file://} prefix, which keeps the full publish flow unit-testable offline.
  */
 @Component
 public class DeploymentRepositoryPublisher {
@@ -63,6 +70,17 @@ public class DeploymentRepositoryPublisher {
 
     /** Directory under the target directory that the publisher replaces wholesale; nothing else is ever touched. */
     static final String PACKAGE_DIRECTORY_NAME = "package";
+
+    /** Marker file at the repository root through which a repository declares itself a deployment repository. */
+    static final String MARKER_FILE_NAME = "deployment-repository.json";
+
+    /** Required {@code kind} of the marker file. */
+    static final String MARKER_KIND = "artemis-feature-model-deployment-repository";
+
+    /** Exact target name identifier: it becomes the package directory and the GitHub Environment name. */
+    private static final Pattern TARGET_NAME_PATTERN = Pattern.compile("^[a-z0-9][a-z0-9-]{0,62}$");
+
+    private static final String FILE_URL_PREFIX = "file://";
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentRepositoryPublisher.class);
 
@@ -74,13 +92,11 @@ public class DeploymentRepositoryPublisher {
 
     private final UnaryOperator<String> environmentReader;
 
-    private final DeploymentRepositorySshTransport sshTransport;
-
     /** Serializes publishes within this instance; cross-instance safety rests on the atomic push alone. */
     private final Object publishLock = new Object();
 
-    /** Whether the github.com visibility expectation was verified in this process lifetime. */
-    private volatile boolean visibilityVerified;
+    /** Repository URLs whose github.com visibility expectation was verified in this process lifetime. */
+    private final Set<String> visibilityVerifiedUrls = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates the publisher against the process environment.
@@ -104,45 +120,61 @@ public class DeploymentRepositoryPublisher {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.environmentReader = environmentReader;
-        this.sshTransport = new DeploymentRepositorySshTransport(properties.repositoryUrl(), environmentReader);
     }
 
     /**
-     * Checks whether publishing is fully configured: enabled, a repository URL present, and the credential files or
-     * token required by its transport.
+     * Checks whether publishing can be offered: it is enabled and at least one transport is usable — the HTTPS token
+     * is present, both SSH files are readable, or a {@code file://} prefix is explicitly allowed. A repository URL is
+     * not required, because the request can supply one.
      *
      * @return whether a publish can be attempted.
      */
     public boolean isConfigured() {
-        return configurationGap() == null;
+        if (!properties.enabled()) {
+            return false;
+        }
+        boolean sshAvailable = DeploymentRepositorySshTransport.credentialGap(environmentReader) == null;
+        return hasToken() || sshAvailable || fileTransportAllowed();
     }
 
     /**
-     * Requires publishing to be fully configured.
+     * Requires publishing to be enabled, resolves the effective repository URL through the URL policy, and requires the
+     * credential of that URL's transport.
      *
-     * @throws DeploymentRepositoryPublishException if publishing is disabled or incompletely configured.
+     * @param requestedRepositoryUrl repository URL of the request, or {@code null}/blank for the configured default.
+     * @return effective, trimmed repository URL.
+     * @throws DeploymentRepositoryPublishException if publishing is disabled, no URL is available, the URL violates the
+     *             policy, or the credential of its transport is missing.
      */
-    public void requireConfigured() {
-        String gap = configurationGap();
+    public String requireConfiguredFor(String requestedRepositoryUrl) {
+        if (!properties.enabled()) {
+            throw DeploymentRepositoryPublishException.notConfigured("it is disabled (artemis.feature-model.deployment-repository.enabled=false).");
+        }
+        String repositoryUrl = DeploymentRepositoryUrlPolicy.effectiveUrl(requestedRepositoryUrl, properties);
+        String gap = credentialGap(repositoryUrl);
         if (gap != null) {
             throw DeploymentRepositoryPublishException.notConfigured(gap);
         }
+        return repositoryUrl;
     }
 
     /**
-     * Derives the sanitized target directory name of a target name: lowercase with every character outside
-     * {@code [a-z0-9-]} removed.
+     * Validates a target name as an exact identifier; it is never sanitized, because the same name is the package
+     * directory and the GitHub Environment an administrator creates.
      *
      * @param targetName raw target name.
-     * @return sanitized target directory name.
-     * @throws DeploymentRepositoryPublishException if the target name is absent or sanitizes to nothing.
+     * @return the unchanged, valid target name.
+     * @throws DeploymentRepositoryPublishException if the target name is absent or does not match
+     *             {@code ^[a-z0-9][a-z0-9-]{0,62}$}.
      */
-    public String sanitizedTargetName(String targetName) {
-        String sanitized = targetName == null ? "" : targetName.strip().toLowerCase().replaceAll("[^a-z0-9-]", "");
-        if (sanitized.isEmpty()) {
+    public String validatedTargetName(String targetName) {
+        if (targetName == null || targetName.isBlank()) {
             throw DeploymentRepositoryPublishException.requiresTargetName();
         }
-        return sanitized;
+        if (!TARGET_NAME_PATTERN.matcher(targetName).matches()) {
+            throw DeploymentRepositoryPublishException.invalidTargetName(targetName);
+        }
+        return targetName;
     }
 
     /**
@@ -155,37 +187,41 @@ public class DeploymentRepositoryPublisher {
     }
 
     /**
-     * Derives the repository-relative package directory of a target name: the configured root, the sanitized target
-     * directory name, and the package directory.
+     * Derives the repository-relative package directory of a target name: the configured root, the validated target
+     * name, and the package directory.
      *
      * @param targetName raw target name.
      * @return repository-relative package directory.
-     * @throws DeploymentRepositoryPublishException if the target name is absent or sanitizes to nothing.
+     * @throws DeploymentRepositoryPublishException if the target name is absent or invalid.
      */
     public String targetDirectoryFor(String targetName) {
-        return properties.targetDirectoryRoot() + "/" + sanitizedTargetName(targetName) + "/" + PACKAGE_DIRECTORY_NAME;
+        return properties.targetDirectoryRoot() + "/" + validatedTargetName(targetName) + "/" + PACKAGE_DIRECTORY_NAME;
     }
 
     /**
-     * Publishes the package files of one target as a commit on the configured deployment branch. The target's package
-     * directory is replaced wholesale, so files that stop being generated are deleted; an unchanged tree produces no
-     * commit and reports up to date.
+     * Publishes the package files of one target as a commit on the configured deployment branch of the effective
+     * repository. The target's package directory is replaced wholesale, so files that stop being generated are
+     * deleted; an unchanged tree produces no commit and reports up to date.
      *
-     * @param targetName raw target name routing the package to its repository directory.
+     * @param requestedRepositoryUrl repository URL of the request, or {@code null}/blank for the configured default.
+     * @param targetName target name routing the package to its repository directory.
      * @param files generated package files, byte-identical to the download payload.
      * @param commitMessage commit message describing the published variant.
-     * @return publish result with the carrying commit.
-     * @throws DeploymentRepositoryPublishException if publishing is not configured, the target name is missing, the
-     *             remote refuses the credential, or every push attempt is rejected.
+     * @return publish result with the effective repository URL and the carrying commit.
+     * @throws DeploymentRepositoryPublishException if publishing is not configured for the URL, the URL is not
+     *             allowed, the target name is missing or invalid, the repository lacks a compatible marker, the remote
+     *             refuses the credential, or every push attempt is rejected.
      */
-    public DeploymentRepositoryPublishResult publish(String targetName, List<GeneratedArtifactFile> files, String commitMessage) {
-        requireConfigured();
+    public DeploymentRepositoryPublishResult publish(String requestedRepositoryUrl, String targetName, List<GeneratedArtifactFile> files,
+            String commitMessage) {
+        String repositoryUrl = requireConfiguredFor(requestedRepositoryUrl);
         String targetDirectory = targetDirectoryFor(targetName);
-        verifyExpectedVisibility();
+        DeploymentRepositorySshTransport sshTransport = new DeploymentRepositorySshTransport(repositoryUrl, environmentReader);
+        verifyExpectedVisibility(repositoryUrl, sshTransport);
         synchronized (publishLock) {
             String lastRejection = "the push was rejected";
             for (int attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
-                AttemptOutcome outcome = attemptPublish(targetDirectory, files, commitMessage, attempt);
+                AttemptOutcome outcome = attemptPublish(repositoryUrl, sshTransport, targetDirectory, files, commitMessage, attempt);
                 if (outcome.result() != null) {
                     return outcome.result();
                 }
@@ -197,41 +233,58 @@ public class DeploymentRepositoryPublisher {
     }
 
     /**
-     * Names the first configuration gap that prevents publishing.
+     * Names the missing credential of the transport an effective repository URL selects.
      *
-     * @return human-readable gap, or {@code null} when publishing is fully configured.
+     * @param repositoryUrl effective repository URL.
+     * @return human-readable gap naming the missing variable, or {@code null} when the transport is usable.
      */
-    private String configurationGap() {
-        if (!properties.enabled()) {
-            return "it is disabled (artemis.feature-model.deployment-repository.enabled=false).";
-        }
-        if (properties.repositoryUrl() == null || properties.repositoryUrl().isBlank()) {
-            return "no repository URL is configured.";
-        }
-        if (isHttpRemote() && !hasToken()) {
+    private String credentialGap(String repositoryUrl) {
+        if (isHttpRemote(repositoryUrl) && !hasToken()) {
             return "the " + TOKEN_ENV_VAR + " environment variable is not set.";
         }
-        return sshTransport.configurationGap();
+        return new DeploymentRepositorySshTransport(repositoryUrl, environmentReader).configurationGap();
     }
 
     /**
-     * Runs one publish attempt: fresh clone, wholesale directory replacement, commit when the tree changed, push.
+     * Checks whether an operator explicitly allowed a {@code file://} prefix, the transport that needs no credential.
      *
+     * @return whether a {@code file://} prefix is allowed.
+     */
+    private boolean fileTransportAllowed() {
+        for (String prefix : properties.allowedRepositoryUrlPrefixes()) {
+            if (prefix.startsWith(FILE_URL_PREFIX)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Runs one publish attempt: fresh clone, marker check, wholesale directory replacement, commit when the tree
+     * changed, push.
+     *
+     * @param repositoryUrl effective repository URL.
+     * @param sshTransport SSH transport of the effective repository URL.
      * @param targetDirectory repository-relative package directory.
      * @param files generated package files.
      * @param commitMessage commit message.
      * @param attempt one-based attempt number.
      * @return the publish result, or the rejection message for a retry.
-     * @throws DeploymentRepositoryPublishException if the remote refuses the credential or the transport fails.
+     * @throws DeploymentRepositoryPublishException if the remote refuses the credential, the transport fails, or the
+     *             repository lacks a compatible marker.
      */
-    private AttemptOutcome attemptPublish(String targetDirectory, List<GeneratedArtifactFile> files, String commitMessage, int attempt) {
+    private AttemptOutcome attemptPublish(String repositoryUrl, DeploymentRepositorySshTransport sshTransport, String targetDirectory,
+            List<GeneratedArtifactFile> files, String commitMessage, int attempt) {
         Path tempDir = createTempDirectory();
         try (SshdSessionFactory sessionFactory = sshTransport.createSessionFactory(tempDir)) {
             TransportConfigCallback transportCallback = sshTransport.callback(sessionFactory);
-            boolean branchExists = remoteBranchExists(transportCallback);
-            try (Git git = cloneRepository(tempDir, branchExists, transportCallback)) {
+            boolean branchExists = remoteBranchExists(repositoryUrl, transportCallback);
+            try (Git git = cloneRepository(repositoryUrl, tempDir, branchExists, transportCallback)) {
                 if (!branchExists) {
                     requireDefaultHead(git);
+                }
+                requireDeploymentRepositoryMarker(tempDir);
+                if (!branchExists) {
                     git.checkout().setCreateBranch(true).setName(properties.branch()).call();
                 }
                 replacePackageDirectory(tempDir, targetDirectory, files);
@@ -240,7 +293,7 @@ public class DeploymentRepositoryPublisher {
                 Status status = git.status().call();
                 if (status.isClean() && branchExists) {
                     ObjectId head = git.getRepository().resolve(Constants.HEAD);
-                    return AttemptOutcome.of(new DeploymentRepositoryPublishResult(properties.branch(), targetDirectory, head.name(), true));
+                    return AttemptOutcome.of(new DeploymentRepositoryPublishResult(repositoryUrl, properties.branch(), targetDirectory, head.name(), true));
                 }
                 String commitSha = git.getRepository().resolve(Constants.HEAD).name();
                 if (!status.isClean()) {
@@ -249,15 +302,15 @@ public class DeploymentRepositoryPublisher {
                     commitSha = commit.name();
                 }
                 beforePush(attempt);
-                String rejection = push(git, transportCallback);
+                String rejection = push(git, repositoryUrl, transportCallback);
                 if (rejection != null) {
                     return AttemptOutcome.retry(rejection);
                 }
-                return AttemptOutcome.of(new DeploymentRepositoryPublishResult(properties.branch(), targetDirectory, commitSha, false));
+                return AttemptOutcome.of(new DeploymentRepositoryPublishResult(repositoryUrl, properties.branch(), targetDirectory, commitSha, false));
             }
         }
         catch (TransportException e) {
-            throw asControlledTransportFailure(e);
+            throw asControlledTransportFailure(e, sshTransport);
         }
         catch (GitAPIException | IOException e) {
             throw DeploymentRepositoryPublishException.rejected(e.getMessage());
@@ -277,40 +330,41 @@ public class DeploymentRepositoryPublisher {
     }
 
     /**
-     * Verifies the declared visibility of a {@code github.com} deployment repository once per process lifetime, so a
-     * publish never lands in a repository the operator does not think they are publishing to. The check runs only for
-     * {@code github.com} HTTPS or SSH remotes with a declared expectation; other remotes (including {@code file://}
-     * test remotes) skip it.
+     * Verifies the declared visibility of a {@code github.com} deployment repository once per repository URL and
+     * process lifetime, so a publish never lands in a repository the operator does not think they are publishing to.
+     * The expectation is an instance-wide policy. The check runs only for {@code github.com} HTTPS or SSH remotes with
+     * a declared expectation; other remotes (including {@code file://} test remotes) skip it.
      *
+     * @param repositoryUrl effective repository URL.
+     * @param sshTransport SSH transport of the effective repository URL, which derives the GitHub repository path.
      * @throws DeploymentRepositoryPublishException if the actual visibility differs from the expectation or cannot be
      *             determined.
      */
-    private void verifyExpectedVisibility() {
-        if (visibilityVerified) {
+    void verifyExpectedVisibility(String repositoryUrl, DeploymentRepositorySshTransport sshTransport) {
+        if (visibilityVerifiedUrls.contains(repositoryUrl)) {
             return;
         }
         String expected = properties.expectedVisibility();
-        if (sshTransport.gitHubRepositoryPath() == null || expected == null || expected.isBlank()) {
-            visibilityVerified = true;
-            return;
+        if (sshTransport.gitHubRepositoryPath() != null && expected != null && !expected.isBlank()) {
+            String actual = fetchGitHubVisibility(repositoryUrl);
+            if (!expected.equalsIgnoreCase(actual)) {
+                throw DeploymentRepositoryPublishException.visibilityMismatch(expected, actual);
+            }
         }
-        String actual = fetchGitHubVisibility();
-        if (!expected.equalsIgnoreCase(actual)) {
-            throw DeploymentRepositoryPublishException.visibilityMismatch(expected, actual);
-        }
-        visibilityVerified = true;
+        visibilityVerifiedUrls.add(repositoryUrl);
     }
 
     /**
-     * Reads the actual visibility of the configured {@code github.com} repository from the GitHub API. The request
-     * uses the token when present. GitHub hides private repositories behind an unauthenticated 404, which is therefore
-     * treated as private when no token is configured. Failure messages never contain the token.
+     * Reads the actual visibility of a {@code github.com} repository from the GitHub API. The request uses the token
+     * when present. GitHub hides private repositories behind an unauthenticated 404, which is therefore treated as
+     * private when no token is configured. Failure messages never contain the token.
      *
+     * @param repositoryUrl effective {@code github.com} repository URL.
      * @return actual repository visibility, for example {@code public} or {@code private}.
      * @throws DeploymentRepositoryPublishException if the visibility cannot be determined.
      */
-    protected String fetchGitHubVisibility() {
-        String repositoryPath = sshTransport.gitHubRepositoryPath();
+    protected String fetchGitHubVisibility(String repositoryUrl) {
+        String repositoryPath = new DeploymentRepositorySshTransport(repositoryUrl, environmentReader).gitHubRepositoryPath();
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/" + repositoryPath))
                 .header("Accept", "application/vnd.github+json");
         String token = environmentReader.apply(TOKEN_ENV_VAR);
@@ -361,14 +415,15 @@ public class DeploymentRepositoryPublisher {
      * Pushes the deployment branch without force.
      *
      * @param git open clone.
+     * @param repositoryUrl effective repository URL, which selects the credential.
      * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return the remote's rejection message, or {@code null} on success.
      * @throws GitAPIException if the push transport fails.
      */
-    private String push(Git git, TransportConfigCallback transportCallback) throws GitAPIException {
+    private String push(Git git, String repositoryUrl, TransportConfigCallback transportCallback) throws GitAPIException {
         String branchRef = Constants.R_HEADS + properties.branch();
         Iterable<PushResult> results = git.push().setRemote(Constants.DEFAULT_REMOTE_NAME).setRefSpecs(new RefSpec(branchRef + ":" + branchRef))
-                .setCredentialsProvider(credentialsProvider()).setTransportConfigCallback(transportCallback).call();
+                .setCredentialsProvider(credentialsProvider(repositoryUrl)).setTransportConfigCallback(transportCallback).call();
         for (PushResult result : results) {
             for (RemoteRefUpdate update : result.getRemoteUpdates()) {
                 if (update.getStatus() != RemoteRefUpdate.Status.OK && update.getStatus() != RemoteRefUpdate.Status.UP_TO_DATE) {
@@ -383,13 +438,14 @@ public class DeploymentRepositoryPublisher {
     /**
      * Checks whether the configured deployment branch exists on the remote.
      *
+     * @param repositoryUrl effective repository URL.
      * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return whether the branch exists.
      * @throws GitAPIException if the remote cannot be contacted.
      */
-    private boolean remoteBranchExists(TransportConfigCallback transportCallback) throws GitAPIException {
+    private boolean remoteBranchExists(String repositoryUrl, TransportConfigCallback transportCallback) throws GitAPIException {
         String branchRef = Constants.R_HEADS + properties.branch();
-        for (Ref ref : Git.lsRemoteRepository().setRemote(properties.repositoryUrl()).setHeads(true).setCredentialsProvider(credentialsProvider())
+        for (Ref ref : Git.lsRemoteRepository().setRemote(repositoryUrl).setHeads(true).setCredentialsProvider(credentialsProvider(repositoryUrl))
                 .setTransportConfigCallback(transportCallback).call()) {
             if (branchRef.equals(ref.getName())) {
                 return true;
@@ -402,15 +458,17 @@ public class DeploymentRepositoryPublisher {
      * Clones the deployment repository into a temporary directory: shallow and single-branch when the deployment
      * branch exists, the remote default head otherwise (the one-time branch bootstrap).
      *
+     * @param repositoryUrl effective repository URL.
      * @param tempDir clone target directory.
      * @param branchExists whether the deployment branch exists on the remote.
      * @param transportCallback per-attempt SSH transport callback, or {@code null} for other transports.
      * @return open clone.
      * @throws GitAPIException if the clone fails.
      */
-    private Git cloneRepository(Path tempDir, boolean branchExists, TransportConfigCallback transportCallback) throws GitAPIException {
-        CloneCommand clone = Git.cloneRepository().setURI(properties.repositoryUrl()).setDirectory(tempDir.toFile()).setDepth(1)
-                .setCredentialsProvider(credentialsProvider()).setTransportConfigCallback(transportCallback);
+    private Git cloneRepository(String repositoryUrl, Path tempDir, boolean branchExists, TransportConfigCallback transportCallback)
+            throws GitAPIException {
+        CloneCommand clone = Git.cloneRepository().setURI(repositoryUrl).setDirectory(tempDir.toFile()).setDepth(1)
+                .setCredentialsProvider(credentialsProvider(repositoryUrl)).setTransportConfigCallback(transportCallback);
         if (branchExists) {
             clone.setBranchesToClone(List.of(Constants.R_HEADS + properties.branch())).setBranch(properties.branch());
         }
@@ -429,6 +487,53 @@ public class DeploymentRepositoryPublisher {
             throw DeploymentRepositoryPublishException
                     .rejected("the deployment repository has no default branch head to create branch '" + properties.branch() + "' from.");
         }
+    }
+
+    /**
+     * Requires the cloned work tree to declare itself a compatible deployment repository: a root marker file with the
+     * expected kind and a package contract equal to the major version of the remote-ansible package format. The check
+     * runs before any file is replaced, so a refused repository receives no commit and no push.
+     *
+     * @param workTree clone work tree root.
+     * @throws IOException if the marker file cannot be read.
+     * @throws DeploymentRepositoryPublishException if the marker is missing, unparsable, of the wrong kind, or declares
+     *             another package contract.
+     */
+    private void requireDeploymentRepositoryMarker(Path workTree) throws IOException {
+        String createFromTemplate = " Create the deployment repository from the template.";
+        Path marker = workTree.resolve(MARKER_FILE_NAME);
+        if (!Files.isRegularFile(marker)) {
+            throw DeploymentRepositoryPublishException.notADeploymentRepository("it has no " + MARKER_FILE_NAME + " marker at its root." + createFromTemplate);
+        }
+        JsonNode markerContent;
+        try {
+            markerContent = objectMapper.readTree(Files.readString(marker));
+        }
+        catch (JacksonException e) {
+            throw DeploymentRepositoryPublishException.notADeploymentRepository("its " + MARKER_FILE_NAME + " marker is not valid JSON." + createFromTemplate);
+        }
+        if (markerContent == null || !MARKER_KIND.equals(markerContent.path("kind").asString(null))) {
+            throw DeploymentRepositoryPublishException
+                    .notADeploymentRepository("its " + MARKER_FILE_NAME + " marker does not declare kind '" + MARKER_KIND + "'." + createFromTemplate);
+        }
+        int expectedContract = expectedPackageContract();
+        JsonNode packageContract = markerContent.path("packageContract");
+        if (!packageContract.isIntegralNumber() || packageContract.asInt() != expectedContract) {
+            throw DeploymentRepositoryPublishException.notADeploymentRepository("its " + MARKER_FILE_NAME + " marker declares package contract "
+                    + packageContract + " but this instance publishes package contract " + expectedContract
+                    + ". Update the repository's workflow and marker from the template.");
+        }
+    }
+
+    /**
+     * Derives the package contract a deployment repository must declare: the major version of the remote-ansible
+     * package format.
+     *
+     * @return expected package contract.
+     */
+    static int expectedPackageContract() {
+        String packageVersion = RuntimePackageConstants.REMOTE_ANSIBLE_PACKAGE_VERSION;
+        return Integer.parseInt(packageVersion.substring(0, packageVersion.indexOf('.')));
     }
 
     /**
@@ -454,12 +559,13 @@ public class DeploymentRepositoryPublisher {
      * Maps a transport failure to its controlled publish exception, keeping the message credential-free.
      *
      * @param exception JGit transport failure.
+     * @param sshTransport SSH transport of the effective repository URL.
      * @return controlled publish exception.
      */
-    DeploymentRepositoryPublishException asControlledTransportFailure(TransportException exception) {
+    DeploymentRepositoryPublishException asControlledTransportFailure(TransportException exception, DeploymentRepositorySshTransport sshTransport) {
         String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
         String normalizedMessage = message.toLowerCase(Locale.ROOT);
-        boolean httpAuthFailure = isHttpRemote()
+        boolean httpAuthFailure = isHttpRemote(sshTransport.repositoryUrl())
                 && (normalizedMessage.contains("not authorized") || normalizedMessage.contains("authentication"));
         boolean sshAuthFailure = sshTransport.isSshRemote()
                 && (normalizedMessage.contains("auth fail") || normalizedMessage.contains("publickey"));
@@ -478,23 +584,24 @@ public class DeploymentRepositoryPublisher {
     /**
      * Builds the HTTPS credentials provider from the token environment variable; {@code file://} remotes use none.
      *
+     * @param repositoryUrl effective repository URL.
      * @return credentials provider, or {@code null} for non-HTTP remotes.
      */
-    private CredentialsProvider credentialsProvider() {
-        if (!isHttpRemote()) {
+    private CredentialsProvider credentialsProvider(String repositoryUrl) {
+        if (!isHttpRemote(repositoryUrl)) {
             return null;
         }
         return new UsernamePasswordCredentialsProvider("x-access-token", environmentReader.apply(TOKEN_ENV_VAR));
     }
 
     /**
-     * Checks whether the configured remote is an HTTP(S) URL.
+     * Checks whether a remote is an HTTP(S) URL.
      *
+     * @param repositoryUrl repository URL.
      * @return whether the remote needs the token credential.
      */
-    private boolean isHttpRemote() {
-        String url = properties.repositoryUrl();
-        return url != null && (url.startsWith("https://") || url.startsWith("http://"));
+    private static boolean isHttpRemote(String repositoryUrl) {
+        return repositoryUrl != null && (repositoryUrl.startsWith("https://") || repositoryUrl.startsWith("http://"));
     }
 
     /**

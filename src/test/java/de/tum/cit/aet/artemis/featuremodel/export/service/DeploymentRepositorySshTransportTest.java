@@ -12,6 +12,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.spec.ECGenParameterSpec;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.sshd.common.config.keys.writer.openssh.OpenSSHKeyPairResourceWriter;
@@ -89,10 +90,12 @@ class DeploymentRepositorySshTransportTest {
         DeploymentRepositoryProperties properties = properties("git@example.com:owner/repository.git");
         DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(properties, new ObjectMapper(), environment::get);
 
+        DeploymentRepositorySshTransport sshTransport = transport(properties.repositoryUrl(), environment);
+
         DeploymentRepositoryPublishException authentication = publisher
-                .asControlledTransportFailure(new TransportException("Auth fail for methods 'publickey'"));
+                .asControlledTransportFailure(new TransportException("Auth fail for methods 'publickey'"), sshTransport);
         DeploymentRepositoryPublishException hostKey = publisher
-                .asControlledTransportFailure(new TransportException("Server key did not validate"));
+                .asControlledTransportFailure(new TransportException("Server key did not validate"), sshTransport);
 
         assertThat(authentication.getCode()).isEqualTo("PUBLISH_AUTH_FAILED");
         assertThat(hostKey.getCode()).isEqualTo("PUBLISH_REJECTED");
@@ -115,13 +118,13 @@ class DeploymentRepositorySshTransportTest {
         DeploymentRepositoryProperties properties = properties("git@example.com:owner/repository.git");
         DeploymentRepositoryPublisher publisher = new DeploymentRepositoryPublisher(properties, new ObjectMapper(), environment::get);
 
-        assertThatThrownBy(publisher::requireConfigured).isInstanceOfSatisfying(DeploymentRepositoryPublishException.class, exception -> {
+        assertThatThrownBy(() -> publisher.requireConfiguredFor(null)).isInstanceOfSatisfying(DeploymentRepositoryPublishException.class, exception -> {
             assertThat(exception.getCode()).isEqualTo("PUBLISH_NOT_CONFIGURED");
             assertThat(exception.getMessage()).contains(expectedMessageParts);
         });
     }
 
     private DeploymentRepositoryProperties properties(String url) {
-        return new DeploymentRepositoryProperties(true, url, "deployment", null, null, null, null);
+        return new DeploymentRepositoryProperties(true, url, List.of("git@example.com:"), "deployment", null, null, null, null);
     }
 }
