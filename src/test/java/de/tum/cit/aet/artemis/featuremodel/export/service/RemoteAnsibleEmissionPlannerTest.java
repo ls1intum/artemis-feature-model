@@ -288,7 +288,7 @@ class RemoteAnsibleEmissionPlannerTest {
         java.util.Map<String, AnsibleBindingCatalog.FeatureBinding> features = new java.util.HashMap<>(catalog.features());
         features.put("exam", misspelled);
         RemoteAnsibleEmissionPlanner misspelledPlanner = new RemoteAnsibleEmissionPlanner(new AnsibleBindingCatalog(catalog.catalogVersion(),
-                catalog.collectionPin(), catalog.curationSource(), catalog.files(), catalog.technical(), features));
+                catalog.collectionPin(), catalog.curationSource(), catalog.files(), catalog.technical(), features, catalog.environment()));
 
         assertThatThrownBy(() -> misspelledPlanner.plan(model, fullSelection(), labEnvironment()))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("exam").hasMessageContaining("unknown unsupported direction 'deselcted'");
