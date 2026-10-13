@@ -362,6 +362,41 @@ class AnsibleBindingCatalogTest {
     }
 
     @Test
+    void everyReferencedVariableOfTheShippedCatalogHasAnAdministratorDescription() {
+        AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
+
+        assertThat(catalog.environment().keySet()).containsExactlyInAnyOrderElementsOf(PROVISIONED_ENV_VAR_NAMES);
+        assertThat(catalog.environment().values()).allSatisfy(description -> assertThat(description).isNotBlank());
+    }
+
+    @Test
+    void referencedVariableWithoutADescriptionFailsLoading() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        String withoutTwo = bundled.replaceFirst("(?m)^  IRIS_URL: .*\n", "").replaceFirst("(?m)^  SHARING_APIKEY: .*\n", "");
+
+        assertThatThrownBy(() -> loadCatalog(withoutTwo)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("referenced variables without a description: IRIS_URL, SHARING_APIKEY");
+    }
+
+    @Test
+    void descriptionWithoutAReferencedVariableFailsLoading() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        String withUnused = bundled.replace("environment:\n", "environment:\n  UNUSED_VARIABLE: \"Not referenced anywhere.\"\n");
+
+        assertThatThrownBy(() -> loadCatalog(withUnused)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("descriptions of variables no lookup references: UNUSED_VARIABLE");
+    }
+
+    @Test
+    void blankDescriptionFailsLoading() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        String withBlank = bundled.replaceFirst("(?m)^  IRIS_SECRET: .*$", "  IRIS_SECRET: \" \"").replaceFirst("(?m)^  ATHENA_SECRET: .*$", "  ATHENA_SECRET:");
+
+        assertThatThrownBy(() -> loadCatalog(withBlank)).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("blank descriptions: ATHENA_SECRET, IRIS_SECRET");
+    }
+
+    @Test
     void nonMappingCatalogStructureFailsWithControlledLoadError() {
         assertThatThrownBy(() -> loadCatalog("- unexpected sequence"))
                 .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("Ansible binding catalog");

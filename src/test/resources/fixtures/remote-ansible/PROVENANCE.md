@@ -81,3 +81,15 @@ The postgres fixture retains its lab `2040df8` bytes, including explicit port
 fixture remain byte-identical. The preceding v3 YAML representation migration
 changed no fixture bytes. Collection rendering and new-default curation are
 recorded in the lab's `evidence/catalog-pin-validation-2026-09-10.md`.
+
+## Variable descriptions — 2026-10-14
+
+The binding catalog gained a top-level `environment:` section with one
+administrator-facing description per referenced environment variable. The
+package now ships each description in `metadata/env-references.json` (a
+`description` field after `kind`) and as a table in the "Environment values"
+section of `README.md`. Both are package-own expectations derived from the
+catalog, not from the lab inventory, and neither file is a golden fixture
+here; `RemoteAnsibleDeploymentPackageTest` asserts them against the loaded
+catalog. No fixture in this directory changed: the variable names, lookups,
+group files, and `hosts` wiring are byte-identical.

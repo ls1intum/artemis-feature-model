@@ -70,8 +70,9 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
      * @param consumer collection variable path that consumes the resolved value.
      * @param file package-relative path of the file containing the reference.
      * @param kind {@link #ENV_KIND_SECRET} or {@link #ENV_KIND_IDENTITY}.
+     * @param description administrator-facing description of the variable from the binding catalog.
      */
-    public record PlannedEnvReference(String envVar, String consumer, String file, String kind) {
+    public record PlannedEnvReference(String envVar, String consumer, String file, String kind, String description) {
     }
 
     /**
