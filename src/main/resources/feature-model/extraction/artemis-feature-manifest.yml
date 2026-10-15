@@ -315,6 +315,10 @@ exclude:
     reason: deferred
     rationale: Runtime toggle outside the curated functional scope.
 
+  - anchor: toggle:PresentationAssessments
+    reason: deferred
+    rationale: Runtime toggle outside the curated functional scope; revisit under assessment-and-integrity after parity.
+
   # Spring lifecycle and composition profiles are implementation details, not feature-model candidates. The buildagent
   # profile is part of the integrated-code-lifecycle activation and stays represented through that feature.
   - { anchor: profile:artemis, reason: internal-mechanism }
@@ -327,6 +331,11 @@ exclude:
   - { anchor: profile:scheduling, reason: internal-mechanism }
   - { anchor: profile:test, reason: internal-mechanism }
   - { anchor: profile:test-independent-integration, reason: internal-mechanism }
+
+  # The aiworker profile turns a node into a sandboxed AI worker; like weaviate it is execution infrastructure.
+  - anchor: profile:aiworker
+    reason: internal-mechanism
+    rationale: Worker node role that runs AI workloads in Docker sandboxes; no workload or dispatcher uses it yet, so it is execution infrastructure rather than a selectable feature.
 
 conceptualNodes:
   - id: artemis
