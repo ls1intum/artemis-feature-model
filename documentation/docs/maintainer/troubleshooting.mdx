@@ -1,0 +1,54 @@
+---
+id: troubleshooting
+title: Troubleshooting
+sidebar_label: Troubleshooting
+---
+
+This page lists common problems of maintenance work, grouped by where they appear, with their cause and fix. For
+findings in the extraction report, see [Diagnostic Codes](/maintainer/reference/diagnostic-codes) instead.
+
+## Local runs
+
+| Message or symptom | Cause | Fix |
+|---|---|---|
+| `No local Artemis checkout is configured.` | Gradle does not know where Artemis is | Pass `-PartemisPath`, or set `artemisPath` or `ARTEMIS_PATH`, see [Setup](/maintainer/setup#tell-gradle-where-artemis-is) |
+| `… has uncommitted changes, so this run would not describe commit …` | The checkout has local changes | Use a clean, separate checkout; never clean the one you work in |
+| `… is at commit … but this run expects …` | The checkout points to another commit than `-PexpectedArtemisSha` | Check out the expected commit, or leave out the expectation |
+| `The model stage did not produce model-result.json; run the upstream command before this one.` | You started a later stage without the earlier ones | Run `buildFeatureModelSnapshot`, or the named stage first |
+| `The model artifact was produced with manifest digest … but this run requires …` | An input changed after the earlier stage ran | Run the earlier stage again |
+| `Unsupported manifestVersion …` or `… contains unknown field(s) …` | The manifest has a wrong version or a typo | Fix the manifest entry that the message names |
+| `Missing -PsnapshotPath=<snapshot-directory> …` | A snapshot task needs the path of a snapshot | Pass `-PsnapshotPath=build/feature-extraction/<source-revision>/snapshot` |
+| The snapshot directory is missing after a run | The run had a blocking finding | Open `report/index.html`, see [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction) |
+
+## Pull request checks
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| **Model delivery gates** fails after a manifest change | The change leaves a gap at the pinned commit | Download the report artifact and fix the findings |
+| **Model delivery gates** passes, but the poller fails | The pin is older than the commit the poller delivers | Move the pin to the failing commit in your fix, see [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction#open-a-pull-request) |
+| Server tests fail after a fixture refresh | A new selectable feature has no binding classification | Classify it, see [Update Ansible Bindings](/maintainer/tasks/update-ansible-bindings) |
+| A documentation-only pull request shows no application checks | `ci.yml` ignores changes in `documentation/` | Nothing to fix; the documentation build checks the change |
+
+## Delivery runs
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The poller summary says **Delivery short-circuited** | The snapshot was already published from the current commit of this repository | Nothing to fix |
+| The poller passes but opens no pull request | The fixture and the pin are already current | Nothing to fix |
+| The delivery pull request is not created | Workflows may not open pull requests | Allow it in the repository settings, see [Repository Settings](/maintainer/pipeline/repository-settings#pull-requests-from-workflows) |
+| A publish or promote job waits | The environment requires an approval | A reviewer approves it on the run page |
+| Promotion fails with `No published image exists at …` | The digest is wrong or the image was deleted | Copy the digest again from the publication summary or the ledger |
+| Promotion fails with `Malformed … label` | The image was not built by the delivery workflows | Promote only images that the publication workflow published |
+
+## Retention
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| **Discovery tag retention** fails without deleting anything | The repository lacks admin access to the container package | Grant it, see [Repository Settings](/maintainer/pipeline/repository-settings#package-permission-for-retention) |
+
+## Documentation site
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The documentation build fails with broken links | A link points to a missing page or heading | Fix the link; run `npm run build` in `documentation/` before you push |
+| The site does not update after a merge | Only changes in `documentation/` on `mvp` deploy the site | Start **Deploy documentation** by hand on `mvp` |

@@ -1,0 +1,52 @@
+---
+id: review-delivery-pr
+title: Review a Delivery Pull Request
+sidebar_label: Review a Delivery PR
+---
+
+After a successful scheduled run, the poller opens a delivery pull request. This page explains what the pull request
+contains and what to check before you merge it.
+
+## What it contains
+
+The pull request comes from the branch `delivery/auto-<commit-prefix>` and has the title
+`chore: deliver snapshot <snapshot-id>`. It contains one commit with two changes:
+
+- the refreshed classpath fixture: `functional-feature-model.json`, `artemis-config-key-catalog.json`, and
+  `fixture-provenance.json` in `src/main/resources/feature-model/`;
+- the new validation pin in `delivery/artemis-validation-pin`.
+
+The authored guided workflow and the manifest never change in a delivery pull request.
+
+Its description lists the Artemis commit, the manifest digest, the snapshot digest, the digest of the published image,
+and whether the fixture and the pin changed. A section **Guided workflow coverage** lists selectable features that no
+published guided option covers yet.
+
+## What to check
+
+1. **The checks pass.** The pull request runs the normal checks against the new pin, so the model delivery gates
+   validate the new Artemis commit, and the application tests run with the refreshed fixture.
+2. **The model diff makes sense.** Look at the diff of `functional-feature-model.json`. Changed names or descriptions
+   come from Artemis and need no action. A new or removed feature always comes with a manifest change that you made
+   before, so it should not surprise you.
+3. **The coverage list.** A feature in the list exists in the model, but teachers cannot choose it in the guided
+   workflow yet. This does not block the merge. Plan the text with
+   [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow).
+
+## Merge it
+
+Merge the pull request into `mvp`. From then on, pull request checks use the new pin, and local development uses the
+new model.
+
+When several delivery pull requests are open, merge the newest one and close the older ones. Each one replaces the
+same files, so the newest contains everything.
+
+## When the run failed instead
+
+A failed run opens no pull request and publishes nothing. Follow [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction).
+
+## Related pages
+
+- [How Delivery Works](/maintainer/pipeline)
+- [Promote and Roll Back](/maintainer/tasks/promote-and-roll-back): the image of a merged delivery is published, but
+  not yet promoted.

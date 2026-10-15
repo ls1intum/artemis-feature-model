@@ -1,0 +1,42 @@
+---
+id: gradle-tasks
+title: Gradle Tasks and Properties
+sidebar_label: Gradle Tasks
+---
+
+This page lists the Gradle tasks and properties of maintenance work. All tasks belong to the group `feature model`, so
+`./gradlew tasks --group "feature model"` lists them with a short description.
+
+## Tasks
+
+| Task | What it does | Needs |
+|---|---|---|
+| `featureModelManifestPreflight` | Validates the manifest and prints the source revision and the manifest digest | `artemisPath` |
+| `extractFeatureCandidates` | Scan stage: reads the Artemis checkout | `artemisPath` |
+| `assembleFeatureModel` | Model stage: applies the manifest, builds the model and the config-key catalog | `artemisPath` |
+| `prepareGuidedWorkflow` | Workflow stage: checks the guided workflow against the model | `artemisPath` |
+| `packageFeatureModelSnapshot` | Package stage: writes the report and the snapshot | `artemisPath` |
+| `buildFeatureModelSnapshot` | Runs the four stages in order | `artemisPath` |
+| `validateFeatureModelSnapshot` | Validates a snapshot without changing it and prints its identity | `snapshotPath` |
+| `stageFeatureModelDockerContext` | Copies a validated snapshot into `build/docker/feature-model-snapshot/` for the image build | `snapshotPath` |
+| `refreshFeatureModelFixture` | Copies a snapshot's model and catalog into the classpath fixture | `snapshotPath` |
+| `syncGuidedWorkflowScaffold` | Adds draft options for uncovered features to the guided workflow | `artemisPath` only in `checkout` mode |
+| `extractFeatureModel` | Old name of `buildFeatureModelSnapshot`; prints a deprecation warning | `artemisPath` |
+
+Use `-q` with the tasks that print key-value lines, such as the preflight or the snapshot validation, to see only
+their output.
+
+## Properties
+
+Pass a property with `-P<name>=<value>`. You can set personal defaults in `~/.gradle/gradle.properties`.
+
+| Property | Meaning | Default |
+|---|---|---|
+| `artemisPath` | Path of the Artemis checkout; the environment variable `ARTEMIS_PATH` is the fallback | none |
+| `expectedArtemisSha` | Full commit that the checkout must point to | none: any clean commit is accepted |
+| `featureManifestSource` | `repository` or `checkout`, see [The Feature Manifest](/maintainer/extraction/manifest#where-it-lives) | `repository`, set in `gradle.properties` |
+| `featureManifestPath` | Another manifest file to read in `repository` mode | the manifest in this repository |
+| `snapshotPath` | Path of a snapshot directory | none |
+
+Two more uses matter for maintenance: `-PartemisPath` on `./gradlew test` enables the smoke test against a real Artemis
+checkout, and `-PskipFrontendBuild=true` makes `bootJar` reuse an existing client build.

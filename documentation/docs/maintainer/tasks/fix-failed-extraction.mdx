@@ -1,0 +1,87 @@
+---
+id: fix-failed-extraction
+title: Fix a Failed Extraction Run
+sidebar_label: Fix a Failed Run
+---
+
+A delivery run fails when the extraction pipeline meets an Artemis change that the manifest does not cover. This page
+shows how to find the cause, fix it, and get the delivery going again. Fix a failed run before the next scheduled run,
+so that deliveries do not pile up.
+
+## Before you begin
+
+You need a clean Artemis checkout and a working local run, see [Setup](/maintainer/setup).
+
+## Find the report
+
+1. Open the failed **Artemis delivery poller** run in the **Actions** tab. The job summary of the validation job shows
+   the Artemis commit, the extraction verdict, and the curation counts. Note the Artemis commit.
+2. Download the report artifact:
+
+   ```bash
+   gh run download <run-id> --pattern 'feature-model-reports-*'
+   ```
+
+3. Open `report/index.html` and look at the errors. [Read the Report](/maintainer/extraction/reports) explains the
+   page.
+
+When the summary has no extraction verdict, an earlier step failed, usually the checkout of Artemis or the preflight.
+The log of that step names the problem; [Troubleshooting](/maintainer/troubleshooting) lists the common ones.
+
+## Reproduce it locally
+
+Move your clean checkout to the failing commit and run the pipeline with that commit as the expectation:
+
+```bash
+git -C ../artemis-extraction fetch origin
+git -C ../artemis-extraction checkout --detach <artemis-commit>
+./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction -PexpectedArtemisSha=<artemis-commit>
+```
+
+You should see the same errors as in the downloaded report.
+
+## Fix the cause
+
+| Error | Usual cause | Fix |
+|---|---|---|
+| `UNDECLARED_CANDIDATE` | Artemis added a module, toggle, or profile | Include or exclude it, see [Curate a Feature](/maintainer/tasks/curate-a-feature) |
+| `RELATION_CANDIDATE_UNDECLARED` | Artemis added a condition that combines two included features | Add a constraint or an ignored relation, see [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
+| `MANIFEST_ORPHAN_ANCHOR` | Artemis removed or renamed a candidate, or moved its source | Update or remove the manifest entry, or the source conventions, see [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
+| `EXTRACTOR_ERROR` | Artemis changed the structure of a scanned file | See [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
+| `CONFIG_KEY_CATALOG_DRIFT` | Artemis renamed or removed a configuration key that the manifest maps | Update the mapping in the manifest |
+| `GUIDED_WORKFLOW_FINDINGS` as an error | The guided workflow has a blocking finding | See [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) |
+| `GENERATED_MODEL_CONFORMANCE_MISMATCH` | The assembly code no longer matches the manifest | Ask a developer |
+
+Run the pipeline again after each change until it passes. Fix one stage at a time: a run that stops in the model stage
+does not show the workflow findings yet.
+
+## Open a pull request
+
+The pull request checks validate against `delivery/artemis-validation-pin`, not against the failing commit. To make CI
+check your fix against the commit that failed, put that commit into the pin in the same pull request:
+
+```bash
+echo <artemis-commit> > delivery/artemis-validation-pin
+```
+
+When your fix changes the model, also refresh the classpath fixture from your local snapshot, so that the
+application and its tests use the new model:
+
+```bash
+./gradlew -q refreshFeatureModelFixture -PsnapshotPath=build/feature-extraction/<artemis-commit>/snapshot
+```
+
+Open the pull request against `mvp` and wait for the checks. The **Model delivery gates** check runs the pipeline
+against the new pin.
+
+## Check the result
+
+After you merge, the next poller run takes the latest Artemis commit again. Unless Artemis brought new gaps in the
+meantime, the run passes and publishes an image. When it delivers the commit your pull request already pinned,
+it opens no delivery pull request, because nothing is left to change. To deliver the fixed commit at once instead of
+waiting for the schedule, [deliver it by hand](/maintainer/tasks/deliver-artemis-commit).
+
+## Related pages
+
+- [Curation and Conformance](/maintainer/extraction/curation-and-conformance)
+- [Diagnostic Codes](/maintainer/reference/diagnostic-codes)

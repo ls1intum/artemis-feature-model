@@ -1,0 +1,80 @@
+---
+id: follow-artemis-changes
+title: Follow Artemis Source Changes
+sidebar_label: Follow Artemis Changes
+---
+
+Sometimes Artemis changes not its features but the place or shape of its source: a folder moves, a file is renamed, a
+configuration key gets a new name. The pipeline then stops finding what it used to find. This page shows how to
+recognize such a change and where to adapt this repository.
+
+## Symptoms
+
+| What you see | What changed in Artemis |
+|---|---|
+| `MANIFEST_ORPHAN_ANCHOR` for candidates that still exist in Artemis | A scanned file or folder moved, so the scan no longer finds the candidates |
+| `EXTRACTOR_ERROR` | A scanned file changed its structure, and the scanner cannot read it |
+| `MANIFEST_ORPHAN_ANCHOR` together with `UNDECLARED_CANDIDATE` | A module, toggle, or profile was renamed |
+| `CONFIG_KEY_CATALOG_DRIFT` | A configuration key that the manifest maps was renamed or removed |
+
+An example: when Artemis moved its Docker Compose files from `docker/` to `deployment/docker/`, the scan stopped
+finding the database stacks. The run failed with `MANIFEST_ORPHAN_ANCHOR` for `infra:mysql` and `infra:postgres`,
+although both databases were still there.
+
+## A moved or restructured file
+
+The pipeline finds Artemis files through
+`src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/source/ArtemisSourceConventions.java`.
+[Source Scanners](/maintainer/extraction/source-scanners) explains what each scanner reads.
+
+1. Find the new location or shape of the file in the Artemis commit that failed.
+2. Update the path, root, or symbol in `ArtemisSourceConventions`. A changed file structure may also need a change in
+   the scanner itself; ask a developer when you are not sure.
+3. Mirror the new layout in the small test checkout `src/test/resources/extraction/mini-artemis/`, so that the tests
+   cover it.
+4. Run the tests and the pipeline against the failing commit.
+
+## A renamed feature
+
+A rename is a curation change. Point the manifest entry to the new anchor and keep its `id`, so that the model, the
+guided workflow, and the bindings stay unchanged:
+
+```yaml
+- anchor: module:new-name   # the current anchor in Artemis
+  id: old-name              # the feature id stays
+```
+
+When the feature id should change as well, add a `renames` entry to the manifest and run
+`./gradlew syncGuidedWorkflowScaffold`, which updates every reference in the guided workflow. Rename the feature in the
+Ansible binding catalog too.
+
+## A renamed configuration key
+
+Update the `path` of the mapping in the manifest. The pipeline rebuilds the config-key catalog from the mappings and
+the Artemis defaults, so the catalog follows on its own. The application's copy of the catalog changes with the next
+fixture refresh; a test fails as long as a mapping in the classpath model is missing from that copy.
+
+## Changes that reach the generated packages
+
+The deployment packages refer to Artemis files as well: the Compose files of the Docker package, the Spring profiles
+of the IDE package, the variables of the Ansible collection. The manifest holds some of these paths, for example the
+`valueWhenSelected` of the database features; the package writers hold the rest. When Artemis moves such a file,
+update the manifest mapping and ask a developer to adapt the writers, as described on
+[Deployment Packages](/developer/modules/deployment-packages).
+
+## Verify
+
+Run the pipeline against the exact commit that failed, then run the tests:
+
+```bash
+./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction -PexpectedArtemisSha=<artemis-commit>
+./gradlew test
+```
+
+To also run the smoke test that reads a real Artemis checkout, pass the path to the tests:
+
+```bash
+./gradlew test -PartemisPath=../artemis-extraction --tests '*RealArtemisCheckoutSmokeTest'
+```
+
+Then open a pull request as described in [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction#open-a-pull-request).

@@ -1,0 +1,104 @@
+---
+id: setup
+title: Set Up Your Development Environment
+sidebar_label: Setup
+---
+
+This page gets the server and the client running on your machine and shows how to run the tests. Follow it once
+when you start working on the project.
+
+## Prerequisites
+
+| Tool | Version |
+|---|---|
+| Java | 25 |
+| Node.js | 24, as declared in `engines` in `package.json` |
+| npm | The version that comes with Node.js 24 |
+| Git | any recent version |
+
+You do not need to install Gradle. The Gradle wrapper (`./gradlew`) downloads the right version on first use.
+
+## Get the code
+
+```bash
+git clone https://github.com/ls1intum/artemis-feature-model.git
+cd artemis-feature-model
+```
+
+The default branch is `mvp`. Pull requests target it.
+
+## Run the server
+
+```bash
+./gradlew bootRun
+```
+
+The server starts on `http://localhost:8090`. It loads the feature model from the classpath resources in
+`src/main/resources/feature-model/`, so it needs no database, no Artemis instance, and no other service. To check that
+it runs, ask it which model it serves:
+
+```bash
+curl http://localhost:8090/api/feature-model/provenance
+```
+
+The answer names the source mode `classpath` and the id and version of the loaded model.
+[Runtime Model](/developer/architecture/runtime-model) explains what the server loads and when it refuses to start.
+
+## Run the client
+
+Install the client dependencies once, then start the Angular dev server:
+
+```bash
+npm install
+npm run start
+```
+
+Open `http://localhost:9090`. The start page is the **Configurator**; the **Explorer** is one click away in the
+navigation bar. The dev server reloads the page when you save a file. It forwards every request below `/api` to the
+server on port 8090, as configured in `proxy.conf.json`, so start the server first.
+
+The ports 8090 and 9090 differ from the Artemis development defaults, 8080 and 9000. You can run this project and a
+local Artemis side by side.
+
+## Run the tests
+
+```bash
+./gradlew test
+npm run test -- --watch=false
+```
+
+The first command runs the server tests, the second runs the client tests once. [Testing](/developer/guidelines/testing)
+explains how tests are written and how to force a fresh server test run.
+
+## Build one runnable jar
+
+The production build packs the client and the server into one Spring Boot jar:
+
+```bash
+./gradlew bootJar
+```
+
+The task installs the client dependencies with `npm ci`, runs the Angular production build into `build/webapp/browser`,
+and copies the result into the static resources of the jar. The jar lands in `build/libs/`. Start it with
+`java -jar` and open `http://localhost:8090`: the server answers the API and serves the client from the same port.
+
+When the client is already built, for example in a CI job or a Docker build, skip the client steps:
+
+```bash
+./gradlew bootJar -PskipFrontendBuild=true
+```
+
+## Use IntelliJ IDEA
+
+The repository ships a shared run configuration, `FeatureModelApp`, in `.idea/runConfigurations/`. IntelliJ IDEA
+picks it up when you open the project. It starts the server with Java 25 after Gradle compiles the classes, which is
+the same as `./gradlew bootRun`.
+
+## Common problems
+
+| Symptom | Cause and fix |
+|---|---|
+| `bootRun` fails with "Port 8090 was already in use" | Another server instance still runs. Stop it, or start this one on a different port with `./gradlew bootRun --args='--server.port=8091'`. The client proxy still points to 8090. |
+| The client shows **Could not load the guided configurator.** | The server is not running, or it runs on a port other than 8090. |
+| `./gradlew test` finishes in seconds and runs nothing | Gradle reused an earlier result. Run `./gradlew test --rerun-tasks`. |
+| `npm install` warns about an unsupported engine | Your Node.js version is not 24. Switch to Node.js 24. |

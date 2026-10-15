@@ -1,0 +1,71 @@
+---
+id: promote-and-roll-back
+title: Promote or Roll Back an Image
+sidebar_label: Promote and Roll Back
+---
+
+Promotion marks a published image as approved by moving the `verified` tag to it. A rollback is a promotion of an
+earlier image. This page shows both. You need it when you decide that an image is good enough to use, or when an
+approved image turns out to be wrong.
+
+## Before you begin
+
+You need write access to the repository. When the `image-promote` environment requires reviewers, a reviewer must
+also approve the run.
+
+Find the registry digest of the image you want to promote. It appears in three places:
+
+- the summary of the publication run, as **Image** (`ghcr.io/ls1intum/artemis-feature-model@sha256:…`);
+- the description of the delivery pull request, as **Published image digest**;
+- `delivery/verified-images.json`, for every image that was promoted before.
+
+## Promote an image
+
+Start **Promote snapshot image** from the **Actions** tab with **Run workflow** on `mvp`, or use the GitHub CLI:
+
+```bash
+gh workflow run promote-image.yml --ref mvp \
+  -f image_digest=sha256:<digest> \
+  -f expected_snapshot_id=<snapshot-id>
+```
+
+`expected_snapshot_id` is optional. When you give it, the workflow refuses an image whose label names a different
+snapshot, which protects you from a copied digest of the wrong image.
+
+The workflow checks that the image exists and that its labels are complete. It then points `verified` to exactly this
+digest, without rebuilding anything, and confirms that the tag resolves to it.
+
+## Check the result
+
+1. The run summary says that `verified` resolves to the promoted digest.
+2. A pull request titled `chore: record verified promotion of <snapshot-id>` appends the promotion to
+   `delivery/verified-images.json`. Merge it, so that the ledger matches the registry.
+
+You can also ask the registry directly; the digest in the output must be the one you promoted:
+
+```bash
+docker buildx imagetools inspect ghcr.io/ls1intum/artemis-feature-model:verified
+```
+
+## Roll back
+
+A rollback is a promotion of an earlier digest:
+
+1. Open `delivery/verified-images.json` and pick the entry you want to return to. The entries are in promotion order,
+   so the entry before the last one is the previous `verified` image.
+2. Promote its `digest` as described above.
+3. Merge the ledger pull request. The ledger keeps the full history: the rolled-back image appears a second time as
+   the newest entry.
+
+The retention workflow never deletes an image that the ledger lists, so every entry stays available.
+
+## What promotion does not do
+
+Promotion changes only a tag and the ledger. It does not rebuild the image, does not change the repository's code or
+model, and does not deploy anything. A server that pulls `verified` gets the new image on its next pull; a server
+that pins a digest keeps what it has.
+
+## Related pages
+
+- [Images and Runtime](/maintainer/pipeline/images)
+- [Delivery Files](/maintainer/pipeline/delivery-files#the-verified-image-ledger)

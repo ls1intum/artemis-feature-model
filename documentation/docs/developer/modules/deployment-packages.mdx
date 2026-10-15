@@ -1,0 +1,131 @@
+---
+id: deployment-packages
+title: Deployment Packages
+sidebar_label: Deployment Packages
+---
+
+A deployment package wraps the [configuration artifacts](/developer/modules/configuration-artifacts) with everything
+needed to use them in one kind of environment. This page explains the three deployment modes, what each package
+contains, and where to change the code. Read it when you work on package generation.
+
+## Choosing a deployment mode
+
+`POST /api/feature-model/deployment-package/download` generates a package. Its request carries the selection and an
+optional `deploymentMode`:
+
+```json
+{ "selectedFeatureIds": ["lecture", "programming", "..."], "deploymentMode": "dev-ide" }
+```
+
+| Mode id | Review page label | Package |
+|---|---|---|
+| `local-docker` | **Docker runtime** | Docker Compose stacks and scripts that start Artemis locally |
+| `dev-ide` | **IntelliJ IDE development setup** | A run configuration for an Artemis checkout in IntelliJ IDEA |
+| `remote-ansible` | **Remote server (Ansible)** | Ansible values and a playbook for a remote server |
+
+Without `deploymentMode`, the server builds a `local-docker` package. An unknown mode, or a mode the profile does not
+support, fails with a controlled error. `POST /api/feature-model/deployment-package/preview` returns the same files as
+JSON instead of a ZIP file.
+
+`DeploymentPackageService` builds every package in the same way. It generates the configuration artifacts, adds the
+shared metadata, such as `metadata/package-manifest.json` and the static validation report, and then adds the files of
+the chosen mode.
+
+## Technical choices
+
+The technical features of the model decide how Artemis runs: the database (`mysql` or `postgresql`) and the CI
+provider (`integrated-code-lifecycle` or `jenkins`). Their structural mappings name a Docker Compose file or Spring
+profiles instead of an overlay entry. `TechnicalSelectionResolver` reads them into one technical selection, and each
+mode renders that selection in its own way. The package manifest records the result.
+
+## Local Docker
+
+The `local-docker` package starts Artemis with Docker Compose so that you can check that the generated configuration
+loads. It offers two ways to run:
+
+- With a local Artemis checkout: `deployment/local-repo/artemis-feature-model-stack.yml` extends the Compose files of
+  the checkout for the selected database and CI provider.
+- With the published image: `deployment/remote-image/artemis-feature-model-stack.yml` is self-contained and runs the
+  Artemis image from `ghcr.io/ls1intum/artemis`.
+
+`scripts/start-demo.sh` chooses between them: with a checkout path as argument, it uses the checkout; without one,
+it uses the image. Other scripts prepare `env/.env` from the demo values, validate the package, print a summary, and
+stop the stack.
+
+`metadata/runtime-checks.json` lists checks that run inside the package, for example that no secret appears in plain
+text and that the overlay passes static validation. The package README states the supported hosts: Linux with Docker
+Engine, macOS with Docker Desktop, and Windows through WSL2.
+
+The image reference comes from the active snapshot or, in classpath mode, from
+`artemis.feature-model.runtime.image-digest`. The value `latest` becomes a mutable tag; any other value is used as a
+digest.
+
+A selection with `jenkins` produces a package without a Jenkins service. The package says so in a warning, and its
+`jenkins-stack-available` check fails.
+
+## IDE development setup
+
+The `dev-ide` package is for developers who run Artemis from their own checkout in IntelliJ IDEA. It contains the
+overlay, a demo configuration file with fake values for every placeholder, a run configuration under
+`intellij/runConfigurations/`, and a README with setup steps, including the database.
+
+The run configuration sets the Spring profiles that match the selection. `ActiveProfilesDeriver` builds the list, and
+its order matters: later profiles override earlier ones, and `buildagent` must come before `core`, or Artemis fails
+to start. Two extra profiles load the generated files once you copy them into the checkout's `src/main/resources/config/`:
+`feature-model` loads the overlay and `feature-model-demo` loads the demo values. The `local` profile comes last, so
+your own `application-local.yml` keeps the final say.
+
+## Remote Ansible
+
+The `remote-ansible` package is for an administrator who deploys Artemis to a server with the Artemis Ansible
+collection. It is a small, self-contained values repository:
+
+| File | Purpose |
+|---|---|
+| `requirements.yml` | The pinned Ansible collection and its dependencies |
+| `ansible.cfg`, `playbook.yml` | Minimal configuration and the playbook to run |
+| `inventory/hosts` | Group membership of the target group |
+| `inventory/group_vars/` | The values for the selection, one file per group |
+| `preflight.sh` | Fails when a required environment variable is missing, then runs a syntax check |
+| `metadata/` | Manifest, readiness report, and the list of environment variables |
+
+The values come from the Ansible binding catalog,
+`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`. It classifies every selectable feature as
+`bound`, `no-op`, or `unsupported`. A selection that the pinned collection cannot express, such as MySQL or Jenkins,
+fails with `ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE`, and the response names the feature and the
+reason. A feature that the catalog does not classify fails too, so a new feature can never slip through unbound.
+
+The package contains no values from the environment. Every host-specific or secret value is an Ansible
+`lookup('ansible.builtin.env', ...)` expression that reads an environment variable on the machine that runs Ansible.
+The optional `remoteEnvironment.targetName` in the request names the inventory target group; the review page sends
+`artemis-remote`.
+
+## Determinism
+
+The same model, catalog, profile, and request always produce the same bytes. Files have a fixed order, the ZIP
+entries have a fixed timestamp, and no file contains the generation time. This lets tests compare packages exactly,
+and it makes [publishing](/developer/modules/deployment-publishing) skip a commit when nothing changed.
+
+## Add a deployment mode
+
+1. Add the mode id to `DeploymentModes`.
+2. Write the mode's files in a writer class in `export/service`, next to the existing writers.
+3. Compose the package for the mode in `DeploymentPackageService`.
+4. Add the target to `configurator/shared/deployment-targets.ts` so the review page offers it.
+5. Cover the package in `DeploymentPackageServiceTest`, including a check that two identical requests produce
+   identical bytes.
+
+## Where it lives in the code
+
+| Path | Responsibility |
+|---|---|
+| `export/service/DeploymentPackageService` | Composes the package for each mode |
+| `export/service/TechnicalSelectionResolver` | Reads the technical choices from the selection |
+| `export/service/RuntimeStackWriter`, `RemoteImageStackWriter` | The two Compose stacks of `local-docker` |
+| `export/service/RuntimeScriptWriter`, `RuntimeTemplateWriter` | Scripts, README files, and env files of `local-docker` |
+| `export/service/DevIdeTemplateWriter`, `ActiveProfilesDeriver` | The `dev-ide` run configuration and README |
+| `export/service/RemoteAnsibleEmissionPlanner`, `RemoteAnsibleValuesWriter` | The `remote-ansible` values and files |
+| `export/service/AnsibleBindingCatalogLoader` | Loads and checks the binding catalog at startup |
+| `export/web/DeploymentPackageResource` | The package endpoints |
+
+Paths are relative to `src/main/java/de/tum/cit/aet/artemis/featuremodel/`.

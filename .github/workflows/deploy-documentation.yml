@@ -1,0 +1,45 @@
+name: Deploy documentation
+
+# Publishes the documentation site to GitHub Pages when a push to the default branch, usually a merged pull request,
+# changes the documentation folder. The manual dispatch redeploys the default branch without a change, for example after
+# a Pages settings change. The github-pages environment only accepts deployments from mvp.
+on:
+  push:
+    branches:
+      - mvp
+    paths:
+      - 'documentation/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build documentation
+    uses: ./.github/workflows/build-documentation.yml
+    permissions:
+      contents: read
+    with:
+      upload_pages_artifact: true
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/mvp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    # Serializes Pages deployments; a running deployment is never cancelled.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

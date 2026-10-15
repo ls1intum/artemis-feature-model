@@ -1,0 +1,86 @@
+---
+id: configurator
+title: Configurator
+sidebar_label: Configurator
+---
+
+The **Configurator** guides a user from a teaching use case to a valid selection and a downloadable deployment
+package. This page explains its screens, how it keeps the selection valid, and where its code lives. Read it before
+you change the Configurator.
+
+## Screens
+
+The Configurator has one route and four screens. The route component switches between them:
+
+| Screen | Shows |
+|---|---|
+| Templates | **Choose a starting point**: the use-case templates of the guided workflow |
+| Decisions | One step at a time, with its decisions and their options |
+| Review | **Review configuration**: the summary, open issues, and the export |
+| Advanced tree | **Advanced configuration tree**: every feature of the model, editable directly |
+
+A progress bar at the top lists the templates, the decision steps, and the review, and lets the user jump between
+them. **Advanced tree** in the header opens the tree from any guided screen; **Back to guide** returns.
+
+## Templates and the starting selection
+
+On load, the Configurator fetches the model, the guided workflow, and the availability in parallel, and applies the
+workflow's default template. Selecting a template builds the selection again: it starts from the model's
+`defaultSelectedFeatureIds`, applies the template's selected and deselected features, and drops features whose
+capabilities are missing. Technical features and features that no guided option covers keep their current state, so
+choices made in the advanced tree survive a template switch.
+
+A template also decides which steps follow, through its `recommendedStepIds`. Only steps that contain decisions are
+shown.
+
+## Decisions and validation
+
+Each decision shows its options as cards. Selecting an option adds the features it selects and removes the ones it
+deselects. For the focused option, three tabs show the teacher-facing text: **What this enables**, **Recommended
+when**, and **Things to know**. Which options appear selected is derived from the current selection, so the cards
+stay correct after edits in the advanced tree.
+
+After every change, the Configurator sends the whole selection to the validation endpoint and shows violations and
+warnings next to the decisions. Each request gets a number, and only the answer to the newest request is shown, so a
+slow older answer never overwrites a newer one.
+
+## The review page
+
+The review page summarizes the selection by review group, lists the decisions that differ from the template, and
+shows open issues. Its export section has a deployment target picker:
+
+- **Docker runtime** (the default)
+- **IntelliJ IDE development setup**
+- **Remote server (Ansible)**
+
+The download button generates the package for the chosen target, and it stays disabled while the selection is
+invalid. For the remote target, a **Deploy to test VM** button appears when publishing is configured. When the server
+refuses a remote package because the selection cannot be expressed, for example with MySQL, the page shows one error
+card with the feature name and a shortcut to the advanced tree. The targets and their texts live in
+`configurator/shared/deployment-targets.ts`.
+
+## The advanced tree
+
+The advanced tree shows the whole model with the current selection, the validation markers, and the details of the
+focused feature, including its required capabilities and its artifact impact. Changes in the tree update the same
+selection that the guided screens use. In an alternative group, such as the database, selecting one feature
+deselects its siblings. This is the place where users switch technical choices, such as PostgreSQL instead of MySQL.
+
+## The tutorial
+
+On the first visit, a short tutorial opens. It explains templates, decisions, the review page, and the tree. The
+Configurator remembers in the browser's `localStorage` that the tutorial was seen. The key contains the workflow and
+model versions, so the tutorial opens again after either changes. The **?** button in the header opens it at any time.
+
+## Code map
+
+| File in `src/main/webapp/app/feature-model/configurator/` | Responsibility |
+|---|---|
+| `feature-model-configurator.component.ts` | The route component: loading, the selection, validation, export, and screen switching |
+| `guided/guided-configurator-workflow.component.ts` | The templates, decision, and review screens |
+| `guided/tutorial/configurator-tutorial-panel.component.ts` | The tutorial panel |
+| `tree/configurator-tree.component.ts` | The advanced tree |
+| `shared/configurator-selection.utils.ts` | Pure helpers that apply options and prepare validation messages |
+| `shared/configurator-tutorial.ts` | The tutorial steps and the storage key |
+| `shared/deployment-targets.ts` | The deployment targets of the review page |
+| `shared/validation-issue-list.component.ts` | The list of violations or warnings |
