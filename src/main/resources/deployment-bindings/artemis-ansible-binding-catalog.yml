@@ -3,7 +3,7 @@
 # Group filenames derive from membership + .yml.
 # Environment references and dotted consumers derive from lookups in parsed content.
 catalogVersion: 4
-collectionPin: "ef0024714b11f73fb5b01fbf7fc5c6809c09951a"
+collectionPin: "c46df338a49406f1f0872289aff31a100e8fd772"
 curationSource: "Curated against the pinned collection commit (upstream changes taken over: MySQL removal #245, valkey rename #246, rate-limit fixes #249, per-job build-agent auth #242). Value shapes follow the inventory samples of ls1intum/artemis-ansible and were verified by deploying generated packages to a single-node test server; the artemis_modules off-switches come from the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names follow the set that operators provide for the package."
 files:
   targetMain:
