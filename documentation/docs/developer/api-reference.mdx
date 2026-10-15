@@ -75,18 +75,29 @@ All export endpoints take the same request body:
 | `selectedFeatureIds` | The selection; it must be valid |
 | `deploymentMode` | Optional: `local-docker` (default), `dev-ide`, or `remote-ansible` |
 | `profileId` | Optional: the deployment profile; defaults to `default-artemis-profile` |
-| `remoteEnvironment` | Optional, `remote-ansible` only: `{ "targetName": "artemis-remote" }` names the inventory target group |
+| `remoteEnvironment` | Optional, `remote-ansible` only: `{ "targetName": "test-vm" }` names the inventory target group and, when publishing, the package directory and the GitHub Environment |
 
 The artifacts download uses only `selectedFeatureIds` and `profileId`. The downloads return a ZIP file. The preview
 returns `status`, `files` with `path`, `contentType`, and `preview` (the file content), and the generation `report`.
 
-`POST /api/feature-model/deployment-package/publish` needs `deploymentMode` `remote-ansible` and a target name. It
-returns `repositoryUrl`, `branch`, `targetDirectory`, `commitSha`, `commitUrl` (set for `https://github.com/` URLs),
-and `upToDate`, which is `true` when the repository already held the same package.
+`POST /api/feature-model/deployment-package/publish` takes the export request together with the deployment
+repository:
 
-`GET /api/feature-model/deployment-package/publish-target` returns `configured`, `repositoryUrl`, `branch`, and
+```json
+{
+  "request": { "selectedFeatureIds": ["programming"], "deploymentMode": "remote-ansible", "remoteEnvironment": { "targetName": "test-vm" } },
+  "repositoryUrl": "https://github.com/<owner>/<repository>.git"
+}
+```
+
+The request needs `deploymentMode` `remote-ansible` and a target name of 1 to 63 lowercase letters, digits, or
+hyphens. A blank `repositoryUrl` selects the configured default. The response contains the `repositoryUrl` that was
+used, `branch`, `targetDirectory`, `commitSha`, `commitUrl` (set for `https://github.com/` URLs), and `upToDate`, which
+is `true` when the repository already held the same package.
+
+`GET /api/feature-model/deployment-package/publish-target` returns `configured`, `defaultRepositoryUrl`, `branch`, and
 `targetDirectoryRoot`. It never returns a credential. [Publishing](/developer/modules/deployment-publishing) explains
-the configuration.
+the configuration and which repositories the server accepts.
 
 ## Errors
 
