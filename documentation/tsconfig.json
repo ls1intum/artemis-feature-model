@@ -1,0 +1,8 @@
+{
+  // Used by the editor and by `npm run typecheck`; Docusaurus compiles the site itself.
+  "extends": "@docusaurus/tsconfig",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "exclude": [".docusaurus", "build"]
+}

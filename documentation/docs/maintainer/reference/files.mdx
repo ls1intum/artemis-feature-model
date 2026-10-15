@@ -1,0 +1,59 @@
+---
+id: files
+title: File and Directory Map
+sidebar_label: Files
+---
+
+This page lists the files of the repository that maintenance work touches, with who changes them. "Maintainer" means
+you edit the file by hand; "workflow" means a delivery workflow changes it through a pull request; "generated" means a
+tool writes it and nobody edits it.
+
+## Curation and content
+
+| Path | What it is | Changed by |
+|---|---|---|
+| `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml` | The feature manifest | Maintainer |
+| `src/main/resources/feature-model/guided-workflow.json` | The guided workflow: structure and teacher text | Maintainer; the scaffold task adds drafts |
+| `src/main/resources/feature-model/guided-workflow.schema.json` | The JSON schema of the guided workflow | Developer |
+| `src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml` | The Ansible binding catalog | Maintainer |
+| `src/main/resources/deployment-profiles/default-artemis-profile.json` | The bundled deployment profile and its capabilities | Maintainer |
+| `src/main/resources/feature-model/extraction/report.css` | The style of the HTML report | Developer |
+
+## Classpath fixture
+
+| Path | What it is | Changed by |
+|---|---|---|
+| `src/main/resources/feature-model/functional-feature-model.json` | The model that local development and tests serve | Workflow, or `refreshFeatureModelFixture` |
+| `src/main/resources/feature-model/artemis-config-key-catalog.json` | The config-key catalog that goes with it | Workflow, or `refreshFeatureModelFixture` |
+| `src/main/resources/feature-model/fixture-provenance.json` | The snapshot the fixture was copied from | Workflow, or `refreshFeatureModelFixture` |
+
+## Delivery
+
+| Path | What it is | Changed by |
+|---|---|---|
+| `delivery/artemis-validation-pin` | The Artemis commit of pull request checks | Workflow; maintainer for a fix |
+| `delivery/verified-images.json` | The verified-image ledger | Workflow |
+| `delivery/artemis-runtime-image.json` | The Artemis image of generated packages | Maintainer |
+| `gradle.properties` | Holds `featureManifestSource` | Maintainer, at the cutover |
+| `.github/workflows/` | The workflows | Developer |
+| `Dockerfile` | The snapshot image | Developer |
+| `scripts/build-snapshot-image.sh`, `scripts/verify-snapshot-image.sh` | Build and test a snapshot image | Developer |
+
+## Extraction code and tests
+
+| Path | What it is |
+|---|---|
+| `src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/` | The pipeline, see [Extraction Code](/developer/modules/extraction) |
+| `src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/source/ArtemisSourceConventions.java` | Every Artemis path and symbol the scan relies on |
+| `src/test/resources/extraction/mini-artemis/` | A tiny fake Artemis checkout for the tests |
+| `src/test/resources/fixtures/remote-ansible/` | Expected files of the remote deployment package |
+
+## Generated output
+
+All of this lives under `build/` and is never committed:
+
+| Path | What it is |
+|---|---|
+| `build/feature-extraction/<source-revision>/` | The output of one pipeline run, see [Stages and Artifacts](/maintainer/extraction/stages) |
+| `build/docker/feature-model-snapshot/` | The staged context of an image build |
+| `build/guided-workflow-scaffold-report.json` | What the last scaffold sync changed |

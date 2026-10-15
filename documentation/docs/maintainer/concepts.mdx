@@ -1,0 +1,86 @@
+---
+id: concepts
+title: Concepts
+sidebar_label: Concepts
+---
+
+This page defines the terms of the Maintainer Guide. Each term has one meaning, and the other pages link here instead
+of explaining it again. Terms of the application itself, such as feature, constraint, or guided workflow, are defined
+in the Developer Guide on [Key Concepts](/developer/architecture/concepts).
+
+## Sources
+
+The **Artemis checkout** is a local Git clone of the Artemis repository that the pipeline reads. It must be clean: no
+uncommitted changes.
+
+The **source revision** is the commit the checkout points to (`HEAD`). The pipeline derives it on every run and names
+all outputs after it. No file in this repository pins it.
+
+The **validation pin** is the Artemis commit that pull request checks run against. It lives in
+`delivery/artemis-validation-pin`.
+
+## Curation
+
+The **feature manifest** is the curated file that decides which parts of Artemis become features of the model, and
+how they are arranged. It lives in `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`.
+
+A **candidate** is something in the Artemis source that could become a feature: a module, a runtime toggle, a Spring
+profile, or a piece of infrastructure such as a database. Each candidate has an id with a namespace, for example
+`module:text`, `toggle:Science`, `profile:jenkins`, or `infra:postgres`.
+
+An **anchor** is the candidate id that a manifest entry refers to. **Evidence** is a source location that supports a
+candidate: a constant, a configuration key, a condition class, a usage site.
+
+Every candidate needs a **decision** in the manifest. An **include** entry turns it into a feature of the model; an
+**exclude** entry keeps it out, with a reason such as `deferred` or `internal-mechanism`.
+
+A **conceptual node** is a feature without an anchor. It gives the tree its structure, for example the root `artemis`
+or the group `exercise-system`.
+
+The **technical subtree** is the part of the model with deployment choices instead of teaching features: the database,
+the CI provider, and the version control baseline. Only maintainers see these features; teachers never do.
+
+A **relation candidate** is a dependency between two candidates that the scan finds in the source, for example a
+condition class that needs two modules at once. Between two included features, every relation candidate needs a
+**constraint** or an **ignored relation** entry in the manifest.
+
+## Checks
+
+A **finding** is one diagnostic of a run, with a stable code, a severity, and a subject. A **blocking finding** has
+severity `error` and stops the run. A **warning** or an `info` finding is reported but does not stop it.
+
+**Fail-closed** means that the pipeline stops when it cannot decide something safely, instead of guessing. An
+undecided candidate, for example, stops the run.
+
+**Conformance** is the check that the generated model contains exactly what the manifest declares, nothing more and
+nothing less.
+
+## Outputs
+
+The **generated model** is the feature model that the pipeline assembles. Together with the **config-key catalog**
+(the Artemis configuration keys a generated configuration may contain) and the guided workflow, it forms the runtime
+bundle that the application serves.
+
+The **extraction report** is the result of a run in HTML and JSON. The pipeline writes it on success and on failure.
+
+A **snapshot** is the complete, validated output of one successful run: seven files in one directory. The **snapshot
+id** names it after the source revision and the manifest, for example `generated-<commit-prefix>-<manifest-prefix>`.
+
+The **classpath fixture** is the copy of a snapshot's model and catalog in `src/main/resources/feature-model/`. Local
+development and the tests use it.
+
+## Delivery
+
+A **snapshot image** is a container image of the application with one snapshot built in. The delivery workflows
+publish it to the GitHub Container Registry.
+
+The **registry digest** (`sha256:…`) identifies one image for good. A **discovery tag** is a readable name for an image,
+equal to its snapshot id. The **`verified` tag** points to the image a maintainer approved.
+
+**Promotion** moves the `verified` tag to an image and records it in the **verified-image ledger**,
+`delivery/verified-images.json`. A **rollback** is a promotion of an earlier image from the ledger.
+
+A **delivery pull request** is the pull request that the scheduled workflow opens after it publishes an image. It
+refreshes the classpath fixture and moves the validation pin.
+
+The **manifest cutover** is the planned move of the feature manifest into the Artemis repository.

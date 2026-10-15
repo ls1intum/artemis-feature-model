@@ -1,0 +1,56 @@
+---
+id: explorer
+title: Explorer
+sidebar_label: Explorer
+---
+
+The **Explorer** shows the feature model without changing anything. Use it to look up a feature, its place in the
+tree, and where it comes from in Artemis. Read this page when you change the Explorer or the diagram it shares with
+the Configurator.
+
+## What the Explorer shows
+
+The Explorer loads `GET /api/feature-model` once. Its header shows the model name, id, and version, and four
+numbers: **Features** (selectable features only), **Relations**, **Constraints**, and **Default on**. Model warnings,
+such as constraints the server cannot evaluate, appear above the tree.
+
+Below the header, the page has two panels: the feature tree on the left and the details of the focused feature on
+the right.
+
+## List and diagram views
+
+The **List** view shows the tree as indented rows. The **Diagram** view draws the same tree from left to right as
+SVG, laid out with `d3-hierarchy`. Both views share one expansion state, so a branch that you open in one view is
+open in the other. **Expand** and **Collapse** open or close all branches at once. A small legend explains the
+colored dot of each feature kind; a hollow dot marks a structural node that users cannot select.
+
+The Configurator's advanced tree reuses the diagram component, with selection and validation markers added.
+
+## Search
+
+The search box filters the tree by feature name or id, ignoring case. Matching features stay visible together with
+their ancestors, so every match keeps its context, and the matching branches open automatically. **Clear** resets
+the search. The filter logic is a pure function, `filterTreeByQuery` in `core/feature-model-tree.utils.ts`.
+
+## The details panel
+
+Clicking a feature shows its kind, category, whether it is selectable, its default state, its parent relation, and
+its description. A collapsed **Source metadata** section lists where the feature comes from in Artemis: its
+configuration key, Spring profile, client constant, server condition class, and source evidence. Maintainers use this
+section to trace a feature back to the Artemis code.
+
+## The snapshot line
+
+The line below the title lists imported model snapshots. It reads them from the legacy snapshot administration API,
+which is off by default; the line then says that snapshot information is unavailable.
+[Runtime Model](/developer/architecture/runtime-model#the-legacy-snapshot-administration-api) explains the API.
+
+## Code map
+
+| File in `src/main/webapp/app/feature-model/` | Responsibility |
+|---|---|
+| `explorer/feature-model-explorer.component.ts` | The route component: loading, search, view mode, focus, and expansion state |
+| `explorer/feature-model-tree-node.component.ts` | One row of the list view, rendering its children recursively |
+| `explorer/feature-model-diagram.component.ts` | The SVG diagram, also used by the Configurator |
+| `explorer/feature-model-snapshots.component.ts` | The snapshot line |
+| `core/feature-model-tree.utils.ts` | Tree search, filtering, and label helpers |

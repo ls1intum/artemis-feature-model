@@ -9,8 +9,8 @@ import java.util.Map;
  * Curated catalog that binds feature-model identities to Ansible collection variables for the remote-ansible
  * deployment package. The catalog is an application classpath resource in both runtime source modes; its version axis
  * is the pinned collection commit, not the Artemis revision, so it never travels in a model snapshot. Content is
- * curated from the live-verified sample-to-lab transformation table; per-entry evidence records where a value shape
- * comes from.
+ * curated from the upstream inventory samples and verified by deploying generated packages to a test server;
+ * per-entry evidence records where a value shape comes from.
  *
  * <p>
  * Content blocks are emitted verbatim into the generated inventory files. No environment value is ever baked into a

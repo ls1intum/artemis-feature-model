@@ -1,0 +1,105 @@
+---
+id: deployment-publishing
+title: Deployment Repository Publishing
+sidebar_label: Publishing
+---
+
+Publishing commits a generated `remote-ansible` package to a Git repository, where a deployment process can pick it
+up. This page explains when the Configurator offers publishing, how to configure it, and how a publish works. Read it
+when you work on the publish action or set it up for a test server.
+
+## What publishing does
+
+On the review page, the **Remote server (Ansible)** target shows a **Deploy to test VM** button when publishing is
+configured. The button sends the selection to `POST /api/feature-model/deployment-package/publish`. The server
+generates the package, commits it to `<target-directory-root>/<target>/package/` on the configured branch, and
+answers with the commit. The client then downloads the same package as a ZIP file.
+
+The publish and the download use the same generation code, and generation is deterministic, so the published files
+and the downloaded ZIP file are identical. When the repository refuses the publish, the client still downloads the
+package and shows the error. When the selection itself cannot be packaged, for example because it uses MySQL, the
+client shows one error card and downloads nothing.
+
+`GET /api/feature-model/deployment-package/publish-target` tells the client whether publishing is configured and
+where it would go. Without a configuration, the button does not appear.
+
+## Configuration
+
+Publishing is off by default. It is configured under `artemis.feature-model.deployment-repository`:
+
+| Property | Meaning |
+|---|---|
+| `enabled` | Switches publishing on |
+| `repository-url` | HTTPS, SSH, or `file://` URL of the repository, without credentials |
+| `branch` | The branch that receives the commits; defaults to `main` |
+| `target-directory-root` | The directory that holds one folder per target; defaults to `deployments` |
+| `expected-visibility` | Optional `public` or `private` for a GitHub repository; the server refuses to push when it differs |
+| `author-name`, `author-email` | The author of the commits |
+
+Credentials are never configuration properties. The server reads them only from environment variables and never
+logs or returns them:
+
+| Remote | Environment variables |
+|---|---|
+| HTTPS | `FM_DEPLOYMENT_REPO_TOKEN`, an access token |
+| SSH | `FM_DEPLOYMENT_REPO_SSH_KEY_PATH`, the path of a deploy key, and `FM_DEPLOYMENT_REPO_KNOWN_HOSTS_PATH`, the path of a known-hosts file |
+
+SSH uses strict host key checking with exactly this known-hosts file. `file://` remotes need no credentials.
+
+## How a publish works
+
+1. The server clones the configured branch into a temporary directory, shallow and with only that branch.
+2. It replaces the target's `package` directory completely with the generated files.
+3. When nothing changed, it stops and reports the existing commit as up to date.
+4. Otherwise it commits and pushes. It never force-pushes, so no existing commit can be lost.
+5. When the push fails because someone else pushed first, it starts again from a fresh clone, up to three attempts.
+
+When `expected-visibility` is set, the server asks the GitHub API for the repository's visibility before the first
+push after startup.
+
+## Errors
+
+Publishing errors use codes that start with `PUBLISH_`:
+
+| Code | Meaning |
+|---|---|
+| `PUBLISH_NOT_CONFIGURED` | Publishing is off, or the URL or a credential is missing |
+| `PUBLISH_WRONG_DEPLOYMENT_MODE` | The request is not for `remote-ansible` |
+| `PUBLISH_REQUIRES_TARGET_NAME` | The request has no target name |
+| `PUBLISH_REJECTED` | The repository rejected the push |
+| `PUBLISH_AUTH_FAILED` | The repository refused the credential |
+| `PUBLISH_VISIBILITY_MISMATCH` | The repository's visibility differs from `expected-visibility` |
+
+An invalid or unsupported selection fails with the same `ARTIFACT_GENERATION_*` errors as the download.
+
+## Try it locally
+
+You can publish to a local bare repository. Create one with a first commit on `main`:
+
+```bash
+git init --bare -b main /tmp/deployments.git
+git clone /tmp/deployments.git /tmp/deployments-seed
+git -C /tmp/deployments-seed commit --allow-empty -m init
+git -C /tmp/deployments-seed push origin main
+```
+
+Then start the server with publishing switched on:
+
+```bash
+./gradlew bootRun --args='--artemis.feature-model.deployment-repository.enabled=true --artemis.feature-model.deployment-repository.repository-url=file:///tmp/deployments.git --artemis.feature-model.deployment-repository.branch=main'
+```
+
+In the Configurator, switch the database to PostgreSQL in the advanced tree, open the review page, choose **Remote
+server (Ansible)**, and click **Deploy to test VM**. `git --git-dir=/tmp/deployments.git log` shows the new commit.
+
+## Where it lives in the code
+
+| Path | Responsibility |
+|---|---|
+| `export/service/DeploymentPackagePublishService` | Generates the package and starts the publish |
+| `export/service/DeploymentRepositoryPublisher` | Clones, commits, pushes, and retries |
+| `export/service/DeploymentRepositorySshTransport` | SSH key and host key handling |
+| `export/service/DeploymentRepositoryProperties` | The configuration properties |
+| `shared/exception/DeploymentRepositoryPublishException` | The `PUBLISH_*` errors |
+
+Paths are relative to `src/main/java/de/tum/cit/aet/artemis/featuremodel/`.

@@ -1,0 +1,57 @@
+---
+id: development-process
+title: Development Process
+sidebar_label: Development Process
+---
+
+This page describes what happens between opening a pull request and merging it into `mvp`: which checks run, how to
+keep the documentation in sync, and which pull requests come from workflows instead of people.
+
+## Checks on every pull request
+
+GitHub Actions runs the checks below. Merge a pull request only when they pass.
+
+| Check | Workflow | What it does |
+|---|---|---|
+| **Client tests** | `application-validation.yml` | Runs `npm run test` once. |
+| **Server tests** | `application-validation.yml` | Runs `./gradlew test --rerun-tasks`. |
+| **Application build** | `application-validation.yml` | Builds the runnable jar with `./gradlew bootJar`, including the Angular production build. |
+| **Build, extract, and smoke image** | `model-delivery-validation.yml` | Builds a feature model snapshot from a pinned Artemis commit, validates it, and smoke-tests the resulting container image. |
+| **Build documentation site** | `build-documentation.yml` | Type-checks and builds this site. A broken link fails the check. |
+
+`ci.yml` combines the first two workflows and runs them on every push and pull request. When a change touches only
+`documentation/`, `ci.yml` skips, and only the documentation build runs. The documentation build runs for every pull
+request that changes `documentation/`.
+
+The model delivery check needs no setup from you. It checks out Artemis at the commit in
+`delivery/artemis-validation-pin` and runs the same extraction pipeline that the delivery workflows use. It fails when
+your change breaks extraction, the generated snapshot, or the container image. When it fails, open the workflow run
+and download the extraction report from its artifacts. [Read the Extraction Report](/maintainer/extraction/reports) in the
+Maintainer Guide explains the report.
+
+## Keep the documentation in sync
+
+This site describes the current system, so it is only useful while it matches the code. When your pull request
+changes behavior that a page describes, update that page in the same pull request.
+
+To find the affected pages, search the site for the feature you changed, or search the page sources for the class,
+file, or endpoint name:
+
+```bash
+grep -rl "DeploymentPackageService" documentation/docs
+```
+
+[Writing Documentation](/developer/guidelines/documentation) explains how to write and build a page.
+
+## Pull requests opened by workflows
+
+Some pull requests are not written by a person. The delivery workflows open them to update files that record which
+Artemis commit and which images the project uses:
+
+- A delivery pull request, from a `delivery/auto-*` branch, refreshes the classpath copy of the generated model and
+  moves `delivery/artemis-validation-pin` to the Artemis commit it was built from.
+- A ledger pull request, from a `delivery/ledger-*` branch, records a promoted image in
+  `delivery/verified-images.json`.
+
+They run the same checks as your pull requests. Maintainers review and merge them, as described in
+[Review a Delivery Pull Request](/maintainer/tasks/review-delivery-pr).

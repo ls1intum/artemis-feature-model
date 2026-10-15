@@ -1,95 +1,52 @@
 # Remote-Ansible Golden Fixture Provenance
 
-These fixtures are derived from the tracked hand-written inventory of the
-`artemis-feature-model-deploy-lab` repository at commit
-`2040df8` ("Close out module-toggle validation: pin the fork patch and drop
-the refused build-agent credentials", 2026-08-27). That commit carries the
-2026-08-26 removal of the `build_agent_git_credentials` block from
-`artemistests_local_vc_ci.yml`: Artemis develop reversed the build-agent
-credential contract on 2026-08-25 (`LocalVCBuildAgentCredentialsValidator`
-refuses the shared pair on a node running local CI), so the previously
-required block became a startup refusal. See the lab's
-`evidence/incident-2026-08-26-build-agent-credentials-refused.md` (and its
-mirror `evidence/incident-2026-08-15-build-agent-git-password.md` for the
-retired contract these fixtures used to bake in). Every disposition behind
-these values was verified on the live lab VM; see
-`evidence/transformation-table.md` in the lab repository.
+These files are the expected output of the remote-ansible deployment package for the two requests in
+`RemoteAnsibleGoldenFixtureTest`: the full PostgreSQL selection with the target name `artemis-local`, and the same
+selection without `exam` and `tutorialgroup`.
 
-## Environment-channel evolution (2026-08-30)
+They are derived from a hand-written single-node inventory for the Ansible collection at the pinned commit, which
+was deployed successfully to a test server. That reference inventory is not part of this repository. Because the
+package expresses every host, identity, and secret value as an environment lookup, the fixtures fall into two
+classes.
 
-The package's environment channel moved from baked values and Vault lookup
-expressions to `lookup('ansible.builtin.env', …)` expressions over the
-user-provisioned environment-variable names of
-`devdocs/plan/deployment/ansible-remote/gitops/ansible-package-github-secrets-mapping.txt`
-(binding catalog v2). This split the fixtures into two classes:
+## Structural files
 
-1. **Package-own expectations** — files that carried baked environment
-   values or Vault expressions can no longer match the lab's hand-written
-   values byte-for-byte; the lab files remain historical evidence of the
-   values that booted the lab VM. Affected: `artemislocal-main.yml` and
-   `artemistests_common_config.yml` (identity lines are now env lookups),
-   `artemislocal-secrets.yml` (env lookups instead of Vault lookups), and
-   `hosts` (the target-group section is now empty — a host entry cannot be
-   a lookup, so the connection line is owned by the execution environment;
-   the lab file keeps its concrete SSH connection line plus its inert empty
-   `artemistests_postgres`/`artemistests_iris` sections).
-2. **Structural files** — files that never carried an environment value
-   are unchanged by the switch and keep matching the lab's tracked files at
-   commit `2040df8`: `artemistests_mysql.yml` and
-   `artemistests_postgres.yml` byte-for-byte,
-   `artemistests_local_vc_ci.yml` except the lab's commented-out
-   `build_agent_git_credentials` incident-history block (a pre-existing,
-   documented delta), `artemistests_without_exam.yml` and
-   `artemistests_without_tutorialgroup.yml` line-for-line (the generated
-   files end without a trailing newline), and the group wiring
-   (`:children` sections) of `hosts`.
+Files that carry no environment value match the reference inventory:
 
-Additionally, the two lab-only header comment lines of
-`artemistests_common_config.yml` (referencing the lab's evidence documents) are
-not part of the generated output and were stripped during derivation.
+- `artemistests_postgres.yml` byte for byte, including the explicit port 5432.
+- `artemistests_local_vc_ci.yml`. It configures no shared `build_agent_git_credentials` pair, because Artemis
+  refuses that pair on a node that runs local CI (`LocalVCBuildAgentCredentialsValidator`); build agents
+  authenticate per job instead.
+- `artemistests_without_exam.yml` and `artemistests_without_tutorialgroup.yml` line for line; the generated files
+  end without a trailing newline. They switch modules off through the collection's `artemis_modules` variable, as
+  validated on the test server.
+- The group wiring (`:children` sections) of `hosts`.
 
-The `artemistests_without_exam.yml` and `artemistests_without_tutorialgroup.yml`
-fixtures are the lab's tracked module-toggle group files (added with the
-collection-fork validation evidence, state as of lab commit `2040df8`): the
-hand-written values of the reduced variant validated on the lab VM against the
-fork's `artemis_modules` off-switches
-(`evidence/collection-fork-validation-2026-08-25.md`).
+## Package-own expectations
 
-The `artemistests_without_atlas` section of `hosts` has no lab counterpart:
-`artemis.atlas.enabled` defaults to true inside the Artemis image, so a
-selection without atlas must emit an explicit off-switch, while the
-hand-written lab inventory (which predates the selection semantics) simply
-runs with the image default. The group's values file is asserted by its own
-package expectation, not by lab diff.
+Files that carry environment values are rendered from the binding catalog, so they cannot match hand-written
+values:
 
-Updating these fixtures is a deliberate, reviewed act: re-derive the
-structural class from the lab inventory and record the new lab commit here;
-re-derive the package-own class from the binding catalog and the mapping
-file.
+- `artemislocal-main.yml` and `artemistests_common_config.yml` express identity values as
+  `lookup('ansible.builtin.env', …)` expressions.
+- `artemislocal-secrets.yml` expresses every secret as an environment lookup.
+- `hosts` leaves the target-group section empty: a host entry cannot be a lookup, so the execution environment owns
+  the connection line. It also wires `artemistests_without_atlas`, which the reference inventory does not need:
+  Atlas is enabled by default in the Artemis image, so a selection without Atlas must switch it off explicitly.
 
-## PostgreSQL collection pin uptake — 2026-09-10
+## Collection pin
 
-Catalog v4 moves the collection pin from `fce6ad19a7ee58dbecc5632d5bb2b3f18f76886e`
-to `13e50a20fea641a5a792e42541952a37cd7f1239`. Upstream #245 removed
-MySQL support and hardcodes PostgreSQL JDBC and compose selection, so remote
-MySQL requests now fail before download or publish. The now-unemitted
-`artemistests_mysql.yml` fixture is removed. The package-own `hosts` expectation
-is re-derived with `artemistests_postgres` membership replacing MySQL.
+The fixtures match the collection pin of the binding catalog. The pinned collection deploys PostgreSQL only, so
+there is no MySQL fixture.
 
-The postgres fixture retains its lab `2040df8` bytes, including explicit port
-5432. `without_*`, `local_vc_ci`, and every value-bearing environment-lookup
-fixture remain byte-identical. The preceding v3 YAML representation migration
-changed no fixture bytes. Collection rendering and new-default curation are
-recorded in the lab's `evidence/catalog-pin-validation-2026-09-10.md`.
+## Variable descriptions
 
-## Variable descriptions — 2026-10-14
+The binding catalog describes every referenced environment variable in its `environment:` section. The package
+ships these descriptions in `metadata/env-references.json` and as a table in the README. Neither file is a golden
+fixture; `RemoteAnsibleDeploymentPackageTest` checks both against the loaded catalog.
 
-The binding catalog gained a top-level `environment:` section with one
-administrator-facing description per referenced environment variable. The
-package now ships each description in `metadata/env-references.json` (a
-`description` field after `kind`) and as a table in the "Environment values"
-section of `README.md`. Both are package-own expectations derived from the
-catalog, not from the lab inventory, and neither file is a golden fixture
-here; `RemoteAnsibleDeploymentPackageTest` asserts them against the loaded
-catalog. No fixture in this directory changed: the variable names, lookups,
-group files, and `hosts` wiring are byte-identical.
+## Updating the fixtures
+
+Updating a fixture is a deliberate, reviewed act. Re-derive the structural files from a reference inventory that
+was deployed successfully against the new collection pin, and re-derive the package-own expectations from the
+binding catalog. Record in this file what changed and why.

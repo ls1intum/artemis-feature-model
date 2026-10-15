@@ -1,0 +1,145 @@
+---
+id: manifest
+title: The Feature Manifest
+sidebar_label: The Feature Manifest
+---
+
+The feature manifest is the file you edit to curate the feature model. This page explains what it decides, how it is
+structured, and how the pipeline reads it. Read it before your first change to the manifest.
+
+## What the manifest decides
+
+The pipeline reads facts from Artemis: which modules and toggles exist, their names and descriptions from the Artemis
+English translations, their default states from the Artemis configuration, and the configuration key that switches
+each module on. The manifest adds what code cannot say:
+
+- which candidates belong to the model and which stay out, and why;
+- where each feature sits in the tree, and in which order;
+- whether a feature is mandatory, functional or technical, and which deployment capabilities it needs;
+- configuration mappings beyond the module's on/off key, such as a service URL;
+- constraints between features.
+
+When the manifest and Artemis both describe something, the manifest wins.
+
+## Where it lives
+
+The manifest lives in this repository at `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`.
+The property `featureManifestSource` in `gradle.properties` selects where the pipeline reads it from:
+
+| Value | Source |
+|---|---|
+| `repository` | The file in this repository |
+| `checkout` | `supportingFiles/feature-model/artemis-feature-manifest.yml` inside the Artemis checkout |
+
+The `checkout` mode exists for the [manifest cutover](/maintainer/tasks/manifest-cutover), which moves the manifest into
+Artemis so that a feature and its curation change together. In `repository` mode, the pipeline also looks at the
+Artemis path: when a copy exists there, it must be byte-identical to the file in this repository, or the run fails.
+
+## Structure
+
+The manifest has six lists below its version:
+
+```yaml
+manifestVersion: 3
+include: []           # candidates that become features
+exclude: []           # candidates that stay out, with a reason
+conceptualNodes: []   # features without an anchor: the root and the groups
+constraints: []       # requires and excludes rules between features
+ignoredRelations: []  # relation candidates that deliberately stay unenforced
+renames: []           # feature id renames for the guided workflow
+```
+
+The pipeline reads the file strictly. An unknown field, a wrong value, or a reference to an undeclared parent stops the
+run with a message that names the entry.
+
+## Include a candidate
+
+An include entry names the candidate in `anchor` and gives the feature its `id`:
+
+```yaml
+- anchor: module:athena
+  id: athena
+  group: assessment-and-integrity
+  order: 3
+  requiresCapabilities: [athena-service, athena-secret]
+  artifactMappings:
+    - { target: application-feature-model.yml, path: artemis.athena.url, source: environment }
+    - { target: application-feature-model.yml, path: artemis.athena.secret, source: environment, secret: true }
+```
+
+Most fields are optional:
+
+| Field | Meaning |
+|---|---|
+| `group` or `parent` | Where the feature sits in the tree |
+| `order` | Position among its siblings |
+| `kind`, `category`, `optionality` | Override the defaults: modules are optional `functional` features |
+| `defaultState` | `enabled` or `disabled`; without it, the Artemis default applies |
+| `requiresCapabilities`, `providesCapabilities` | Deployment capabilities, see [Key Concepts](/developer/architecture/concepts#capabilities-and-deployment-profiles) |
+| `artifactMappings` | Configuration entries beyond the module's on/off key, which the pipeline adds on its own |
+| `name`, `description`, `documentationUrl` | Override the texts that the pipeline takes from Artemis |
+| `rationale` | Why the feature is included |
+
+## Exclude a candidate
+
+An exclude entry keeps a candidate out of the model:
+
+```yaml
+- anchor: toggle:RateLimit
+  reason: operational
+  rationale: Rate limiting is an abuse-protection safeguard, not a course or deployment capability choice.
+```
+
+The `reason` is a short code that groups exclusions in the report. The manifest uses `deferred`, `sub-option`,
+`internal-mechanism`, `operational`, and `experimental`. Without a reason, the entry counts as `unspecified` and the
+report shows a warning. Write a `rationale` for every runtime toggle you exclude; the report warns when one is missing.
+
+## Conceptual nodes and the technical subtree
+
+Conceptual nodes are features without an anchor. They give the tree its root and groups:
+
+```yaml
+- id: database
+  parent: artemis
+  kind: group
+  category: technical
+  groupType: alternative
+  name: Database
+```
+
+A group with `groupType: alternative` lets a deployment choose exactly one child. The technical subtree uses this for
+the database (`mysql` or `postgresql`) and the CI provider (`integrated-code-lifecycle` or `jenkins`). Technical
+features are for maintainers only; the guided workflow never shows them to teachers.
+
+## Constraints and ignored relations
+
+A constraint is a rule between two included features:
+
+```yaml
+- id: apollon-requires-modeling
+  type: requires
+  source: apollon
+  target: modeling
+```
+
+The type is `requires` or `excludes`. When the scan finds a relation candidate between two included features, the
+manifest must decide about it: declare a constraint, or record it under `ignoredRelations` with a rationale that says
+why the relation stays unenforced.
+
+## Renames
+
+A rename tells the [guided workflow scaffold](/maintainer/tasks/update-guided-workflow) that a feature id changed, so it
+can update every reference in `guided-workflow.json`:
+
+```yaml
+renames:
+  - { from: old-id, to: new-id, rationale: Same feature, new id in Artemis. }
+```
+
+The target must be a current id, and the source must not be one.
+
+## Schema version
+
+The manifest declares `manifestVersion: 3`. The pipeline rejects every other version. It also rejects the fields
+`artemisCommitSha` and `artemisImageDigest` with a message that says where these values live: the source revision
+comes from the checkout, and the runtime image reference lives in `delivery/artemis-runtime-image.json`.

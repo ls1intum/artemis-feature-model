@@ -138,7 +138,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   (`artemistests_without_atlas`) while selection emits nothing. The package
   bakes no environment value at all: every identity and secret value is
   emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
-  user-provisioned environment-variable names (7 identity plus 12
+  user-provisioned environment-variable names (8 identity plus 13
   secret-class names; a mapping-conformance test pins the catalog's name set
   to them verbatim), the target-group section of `inventory/hosts` stays
   empty (the connection line is execution-environment-owned), and the
@@ -146,9 +146,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   variable before the syntax check. The `remoteEnvironment` request
   component reduces to an optional `targetName` naming the inventory target
   group; supplying the component on a non-remote mode is a controlled 400.
-  Fixtures split into two classes: structural files stay identical to the
-  lab's tracked inventory, value-bearing files are package-own expectations
-  (see the fixture `PROVENANCE.md`). The review page offers "Remote server
+  Fixtures split into two classes: structural files stay identical to a
+  hand-written reference inventory that was deployed successfully,
+  value-bearing files are package-own expectations (see the fixture
+  `PROVENANCE.md`). The review page offers "Remote server
   (Ansible)" as a third deployment target sending
   `deploymentMode: "remote-ansible"` plus the fixed `artemis-remote` target name.
 - Deployment repository publishing commits the generated remote-ansible
@@ -291,7 +292,8 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   and opens the delivery auto-PR (fixture refresh, validation-pin bump,
   coverage summary). No workflow publishes `latest` or deploys the image;
   deployment remains deferred. The cutover to the Artemis-hosted manifest is
-  documented in `docs/extraction/automated-model-delivery.md` and not
+  documented in the Maintainer Guide
+  (`documentation/docs/maintainer/tasks/manifest-cutover.mdx`) and not
   executed.
 - Runtime source mode is explicit under `artemis.feature-model.source-mode`.
   Local development defaults to `classpath`, which loads and validates the
@@ -321,6 +323,31 @@ npm run test                      # Angular unit tests with Vitest
 
 The Angular dev server proxies `/api/**` to `http://localhost:8090`. The local ports deliberately avoid the Artemis dev defaults (8080/9000) so both applications can run side by side.
 
+## Documentation
+
+The documentation site lives in `documentation/`: a self-contained Docusaurus
+project with its own `package.json`, published to GitHub Pages at
+`https://ls1intum.github.io/artemis-feature-model/` when `documentation/**`
+changes on `mvp`. It has two guides: the Developer Guide
+(`documentation/docs/developer/`) for code changes and the Maintainer Guide
+(`documentation/docs/maintainer/`) for extraction, delivery, and maintenance
+tasks. A page appears only when `sidebar-developer.ts` or
+`sidebar-maintainer.ts` lists it.
+
+Run the site commands in `documentation/`:
+
+```bash
+npm ci                            # install site dependencies
+npm run start                     # preview on http://localhost:3000/artemis-feature-model/
+npm run typecheck                 # type check
+npm run build                     # static build; fails on broken links and anchors
+```
+
+Docs as code: a change that alters behavior a page describes updates that page
+in the same pull request. Follow
+[Writing Documentation](documentation/docs/developer/guidelines/documentation.mdx)
+for page rules.
+
 ## Project Structure
 
 ```text
@@ -340,6 +367,7 @@ src/main/java/de/tum/cit/aet/artemis/featuremodel/
 src/main/resources/
 src/main/webapp/
 src/test/java/de/tum/cit/aet/artemis/featuremodel/
+documentation/
 ```
 
 Server package areas:
@@ -450,16 +478,35 @@ For multi-step tasks, state a brief plan:
 
 ## Guidelines and Conventions
 
-Detailed project guidelines are maintained in `docs/guidelines/`. Treat those
+Detailed project guidelines are maintained in the Developer Guide of the
+documentation site, under `documentation/docs/developer/guidelines/`. Treat those
 files as the source of truth and avoid duplicating their contents here.
 
-- [Java Conventions](docs/guidelines/java.md)
-- [TypeScript and Angular Conventions](docs/guidelines/typescript-angular.md)
-- [Client Styling and Theming](docs/guidelines/client-styling-theming.md)
-- [API and Server Design Conventions](docs/guidelines/server-design.md)
-- [Testing Guidelines](docs/guidelines/testing.md)
-- [Version Control Guidelines](docs/guidelines/version-control.md)
+- [Java Conventions](documentation/docs/developer/guidelines/java.mdx)
+- [TypeScript and Angular Conventions](documentation/docs/developer/guidelines/typescript-angular.mdx)
+- [Client Styling and Theming](documentation/docs/developer/guidelines/client-styling-theming.mdx)
+- [API and Server Design Conventions](documentation/docs/developer/guidelines/server-design.mdx)
+- [Testing Guidelines](documentation/docs/developer/guidelines/testing.mdx)
+- [Writing Documentation](documentation/docs/developer/guidelines/documentation.mdx)
 
 When a change touches one of these areas, read the corresponding guideline
-before editing code. Update the guideline document itself when a convention
+before editing code. Update the guideline page itself when a convention
 changes; keep `CLAUDE.md` as the project overview and navigation entry point.
+
+### Version Control
+
+- Use `feature/...` branches for implementation phases.
+- Keep commits small and reviewable.
+- Use concise imperative commit messages, scoped where useful.
+- Commit Gradle wrapper files and npm lock files.
+- Do not hand-edit `package-lock.json` unless resolving a targeted lockfile issue.
+- Do not commit generated build outputs, `node_modules`, `.angular`, or local IDE files.
+- Do not revert user changes unless the user explicitly asks.
+
+Recommended commit message examples:
+
+```text
+chore: add server feature model store
+test: cover mandatory feature validation
+docs: add phase 3 server api plan
+```

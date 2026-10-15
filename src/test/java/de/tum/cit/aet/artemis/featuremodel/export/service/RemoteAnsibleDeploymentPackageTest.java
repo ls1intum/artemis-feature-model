@@ -173,7 +173,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void noGeneratedByteContainsAValueChannelOrBakedEnvironmentValue() {
-        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_POSTGRES_SELECTION, "iris", "hyperion"), null, null,
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_POSTGRES_SELECTION, "iris", "hyperion", "deimos"), null, null,
                 "remote-ansible", labEnvironment()));
 
         String secretsFile = content(result, "inventory/group_vars/artemislocal/secrets.yml");
