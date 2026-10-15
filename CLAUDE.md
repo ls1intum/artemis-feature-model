@@ -118,7 +118,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   application resource in both source modes, versioned by its collection
   pin (a commit of the `JTNing/artemis-ansible-collection` fork branch
   `feature-model/module-toggles`, pinned at
-  `13e50a20fea641a5a792e42541952a37cd7f1239`) — never part of a model snapshot. Every
+  `c46df338a49406f1f0872289aff31a100e8fd772`) — never part of a model snapshot. Every
   selectable feature must be classified `bound`/`no-op`/`unsupported`;
   unclassified or inexpressible selections (MySQL or Jenkins) fail closed with a
   controlled 400 naming the catalog identity or missing variable. This collection
@@ -146,41 +146,70 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   variable before the syntax check. The `remoteEnvironment` request
   component reduces to an optional `targetName` naming the inventory target
   group; supplying the component on a non-remote mode is a controlled 400.
+  The catalog's `environment` section describes every referenced variable for
+  administrators, and loading fails unless it describes exactly the referenced
+  names; each `env-references.json` entry carries its `kind` and
+  `description`, and the package README lists the package's variables in a
+  table that says whether each is a GitHub Environment secret or variable.
   Fixtures split into two classes: structural files stay identical to a
   hand-written reference inventory that was deployed successfully,
   value-bearing files are package-own expectations (see the fixture
   `PROVENANCE.md`). The review page offers "Remote server
   (Ansible)" as a third deployment target sending
-  `deploymentMode: "remote-ansible"` plus the fixed `artemis-remote` target name.
+  `deploymentMode: "remote-ansible"` plus the target name of its **Target
+  name** field.
 - Deployment repository publishing commits the generated remote-ansible
-  package to a Git deployment repository:
-  `POST /api/feature-model/deployment-package/publish` generates through the
-  exact same service path as the download (byte parity is test-guarded) and
-  pushes `deployments/<target>/package/**` wholesale to the configured
-  branch via JGit — fresh shallow single-branch clone, no commit when the
-  tree is unchanged, never a force push, up to three retries from a fresh
-  clone when the remote advances concurrently.
-  `GET /api/feature-model/deployment-package/publish-target` reports the
-  destination. Configuration lives under
-  `artemis.feature-model.deployment-repository` (committed defaults keep
-  publishing disabled). HTTPS uses the token from
+  package to a Git deployment repository chosen on the review page:
+  `POST /api/feature-model/deployment-package/publish` takes
+  `{ request, repositoryUrl }`, generates through the exact same service path
+  as the download (byte parity is test-guarded), and pushes
+  `deployments/<target>/package/**` wholesale to the configured branch via
+  JGit — fresh shallow single-branch clone, no commit when the tree is
+  unchanged, never a force push, up to three retries from a fresh clone when
+  the remote advances concurrently. A blank `repositoryUrl` falls back to the
+  configured `repository-url`. Every effective URL, including the default,
+  must pass `DeploymentRepositoryUrlPolicy`: trimmed, no whitespace, `?`, `#`,
+  `..` segment, or HTTP(S) user information, and a prefix from
+  `allowed-repository-url-prefixes` (default: all of GitHub over HTTPS and
+  SSH; `file://` only when an operator adds it). The cloned branch must hold a
+  root `deployment-repository.json` marker whose `packageContract` equals the
+  major of `REMOTE_ANSIBLE_PACKAGE_VERSION`; otherwise nothing is pushed. The
+  target name must match `^[a-z0-9][a-z0-9-]{0,62}$`, because it is both the
+  package directory and the GitHub Environment name; the download keeps its
+  looser check. `GET /api/feature-model/deployment-package/publish-target`
+  reports `configured` (enabled and at least one usable transport),
+  `defaultRepositoryUrl`, the branch, and the directory root. Configuration
+  lives under `artemis.feature-model.deployment-repository`; the committed
+  `application.yml` enables publishing with the project's deployment
+  repository as the default URL. HTTPS uses the token from
   `FM_DEPLOYMENT_REPO_TOKEN`; SSH URLs use a repository deploy key and strict
   host-key checking through the files named by
   `FM_DEPLOYMENT_REPO_SSH_KEY_PATH` and
-  `FM_DEPLOYMENT_REPO_KNOWN_HOSTS_PATH`. JGit's Apache MINA transport is
+  `FM_DEPLOYMENT_REPO_KNOWN_HOSTS_PATH`; the credential of the effective URL's
+  transport is checked per publish. JGit's Apache MINA transport is
   configured per publish attempt and Bouncy Castle supplies Ed25519 support.
   Credentials are never logged or serialized, and a declared
-  `expected-visibility` is verified against the GitHub API before the first
-  push of a process lifetime. Controlled errors use the `PUBLISH_*` code
-  family. The review page has no target-name field; it adds a
-  "Deploy to test VM" publish-and-download action for the remote target,
-  rendered only when the publish target is configured; repository publish
-  failures still
-  fall back to downloading. Unsupported remote selections return structured
+  `expected-visibility` is verified against the GitHub API once per
+  repository URL and process lifetime. Controlled errors use the `PUBLISH_*`
+  code family. The review page's remote target shows a target name field
+  (always) and a deployment repository field (when publishing is
+  configured), both kept in `localStorage`, a "Deploy to <target>"
+  publish-and-download action, and the destination including the GitHub
+  Environment; repository publish failures still fall back to downloading.
+  Unsupported remote selections return structured
   `featureId` and `reason` fields alongside the stable error code and message.
   The review page shows one actionable error card with a readable feature name,
   an Advanced tree shortcut, and a collapsed technical explanation; it does not
   retry downloading a package that publishing already refused as unsupported.
+  Administrators create deployment repositories from the public template
+  `ls1intum/artemis-feature-model-deployment-template`, whose workflow deploys
+  each target in the GitHub Environment of the same name, reads the variable
+  list from `env-references.json`, passes package secrets by name (GitHub
+  holds workflows that read the whole secrets context), and lists missing
+  values with their descriptions before connecting to the VM. A new catalog
+  secret name therefore needs a template update, and a change to the package
+  paths or fields the workflow reads needs a joint bump of the package major
+  version and the template's `packageContract`.
 - The generated overlay is statically validated against a curated Artemis config
   key catalog (`src/main/resources/feature-model/artemis-config-key-catalog.json`):
   unknown keys and value-type mismatches are reported without booting Artemis.
