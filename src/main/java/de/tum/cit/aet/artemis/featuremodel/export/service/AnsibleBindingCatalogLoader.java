@@ -235,6 +235,34 @@ public class AnsibleBindingCatalogLoader {
         }
         validateUniqueGroupFiles(catalog);
         validateEnvironmentDescriptions(catalog);
+        validateImageTagToken(catalog);
+    }
+
+    /**
+     * Validates that the Artemis image tag token occurs exactly once in the common config content and in no other
+     * content block, because the planner substitutes it only there.
+     *
+     * @param catalog parsed catalog.
+     * @throws FeatureModelLoadException if the token is missing, repeated, or misplaced.
+     */
+    private void validateImageTagToken(AnsibleBindingCatalog catalog) {
+        String token = AnsibleBindingCatalog.ARTEMIS_IMAGE_TAG_TOKEN;
+        AnsibleBindingCatalog.PackageFiles files = catalog.files();
+        String commonConfig = files.commonConfig().content();
+        if (commonConfig.indexOf(token) < 0 || commonConfig.indexOf(token) != commonConfig.lastIndexOf(token)) {
+            throw invalid("The commonConfig content must contain the Artemis image tag token " + token + " exactly once.");
+        }
+        List<String> otherContents = new ArrayList<>(List.of(files.targetMain().content(), files.targetSecrets().content()));
+        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : catalog.sections()) {
+            for (AnsibleBindingCatalog.FeatureBinding binding : section.values()) {
+                if (binding.content() != null) {
+                    otherContents.add(binding.content());
+                }
+            }
+        }
+        if (otherContents.stream().anyMatch(content -> content.contains(token))) {
+            throw invalid("The Artemis image tag token " + token + " may only occur in the commonConfig content.");
+        }
     }
 
     /**

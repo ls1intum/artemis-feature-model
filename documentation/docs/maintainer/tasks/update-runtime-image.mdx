@@ -6,7 +6,8 @@ sidebar_label: Update the Runtime Image
 
 A Docker deployment package can start Artemis from a published Artemis image instead of a local checkout. This page
 shows how to choose which Artemis image that is. You need it when you want generated packages to use a fixed,
-tested Artemis version instead of the newest one.
+tested Artemis version instead of the newest one. Remote deployment packages do not use this reference; they always
+deploy the image of the [validation pin](/maintainer/pipeline/delivery-files#the-validation-pin).
 
 ## What the reference controls
 

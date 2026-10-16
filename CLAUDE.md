@@ -112,7 +112,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   playbook, inventory membership wiring and group values, preflight script)
   plus remote metadata (`remote-readiness.json`, `env-references.json`).
   Values come from the curated Ansible binding catalog
-  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`, catalog v4),
+  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`, catalog v5),
   a YAML catalog using literal content blocks, stripped `#:` annotations,
   and derived group filenames and environment references. It is an
   application resource in both source modes, versioned by its collection
@@ -136,6 +136,14 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   deselection-gated for the same reason: its image-shipped default is enabled,
   so deselection emits an explicit `atlas.enabled: false` group
   (`artemistests_without_atlas`) while selection emits nothing. The package
+  deploys the Artemis image of the active model's `sourceCommitSha` (the
+  validation pin in classpath mode): the planner replaces the catalog's
+  `@ARTEMIS_IMAGE_TAG@` token in `artemis_version` with `sha-<commit>`, the
+  per-commit tag Artemis CI pushes, records it as `artemisRuntime.imageTag` in
+  the manifest, and fails closed with a controlled 400 when the model names no
+  full commit; Compose files still follow the `develop` branch head, because
+  the collection checks out branch names only. The golden fixture keeps the
+  token and its test derives the tag from the loaded model. The package
   bakes no environment value at all: every identity and secret value is
   emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
   user-provisioned environment-variable names (8 identity plus 13
@@ -317,9 +325,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   published digest as `verified` without rebuilding and appends to the
   `delivery/verified-images.json` ledger via an automated PR; rollback is
   promotion of a prior ledger entry. The scheduled poller
-  (`poll-artemis-delivery.yml`) resolves the Artemis tracking ref, publishes,
-  and opens the delivery auto-PR (fixture refresh, validation-pin bump,
-  coverage summary). No workflow publishes `latest` or deploys the image;
+  (`poll-artemis-delivery.yml`) resolves the Artemis tracking ref, requires
+  the `ghcr.io/ls1intum/artemis:sha-<commit>` image of that commit (a
+  scheduled run without it short-circuits, an explicit SHA without it fails),
+  publishes, and opens the delivery auto-PR (fixture refresh, validation-pin
+  bump, coverage summary). No workflow publishes `latest` or deploys the image;
   deployment remains deferred. The cutover to the Artemis-hosted manifest is
   documented in the Maintainer Guide
   (`documentation/docs/maintainer/tasks/manifest-cutover.mdx`) and not

@@ -98,7 +98,7 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.artemisRuntime().imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
         assertThat(manifest.artemisRuntime().imageDigest()).isEqualTo("latest");
         assertThat(manifest.artemisRuntime().note()).contains("metadata/static-config-validation.json");
-        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit");
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit").doesNotContain("imageTag");
         assertThat(manifest.database().type()).isEqualTo("mysql");
         assertThat(manifest.database().mode()).isEqualTo("local-container");
     }

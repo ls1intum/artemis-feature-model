@@ -55,7 +55,7 @@ class AnsibleBindingCatalogTest {
     void bundledCatalogLoadsWithItsCollectionPinIdentity() {
         AnsibleBindingCatalog catalog = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper).catalog();
 
-        assertThat(catalog.catalogVersion()).isEqualTo(4);
+        assertThat(catalog.catalogVersion()).isEqualTo(5);
         assertThat(catalog.collectionPin()).matches("[0-9a-f]{40}");
         assertThat(catalog.curationSource()).isNotBlank();
     }
@@ -393,6 +393,19 @@ class AnsibleBindingCatalogTest {
 
         assertThatThrownBy(() -> loadCatalog(withBlank)).isInstanceOf(FeatureModelLoadException.class)
                 .hasMessageContaining("blank descriptions: ATHENA_SECRET, IRIS_SECRET");
+    }
+
+    @Test
+    void artemisImageTagTokenMustOccurExactlyOnceInTheCommonConfig() throws IOException {
+        String bundled = Files.readString(Path.of("src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml"));
+        String token = AnsibleBindingCatalog.ARTEMIS_IMAGE_TAG_TOKEN;
+
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("\"" + token + "\"", "develop"))).isInstanceOf(FeatureModelLoadException.class)
+                .hasMessageContaining("exactly once");
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("artemis_branch: develop", "artemis_branch: \"" + token + "\"")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("exactly once");
+        assertThatThrownBy(() -> loadCatalog(bundled.replace("      var_testserver_name:", "      image: \"" + token + "\"\n      var_testserver_name:")))
+                .isInstanceOf(FeatureModelLoadException.class).hasMessageContaining("may only occur in the commonConfig content");
     }
 
     @Test

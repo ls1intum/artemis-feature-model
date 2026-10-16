@@ -11,9 +11,9 @@ controls, and who changes it. Check here before you edit one of them by hand.
 
 | File | Controls | Changed by |
 |---|---|---|
-| `delivery/artemis-validation-pin` | The Artemis commit that pull request checks use | The delivery pull request |
+| `delivery/artemis-validation-pin` | The Artemis commit that pull request checks use and remote packages deploy | The delivery pull request |
 | `delivery/verified-images.json` | The history of promoted images | The ledger pull request of the promotion workflow |
-| `delivery/artemis-runtime-image.json` | The Artemis image that generated deployment packages run | A maintainer |
+| `delivery/artemis-runtime-image.json` | The Artemis image that generated Docker packages run | A maintainer |
 | `src/main/resources/feature-model/fixture-provenance.json` | Which snapshot the classpath fixture is a copy of | The delivery pull request |
 | `featureManifestSource` in `gradle.properties` | Where the pipeline reads the manifest | A maintainer, at the cutover |
 
@@ -25,6 +25,11 @@ extraction against this commit, so the check is repeatable.
 The delivery pull request moves the pin to the commit it delivered. The pin therefore always names the last Artemis
 commit that this repository delivered successfully. You only move it by hand when you need pull requests to check
 against a specific commit, for example to prepare a manifest change for a commit that the poller has not reached yet.
+
+Remote deployment packages deploy the Artemis image of the same commit. Artemis CI tags each image it builds with
+`sha-<commit>`, and the package sets this tag from the source commit of the model, which the delivery pull request
+moves together with the pin. The poller therefore delivers only commits that already have such an image. When you move
+the pin by hand, pick a commit with an image too; Artemis builds none for commits that change only documentation.
 
 ## The verified-image ledger
 
@@ -51,7 +56,7 @@ request.
 
 ## The runtime image reference
 
-`delivery/artemis-runtime-image.json` names the Artemis container image that generated deployment packages start:
+`delivery/artemis-runtime-image.json` names the Artemis container image that generated Docker packages start:
 
 ```json
 {
@@ -62,7 +67,8 @@ request.
 
 The `digest` is either `latest` or a pinned `sha256:` digest. The pipeline copies it into every snapshot, so a published
 image always generates packages with the same Artemis image. [Update the Runtime Image](/maintainer/tasks/update-runtime-image)
-explains how to change it.
+explains how to change it. Remote deployment packages do not read this reference; they deploy the image of the
+validation pin, as described above.
 
 ## The fixture provenance
 

@@ -106,9 +106,10 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      *
      * @param imageRepository official Artemis application image repository.
      * @param imageDigest original configured image digest, or the special value {@code latest}.
+     * @param imageTag deployed image tag, omitted from the JSON when the package names none.
      * @param note human-readable runtime note.
      */
-    public record ArtemisRuntimeInfo(String imageRepository, String imageDigest, String note) {
+    public record ArtemisRuntimeInfo(String imageRepository, String imageDigest, @JsonInclude(JsonInclude.Include.NON_NULL) String imageTag, String note) {
     }
 
     /**

@@ -43,8 +43,11 @@ It holds only `contents: read` and never publishes. In `ci.yml` it appears as th
 ## Artemis delivery poller
 
 The poller runs twice a week, as set by its `cron` entry, and on manual dispatch. It resolves one Artemis commit: the
-`artemis_sha` input when you give one, otherwise the current head of the Artemis `develop` branch. It computes the
-snapshot id and stops early when the same snapshot was already published from the current commit of this repository.
+`artemis_sha` input when you give one, otherwise the current head of the Artemis `develop` branch. It then checks that
+Artemis CI has published the image `ghcr.io/ls1intum/artemis:sha-<commit>`, because remote deployment packages deploy
+it. Without the image, a scheduled run stops early and a later run delivers a newer commit, while a run for an explicit
+commit fails. Next, it computes the snapshot id and stops early when the same snapshot was already published from the
+current commit of this repository.
 
 Otherwise it calls the publication workflow and, after a successful publication, opens the delivery pull request on the
 branch `delivery/auto-<commit-prefix>`. It skips the pull request when neither the classpath fixture nor the validation
@@ -52,7 +55,7 @@ pin changes. When an open pull request for the same branch exists, the poller up
 
 The poller also accepts a `repository_dispatch` event of type `artemis-commit` with the payload
 `{"artemis_sha": "<full commit sha>"}`. This lets Artemis trigger a delivery directly; the schedule remains the
-fallback.
+fallback. Artemis must send the event after its image build, or the run fails on the missing image.
 
 ## Publish snapshot image
 

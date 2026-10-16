@@ -565,7 +565,7 @@ public class DeploymentPackageService {
      */
     private DeploymentPackageManifest buildDevIdeManifest(GenerationReport report, List<String> requiredEnvVars) {
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
-        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), null,
+        DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), null, null,
                 "The dev-ide package configures a local IntelliJ IDEA development run of an existing Artemis checkout. The overlay keys were verified against the "
                         + "Artemis commit recorded in " + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
@@ -609,7 +609,8 @@ public class DeploymentPackageService {
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN,
-                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), plan.envReferences())));
+                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), plan.envReferences(),
+                        plan.artemisImageTag())));
         files.add(new GeneratedArtifactFile("requirements.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.requirementsYml()));
         files.add(new GeneratedArtifactFile("ansible.cfg", CONTENT_TYPE_TEXT, remoteAnsibleValuesWriter.ansibleCfg()));
         files.add(new GeneratedArtifactFile("playbook.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.playbookYml()));
@@ -623,7 +624,8 @@ public class DeploymentPackageService {
         List<String> packagePaths = new ArrayList<>(files.stream().map(GeneratedArtifactFile::path).toList());
         packagePaths.addAll(List.of(MANIFEST_FILE, REMOTE_READINESS_FILE, ENV_REFERENCES_FILE, ArtifactGenerationService.SELECTED_FEATURES_FILE));
 
-        files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteAnsibleManifest(report, List.copyOf(packagePaths)))));
+        files.add(new GeneratedArtifactFile(MANIFEST_FILE, CONTENT_TYPE_JSON,
+                writeJson(buildRemoteAnsibleManifest(report, List.copyOf(packagePaths), plan.artemisImageTag()))));
         files.add(new GeneratedArtifactFile(REMOTE_READINESS_FILE, CONTENT_TYPE_JSON, writeJson(buildRemoteReadiness(report, plan))));
         files.add(new GeneratedArtifactFile(ENV_REFERENCES_FILE, CONTENT_TYPE_JSON, writeJson(plan.envReferences())));
         files.add(shared.baseByPath().get(ArtifactGenerationService.SELECTED_FEATURES_FILE));
@@ -633,17 +635,18 @@ public class DeploymentPackageService {
     /**
      * Builds the package manifest for the remote-ansible package, keeping the shared record shape. The package has no
      * startable runtime, so it declares no supported runtime modes and no required environment variables; the
-     * deployed Artemis version is a deploy-time value inside the generated inventory.
+     * manifest records the Artemis image tag the generated inventory deploys.
      *
      * @param report base generation report, source of the model/profile references.
      * @param packagePaths all package file paths, in order.
+     * @param artemisImageTag Artemis image tag the generated inventory deploys.
      * @return remote-ansible package manifest.
      */
-    private DeploymentPackageManifest buildRemoteAnsibleManifest(GenerationReport report, List<String> packagePaths) {
+    private DeploymentPackageManifest buildRemoteAnsibleManifest(GenerationReport report, List<String> packagePaths, String artemisImageTag) {
         ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForDevIde();
         DeploymentPackageManifest.ArtemisRuntimeInfo runtimeInfo = new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), null,
-                "The package deploys the official Artemis image through the pinned Ansible collection; the deployed tag is set by artemis_version in the "
-                        + "generated inventory values.");
+                artemisImageTag, "The package deploys the official Artemis image of the commit the feature model was extracted from through the pinned "
+                        + "Ansible collection; artemis_version in the generated inventory values sets the tag.");
         DeploymentPackageManifest.Database database = selectedDatabase(report, "ansible-managed");
         DeploymentPackageManifest.CiProvider ciProvider = selectedCiProvider(report, "inventory-membership");
         DeploymentPackageManifest.Readiness readiness = new DeploymentPackageManifest.Readiness(false, false,
@@ -730,14 +733,14 @@ public class DeploymentPackageService {
             String curatedNote = "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including "
                     + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the Artemis commit recorded in "
                     + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
-            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), curatedNote);
+            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), null, curatedNote);
         }
 
         String runtimeDescription = "a generated stack for database '" + metadata.databaseId() + "' and CI provider '"
                 + metadata.ciProviderId() + "'";
         String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the Artemis commit recorded in "
                 + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
-        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), note);
+        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), null, note);
     }
 
     /**

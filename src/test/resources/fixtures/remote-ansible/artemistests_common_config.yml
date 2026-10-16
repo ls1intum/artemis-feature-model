@@ -4,7 +4,7 @@ is_testserver: true
 artemis_server_url: "https://{{ var_server_hostname }}"
 artemis_email: "{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}"
 
-artemis_version: develop
+artemis_version: "@ARTEMIS_IMAGE_TAG@"
 artemis_branch: develop
 
 artemis_internal_admin_user: artemis_admin

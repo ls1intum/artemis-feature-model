@@ -3,7 +3,7 @@
 # Group filenames derive from membership + .yml.
 # Environment references and dotted consumers derive from lookups in parsed content.
 # environment: describes every referenced variable for administrators; the loader requires an exact match both ways.
-catalogVersion: 4
+catalogVersion: 5
 collectionPin: "c46df338a49406f1f0872289aff31a100e8fd772"
 curationSource: "Curated against the pinned collection commit (upstream changes taken over: MySQL removal #245, valkey rename #246, rate-limit fixes #249, per-job build-agent auth #242). Value shapes follow the inventory samples of ls1intum/artemis-ansible and were verified by deploying generated packages to a single-node test server; the artemis_modules off-switches come from the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names follow the set that operators provide for the package."
 files:
@@ -36,9 +36,9 @@ files:
       #: Admin-owned contact address; the collection's mail-from split evaluates the lookup lazily.
       artemis_email: "{{ lookup('ansible.builtin.env', 'ARTEMIS_EMAIL_TEST') }}"
 
-      #: Deploy-time image tag baseline.
-      artemis_version: develop
-      #: Compose-file source branch for the checkout.
+      #: Image tag of the commit the active model was extracted from; the planner replaces the token with sha-<commit>, the immutable per-commit tag Artemis CI publishes.
+      artemis_version: "@ARTEMIS_IMAGE_TAG@"
+      #: Compose-file source branch for the checkout; the collection checks out branch names only, so compose files follow the branch head.
       artemis_branch: develop
 
       artemis_internal_admin_user: artemis_admin
