@@ -23,7 +23,7 @@ class DeploymentRepositoryPublisherVisibilityTest {
         HttpResponse<String> response = response(404, "");
         CapturingPublisher publisher = new CapturingPublisher(properties(repositoryUrl), response, name -> null);
 
-        String visibility = publisher.fetchGitHubVisibility();
+        String visibility = publisher.fetchGitHubVisibility(repositoryUrl);
 
         assertThat(visibility).isEqualTo("private");
         assertThat(publisher.request().uri().toString()).isEqualTo("https://api.github.com/repos/example/deployments");
@@ -34,9 +34,10 @@ class DeploymentRepositoryPublisherVisibilityTest {
     void sshVisibilityUsesTheTokenWhenItIsPresent() {
         HttpResponse<String> response = response(200, "{\"visibility\":\"public\"}");
         UnaryOperator<String> environmentReader = name -> DeploymentRepositoryPublisher.TOKEN_ENV_VAR.equals(name) ? "token-marker" : null;
-        CapturingPublisher publisher = new CapturingPublisher(properties("git@github.com:example/deployments.git"), response, environmentReader);
+        String repositoryUrl = "git@github.com:example/deployments.git";
+        CapturingPublisher publisher = new CapturingPublisher(properties(repositoryUrl), response, environmentReader);
 
-        String visibility = publisher.fetchGitHubVisibility();
+        String visibility = publisher.fetchGitHubVisibility(repositoryUrl);
 
         assertThat(visibility).isEqualTo("public");
         assertThat(publisher.request().headers().firstValue("Authorization")).contains("Bearer token-marker");
@@ -51,7 +52,7 @@ class DeploymentRepositoryPublisherVisibilityTest {
     }
 
     private DeploymentRepositoryProperties properties(String repositoryUrl) {
-        return new DeploymentRepositoryProperties(true, repositoryUrl, "deployment", null, "private", null, null);
+        return new DeploymentRepositoryProperties(true, repositoryUrl, null, "deployment", null, "private", null, null);
     }
 
     private static final class CapturingPublisher extends DeploymentRepositoryPublisher {

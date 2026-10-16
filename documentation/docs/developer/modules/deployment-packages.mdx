@@ -87,7 +87,7 @@ collection. It is a small, self-contained values repository:
 | `inventory/hosts` | Group membership of the target group |
 | `inventory/group_vars/` | The values for the selection, one file per group |
 | `preflight.sh` | Fails when a required environment variable is missing, then runs a syntax check |
-| `metadata/` | Manifest, readiness report, and the list of environment variables |
+| `metadata/` | Manifest, readiness report, and the list of environment variables with their descriptions |
 
 The values come from the Ansible binding catalog,
 `src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`. It classifies every selectable feature as
@@ -97,8 +97,13 @@ reason. A feature that the catalog does not classify fails too, so a new feature
 
 The package contains no values from the environment. Every host-specific or secret value is an Ansible
 `lookup('ansible.builtin.env', ...)` expression that reads an environment variable on the machine that runs Ansible.
-The optional `remoteEnvironment.targetName` in the request names the inventory target group; the review page sends
-`artemis-remote`.
+The binding catalog describes every environment variable in its `environment` section, and loading fails when a
+referenced variable has no description or a description names no referenced variable. The package lists the
+variables it needs in `metadata/env-references.json`, each with its `kind` and `description`, and its README shows the
+same list as a table that says whether the value is a GitHub Environment secret or variable.
+
+The optional `remoteEnvironment.targetName` in the request names the inventory target group; the review page sends the
+value of its **Target name** field.
 
 ## Determinism
 

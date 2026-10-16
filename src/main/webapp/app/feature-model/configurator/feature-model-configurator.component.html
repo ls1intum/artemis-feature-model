@@ -96,6 +96,8 @@
                 [deploymentPackagePublishing]="deploymentPackagePublishing()"
                 [deploymentPackagePublishResult]="deploymentPackagePublishResult()"
                 [deploymentPackagePublishErrorMessage]="deploymentPackagePublishErrorMessage()"
+                [remoteTargetName]="remoteTargetName()"
+                [deploymentRepositoryUrl]="deploymentRepositoryUrl()"
                 (selectTemplate)="onSelectTemplate($event)"
                 (startWorkflow)="onStartWorkflow()"
                 (returnToTemplates)="onReturnToTemplates()"
@@ -111,6 +113,8 @@
                 (downloadDeploymentPackage)="onDownloadDeploymentPackage()"
                 (publishAndDownloadDeploymentPackage)="onPublishAndDownloadDeploymentPackage()"
                 (selectDeploymentMode)="onSelectDeploymentMode($event)"
+                (remoteTargetNameChange)="onRemoteTargetNameChange($event)"
+                (deploymentRepositoryUrlChange)="onDeploymentRepositoryUrlChange($event)"
             />
         }
     }

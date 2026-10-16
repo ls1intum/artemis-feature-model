@@ -19,6 +19,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogSe
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentPackageManifest;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactFile;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
@@ -49,12 +50,15 @@ class RemoteAnsibleDeploymentPackageTest {
 
     private String collectionPin;
 
+    private AnsibleBindingCatalog catalog;
+
     @BeforeEach
     void setUp() {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
         objectMapper = new ObjectMapper();
         AnsibleBindingCatalogLoader catalogLoader = new AnsibleBindingCatalogLoader(resourceLoader, objectMapper);
-        collectionPin = catalogLoader.catalog().collectionPin();
+        catalog = catalogLoader.catalog();
+        collectionPin = catalog.collectionPin();
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
@@ -215,6 +219,44 @@ class RemoteAnsibleDeploymentPackageTest {
     }
 
     @Test
+    void envReferencesAndTheReadmeTableDescribeExactlyThePackageVariables() {
+        List<String> reducedWithIntegrations = withExtra(FULL_POSTGRES_SELECTION, "iris", "lti", "hyperion");
+        reducedWithIntegrations.remove("exam");
+
+        for (List<String> selection : List.of(FULL_POSTGRES_SELECTION, reducedWithIntegrations)) {
+            GeneratedArtifactPackage result = service.generate(remoteRequest(selection));
+
+            List<String> referencedNames = new ArrayList<>();
+            for (JsonNode reference : objectMapper.readTree(content(result, "metadata/env-references.json"))) {
+                String envVar = reference.get("envVar").asString();
+                assertThat(fieldNames(reference)).containsExactly("envVar", "consumer", "file", "kind", "description");
+                assertThat(reference.get("description").asString()).isEqualTo(catalog.environment().get(envVar)).isNotBlank();
+                referencedNames.add(envVar);
+            }
+            List<String> tableRows = environmentTableRows(content(result, "README.md"));
+            assertThat(tableRows).extracting(row -> row.split(" \\| ")[0]).containsExactlyElementsOf(referencedNames.stream().map(name -> "`" + name + "`").toList());
+            List<String> preflightNames = new ArrayList<>();
+            for (JsonNode name : objectMapper.readTree(content(result, "metadata/remote-readiness.json")).get("requiredEnvironmentVariables")) {
+                preflightNames.add(name.asString());
+                assertThat(content(result, "preflight.sh")).contains("\n" + name.asString() + "\n");
+            }
+            assertThat(referencedNames).containsExactlyInAnyOrderElementsOf(preflightNames);
+        }
+    }
+
+    @Test
+    void readmeTablePlacesSecretsAndIdentityValuesOnGitHub() {
+        GeneratedArtifactPackage result = service.generate(remoteRequest(withExtra(FULL_POSTGRES_SELECTION, "iris")));
+
+        List<String> tableRows = environmentTableRows(content(result, "README.md"));
+
+        assertThat(tableRows).contains("`SERVER_HOSTNAME` | Environment variable | " + catalog.environment().get("SERVER_HOSTNAME") + " |");
+        assertThat(tableRows).contains("`ARTEMIS_DATABASE_PASSWORD` | Environment secret | " + catalog.environment().get("ARTEMIS_DATABASE_PASSWORD") + " |");
+        assertThat(tableRows).contains("`IRIS_SECRET` | Environment secret | " + catalog.environment().get("IRIS_SECRET") + " |");
+        assertThat(content(result, "README.md")).contains("| Variable | Set on GitHub as | Description |\n|---|---|---|\n");
+    }
+
+    @Test
     void remoteEnvironmentOnNonRemoteModesIsRejected() {
         assertThatThrownBy(() -> service.generate(new ArtifactGenerationRequest(FULL_POSTGRES_SELECTION, null, null, "local-docker", labEnvironment())))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("local-docker");
@@ -253,6 +295,28 @@ class RemoteAnsibleDeploymentPackageTest {
         replaced.remove(from);
         replaced.add(to);
         return replaced;
+    }
+
+    /**
+     * Extracts the variable rows of the README environment table without their leading pipe.
+     *
+     * @param readme package README.
+     * @return table rows in document order, each starting with the backticked variable name.
+     */
+    private List<String> environmentTableRows(String readme) {
+        List<String> rows = new ArrayList<>();
+        for (String line : readme.split("\n")) {
+            if (line.startsWith("| `")) {
+                rows.add(line.substring("| ".length()));
+            }
+        }
+        return rows;
+    }
+
+    private List<String> fieldNames(JsonNode node) {
+        List<String> names = new ArrayList<>();
+        node.propertyNames().forEach(names::add);
+        return names;
     }
 
     private String content(GeneratedArtifactPackage result, String path) {

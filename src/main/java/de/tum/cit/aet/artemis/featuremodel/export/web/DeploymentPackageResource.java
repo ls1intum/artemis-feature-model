@@ -18,6 +18,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.DeploymentRepositoryPub
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationResponse;
+import de.tum.cit.aet.artemis.featuremodel.export.dto.DeploymentPackagePublishRequest;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.DeploymentPackagePublishResponse;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.DeploymentPackagePublishTargetResponse;
 import de.tum.cit.aet.artemis.featuremodel.export.service.ArtifactPackageService;
@@ -31,7 +32,7 @@ import de.tum.cit.aet.artemis.featuremodel.export.service.RuntimePackageConstant
  * REST endpoints for the deployment package. The package reuses the generated configuration artifacts and enriches
  * them with runtime templates, helper scripts, and metadata; the same controlled errors as the configuration artifact
  * endpoints apply (invalid selection, unknown profile). The publish endpoints additionally commit a remote-ansible
- * package to the configured deployment repository through the same generation path as the download.
+ * package to the requested or default deployment repository through the same generation path as the download.
  */
 @RestController
 @RequestMapping("/api/feature-model/deployment-package")
@@ -99,29 +100,30 @@ public class DeploymentPackageResource {
     }
 
     /**
-     * Generates the remote-ansible deployment package and publishes it as a commit to the configured deployment
-     * repository.
+     * Generates the remote-ansible deployment package and publishes it as a commit to the requested deployment
+     * repository, or to the configured default when the request names none.
      *
-     * @param request artifact generation request; the deployment mode must be remote-ansible and the environment
-     *            component must carry a target name.
-     * @return publish response with the carrying commit.
+     * @param publishRequest generation request plus the optional repository URL; the deployment mode must be
+     *            remote-ansible and the environment component must carry a valid target name.
+     * @return publish response with the effective repository URL and the carrying commit.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.DeploymentRepositoryPublishException if publishing
-     *             is not configured, the deployment mode is wrong, the target name is missing, or the repository
-     *             refuses the publish.
+     *             is not configured, the repository URL is missing or not allowed, the deployment mode is wrong, the
+     *             target name is missing or invalid, or the repository refuses the publish.
      * @throws de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException if the selection is
      *             invalid.
      */
     @PostMapping("/publish")
-    public DeploymentPackagePublishResponse publish(@RequestBody ArtifactGenerationRequest request) {
+    public DeploymentPackagePublishResponse publish(@RequestBody DeploymentPackagePublishRequest publishRequest) {
+        ArtifactGenerationRequest request = publishRequest.request();
         log.debug("REST request to publish a deployment package for {} selected feature ids.", request.selectedFeatureIds().size());
-        DeploymentRepositoryPublishResult result = publishService.publish(request);
+        DeploymentRepositoryPublishResult result = publishService.publish(request, publishRequest.repositoryUrl());
         log.info("REST response reports the published deployment package commit {} (up to date: {}).", result.commitSha(), result.upToDate());
-        return DeploymentPackagePublishResponse.from(result, publishService.publisher().properties().repositoryUrl());
+        return DeploymentPackagePublishResponse.from(result, result.repositoryUrl());
     }
 
     /**
-     * Describes where a deployment repository publish would go, so the review page can show the destination and hide
-     * the publish action on an unconfigured instance.
+     * Describes where a deployment repository publish would go, so the review page can prefill the repository field,
+     * show the destination, and hide the publish action on an unconfigured instance.
      *
      * @return publish target description, never carrying a credential.
      */
@@ -129,7 +131,8 @@ public class DeploymentPackageResource {
     public DeploymentPackagePublishTargetResponse publishTarget() {
         DeploymentRepositoryPublisher publisher = publishService.publisher();
         DeploymentRepositoryProperties properties = publisher.properties();
-        return new DeploymentPackagePublishTargetResponse(publisher.isConfigured(), properties.repositoryUrl(), properties.branch(),
+        String defaultRepositoryUrl = properties.repositoryUrl() == null || properties.repositoryUrl().isBlank() ? null : properties.repositoryUrl().strip();
+        return new DeploymentPackagePublishTargetResponse(publisher.isConfigured(), defaultRepositoryUrl, properties.branch(),
                 properties.targetDirectoryRoot());
     }
 }

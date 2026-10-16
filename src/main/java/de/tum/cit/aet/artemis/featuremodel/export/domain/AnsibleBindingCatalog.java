@@ -1,5 +1,7 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,9 +23,10 @@ import java.util.Map;
  * @param files package values content and derived environment references.
  * @param technical bindings of the technical database and CI-provider axes.
  * @param features classification and binding of every selectable functional feature.
+ * @param environment administrator-facing description of every referenced environment variable, by name.
  */
 public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, String curationSource, PackageFiles files,
-        TechnicalBindings technical, Map<String, FeatureBinding> features) {
+        TechnicalBindings technical, Map<String, FeatureBinding> features, Map<String, String> environment) {
 
     /** Classification of a feature with a rendered deployment-plane binding. */
     public static final String BINDING_BOUND = "bound";
@@ -42,6 +45,21 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
 
     /** Unsupported direction: selecting the feature is inexpressible. */
     public static final String UNSUPPORTED_WHEN_SELECTED = "selected";
+
+    /**
+     * Normalizes an absent description map to an empty map and keeps blank entries, so the loader can name them.
+     *
+     * @param catalogVersion catalog format and content version.
+     * @param collectionPin pinned collection commit.
+     * @param curationSource curation sources.
+     * @param files package values content.
+     * @param technical technical bindings.
+     * @param features feature bindings.
+     * @param environment environment variable descriptions.
+     */
+    public AnsibleBindingCatalog {
+        environment = environment == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(environment));
+    }
 
     /**
      * Returns the three binding sections in a fixed order: technical database, technical CI provider, features.

@@ -43,14 +43,23 @@ final class DeploymentRepositorySshTransport {
     private final UnaryOperator<String> environmentReader;
 
     /**
-     * Creates the SSH transport boundary for one configured repository URL.
+     * Creates the SSH transport boundary for the effective repository URL of one publish.
      *
-     * @param repositoryUrl configured deployment repository URL.
+     * @param repositoryUrl effective deployment repository URL.
      * @param environmentReader environment variable reader.
      */
     DeploymentRepositorySshTransport(String repositoryUrl, UnaryOperator<String> environmentReader) {
         this.repositoryUrl = repositoryUrl;
         this.environmentReader = environmentReader;
+    }
+
+    /**
+     * Returns the effective repository URL this transport was created for.
+     *
+     * @return effective repository URL.
+     */
+    String repositoryUrl() {
+        return repositoryUrl;
     }
 
     /**
@@ -77,6 +86,16 @@ final class DeploymentRepositorySshTransport {
         if (!isSshRemote()) {
             return null;
         }
+        return credentialGap(environmentReader);
+    }
+
+    /**
+     * Names the first missing SSH path variable or unreadable file, independent of any repository URL.
+     *
+     * @param environmentReader environment variable reader.
+     * @return human-readable credential gap, or {@code null} when both SSH files are configured and readable.
+     */
+    static String credentialGap(UnaryOperator<String> environmentReader) {
         String keyPath = environmentReader.apply(SSH_KEY_PATH_ENV_VAR);
         if (keyPath == null || keyPath.isBlank()) {
             return "the " + SSH_KEY_PATH_ENV_VAR + " environment variable is not set.";

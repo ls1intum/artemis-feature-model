@@ -2,6 +2,7 @@
 # Lines starting with #: are catalog annotations; plain # comments stay emitted.
 # Group filenames derive from membership + .yml.
 # Environment references and dotted consumers derive from lookups in parsed content.
+# environment: describes every referenced variable for administrators; the loader requires an exact match both ways.
 catalogVersion: 4
 collectionPin: "c46df338a49406f1f0872289aff31a100e8fd772"
 curationSource: "Curated against the pinned collection commit (upstream changes taken over: MySQL removal #245, valkey rename #246, rate-limit fixes #249, per-job build-agent auth #242). Value shapes follow the inventory samples of ls1intum/artemis-ansible and were verified by deploying generated packages to a single-node test server; the artemis_modules off-switches come from the JTNing/artemis-ansible-collection branch feature-model/module-toggles; environment-variable names follow the set that operators provide for the package."
@@ -80,6 +81,28 @@ files:
 
       #: The collection defaults this variable to the hermes-prod relay; removing the key resurrects the default, so an explicit null is the only off-switch.
       push_notification_relay:
+environment:
+  TESTSERVER_NAME: "Short name of the server, for example `artemis-test1`. The generated values do not use it further; it keeps the upstream inventory convention."
+  SERVER_HOSTNAME: "Public DNS name of the server. The Artemis URL and the LocalVC SSH URL are derived from it."
+  ARTEMIS_EMAIL_TEST: "Contact e-mail address of this Artemis instance. It is also the git commit address, and notification e-mails are sent from it with a `+notification` suffix."
+  ARTEMIS_OPERATOR_NAME: "Organization operating this instance, shown in the installation information. Required."
+  ARTEMIS_OPERATOR_ADMIN_NAME: "Name of the responsible administrator, shown in the installation information. Required."
+  ARTEMIS_UNIVERSITY_NAME: "University or institution using this instance, shown in the installation information. Required."
+  PROXY_SSL_CERTIFICATE_PATH: "Path on the server to the TLS certificate nginx serves; it must cover `SERVER_HOSTNAME`."
+  PROXY_SSL_CERTIFICATE_KEY_PATH: "Path on the server to the private key of that certificate."
+  ARTEMIS_DATABASE_PASSWORD: "Database password. Generate a random value once and keep it: the database applies it only on first start."
+  ARTEMIS_INTERNAL_ADMIN_PASSWORD: "Password of the internal `artemis_admin` account. Generate a random value once and keep it."
+  ARTEMIS_JHIPSTER_JWT: "Key that signs login tokens; a long base64 value, for example from `openssl rand -base64 64`. Generate it once and keep it."
+  IRIS_URL: "URL of the Iris (Pyris) service, from its operator."
+  IRIS_SECRET: "Shared secret for Iris, from the Iris operator."
+  ATHENA_URL: "URL of the Athena service, from its operator."
+  ATHENA_SECRET: "Shared secret for Athena, from the Athena operator."
+  AZURE_OPENAI_API_KEY: "Azure OpenAI API key used by Hyperion, from the owner of the Azure resource."
+  AZURE_OPENAI_ENDPOINT: "Azure OpenAI endpoint URL used by Hyperion."
+  AZURE_OPENAI_DEPLOYMENT_NAME: "Name of the Azure OpenAI model deployment Hyperion calls."
+  DEIMOS_API_KEY: "API key of the language model service Deimos calls (the `base_url` in its values file), from that service's operator."
+  LTI_OAUTH_SECRET: "OAuth secret for LTI launches, paired with the fixed key `artemis_lti_key`; agreed with the learning platform's administrator."
+  SHARING_APIKEY: "API key of the exercise sharing platform, from its operator."
 technical:
   database:
     mysql:

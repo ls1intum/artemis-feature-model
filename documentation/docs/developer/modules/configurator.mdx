@@ -54,7 +54,9 @@ shows open issues. Its export section has a deployment target picker:
 - **Remote server (Ansible)**
 
 The download button generates the package for the chosen target, and it stays disabled while the selection is
-invalid. For the remote target, a **Deploy to test VM** button appears when publishing is configured. When the server
+invalid. The remote target adds a **Target name** field, and when publishing is configured, a **Deployment
+repository** field and a **Deploy to &lt;target&gt;** button; see [Publishing](/developer/modules/deployment-publishing).
+The browser remembers both field values in `localStorage`. When the server
 refuses a remote package because the selection cannot be expressed, for example with MySQL, the page shows one error
 card with the feature name and a shortcut to the advanced tree. The targets and their texts live in
 `configurator/shared/deployment-targets.ts`.

@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -89,7 +90,7 @@ public class AnsibleBindingCatalogLoader {
      */
     @SuppressWarnings("unchecked")
     private void prepareCatalog(Map<String, Object> raw) {
-        requireKeys(raw, "catalog", Set.of("catalogVersion", "collectionPin", "curationSource", "files", "technical", "features"));
+        requireKeys(raw, "catalog", Set.of("catalogVersion", "collectionPin", "curationSource", "files", "environment", "technical", "features"));
         Map<String, Object> files = (Map<String, Object>) raw.get("files");
         requireKeys(files, "files", Set.of("targetMain", "targetSecrets", "commonConfig"));
         for (String name : List.of("targetMain", "targetSecrets", "commonConfig")) {
@@ -233,6 +234,71 @@ public class AnsibleBindingCatalogLoader {
             validateBindings(SECTION_LABELS.get(index), sections.get(index));
         }
         validateUniqueGroupFiles(catalog);
+        validateEnvironmentDescriptions(catalog);
+    }
+
+    /**
+     * Validates that the {@code environment} section describes exactly the referenced variables: every name derived
+     * from a lookup has a non-blank description, and every description names a referenced variable. All offending
+     * names are reported at once.
+     *
+     * @param catalog parsed catalog.
+     * @throws FeatureModelLoadException if a referenced variable lacks a description, a description is blank, or a
+     *             description names no referenced variable.
+     */
+    private void validateEnvironmentDescriptions(AnsibleBindingCatalog catalog) {
+        Set<String> referenced = referencedEnvironmentVariables(catalog);
+        Map<String, String> descriptions = catalog.environment();
+        Set<String> undescribed = new TreeSet<>();
+        Set<String> blank = new TreeSet<>();
+        for (String name : referenced) {
+            if (!descriptions.containsKey(name)) {
+                undescribed.add(name);
+            }
+            else if (!StringUtils.hasText(descriptions.get(name))) {
+                blank.add(name);
+            }
+        }
+        Set<String> unreferenced = new TreeSet<>(descriptions.keySet());
+        unreferenced.removeAll(referenced);
+        List<String> problems = new ArrayList<>();
+        if (!undescribed.isEmpty()) {
+            problems.add("referenced variables without a description: " + String.join(", ", undescribed));
+        }
+        if (!blank.isEmpty()) {
+            problems.add("blank descriptions: " + String.join(", ", blank));
+        }
+        if (!unreferenced.isEmpty()) {
+            problems.add("descriptions of variables no lookup references: " + String.join(", ", unreferenced));
+        }
+        if (!problems.isEmpty()) {
+            throw invalid("The environment section must describe exactly the referenced variables; " + String.join("; ", problems) + ".");
+        }
+    }
+
+    /**
+     * Collects every environment-variable name the catalog content references, across the package files and all
+     * binding sections.
+     *
+     * @param catalog parsed catalog.
+     * @return referenced environment-variable names.
+     */
+    private Set<String> referencedEnvironmentVariables(AnsibleBindingCatalog catalog) {
+        Set<String> referenced = new TreeSet<>();
+        AnsibleBindingCatalog.PackageFiles files = catalog.files();
+        for (AnsibleBindingCatalog.ValuesFile file : List.of(files.targetMain(), files.targetSecrets(), files.commonConfig())) {
+            for (AnsibleBindingCatalog.EnvReference reference : file.envReferences()) {
+                referenced.add(reference.envVar());
+            }
+        }
+        for (Map<String, AnsibleBindingCatalog.FeatureBinding> section : catalog.sections()) {
+            for (AnsibleBindingCatalog.FeatureBinding binding : section.values()) {
+                for (AnsibleBindingCatalog.EnvReference reference : binding.envReferences()) {
+                    referenced.add(reference.envVar());
+                }
+            }
+        }
+        return referenced;
     }
 
     /**

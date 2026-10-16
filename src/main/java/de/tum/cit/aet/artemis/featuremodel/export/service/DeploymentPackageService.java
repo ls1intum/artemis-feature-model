@@ -609,7 +609,7 @@ public class DeploymentPackageService {
 
         List<GeneratedArtifactFile> files = new ArrayList<>();
         files.add(new GeneratedArtifactFile(PACKAGE_README_FILE, CONTENT_TYPE_MARKDOWN,
-                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId())));
+                remoteAnsibleValuesWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), plan.envReferences())));
         files.add(new GeneratedArtifactFile("requirements.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.requirementsYml()));
         files.add(new GeneratedArtifactFile("ansible.cfg", CONTENT_TYPE_TEXT, remoteAnsibleValuesWriter.ansibleCfg()));
         files.add(new GeneratedArtifactFile("playbook.yml", CONTENT_TYPE_YAML, remoteAnsibleValuesWriter.playbookYml()));

@@ -39,6 +39,12 @@ values:
 The fixtures match the collection pin of the binding catalog. The pinned collection deploys PostgreSQL only, so
 there is no MySQL fixture.
 
+## Variable descriptions
+
+The binding catalog describes every referenced environment variable in its `environment:` section. The package
+ships these descriptions in `metadata/env-references.json` and as a table in the README. Neither file is a golden
+fixture; `RemoteAnsibleDeploymentPackageTest` checks both against the loaded catalog.
+
 ## Updating the fixtures
 
 Updating a fixture is a deliberate, reviewed act. Re-derive the structural files from a reference inventory that
