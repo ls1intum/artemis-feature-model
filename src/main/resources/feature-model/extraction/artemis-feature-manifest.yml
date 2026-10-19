@@ -207,6 +207,10 @@ exclude:
     reason: internal-mechanism
     rationale: Weaviate is backing infrastructure for AI capabilities and is not a standalone user-facing feature.
 
+  - anchor: module:aiworker
+    reason: internal-mechanism
+    rationale: Core-side coordination of the separately provisioned AI Worker pool; like the aiworker profile it is execution infrastructure rather than a selectable feature.
+
   - anchor: module:atlasml
     reason: sub-option
     rationale: The curated model treats AtlasML as an extra sub-switch of Atlas rather than an independent feature.
@@ -240,6 +244,12 @@ exclude:
   - anchor: module:globalsearch
     reason: deferred
     rationale: Revisit in the future.
+
+  # Whole-exercise generation depends on an AI Worker layer that Artemis does not ship as deployable yet.
+
+  - anchor: module:hyperion-exercise-generation
+    reason: deferred
+    rationale: Generation needs Hyperion, the localci and localvc profiles, and a separately provisioned AI Worker whose generation workload Artemis does not ship yet; revisit as a child of hyperion once the worker layer is deployable.
 
   # Runtime switches: the curated functional model contains no runtime toggles.
 
@@ -335,7 +345,7 @@ exclude:
   # The aiworker profile turns a node into a sandboxed AI worker; like weaviate it is execution infrastructure.
   - anchor: profile:aiworker
     reason: internal-mechanism
-    rationale: Worker node role that runs AI workloads in Docker sandboxes; no workload or dispatcher uses it yet, so it is execution infrastructure rather than a selectable feature.
+    rationale: Worker node role that runs AI workloads in Docker sandboxes, coordinated from core nodes through the excluded aiworker module; it is execution infrastructure rather than a selectable feature.
 
 conceptualNodes:
   - id: artemis
