@@ -92,6 +92,16 @@ class RuntimeTemplateWriterTest {
     }
 
     @Test
+    void readmesWarnThatTheLocalCheckoutPathRunsADifferentArtemisImage() {
+        String readme = readme(iclSelection());
+
+        assertThat(section(readme, "## Quick start")).contains("This path runs a different Artemis image", "(#artemis-image)");
+        assertThat(section(readme, "### Artemis image")).contains("The local checkout path runs a different image", "newly pulled `latest` image",
+                "metadata/static-config-validation.json", "Use the published-image path");
+        assertThat(writer.localRepoReadme()).contains("not from the Artemis commit this package was checked against");
+    }
+
+    @Test
     void packageReadmeTroubleshootsDockerSocketPermissionsOnlyForIntegratedCodeLifecycle() {
         String iclTroubleshooting = section(readme(iclSelection()), "## Troubleshooting");
         String jenkinsTroubleshooting = section(readme(jenkinsSelection()), "## Troubleshooting");

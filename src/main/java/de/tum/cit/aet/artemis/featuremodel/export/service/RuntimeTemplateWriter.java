@@ -150,7 +150,8 @@ public class RuntimeTemplateWriter {
                    bash scripts/start-demo.sh
                    ```
 
-                   To run your local Artemis checkout instead, pass its path:
+                   To run your local Artemis checkout instead, pass its path. This path runs a different Artemis image;
+                   see [Artemis image](#artemis-image):
 
                    ```bash
                    bash scripts/start-demo.sh /absolute/path/to/Artemis
@@ -335,8 +336,16 @@ public class RuntimeTemplateWriter {
 
                 %s
 
-                A local checkout runs the image that its `deployment/docker/artemis.yml` defines. Package generation never contacts
-                the registry.
+                The local checkout path runs a different image. Your checkout's `deployment/docker/artemis.yml` names
+                `ghcr.io/ls1intum/artemis` without a tag, so Docker Compose uses a cached or newly pulled `latest` image and
+                builds from your checkout only when no such image exists. `latest` follows the newest Artemis build, so this
+                path usually runs a different Artemis than the published-image path, and the Compose files and `.env` come
+                from your checkout as well. The configuration keys of this package were verified only against the Artemis
+                commit named in `metadata/static-config-validation.json`; on another Artemis build a key can be unknown or a
+                changed default can stop the startup. Use the published-image path when you need the Artemis that the package
+                was checked against.
+
+                Package generation never contacts the registry.
                 """.formatted(database, databaseComposeFile, readmeImageDescription(runtimeSource));
     }
 
@@ -646,6 +655,9 @@ public class RuntimeTemplateWriter {
                 ## Caveats
 
                 - This is an **example** override and may need adaptation to your Artemis version.
+                - Artemis runs from the image that your checkout's Compose file selects, usually the newest published `latest`
+                  image, not from the Artemis commit this package was checked against; see "Artemis image" in the package
+                  README.
                 - The overlay only adds feature configuration; it does not provide a complete Artemis runtime configuration.
                 - Startup / config-loading is validated, not full functionality. Optional external services (Iris, Athena,
                   Theia, Apollon, Sharing) may be placeholders; and running actual CI builds (for example Hyperion code
