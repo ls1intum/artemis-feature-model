@@ -13,6 +13,8 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.TechnicalSelection;
 
 class RuntimeTemplateWriterTest {
 
+    private static final String COMMIT_TAG = "sha-0123456789abcdef0123456789abcdef01234567";
+
     private final RuntimeTemplateWriter writer = new RuntimeTemplateWriter();
 
     @Test
@@ -80,12 +82,13 @@ class RuntimeTemplateWriterTest {
     }
 
     @Test
-    void packageReadmeDescribesTheLatestTagAsMutableAndADigestAsPinned() {
-        String latestReadme = readme(iclSelection(), List.of(), "latest");
-        String pinnedReadme = readme(iclSelection(), List.of(), "sha256:abc123");
+    void packageReadmeDescribesTheCommitImageAndAPinnedDigest() {
+        String commitReadme = readme(iclSelection(), List.of(), new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", null, COMMIT_TAG));
+        String pinnedReadme = readme(iclSelection(), List.of(), new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", "sha256:abc123", null));
 
-        assertThat(latestReadme).contains("runs `ghcr.io/ls1intum/artemis:latest` and pulls it on every start", "`latest` is a mutable tag");
-        assertThat(pinnedReadme).contains("runs the pinned image `ghcr.io/ls1intum/artemis@sha256:abc123`").doesNotContain("mutable tag");
+        assertThat(commitReadme).contains("runs `ghcr.io/ls1intum/artemis:" + COMMIT_TAG + "`, the image that Artemis CI built from the commit")
+                .doesNotContain(":latest");
+        assertThat(pinnedReadme).contains("runs the pinned image `ghcr.io/ls1intum/artemis@sha256:abc123`").doesNotContain("Artemis CI built");
     }
 
     @Test
@@ -102,11 +105,10 @@ class RuntimeTemplateWriterTest {
     }
 
     private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements) {
-        return readme(selection, requirements, "latest");
+        return readme(selection, requirements, new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", null, COMMIT_TAG));
     }
 
-    private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements, String imageDigest) {
-        ArtemisRuntimeSource runtimeSource = new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", imageDigest);
+    private String readme(TechnicalSelection selection, List<EnvironmentRequirement> requirements, ArtemisRuntimeSource runtimeSource) {
         return writer.packageReadme("model", "1.0.0", "profile", "2.0.0", selection, runtimeSource, requirements);
     }
 

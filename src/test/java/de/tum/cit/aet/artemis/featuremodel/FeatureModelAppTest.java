@@ -49,7 +49,7 @@ class FeatureModelAppTest {
         String manifestContent = "$.files[?(@.path == 'metadata/package-manifest.json')].preview";
 
         mockMvc.perform(post("/api/feature-model/deployment-package/preview").contentType(MediaType.APPLICATION_JSON).content(request))
-                .andExpect(status().isOk()).andExpect(jsonPath(manifestContent, hasItem(containsString("\"imageDigest\" : \"latest\""))))
+                .andExpect(status().isOk()).andExpect(jsonPath(manifestContent, hasItem(containsString("\"imageTag\" : \"sha-"))))
                 .andExpect(jsonPath(manifestContent, everyItem(not(containsString("sourceCommit")))));
     }
 }

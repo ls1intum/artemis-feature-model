@@ -14,11 +14,13 @@ class RemoteImageStackWriterTest {
 
     private final RemoteImageStackWriter writer = new RemoteImageStackWriter();
 
-    @Test
-    void latestUsesTagSyntaxInAMySqlIclStack() {
-        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("localci", "buildagent", "localvc")), source("latest"));
+    private static final String COMMIT_TAG = "sha-0123456789abcdef0123456789abcdef01234567";
 
-        assertThat(stack).contains("image: \"ghcr.io/ls1intum/artemis:latest\"")
+    @Test
+    void commitTagUsesTagSyntaxInAMySqlIclStack() {
+        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("localci", "buildagent", "localvc")), tagSource());
+
+        assertThat(stack).contains("image: \"ghcr.io/ls1intum/artemis:" + COMMIT_TAG + "\"", "pull_policy: missing")
                 .contains("image: \"docker.io/library/mysql:9.7.0\"")
                 .contains("/var/run/docker.sock:/var/run/docker.sock", "${FM_DOCKER_GID:-999}")
                 .doesNotContain("FM_ARTEMIS_REPO", "extends:");
@@ -27,7 +29,7 @@ class RemoteImageStackWriterTest {
     @Test
     void exactDigestUsesDigestSyntaxInAPostgreSqlIclStack() {
         String stack = writer.write(selection("postgresql", "deployment/docker/postgres.yml", List.of("localci", "buildagent", "localvc")),
-                source("sha256:abc123"));
+                digestSource("sha256:abc123"));
 
         assertThat(stack).contains("image: \"ghcr.io/ls1intum/artemis@sha256:abc123\"")
                 .contains("image: \"docker.io/library/postgres:18.4-alpine\"")
@@ -37,7 +39,7 @@ class RemoteImageStackWriterTest {
 
     @Test
     void jenkinsStackKeepsTheLimitationAndAddsNoJenkinsService() {
-        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("jenkins", "localvc")), source("latest"));
+        String stack = writer.write(selection("mysql", "deployment/docker/mysql.yml", List.of("jenkins", "localvc")), tagSource());
 
         assertThat(stack).contains("WARNING: Jenkins profiles are configured", RuntimeStackWriter.JENKINS_DOCKER_PROFILES)
                 .doesNotContain("    jenkins:", "/var/run/docker.sock:/var/run/docker.sock", "group_add:");
@@ -47,7 +49,7 @@ class RemoteImageStackWriterTest {
     void outputIsDeterministic() {
         TechnicalSelection selection = selection("mysql", "deployment/docker/mysql.yml", List.of("localci", "buildagent", "localvc"));
 
-        assertThat(writer.write(selection, source("latest"))).isEqualTo(writer.write(selection, source("latest")));
+        assertThat(writer.write(selection, tagSource())).isEqualTo(writer.write(selection, tagSource()));
     }
 
     private TechnicalSelection selection(String databaseId, String composeFile, List<String> profiles) {
@@ -55,7 +57,11 @@ class RemoteImageStackWriterTest {
                 Optional.of(profiles.contains("jenkins") ? "jenkins" : "integrated-code-lifecycle"));
     }
 
-    private ArtemisRuntimeSource source(String imageDigest) {
-        return new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", imageDigest);
+    private ArtemisRuntimeSource tagSource() {
+        return new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", null, COMMIT_TAG);
+    }
+
+    private ArtemisRuntimeSource digestSource(String imageDigest) {
+        return new ArtemisRuntimeSource("ghcr.io/ls1intum/artemis", imageDigest, null);
     }
 }

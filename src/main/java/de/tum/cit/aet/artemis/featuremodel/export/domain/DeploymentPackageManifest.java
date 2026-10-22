@@ -105,7 +105,7 @@ public record DeploymentPackageManifest(String packageType, String packageVersio
      * Artemis runtime image recorded for generated packages.
      *
      * @param imageRepository official Artemis application image repository.
-     * @param imageDigest original configured image digest, or the special value {@code latest}.
+     * @param imageDigest pinned image digest, or {@code null} when the package names its image by tag.
      * @param imageTag deployed image tag, omitted from the JSON when the package names none.
      * @param note human-readable runtime note.
      */

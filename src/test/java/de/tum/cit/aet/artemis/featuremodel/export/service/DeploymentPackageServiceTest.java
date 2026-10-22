@@ -44,6 +44,8 @@ class DeploymentPackageServiceTest {
 
     private DeploymentPackageService service;
 
+    private String artemisSourceCommit;
+
     private ObjectMapper objectMapper;
 
     private DefaultResourceLoader resourceLoader;
@@ -55,6 +57,7 @@ class DeploymentPackageServiceTest {
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
+        artemisSourceCommit = catalogService.loadActiveModel().model().sourceCommitSha();
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
@@ -96,9 +99,12 @@ class DeploymentPackageServiceTest {
         assertThat(manifest.generatedFiles()).hasSize(23);
         assertThat(manifest.requiredEnvironmentVariables()).contains("ARTEMIS_IRIS_SECRET_TOKEN", "ARTEMIS_ATHENA_SECRET");
         assertThat(manifest.artemisRuntime().imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
-        assertThat(manifest.artemisRuntime().imageDigest()).isEqualTo("latest");
+        assertThat(manifest.artemisRuntime().imageDigest()).isNull();
+        assertThat(manifest.artemisRuntime().imageTag()).isEqualTo("sha-" + artemisSourceCommit);
+        assertThat(content(result, "deployment/remote-image/artemis-feature-model-stack.yml"))
+                .contains("image: \"ghcr.io/ls1intum/artemis:sha-" + artemisSourceCommit + "\"");
         assertThat(manifest.artemisRuntime().note()).contains("metadata/static-config-validation.json");
-        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit").doesNotContain("imageTag");
+        assertThat(content(result, "metadata/package-manifest.json")).doesNotContain("sourceCommit");
         assertThat(manifest.database().type()).isEqualTo("mysql");
         assertThat(manifest.database().mode()).isEqualTo("local-container");
     }
@@ -186,7 +192,7 @@ class DeploymentPackageServiceTest {
         assertThat(startDemo).contains("chmod +x").contains("prepare-env.sh\" --demo").contains("start-local-repo.sh")
                 .contains("start-remote-image.sh").contains("expected zero arguments or one Artemis checkout path");
         assertThat(content(result, "README.md")).contains("bash scripts/start-demo.sh /absolute/path/to/Artemis", "bash scripts/start-demo.sh")
-                .contains("mutable tag").doesNotContain("Source commit");
+                .contains("the image that Artemis CI built from the commit").doesNotContain("Source commit");
         String startScript = content(result, "scripts/start-local-repo.sh");
         assertThat(startScript).contains("docker compose").contains("up -d");
         String stopScript = content(result, "scripts/stop.sh");

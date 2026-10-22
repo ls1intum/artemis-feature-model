@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/** Covers the delivery-configuration runtime image reference: image required, digest pinned or the migration value. */
+/** Covers the delivery-configuration runtime image reference: image required, digest pinned or latest to pin none. */
 class ArtemisRuntimeImageTest {
 
     private static final String PINNED_DIGEST = "sha256:46ffd1b73a0300d719bfa915449eb61405e5c743a768a7d9d166df7e8c200a94";

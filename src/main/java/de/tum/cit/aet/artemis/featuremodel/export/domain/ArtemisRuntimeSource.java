@@ -3,15 +3,14 @@ package de.tum.cit.aet.artemis.featuremodel.export.domain;
 import java.util.regex.Pattern;
 
 /**
- * Image coordinates for the Artemis runtime used by a generated deployment package.
+ * Image coordinates for the Artemis runtime used by a generated deployment package. A package names its image either
+ * by a pinned digest or by the per-commit tag of the model's source commit.
  *
  * @param imageRepository official Artemis application image repository.
- * @param imageDigest original configured digest, or the special value {@code latest}.
+ * @param imageDigest pinned image digest, or {@code null} when the package names its image by tag.
+ * @param imageTag per-commit image tag, or {@code null} when a digest is pinned or the package names no image.
  */
-public record ArtemisRuntimeSource(String imageRepository, String imageDigest) {
-
-    /** Special digest value that selects the mutable {@code latest} tag instead of an exact digest. */
-    private static final String LATEST = "latest";
+public record ArtemisRuntimeSource(String imageRepository, String imageDigest, String imageTag) {
 
     /** Prefix of the immutable per-commit tag Artemis CI publishes for every image it builds. */
     private static final String COMMIT_TAG_PREFIX = "sha-";
@@ -33,23 +32,14 @@ public record ArtemisRuntimeSource(String imageRepository, String imageDigest) {
     }
 
     /**
-     * Renders the configured Artemis image reference.
+     * Renders the Artemis image reference.
      *
-     * @return tag reference for {@code latest}, otherwise a digest reference.
+     * @return digest reference for a pinned digest, otherwise the tag reference.
      */
     public String imageReference() {
-        if (usesLatestTag()) {
-            return imageRepository + ":" + LATEST;
+        if (imageDigest != null) {
+            return imageRepository + "@" + imageDigest;
         }
-        return imageRepository + "@" + imageDigest;
-    }
-
-    /**
-     * Checks whether the configured digest selects the mutable {@code latest} tag.
-     *
-     * @return true if the image is referenced through the {@code latest} tag.
-     */
-    public boolean usesLatestTag() {
-        return LATEST.equals(imageDigest);
+        return imageRepository + ":" + imageTag;
     }
 }

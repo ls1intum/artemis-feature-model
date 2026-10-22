@@ -21,6 +21,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ArtifactMappingSource;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.SnapshotProperties;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.RuntimeFeatureModelBundleLoader;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
@@ -42,6 +43,8 @@ class DeploymentPackageTechnicalSelectionTest {
 
     private static final List<String> TECHNICAL_SELECTION = List.of("exercise-common", "programming", "quiz", "postgresql",
             "integrated-code-lifecycle", "localvc");
+
+    private static final String MODEL_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
     private static final String ICL_IDE_PROFILES = "artemis,localci,localvc,scheduling,buildagent,core,dev,feature-model,feature-model-demo,local";
 
@@ -178,7 +181,7 @@ class DeploymentPackageTechnicalSelectionTest {
         assertThat(stack).contains("${FM_ARTEMIS_REPO}/" + scenario.databaseComposeFile());
         assertThat(stack).contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"");
         assertThat(stack).contains("ARTEMIS_VERSIONCONTROL_URL: \"http://localhost:8080\"");
-        assertThat(remoteStack).contains("image: \"ghcr.io/ls1intum/artemis:latest\"")
+        assertThat(remoteStack).contains("image: \"ghcr.io/ls1intum/artemis:sha-" + MODEL_COMMIT + "\"")
                 .contains("SPRING_PROFILES_ACTIVE: \"" + scenario.dockerProfiles() + "\"")
                 .doesNotContain("FM_ARTEMIS_REPO", "extends:");
 
@@ -227,7 +230,7 @@ class DeploymentPackageTechnicalSelectionTest {
         assertThat(readme).contains("## Supported environments", "| Linux | Docker Engine |", "| macOS | Docker Desktop |", "WSL2 distribution",
                 "Native PowerShell, Command Prompt, Git Bash, and Windows containers are not supported", "## Quick start",
                 "bash scripts/start-demo.sh /absolute/path/to/Artemis", "bash scripts/start-demo.sh", "bash scripts/stop.sh",
-                "`" + scenario.databaseComposeFile() + "`, and its repository-root `.env`", "latest", "mutable tag");
+                "`" + scenario.databaseComposeFile() + "`, and its repository-root `.env`", "`ghcr.io/ls1intum/artemis:sha-" + MODEL_COMMIT + "`");
 
         if ("jenkins".equals(scenario.ciProviderId())) {
             assertThat(readme).contains("Jenkins limitation", "no Jenkins service").doesNotContain("### Docker socket access");
@@ -302,7 +305,8 @@ class DeploymentPackageTechnicalSelectionTest {
         relations.add(new FeatureRelation("ci-provider", "integrated-code-lifecycle", "optional", null, 1));
         relations.add(new FeatureRelation("ci-provider", "jenkins", "optional", null, 2));
         relations.add(new FeatureRelation("artemis", "localvc", "mandatory", null, 4));
-        return new FeatureModel(base.model(), features, relations, base.constraints());
+        ModelMetadata metadata = new ModelMetadata(base.model().id(), base.model().name(), base.model().version(), base.model().status(), MODEL_COMMIT);
+        return new FeatureModel(metadata, features, relations, base.constraints());
     }
 
     private FeatureNode group(String id) {

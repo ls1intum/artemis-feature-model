@@ -415,7 +415,7 @@ public class DeploymentPackageService {
         List<String> requiredEnvVars = requirementNames(localDockerRequirements);
         boolean technicalStack = !selection.isEmpty();
         TechnicalSelection runtimeSelection = localDockerRuntimeSelection(selection);
-        ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForLocalDocker();
+        ArtemisRuntimeSource runtimeSource = runtimeSourceResolver.resolveForLocalDocker(shared.model().model().sourceCommitSha());
         StaticConfigValidationReport staticValidation = staticConfigValidationService.validate(shared.overlay().content());
 
         String packageReadme = templateWriter.packageReadme(report.modelId(), report.modelVersion(), report.profileId(), report.profileVersion(), selection,
@@ -733,14 +733,15 @@ public class DeploymentPackageService {
             String curatedNote = "Layer 1 (local-repo) runs the local Artemis checkout's CI-capable local-VC/local-CI stack so any selection, including "
                     + "CI-dependent features such as Hyperion, can start. The overlay keys were verified against the Artemis commit recorded in "
                     + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
-            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), null, curatedNote);
+            return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageTag(),
+                    curatedNote);
         }
 
         String runtimeDescription = "a generated stack for database '" + metadata.databaseId() + "' and CI provider '"
                 + metadata.ciProviderId() + "'";
         String note = "Layer 1 (local-repo) runs " + runtimeDescription + ". The overlay keys were verified against the Artemis commit recorded in "
                 + STATIC_VALIDATION_FILE + "; a checkout at a different commit may not match all keys.";
-        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), null, note);
+        return new DeploymentPackageManifest.ArtemisRuntimeInfo(runtimeSource.imageRepository(), runtimeSource.imageDigest(), runtimeSource.imageTag(), note);
     }
 
     /**

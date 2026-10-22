@@ -344,13 +344,14 @@ public class RuntimeTemplateWriter {
      * Describes the Artemis image of the published-image path.
      *
      * @param runtimeSource resolved Artemis runtime image.
-     * @return image description for the mutable latest tag or a pinned digest.
+     * @return image description for the per-commit image tag or a pinned digest.
      */
     private String readmeImageDescription(ArtemisRuntimeSource runtimeSource) {
         String imageReference = "`" + runtimeSource.imageReference() + "`";
-        if (runtimeSource.usesLatestTag()) {
-            return "The published-image path runs " + imageReference + " and pulls it on every start.\n"
-                    + "`latest` is a mutable tag, so a later start can run a newer Artemis build.";
+        if (runtimeSource.imageDigest() == null) {
+            return "The published-image path runs " + imageReference + ", the image that Artemis CI built from the commit\n"
+                    + "this feature model was extracted from and that the configuration keys were verified against. Docker\n"
+                    + "pulls it on the first start and reuses it afterwards, so every start runs the same Artemis build.";
         }
         return "The published-image path runs the pinned image " + imageReference + ",\nso every start runs the same Artemis build.";
     }
