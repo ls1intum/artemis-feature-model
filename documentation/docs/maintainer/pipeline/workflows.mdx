@@ -44,7 +44,7 @@ It holds only `contents: read` and never publishes. In `ci.yml` it appears as th
 
 The poller runs twice a week, as set by its `cron` entry, and on manual dispatch. It resolves one Artemis commit: the
 `artemis_sha` input when you give one, otherwise the current head of the Artemis `develop` branch. It then checks that
-Artemis CI has published the image `ghcr.io/ls1intum/artemis:sha-<commit>`, because remote deployment packages deploy
+Artemis CI has published the image `ghcr.io/ls1intum/artemis:sha-<commit>`, because generated deployment packages run
 it. Without the image, a scheduled run stops early and a later run delivers a newer commit, while a run for an explicit
 commit fails. Next, it computes the snapshot id and stops early when the same snapshot was already published from the
 current commit of this repository.

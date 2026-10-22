@@ -56,9 +56,12 @@ stop the stack.
 text and that the overlay passes static validation. The package README states the supported hosts: Linux with Docker
 Engine, macOS with Docker Desktop, and Windows through WSL2.
 
-The image reference comes from the active snapshot or, in classpath mode, from
-`artemis.feature-model.runtime.image-digest`. The value `latest` becomes a mutable tag; any other value is used as a
-digest.
+The self-contained stack runs `ghcr.io/ls1intum/artemis:sha-<commit>`, the image of the model's `sourceCommitSha`
+and the same image that remote packages deploy, and pulls it only when it is missing. A `sha256:` digest in the active
+snapshot or, in classpath mode, in `artemis.feature-model.runtime.image-digest` pins a different image; the value
+`latest` pins none. Without a pinned digest, a model without a full commit fails with
+`ARTIFACT_GENERATION_MISSING_ARTEMIS_RUNTIME_VALUE`. The checkout path runs whatever image the checkout's Compose file
+selects, usually the newest `latest`, and the package README says so.
 
 A selection with `jenkins` produces a package without a Jenkins service. The package says so in a warning, and its
 `jenkins-stack-available` check fails.

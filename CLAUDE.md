@@ -88,12 +88,16 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   applies the selected CI profile family while recording its developer-managed
   database choice and generating actionable MySQL or PostgreSQL instructions.
   `local-docker` generates an extends-based Compose stack for the selected
-  database and CI provider plus a self-contained stack using the configured
-  `ghcr.io/ls1intum/artemis` image. `start-demo.sh` uses the local checkout when
-  given a path and the remote image without an argument. The runtime image
-  digest is resolved strictly from active snapshot metadata or the classpath
-  runtime properties; `latest` is rendered as a mutable tag and other values as
-  digest references. Packages record no Artemis source commit; the static
+  database and CI provider plus a self-contained stack using the
+  `ghcr.io/ls1intum/artemis:sha-<commit>` image of the active model's
+  `sourceCommitSha` (pulled only when missing; generation fails closed without a
+  full commit). `start-demo.sh` uses the local checkout when given a path and the
+  remote image without an argument. A `sha256:` digest resolved strictly from
+  active snapshot metadata or the classpath runtime properties pins a different
+  image; the configured value `latest` pins none. The local checkout path runs
+  the image its own Compose file selects (usually the newest `latest`), which the
+  package README spells out. Packages carry no separate source-commit field; the
+  image tag names the model commit, and the static
   config validation report names the commit the overlay keys were verified
   against. Both stacks retain selection-consistency runtime checks.
   Its integrated-code-lifecycle stack points LocalVC at the containerized
