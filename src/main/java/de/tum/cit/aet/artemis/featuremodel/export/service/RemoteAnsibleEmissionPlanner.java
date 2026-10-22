@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureRelation;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteAnsibleEmissionPlan;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.RemoteEnvironmentValues;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
@@ -39,11 +39,6 @@ public class RemoteAnsibleEmissionPlanner {
 
     /** Wired values group every generated target joins besides the technical and feature groups. */
     private static final String COMMON_CONFIG_GROUP = RemoteEnvironmentValues.RESERVED_GROUP_PREFIX + "common_config";
-
-    /** Prefix of the immutable per-commit tag Artemis CI publishes for every image it builds. */
-    private static final String ARTEMIS_IMAGE_TAG_PREFIX = "sha-";
-
-    private static final Pattern FULL_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
 
     private final AnsibleBindingCatalog catalog;
 
@@ -110,8 +105,7 @@ public class RemoteAnsibleEmissionPlanner {
 
     /**
      * Derives the Artemis image tag of the commit the active model was extracted from, so the deployment runs the
-     * Artemis the model describes. Artemis CI tags every image it builds with {@code sha-<full commit>}; an abbreviated
-     * commit would name a tag that was never pushed.
+     * Artemis the model describes.
      *
      * @param model active feature model.
      * @return Artemis image tag of the model's source commit.
@@ -119,10 +113,11 @@ public class RemoteAnsibleEmissionPlanner {
      */
     private String artemisImageTag(FeatureModel model) {
         String sourceCommit = model.model().sourceCommitSha();
-        if (sourceCommit == null || !FULL_COMMIT_SHA.matcher(sourceCommit).matches()) {
+        String imageTag = ArtemisRuntimeSource.commitTag(sourceCommit);
+        if (imageTag == null) {
             throw ArtifactGenerationException.remoteAnsibleMissingSourceCommit(sourceCommit);
         }
-        return ARTEMIS_IMAGE_TAG_PREFIX + sourceCommit;
+        return imageTag;
     }
 
     /**
