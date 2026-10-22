@@ -347,6 +347,11 @@ exclude:
     reason: internal-mechanism
     rationale: Worker node role that runs AI workloads in Docker sandboxes, coordinated from core nodes through the excluded aiworker module; it is execution infrastructure rather than a selectable feature.
 
+  # The demo profile seeds sample data on startup; Artemis restricts it to demo and manual-test instances.
+  - anchor: profile:demo
+    reason: operational
+    rationale: Seeds a demo course with publicly known demo users on the primary core node; a deployment-time data choice rather than a functional capability.
+
 conceptualNodes:
   - id: artemis
     kind: root
