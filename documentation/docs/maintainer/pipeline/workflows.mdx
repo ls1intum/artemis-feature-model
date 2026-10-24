@@ -20,7 +20,7 @@ live in `.github/workflows/`.
 | `promote-image.yml` | Promote snapshot image | Manual dispatch | Moves the `verified` tag and records it in the ledger |
 | `tag-retention.yml` | Discovery tag retention | Weekly schedule, manual dispatch | Deletes old discovery tags |
 | `build-documentation.yml` | Build documentation | Pull requests that change the documentation | Builds this site |
-| `deploy-documentation.yml` | Deploy documentation | Pushes to `mvp` that change the documentation, manual dispatch | Publishes this site |
+| `deploy-documentation.yml` | Deploy documentation | Pushes to `develop` that change the documentation, manual dispatch | Publishes this site |
 | `static-config-validation.yml` | Static config validation | Manual dispatch, pushes to its original feature branch | Runs the static configuration validation tests |
 
 Pull request jobs, validation jobs, and the documentation build only read the repository. Write permissions exist only
@@ -86,8 +86,8 @@ owner grants once, see [Repository Settings](/maintainer/pipeline/repository-set
 Start a workflow from the **Actions** tab with **Run workflow**, or with the GitHub CLI:
 
 ```bash
-gh workflow run poll-artemis-delivery.yml --ref mvp -f artemis_sha=<full commit sha>
+gh workflow run poll-artemis-delivery.yml --ref develop -f artemis_sha=<full commit sha>
 ```
 
-Run delivery workflows from `mvp`: the pull requests they open target the branch the workflow runs on. To repeat a
+Run delivery workflows from `develop`: the pull requests they open target the branch the workflow runs on. To repeat a
 failed run with the same inputs, use **Re-run jobs** on the run page.

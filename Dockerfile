@@ -33,7 +33,7 @@ RUN test -n "${SNAPSHOT_ID}" \
     && mkdir -p /opt/artemis-feature-model/data/imported-models \
     && chown -R 10001:10001 /app /opt/artemis-feature-model
 
-COPY --from=application_jar --chown=10001:10001 artemis-feature-model-0.1.0-SNAPSHOT.jar /app/app.jar
+COPY --from=application_jar --chown=10001:10001 artemis-feature-model.jar /app/app.jar
 COPY --from=feature_model_snapshot --chown=10001:10001 --chmod=0444 . /opt/artemis-feature-model/data/imported-models/${SNAPSHOT_ID}/
 
 RUN test "$(find /opt/artemis-feature-model/data/imported-models -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 \
