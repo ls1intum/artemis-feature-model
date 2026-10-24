@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.function.Function;
 
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ArtemisRuntimeImage;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactLayout;
@@ -127,17 +126,6 @@ public class ExtractionInputLoader {
                     + FeatureExtractionInputs.CHECKOUT_MANIFEST_RELATIVE_PATH + " that differs from the in-repo manifest " + repositoryManifestFile
                     + ". In 'repository' mode a co-located manifest must be byte-identical or absent; select 'checkout' mode to run against the checkout copy.");
         }
-    }
-
-    /**
-     * Loads the bundled deployment profile used by the capability cross-checks.
-     *
-     * @param inputs resolved command inputs.
-     * @return deployment profile.
-     * @throws IOException if the profile cannot be read.
-     */
-    public DeploymentProfile deploymentProfile(FeatureExtractionInputs inputs) throws IOException {
-        return readJson(inputs.deploymentProfileFile(), DeploymentProfile.class);
     }
 
     /**

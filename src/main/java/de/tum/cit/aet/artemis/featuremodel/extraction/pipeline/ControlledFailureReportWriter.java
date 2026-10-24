@@ -31,11 +31,11 @@ public class ControlledFailureReportWriter {
      * @throws IOException if the report cannot be written.
      */
     public void write(ExtractionRunContext context, Exception failure) throws IOException {
-        CurationReport curation = new CurationReport(context.manifest().manifestVersion(), context.artemisCommit(),
-                Map.of(CurationReport.STATE_INCLUDE, 0, CurationReport.STATE_EXCLUDE, 0, CurationReport.STATE_UNDECLARED, 0), Map.of(),
+        CurationReport curation = new CurationReport(context.manifest().manifestVersion(), context.artemisCommit(), CurationReport.zeroStateCounts(), Map.of(),
                 List.of(), List.of());
         ReportItem item = ReportItem.error(ReportItem.CODE_PIPELINE_ARTIFACT_INVALID, "pipeline", failure.getMessage());
-        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), curation, List.of(item), false);
+        ExtractionReport report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), curation, null, List.of(item),
+                false);
         artifactStore.writeReport(context.layout(), report);
     }
 }

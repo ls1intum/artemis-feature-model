@@ -6,16 +6,13 @@ import java.util.List;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
-import de.tum.cit.aet.artemis.featuremodel.deployment.domain.DeploymentProfile;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.FeatureScopeManifest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ReportItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScope;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.FeatureModelIntegrityException;
 
 /**
  * Validates the assembled generated model through the same structural integrity rules the running app uses, plus the
- * two model-side delivery rules: no technical feature may be visible or configurable for teachers, and every capability an
- * included technical feature provides must be listed by the bundled deployment profile. Everything the guided
+ * model-side delivery rule that no technical feature may be visible or configurable for teachers. Everything the guided
  * workflow contributes is validated by the workflow stage validator.
  */
 class GeneratedModelValidator {
@@ -25,7 +22,8 @@ class GeneratedModelValidator {
     /**
      * Validation result.
      *
-     * @param deliveryEligible whether structural, role, and profile checks all passed.
+     * @param modelIntegrityValid whether the shared structural integrity rules passed.
+     * @param deliveryEligible whether structural and role checks all passed.
      * @param items validation diagnostics for the extraction report.
      */
     record Result(boolean modelIntegrityValid, boolean deliveryEligible, List<ReportItem> items) {
@@ -35,15 +33,12 @@ class GeneratedModelValidator {
      * Validates the generated model.
      *
      * @param generatedModel assembled generated model.
-     * @param includedFeatures resolved include semantics carrying the manifest-declared provided capabilities.
-     * @param bundledProfile bundled deployment profile.
      * @return model integrity state and report items.
      */
-    Result validate(FeatureModel generatedModel, List<ResolvedFeatureScope> includedFeatures, DeploymentProfile bundledProfile) {
+    Result validate(FeatureModel generatedModel) {
         List<ReportItem> items = new ArrayList<>();
         boolean modelIntegrityValid = validateModelIntegrity(generatedModel, items);
         validateRoleVisibility(generatedModel, items);
-        validateProvidedCapabilities(includedFeatures, bundledProfile, items);
         boolean deliveryEligible = modelIntegrityValid && items.stream().noneMatch(item -> ReportItem.SEVERITY_ERROR.equals(item.severity()));
         return new Result(modelIntegrityValid, deliveryEligible, List.copyOf(items));
     }
@@ -80,30 +75,6 @@ class GeneratedModelValidator {
             if (feature.visibleTo().contains(ROLE_TEACHER) || feature.configurableBy().contains(ROLE_TEACHER)) {
                 items.add(ReportItem.error(ReportItem.CODE_TECHNICAL_FEATURE_ROLE_LEAK, feature.id(),
                         "Technical feature '" + feature.id() + "' is visible or configurable for teachers."));
-            }
-        }
-    }
-
-    /**
-     * Cross-checks the capabilities included technical features provide against the bundled profile's provided
-     * capabilities. A mismatch blocks delivery because the profile and technical selection describe the same deployment
-     * context and must agree. The model schema carries no provides list, so the check consumes the resolved
-     * manifest declarations directly.
-     *
-     * @param includedFeatures resolved include semantics.
-     * @param bundledProfile bundled deployment profile.
-     * @param items diagnostics sink.
-     */
-    private void validateProvidedCapabilities(List<ResolvedFeatureScope> includedFeatures, DeploymentProfile bundledProfile, List<ReportItem> items) {
-        for (ResolvedFeatureScope included : includedFeatures) {
-            if (!FeatureScopeManifest.CATEGORY_TECHNICAL.equals(included.category())) {
-                continue;
-            }
-            for (String capability : included.providesCapabilities()) {
-                if (!bundledProfile.providesCapability(capability)) {
-                    items.add(ReportItem.error(ReportItem.CODE_PROFILE_CAPABILITY_MISMATCH, included.id(), "Technical feature '" + included.id()
-                            + "' provides capability '" + capability + "' which the bundled profile '" + bundledProfile.id() + "' does not list."));
-                }
             }
         }
     }

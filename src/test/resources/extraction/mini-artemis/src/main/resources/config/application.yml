@@ -1,5 +1,13 @@
 artemis:
     alpha:
         url: https://alpha.example.org
+        mode: production
+        token: dummy-token-value
+        connector:
+            endpoint: <your-alpha-endpoint>
+        gamma:
+            service-url: http://localhost:9999
     delta:
         api-base-url: ''
+    shared:
+        instance-name: artemis-fixture

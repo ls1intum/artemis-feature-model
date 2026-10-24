@@ -128,8 +128,17 @@ public final class ArtemisSourceConventions {
         /** Client admin-page documentation key prefix for runtime toggles. */
         public static final String CLIENT_TOGGLE_REFERENCE_PREFIX = CLIENT_FEATURE_ENUM + ".";
 
-        /** Opt-in extraction annotation simple name. */
-        public static final String ARTEMIS_FEATURE_ANNOTATION = "ArtemisFeature";
+        /** Spring placeholder injection annotation simple name. */
+        public static final String VALUE_ANNOTATION = "Value";
+
+        /** Spring configuration-properties binding annotation simple name. */
+        public static final String CONFIGURATION_PROPERTIES_ANNOTATION = "ConfigurationProperties";
+
+        /** Spring conditional-bean annotation simple name. */
+        public static final String CONDITIONAL_ANNOTATION = "Conditional";
+
+        /** Spring profile-guard annotation simple name. */
+        public static final String PROFILE_ANNOTATION = "Profile";
 
         private Symbols() {
         }

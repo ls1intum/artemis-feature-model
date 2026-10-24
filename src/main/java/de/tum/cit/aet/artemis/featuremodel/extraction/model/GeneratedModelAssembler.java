@@ -31,13 +31,14 @@ import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ResolvedFeatureScop
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Assembles the generated feature model from the manifest's include entries and conceptual nodes. The output satisfies
+ * Assembles the generated feature model from the manifest's member entries and conceptual nodes. The output satisfies
  * the same domain records and loader code path as the bundled curated model: hierarchy and relation orders come from
  * the manifest, names and descriptions from Artemis i18n with manifest overrides, kind-based category and role
  * defaults keep technical features maintainer-only, the enabled-key artifact mapping is auto-derived from the scanned
- * configuration key, declared mapping hints mirror the curated mapping shapes, and every anchored feature carries a
- * source block with merged evidence references. Output ordering is a deterministic depth-first traversal, so two runs
- * on the same commit produce byte-identical models.
+ * configuration key, the deriver's resolved mappings follow it, every anchored feature carries a source block with
+ * merged evidence references, the root is the declared root node or the implicit {@code artemis} root, and the
+ * constraints are the declared ones plus the pairwise exclusions of every {@code alternative} group. Output ordering is
+ * a deterministic depth-first traversal, so two runs on the same commit produce byte-identical models.
  */
 class GeneratedModelAssembler {
 
@@ -107,14 +108,12 @@ class GeneratedModelAssembler {
         evidence.forEach(item -> evidenceByCandidate.computeIfAbsent(item.candidateId(), unused -> new ArrayList<>()).add(item));
 
         Map<String, ModelNode> nodesById = buildNodeUniverse(manifest, includedFeatures, items);
-        ModelNode root = findRoot(nodesById, items);
+        ModelNode root = findRoot(nodesById);
         List<FeatureNode> features = new ArrayList<>();
         List<FeatureRelation> relations = new ArrayList<>();
-        if (root != null) {
-            Map<String, List<ModelNode>> childrenByParent = childrenByParent(nodesById);
-            emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
-        }
-        List<FeatureConstraint> constraints = assembleConstraints(manifest, features, items);
+        Map<String, List<ModelNode>> childrenByParent = childrenByParent(nodesById);
+        emitDepthFirst(root, null, childrenByParent, candidatesById, evidenceByCandidate, features, relations);
+        List<FeatureConstraint> constraints = assembleConstraints(manifest, features, nodesById, childrenByParent, items);
 
         ModelMetadata metadata = new ModelMetadata(GENERATED_MODEL_ID, GENERATED_MODEL_NAME, generatedVersion(artemisCommit), "generated", artemisCommit);
         return new Result(new FeatureModel(metadata, features, relations, constraints), List.copyOf(items));
@@ -162,21 +161,22 @@ class GeneratedModelAssembler {
     }
 
     /**
-     * Finds the single root node.
+     * Finds the declared root node or adds the implicit {@code artemis} root when the manifest declares none.
      *
-     * @param nodesById node universe.
-     * @param items diagnostics sink.
-     * @return root node, or null when the manifest declares none.
+     * @param nodesById node universe, extended by the implicit root when needed.
+     * @return root node.
      */
-    private ModelNode findRoot(Map<String, ModelNode> nodesById, List<ReportItem> items) {
+    private ModelNode findRoot(Map<String, ModelNode> nodesById) {
         for (ModelNode node : nodesById.values()) {
             if (KIND_ROOT.equals(node.kind())) {
                 return node;
             }
         }
-        items.add(ReportItem.error(ReportItem.CODE_MANIFEST_CURATION_CONFLICT, "generated-model",
-                "The manifest declares no root conceptual node; the generated model is empty."));
-        return null;
+        ConceptualNode implicitRoot = new ConceptualNode(FeatureScopeManifest.IMPLICIT_ROOT_ID, null, KIND_ROOT, null, null, null, null,
+                FeatureScopeManifest.IMPLICIT_ROOT_NAME, FeatureScopeManifest.IMPLICIT_ROOT_DESCRIPTION);
+        ModelNode root = new ModelNode(implicitRoot.id(), null, KIND_ROOT, null, null, null, null, nodesById.size(), implicitRoot, null);
+        nodesById.put(root.id(), root);
+        return root;
     }
 
     /**
@@ -374,7 +374,7 @@ class GeneratedModelAssembler {
 
     /**
      * Builds the artifact mappings of an included feature: the auto-derived enabled-key toggle mapping first, then
-     * the declared hints in declaration order, mirroring the curated mapping layout.
+     * the deriver's resolved mappings in emission order, mirroring the curated mapping layout.
      *
      * @param included resolved include semantics.
      * @param candidate extracted candidate, or null.
@@ -395,23 +395,64 @@ class GeneratedModelAssembler {
     }
 
     /**
-     * Converts the declared manifest constraints into model constraints.
+     * Assembles the model constraints: the declared manifest constraints in declaration order, minus those that
+     * duplicate a derived exclusion, followed by the pairwise exclusions of every alternative group in traversal order.
      *
      * @param manifest loaded manifest.
      * @param emittedFeatures features actually emitted by the hierarchy traversal.
+     * @param nodesById node universe.
+     * @param childrenByParent children per parent id in sibling order.
      * @param items diagnostics sink.
-     * @return model constraints in declaration order.
+     * @return model constraints.
      */
-    private List<FeatureConstraint> assembleConstraints(FeatureScopeManifest manifest, List<FeatureNode> emittedFeatures, List<ReportItem> items) {
+    private List<FeatureConstraint> assembleConstraints(FeatureScopeManifest manifest, List<FeatureNode> emittedFeatures, Map<String, ModelNode> nodesById,
+            Map<String, List<ModelNode>> childrenByParent, List<ReportItem> items) {
         Set<String> emittedIds = new LinkedHashSet<>();
-        emittedFeatures.forEach(feature -> emittedIds.add(feature.id()));
+        Map<String, String> nameById = new LinkedHashMap<>();
+        emittedFeatures.forEach(feature -> {
+            emittedIds.add(feature.id());
+            nameById.put(feature.id(), feature.name());
+        });
+        List<FeatureConstraint> derived = deriveAlternativeGroupConstraints(emittedFeatures, nodesById, childrenByParent, nameById);
+        Set<String> derivedPairs = AlternativeGroupConstraints.pairKeys(derived);
         List<FeatureConstraint> constraints = new ArrayList<>();
         for (ConstraintEntry entry : manifest.constraints()) {
+            if (AlternativeGroupConstraints.isRedundant(entry, derivedPairs)) {
+                items.add(ReportItem.warning(ReportItem.CODE_MANIFEST_CONSTRAINT_REDUNDANT, entry.id(), "Constraint '" + entry.id()
+                        + "' duplicates the derived exclusion between '" + entry.source() + "' and '" + entry.target() + "' of their alternative group; delete the entry."));
+                continue;
+            }
             constraints.add(new FeatureConstraint(entry.id(), entry.type(), entry.source(), entry.target(), null, entry.description()));
             reportMissingConstraintEndpoint(entry, "source", entry.source(), emittedIds, items);
             reportMissingConstraintEndpoint(entry, "target", entry.target(), emittedIds, items);
         }
+        constraints.addAll(derived);
         return List.copyOf(constraints);
+    }
+
+    /**
+     * Derives the pairwise exclusions of every emitted alternative group, groups in traversal order and children in
+     * sibling order.
+     *
+     * @param emittedFeatures features in traversal order.
+     * @param nodesById node universe.
+     * @param childrenByParent children per parent id in sibling order.
+     * @param nameById emitted feature names.
+     * @return derived constraints.
+     */
+    private List<FeatureConstraint> deriveAlternativeGroupConstraints(List<FeatureNode> emittedFeatures, Map<String, ModelNode> nodesById,
+            Map<String, List<ModelNode>> childrenByParent, Map<String, String> nameById) {
+        List<FeatureConstraint> derived = new ArrayList<>();
+        for (FeatureNode feature : emittedFeatures) {
+            ModelNode node = nodesById.get(feature.id());
+            if (!KIND_GROUP.equals(node.kind()) || !FeatureScopeManifest.GROUP_TYPE_ALTERNATIVE.equals(node.groupType())) {
+                continue;
+            }
+            List<AlternativeGroupConstraints.Child> children = childrenByParent.getOrDefault(node.id(), List.of()).stream()
+                    .map(child -> new AlternativeGroupConstraints.Child(child.id(), nameById.get(child.id()))).toList();
+            derived.addAll(AlternativeGroupConstraints.derive(feature.name(), children));
+        }
+        return derived;
     }
 
     /**

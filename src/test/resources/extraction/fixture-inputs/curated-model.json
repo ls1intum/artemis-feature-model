@@ -13,7 +13,7 @@
       "defaultState": "not_applicable"
     },
     {
-      "id": "alpha-feature",
+      "id": "alpha",
       "name": "Alpha",
       "kind": "module",
       "selectable": true,

@@ -22,7 +22,7 @@ class FeatureModelCatalogServiceTest {
         var model = service.loadActiveModel();
 
         assertThat(service.defaultSelectedFeatureIds(model)).containsExactly("lecture", "tutorialgroup", "course-workflow", "communication",
-                "exercise-common", "programming", "quiz", "text", "modeling", "file-upload", "exam", "plagiarism", "atlas", "mysql",
+                "exercise-common", "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "atlas", "mysql",
                 "integrated-code-lifecycle", "localvc");
     }
 

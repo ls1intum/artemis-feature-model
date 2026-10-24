@@ -1,11 +1,10 @@
-# Copy of the mini-Artemis manifest with the module:gamma exclusion removed, so one discovered candidate has no
-# decision and the conformance gate must stop the run.
-manifestVersion: 3
-include:
-  - anchor: module:alpha
-    id: alpha-feature
+# Copy of the mini-Artemis manifest with the module:gamma exclusion removed. Gamma is enumerated by the fixture's
+# getEnabledFeatures, so it is feature-shaped, has no decision, and the conformance gate must stop the run.
+manifestVersion: 5
+features:
+  - id: alpha
     group: fixture-root
-exclude:
+notModeled:
   - { anchor: infra:mysql, reason: test-fixture }
   - { anchor: infra:postgres, reason: test-fixture }
   - { anchor: module:beta, reason: test-fixture }
