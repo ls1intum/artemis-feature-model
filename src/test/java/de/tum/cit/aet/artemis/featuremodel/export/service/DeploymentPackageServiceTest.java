@@ -60,7 +60,7 @@ class DeploymentPackageServiceTest {
         artemisSourceCommit = catalogService.loadActiveModel().model().sourceCommitSha();
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
-        DeploymentProfileService profileService = new DeploymentProfileService(repository);
+        DeploymentProfileService profileService = new DeploymentProfileService(repository, catalogService);
         ArtifactMappingResolver mappingResolver = new ArtifactMappingResolver(ArtifactMappingResolverTest.classpathCatalog());
         ArtifactGenerationService artifactGenerationService = new ArtifactGenerationService(catalogService, validationService, profileService, mappingResolver,
                 new YamlOverlayWriter(), new EnvExampleWriter(), objectMapper);

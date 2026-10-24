@@ -11,10 +11,11 @@ import java.util.TreeMap;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisConfigKeyCatalog;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ArtifactDirectoryOperations;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ConfigDerivationReport;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.ExtractionJsonWriter;
 import de.tum.cit.aet.artemis.featuremodel.extraction.artifact.Sha256Digest;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.EvidenceItem;
-import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedAnnotation;
+import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigInjection;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedConfigurationDefaults;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractedSourceFacts;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.ExtractionArtifactException;
@@ -56,9 +57,9 @@ public class ExtractionArtifactStore {
 
     public static final String RELATION_CANDIDATES_FILE = "relation-candidates.json";
 
-    public static final String ANNOTATIONS_FILE = "annotations.json";
-
     public static final String CONFIG_DEFAULTS_FILE = "config-defaults.json";
+
+    public static final String CONFIG_INJECTIONS_FILE = "config-injections.json";
 
     public static final String SCAN_DIAGNOSTICS_FILE = "scan-diagnostics.json";
 
@@ -67,6 +68,8 @@ public class ExtractionArtifactStore {
     public static final String GENERATED_MODEL_FILE = "generated-feature-model.json";
 
     public static final String GENERATED_CATALOG_FILE = "generated-config-key-catalog.json";
+
+    public static final String CONFIG_DERIVATION_FILE = "config-derivation.json";
 
     public static final String MANIFEST_CONFORMANCE_FILE = "manifest-conformance-report.json";
 
@@ -123,9 +126,11 @@ public class ExtractionArtifactStore {
      * @param result model envelope.
      * @param generatedModel generated feature model.
      * @param generatedCatalog generated config-key catalog.
+     * @param configDerivation per-member configuration-key resolutions of the assembly.
      * @param items model assembly diagnostics.
      */
-    public record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog, List<ReportItem> items) {
+    public record LoadedModel(ModelResult result, FeatureModel generatedModel, ArtemisConfigKeyCatalog generatedCatalog,
+            ConfigDerivationReport configDerivation, List<ReportItem> items) {
     }
 
     /**
@@ -165,12 +170,12 @@ public class ExtractionArtifactStore {
         jsonWriter.write(directory.resolve(FEATURE_CANDIDATES_FILE), outcome.candidates());
         jsonWriter.write(directory.resolve(EVIDENCE_FILE), outcome.evidence());
         jsonWriter.write(directory.resolve(RELATION_CANDIDATES_FILE), outcome.relationCandidates());
-        jsonWriter.write(directory.resolve(ANNOTATIONS_FILE), outcome.annotations());
         jsonWriter.write(directory.resolve(CONFIG_DEFAULTS_FILE), outcome.configDefaults());
+        jsonWriter.write(directory.resolve(CONFIG_INJECTIONS_FILE), outcome.configInjections());
         jsonWriter.write(directory.resolve(SCAN_DIAGNOSTICS_FILE), outcome.items());
 
-        Map<String, String> payloadDigests = digestsOf(directory,
-                List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE, ANNOTATIONS_FILE, CONFIG_DEFAULTS_FILE, SCAN_DIAGNOSTICS_FILE));
+        Map<String, String> payloadDigests = digestsOf(directory, List.of(FEATURE_CANDIDATES_FILE, EVIDENCE_FILE, RELATION_CANDIDATES_FILE,
+                CONFIG_DEFAULTS_FILE, CONFIG_INJECTIONS_FILE, SCAN_DIAGNOSTICS_FILE));
         ScanResult result = new ScanResult(ScanResult.CURRENT_SCHEMA_VERSION, ScanResult.EXTRACTOR_VERSION, metadata.artemisCommit(), payloadDigests,
                 combinedDigest(payloadDigests));
         jsonWriter.write(directory.resolve(SCAN_RESULT_FILE), result);
@@ -198,8 +203,8 @@ public class ExtractionArtifactStore {
                 List.of(readJson(directory.resolve(FEATURE_CANDIDATES_FILE), FeatureCandidate[].class, "scan")),
                 List.of(readJson(directory.resolve(EVIDENCE_FILE), EvidenceItem[].class, "scan")),
                 List.of(readJson(directory.resolve(RELATION_CANDIDATES_FILE), RelationCandidate[].class, "scan")),
-                List.of(readJson(directory.resolve(ANNOTATIONS_FILE), ExtractedAnnotation[].class, "scan")),
                 readJson(directory.resolve(CONFIG_DEFAULTS_FILE), ExtractedConfigurationDefaults.class, "scan"),
+                List.of(readJson(directory.resolve(CONFIG_INJECTIONS_FILE), ExtractedConfigInjection[].class, "scan")),
                 List.of(readJson(directory.resolve(SCAN_DIAGNOSTICS_FILE), ReportItem[].class, "scan")));
         return new LoadedScan(result, readJson(directory.resolve(SCAN_METADATA_FILE), ScanMetadata.class, "scan"), outcome);
     }
@@ -224,6 +229,7 @@ public class ExtractionArtifactStore {
         if (outcome.conformance().conformant()) {
             jsonWriter.write(directory.resolve(GENERATED_MODEL_FILE), outcome.generatedModel());
             jsonWriter.write(directory.resolve(GENERATED_CATALOG_FILE), outcome.generatedCatalog());
+            jsonWriter.write(directory.resolve(CONFIG_DERIVATION_FILE), outcome.configDerivation());
             generatedModelDigest = Sha256Digest.of(directory.resolve(GENERATED_MODEL_FILE));
             generatedCatalogDigest = Sha256Digest.of(directory.resolve(GENERATED_CATALOG_FILE));
         }
@@ -281,7 +287,8 @@ public class ExtractionArtifactStore {
 
         FeatureModel generatedModel = readJson(directory.resolve(GENERATED_MODEL_FILE), FeatureModel.class, "model");
         ArtemisConfigKeyCatalog generatedCatalog = readJson(directory.resolve(GENERATED_CATALOG_FILE), ArtemisConfigKeyCatalog.class, "model");
-        return new LoadedModel(result, generatedModel, generatedCatalog,
+        ConfigDerivationReport configDerivation = readJson(directory.resolve(CONFIG_DERIVATION_FILE), ConfigDerivationReport.class, "model");
+        return new LoadedModel(result, generatedModel, generatedCatalog, configDerivation,
                 List.of(readJson(directory.resolve(MODEL_DIAGNOSTICS_FILE), ReportItem[].class, "model")));
     }
 

@@ -51,7 +51,7 @@
         "programming",
         "quiz",
         "text",
-        "file-upload"
+        "fileupload"
       ],
       "deselectedFeatureIds": [
         "athena",
@@ -349,7 +349,7 @@
               "selects": [
                 "text",
                 "modeling",
-                "file-upload"
+                "fileupload"
               ],
               "deselects": [],
               "warnings": [],

@@ -44,11 +44,11 @@ You should see the same errors as in the downloaded report.
 
 | Error | Usual cause | Fix |
 |---|---|---|
-| `UNDECLARED_CANDIDATE` | Artemis added a module, toggle, or profile | Include or exclude it, see [Curate a Feature](/maintainer/tasks/curate-a-feature) |
-| `RELATION_CANDIDATE_UNDECLARED` | Artemis added a condition that combines two included features | Add a constraint or an ignored relation, see [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
+| `UNDECLARED_CANDIDATE` | Artemis added a module that it presents as a feature | Model it or list it in notModeled, see [Curate a Feature](/maintainer/tasks/curate-a-feature) |
+| `RELATION_CANDIDATE_UNDECLARED` | Artemis added a condition that combines two modeled features | Add a constraint or an ignored relation, see [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
 | `MANIFEST_ORPHAN_ANCHOR` | Artemis removed or renamed a candidate, or moved its source | Update or remove the manifest entry, or the source conventions, see [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
 | `EXTRACTOR_ERROR` | Artemis changed the structure of a scanned file | See [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
-| `CONFIG_KEY_CATALOG_DRIFT` | Artemis renamed or removed a configuration key that the manifest maps | Update the mapping in the manifest |
+| `CONFIG_KEY_CATALOG_DRIFT` | Artemis renamed or removed a configuration key that the model maps | Update the configuration entry in the manifest, see [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
 | `GUIDED_WORKFLOW_FINDINGS` as an error | The guided workflow has a blocking finding | See [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) |
 | `GENERATED_MODEL_CONFORMANCE_MISMATCH` | The assembly code no longer matches the manifest | Ask a developer |
 

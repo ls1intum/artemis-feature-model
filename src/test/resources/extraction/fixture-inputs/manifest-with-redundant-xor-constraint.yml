@@ -1,0 +1,57 @@
+# Copy of the mini-Artemis manifest whose database alternatives are technical members of an alternative group with a
+# declared exclusion that duplicates the derived one: the run warns MANIFEST_CONSTRAINT_REDUNDANT, drops the declared
+# constraint, and emits the derived exclusion with the compose mappings.
+manifestVersion: 5
+technical:
+  - anchor: infra:mysql
+    id: mysql
+    group: db-group
+    defaultState: enabled
+    order: 1
+    name: MySQL
+  - anchor: infra:postgres
+    id: postgresql
+    group: db-group
+    defaultState: disabled
+    order: 2
+    name: PostgreSQL
+features:
+  - id: alpha
+    group: fixture-root
+notModeled:
+  - { anchor: module:beta, reason: test-fixture }
+  - { anchor: module:beta-extra, reason: test-fixture }
+  - { anchor: module:delta, reason: test-fixture }
+  - { anchor: module:gamma, reason: test-fixture }
+  - { anchor: profile:agentx, reason: test-fixture }
+  - { anchor: profile:cione, reason: test-fixture }
+  - { anchor: profile:feprofile, reason: test-fixture }
+  - { anchor: profile:jenkins, reason: test-fixture }
+  - anchor: toggle:ClientOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate client-only fixture toggle.
+  - anchor: toggle:ServerOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate server-only fixture toggle.
+  - anchor: toggle:ToggleOne
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+  - anchor: toggle:ToggleTwo
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+conceptualNodes:
+  - id: fixture-root
+    kind: root
+  - id: db-group
+    parent: fixture-root
+    kind: group
+    category: technical
+    groupType: alternative
+    order: 2
+    name: Database
+constraints:
+  - id: mysql-excludes-postgresql
+    type: excludes
+    source: mysql
+    target: postgresql
+    description: Declared duplicate of the derived alternative-group exclusion.

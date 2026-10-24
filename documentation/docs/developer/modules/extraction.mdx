@@ -50,14 +50,13 @@ The code lives in `src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/
 | `source` | Read-only access helpers: the Artemis paths and symbols the scanners look for (`ArtemisSourceConventions`), checkout location, Java parsing |
 | `repository` | `ArtemisSourceRepository`, the only way to read files from the checkout |
 | `scan` | The scanners and the assemblers that turn their facts into feature candidates; entry point `ScanStageService` |
-| `model` | Curation against the manifest, model and catalog generation, conformance checks; entry point `ModelStageService` |
+| `model` | Curation against the manifest, configuration derivation, model and catalog generation, conformance checks; entry point `ModelStageService` |
 | `workflow` | Workflow validation against the generated model, and the scaffold sync; entry point `WorkflowStageService` |
 | `snapshot` | Snapshot publication, validation, and Docker context staging; entry point `PackageStageService` |
 | `report` | The extraction report and its HTML rendering |
 | `pipeline` | Shared run infrastructure: run identity, inputs, manifest loading, and the digest-checked artifact store |
 | `domain` | The records written to disk: scan results, envelopes, findings, snapshot contracts |
 | `artifact` | Deterministic JSON bytes and SHA-256 digests |
-| `annotation` | The `@ArtemisFeature` source annotation contract |
 
 The packages depend on each other in one direction only. `pipeline` and `report` never depend on a stage package,
 and the stage packages never depend on each other. `ExtractionPackageDependencyGuardTest` reads the imports and fails
@@ -90,7 +89,6 @@ report; warnings appear without stopping it.
 |---|---|
 | `src/test/resources/extraction/mini-artemis/` | A tiny fake Artemis checkout with every file type the scanners read |
 | `src/test/resources/extraction/broken-artemis/` | A checkout with unparsable files, for the fail-soft scanner paths |
-| `src/test/resources/extraction/annotated-artemis/` | A checkout with `@ArtemisFeature` annotations |
 | `src/test/resources/extraction/fixture-inputs/` | Manifests, models, and workflows for stage tests |
 | `ExtractionTestModels` | In-memory models and catalogs that match `mini-artemis` |
 

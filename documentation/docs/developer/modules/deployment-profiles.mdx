@@ -10,27 +10,32 @@ work on availability.
 
 ## What a profile is
 
-Some features only work when the environment provides something. Iris needs a Pyris service and a secret; LTI needs
-a registered platform. A feature lists these needs in `requiresCapabilities`. A **deployment profile** lists the
-capabilities a deployment context provides:
+Some features only work when the environment provides something. Iris needs a Pyris service and a secret. A feature
+lists these needs in `requiresCapabilities`, for example `iris-service` and `iris-secret`. The extraction pipeline
+derives the list from the feature's deployment inputs, so the capability ids exist only on the model features.
+
+A **deployment profile** states which capabilities a deployment context provides. A profile with a
+`providedCapabilities` list provides exactly those:
 
 ```json
 {
-  "id": "default-artemis-profile",
-  "name": "Default Artemis Deployment Context",
-  "providedCapabilities": ["pyris-service", "pyris-secret", "athena-service", "..."]
+  "id": "athena-only-profile",
+  "name": "Deployment with Athena as the only external service",
+  "providedCapabilities": ["athena-service", "athena-secret"]
 }
 ```
+
+A profile without the field provides every capability that the active model requires.
 
 A profile declares support only, never values. Service URLs and secrets come from the deployment environment
 through `${VARIABLE}` placeholders in the generated files.
 
 ## Where profiles come from
 
-The application ships one profile, `src/main/resources/deployment-profiles/default-artemis-profile.json`, which
-provides every capability. For local experiments, you can add profiles as JSON files under
-`<data-root>/deployment-profiles/`. A local profile with the same id replaces the bundled one. The server reads the
-profiles on every request, so a changed file takes effect without a restart.
+The application ships one profile, `src/main/resources/deployment-profiles/default-artemis-profile.json`. It has no
+`providedCapabilities` list, so it provides every capability the active model requires. For local experiments, you can
+add profiles as JSON files under `<data-root>/deployment-profiles/`. A local profile with the same id replaces the
+bundled one. The server reads the profiles on every request, so a changed file takes effect without a restart.
 
 A profile can also list `supportedDeploymentModes`. Without the field, it supports every
 [deployment mode](/developer/modules/deployment-packages); with it, generating a package for another mode fails with
@@ -64,7 +69,7 @@ feature, the Configurator removes it again and shows a note. For tests, the avai
 | Path | Responsibility |
 |---|---|
 | `deployment/repository/DeploymentProfileRepository` | Reads bundled and local profiles |
-| `deployment/service/DeploymentProfileService` | Lists profiles and picks the default one |
+| `deployment/service/DeploymentProfileService` | Lists profiles, resolves a missing capability list from the active model, and picks the default one |
 | `deployment/service/CapabilityResolutionService` | Computes availability |
 | `deployment/domain/DeploymentModes` | The ids of the deployment modes |
 | `deployment/web/` | The profile and availability endpoints |

@@ -60,7 +60,7 @@ class CapabilityResolutionServiceTest {
 
         assertThat(iris.available()).isTrue();
         assertThat(iris.profileDependent()).isTrue();
-        assertThat(iris.requiredCapabilities()).contains("pyris-service", "pyris-secret");
+        assertThat(iris.requiredCapabilities()).contains("iris-service", "iris-secret");
         assertThat(iris.missingCapabilities()).isEmpty();
     }
 
@@ -80,12 +80,12 @@ class CapabilityResolutionServiceTest {
 
         OptionAvailabilityDTO iris = option(availability, "enable-iris");
         assertThat(iris.available()).isFalse();
-        assertThat(iris.missingCapabilities()).contains("pyris-service", "pyris-secret");
-        assertThat(iris.teacherReason()).isNotNull().doesNotContain("pyris").doesNotContain("capability");
+        assertThat(iris.missingCapabilities()).contains("iris-service", "iris-secret");
+        assertThat(iris.teacherReason()).isNotNull().doesNotContain("iris-service").doesNotContain("capability");
 
         FeatureAvailabilityDTO irisFeature = feature(availability, "iris");
         assertThat(irisFeature.available()).isFalse();
-        assertThat(irisFeature.teacherReason()).contains("Iris").doesNotContain("pyris");
+        assertThat(irisFeature.teacherReason()).contains("Iris").doesNotContain("iris-service");
     }
 
     private void writeLocalProfile(String json) throws IOException {
@@ -112,7 +112,7 @@ class CapabilityResolutionServiceTest {
         GuidedWorkflowService workflowService = new GuidedWorkflowService(workflowStore, catalogService, new GuidedWorkflowAssembler(),
                 new GuidedWorkflowDiagnosticsService());
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
-        DeploymentProfileService profileService = new DeploymentProfileService(repository);
+        DeploymentProfileService profileService = new DeploymentProfileService(repository, catalogService);
         return new CapabilityResolutionService(catalogService, workflowService, profileService, new GuidedWorkflowDiagnosticsService());
     }
 }
