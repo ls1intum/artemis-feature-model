@@ -7,36 +7,83 @@ manifestVersion: 5
 # delivery/artemis-runtime-image.json.
 
 features:
-  - { id: lecture, group: teaching-and-content, order: 1 }
-  - { id: tutorialgroup, group: teaching-and-content, order: 2 }
-  - { id: text, group: exercise-system, order: 4 }
-  - { id: modeling, group: exercise-system, order: 5 }
-  - { id: fileupload, group: exercise-system, order: 6 }
-  - { id: exam, group: assessment-and-integrity, order: 1 }
-  - { id: plagiarism, group: assessment-and-integrity, order: 2 }
-  - { id: athena, group: assessment-and-integrity, order: 3 }
+  # Functional modules of the curated model, keyed by their Artemis module id and placed below a conceptual group.
+
+  - id: lecture
+    group: teaching-and-content
+    order: 1
+
+  - id: tutorialgroup
+    group: teaching-and-content
+    order: 2
+
+  - id: text
+    group: exercise-system
+    order: 4
+
+  - id: modeling
+    group: exercise-system
+    order: 5
+
+  - id: fileupload
+    group: exercise-system
+    order: 6
+
+  - id: exam
+    group: assessment-and-integrity
+    order: 1
+
+  - id: plagiarism
+    group: assessment-and-integrity
+    order: 2
+
+  - id: athena
+    group: assessment-and-integrity
+    order: 3
+
   - id: atlas
     group: adaptive-learning-and-ai
     order: 1
     configuration:
       # Derivable by prefix but carrying a real default, so the classifier calls it a tunable; kept a deployment input.
-      - { key: artemis.atlas.chat-model }
-  - { id: iris, group: adaptive-learning-and-ai, order: 2 }
+      - key: artemis.atlas.chat-model
+
+  - id: iris
+    group: adaptive-learning-and-ai
+    order: 2
+
   - id: hyperion
     group: adaptive-learning-and-ai
     order: 3
     configuration:
       # Read by the Spring AI auto-configuration and linked to hyperion only by a YAML comment, so derivation cannot see them.
-      - { key: spring.ai.openai.api-key, secret: true }
-      - { key: spring.ai.openai.base-url }
-  - { id: lti, group: platform-integrations, order: 1 }
-  - { id: theia, group: platform-integrations, order: 2 }
-  - { id: apollon, group: platform-integrations, order: 3 }
-  - { id: sharing, group: platform-integrations, order: 4 }
-  - { id: deimos, group: adaptive-learning-and-ai }
+      - key: spring.ai.openai.api-key
+        secret: true
+
+      - key: spring.ai.openai.base-url
+
+  - id: lti
+    group: platform-integrations
+    order: 1
+
+  - id: theia
+    group: platform-integrations
+    order: 2
+
+  - id: apollon
+    group: platform-integrations
+    order: 3
+
+  - id: sharing
+    group: platform-integrations
+    order: 4
+
+  - id: deimos
+    group: adaptive-learning-and-ai
 
 technical:
   # Database and CI provider xor groups plus the fixed localvc baseline; maintainer-only, never teacher-facing.
+
   - anchor: infra:mysql
     id: mysql
     group: database
@@ -44,6 +91,7 @@ technical:
     order: 1
     name: MySQL
     description: MySQL database alternative encoded by the paired docker/mysql.yml compose stacks.
+
   - anchor: infra:postgres
     id: postgresql
     group: database
@@ -51,6 +99,7 @@ technical:
     order: 2
     name: PostgreSQL
     description: PostgreSQL database alternative encoded by the paired docker/postgres.yml compose stacks.
+
   - anchor: profile:localci
     id: integrated-code-lifecycle
     group: ci-provider
@@ -59,6 +108,7 @@ technical:
     profiles: [localci, buildagent]
     name: Integrated Code Lifecycle
     description: Built-in CI provider activated by the localci and buildagent Spring profiles.
+
   - anchor: profile:jenkins
     id: jenkins
     group: ci-provider
@@ -68,10 +118,18 @@ technical:
     description: External Jenkins CI provider activated by the jenkins Spring profile and docker/jenkins.yml stack.
     configuration:
       # Not injected through @Value, or carrying a working sample default, so derivation cannot attribute or classify them.
-      - { key: artemis.continuous-integration.token, secret: true }
-      - { key: artemis.continuous-integration.vcs-credentials, secret: true }
-      - { key: artemis.continuous-integration.artemis-authentication-token-key, secret: true }
-      - { key: artemis.continuous-integration.artemis-authentication-token-value, secret: true }
+      - key: artemis.continuous-integration.token
+        secret: true
+
+      - key: artemis.continuous-integration.vcs-credentials
+        secret: true
+
+      - key: artemis.continuous-integration.artemis-authentication-token-key
+        secret: true
+
+      - key: artemis.continuous-integration.artemis-authentication-token-value
+        secret: true
+
   - anchor: profile:localvc
     id: localvc
     parent: artemis
@@ -83,31 +141,142 @@ technical:
 
 notModeled:
   # Feature-shaped modules the curated model deliberately leaves out; every other undecided anchor is informational.
-  - { anchor: module:ldap, reason: deferred, rationale: User-management integration the curated model deliberately leaves out. }
-  - { anchor: module:saml2, reason: deferred, rationale: User-management integration the curated model deliberately leaves out. }
-  - { anchor: module:passkey, reason: deferred, rationale: User-management integration the curated model deliberately leaves out. }
-  - { anchor: module:passkey-admin, reason: sub-option, rationale: "Administrator reauthentication policy within passkey support, not an independent feature." }
-  - { anchor: module:atlasml, reason: sub-option, rationale: AtlasML is an extra sub-switch of Atlas rather than an independent feature. }
-  - { anchor: module:atlasllm, reason: sub-option, rationale: AtlasLLM is an extra sub-switch of Atlas rather than an independent feature. }
-  - { anchor: module:globalsearch, reason: deferred, rationale: Revisit in the future. }
-  - { anchor: module:hyperion-exercise-generation, reason: deferred, rationale: "Generation needs Hyperion, the localci and localvc profiles, and a separately provisioned AI Worker whose generation workload Artemis does not ship yet; revisit as a child of hyperion once the worker layer is deployable." }
+
+  - anchor: module:ldap
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out.
+
+  - anchor: module:saml2
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out.
+
+  - anchor: module:passkey
+    reason: deferred
+    rationale: User-management integration the curated model deliberately leaves out.
+
+  - anchor: module:passkey-admin
+    reason: sub-option
+    rationale: Administrator reauthentication policy within passkey support, not an independent feature.
+
+  - anchor: module:atlasml
+    reason: sub-option
+    rationale: AtlasML is an extra sub-switch of Atlas rather than an independent feature.
+
+  - anchor: module:atlasllm
+    reason: sub-option
+    rationale: AtlasLLM is an extra sub-switch of Atlas rather than an independent feature.
+
+  - anchor: module:globalsearch
+    reason: deferred
+    rationale: Revisit in the future.
+
+  - anchor: module:hyperion-exercise-generation
+    reason: deferred
+    rationale: >-
+      Generation needs Hyperion, the localci and localvc profiles, and a separately provisioned AI Worker whose
+      generation workload Artemis does not ship yet; revisit as a child of hyperion once the worker layer is deployable.
 
 conceptualNodes:
-  - { id: teaching-and-content, parent: artemis, kind: group, order: 1, name: Teaching and Content, description: "Course-facing teaching, content, and communication capabilities." }
-  - { id: course-workflow, parent: teaching-and-content, kind: module, optionality: mandatory, order: 3, name: Course Workflow, description: "Core course creation, access, overview, and lifecycle workflows." }
-  - { id: communication, parent: teaching-and-content, kind: module, optionality: mandatory, order: 4, name: Communication, description: "Course communication, messaging, and notification workflows." }
-  - { id: exercise-system, parent: artemis, kind: group, order: 2, name: Exercise System, description: Shared exercise infrastructure and supported exercise types. }
-  - { id: exercise-common, parent: exercise-system, kind: module, optionality: mandatory, order: 1, name: Common Exercise Infrastructure, description: "Shared creation, participation, submission, and assessment infrastructure for exercises." }
-  - { id: programming, parent: exercise-system, kind: module, optionality: mandatory, order: 2, name: Programming Exercises, description: "Programming exercise authoring, participation, and automated assessment workflows." }
-  - { id: quiz, parent: exercise-system, kind: module, optionality: mandatory, order: 3, name: Quiz Exercises, description: "Quiz authoring, participation, and assessment workflows." }
-  - { id: assessment-and-integrity, parent: artemis, kind: group, order: 3, name: Assessment and Integrity, description: "Exam, assessment-support, and academic-integrity capabilities." }
-  - { id: adaptive-learning-and-ai, parent: artemis, kind: group, order: 4, name: Adaptive Learning and AI, description: "Adaptive learning, tutoring, feedback, and AI-assisted capabilities." }
-  - { id: platform-integrations, parent: artemis, kind: group, order: 5, name: Platform Integrations, description: "Authentication, external platform, editor, and sharing integrations." }
+  # Structure of the curated model that has no Artemis anchor: the functional groups and the mandatory core modules.
+
+  - id: teaching-and-content
+    parent: artemis
+    kind: group
+    order: 1
+    name: Teaching and Content
+    description: Course-facing teaching, content, and communication capabilities.
+
+  - id: course-workflow
+    parent: teaching-and-content
+    kind: module
+    optionality: mandatory
+    order: 3
+    name: Course Workflow
+    description: Core course creation, access, overview, and lifecycle workflows.
+
+  - id: communication
+    parent: teaching-and-content
+    kind: module
+    optionality: mandatory
+    order: 4
+    name: Communication
+    description: Course communication, messaging, and notification workflows.
+
+  - id: exercise-system
+    parent: artemis
+    kind: group
+    order: 2
+    name: Exercise System
+    description: Shared exercise infrastructure and supported exercise types.
+
+  - id: exercise-common
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 1
+    name: Common Exercise Infrastructure
+    description: Shared creation, participation, submission, and assessment infrastructure for exercises.
+
+  - id: programming
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 2
+    name: Programming Exercises
+    description: Programming exercise authoring, participation, and automated assessment workflows.
+
+  - id: quiz
+    parent: exercise-system
+    kind: module
+    optionality: mandatory
+    order: 3
+    name: Quiz Exercises
+    description: Quiz authoring, participation, and assessment workflows.
+
+  - id: assessment-and-integrity
+    parent: artemis
+    kind: group
+    order: 3
+    name: Assessment and Integrity
+    description: Exam, assessment-support, and academic-integrity capabilities.
+
+  - id: adaptive-learning-and-ai
+    parent: artemis
+    kind: group
+    order: 4
+    name: Adaptive Learning and AI
+    description: Adaptive learning, tutoring, feedback, and AI-assisted capabilities.
+
+  - id: platform-integrations
+    parent: artemis
+    kind: group
+    order: 5
+    name: Platform Integrations
+    description: Authentication, external platform, editor, and sharing integrations.
+
   # Technical xor groups: exactly one child per deployment; the pairwise exclusions are derived.
-  - { id: database, parent: artemis, kind: group, category: technical, groupType: alternative, order: 6, name: Database, description: Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks. }
-  - { id: ci-provider, parent: artemis, kind: group, category: technical, groupType: alternative, order: 7, name: CI Provider, description: Exactly one continuous-integration provider builds programming exercises in a deployment. }
+
+  - id: database
+    parent: artemis
+    kind: group
+    category: technical
+    groupType: alternative
+    order: 6
+    name: Database
+    description: Exactly one database system backs a deployment; the alternatives are encoded by paired compose stacks.
+
+  - id: ci-provider
+    parent: artemis
+    kind: group
+    category: technical
+    groupType: alternative
+    order: 7
+    name: CI Provider
+    description: Exactly one continuous-integration provider builds programming exercises in a deployment.
 
 constraints:
+  # Cross-tree constraints beyond the derived alternative-group exclusions; enforcing one remains a manifest decision.
+
   - id: apollon-requires-modeling
     type: requires
     source: apollon
@@ -115,6 +284,8 @@ constraints:
     description: Apollon PDF conversion is only meaningful for modeling exercise UML models in the functional feature model.
 
 ignoredRelations:
+  # Relation evidence between two included features that deliberately does not become a constraint.
+
   - id: relation:LectureWithIrisEnabled
     rationale: >-
       The composite condition only guards the lecture-scoped Iris integration points. Lecture and Iris remain
