@@ -47,6 +47,12 @@ public record AnsibleBindingCatalog(int catalogVersion, String collectionPin, St
     public static final String UNSUPPORTED_WHEN_SELECTED = "selected";
 
     /**
+     * Token in the common config content that the planner replaces with the Artemis image tag of the active model's
+     * source commit; it must occur exactly once there and nowhere else.
+     */
+    public static final String ARTEMIS_IMAGE_TAG_TOKEN = "@ARTEMIS_IMAGE_TAG@";
+
+    /**
      * Normalizes an absent description map to an empty map and keeps blank entries, so the loader can name them.
      *
      * @param catalogVersion catalog format and content version.

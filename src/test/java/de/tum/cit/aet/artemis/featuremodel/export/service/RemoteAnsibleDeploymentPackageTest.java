@@ -52,6 +52,8 @@ class RemoteAnsibleDeploymentPackageTest {
 
     private AnsibleBindingCatalog catalog;
 
+    private String artemisSourceCommit;
+
     @BeforeEach
     void setUp() {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
@@ -62,6 +64,7 @@ class RemoteAnsibleDeploymentPackageTest {
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
+        artemisSourceCommit = catalogService.loadActiveModel().model().sourceCommitSha();
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
@@ -152,6 +155,19 @@ class RemoteAnsibleDeploymentPackageTest {
     }
 
     @Test
+    void manifestAndReadmeNameTheArtemisImageOfTheModelSourceCommit() {
+        GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
+
+        String expectedTag = "sha-" + artemisSourceCommit;
+        DeploymentPackageManifest manifest = objectMapper.readValue(content(result, "metadata/package-manifest.json"), DeploymentPackageManifest.class);
+        assertThat(manifest.artemisRuntime().imageRepository()).isEqualTo("ghcr.io/ls1intum/artemis");
+        assertThat(manifest.artemisRuntime().imageDigest()).isNull();
+        assertThat(manifest.artemisRuntime().imageTag()).isEqualTo(expectedTag);
+        assertThat(content(result, "README.md")).contains("`ghcr.io/ls1intum/artemis:" + expectedTag + "`");
+        assertThat(content(result, "inventory/group_vars/artemistests_common_config.yml")).contains("artemis_version: \"" + expectedTag + "\"");
+    }
+
+    @Test
     void readinessRecordsLayersClassificationsAndDualAxisProvenance() {
         GeneratedArtifactPackage result = service.generate(remoteRequest(FULL_POSTGRES_SELECTION));
 
@@ -166,7 +182,7 @@ class RemoteAnsibleDeploymentPackageTest {
             requiredNames.add(name.asString());
         }
         assertThat(requiredNames).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST");
-        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(4);
+        assertThat(readiness.get("bindingCatalog").get("catalogVersion").asInt()).isEqualTo(5);
         assertThat(readiness.get("bindingCatalog").get("collectionPin").asString()).isEqualTo(collectionPin);
         assertThat(readiness.get("model").get("id").asString()).isNotEmpty();
     }

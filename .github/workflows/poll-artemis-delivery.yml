@@ -1,13 +1,14 @@
 name: Artemis delivery poller
 
 # Delivery trigger: resolves the tracking Artemis ref once at job start (or takes an explicitly supplied
-# immutable SHA), short-circuits when the identity is already published, publishes through the reusable publication
-# workflow, and opens the delivery auto-PR containing the classpath fixture refresh, the validation-pin bump, and the
-# guided-workflow coverage summary.
+# immutable SHA), requires the Artemis image that Artemis CI published for that commit, short-circuits when the
+# identity is already published, publishes through the reusable publication workflow, and opens the delivery auto-PR
+# containing the classpath fixture refresh, the validation-pin bump, and the guided-workflow coverage summary.
 #
 # Input contract (documented, Artemis-side implementation out of scope): an Artemis-side event invokes
 # `repository_dispatch` with event type `artemis-commit` and client payload `{"artemis_sha": "<full-40-hex-sha>"}`.
-# The payload SHA enters the same explicit-SHA path as a manual dispatch; the schedule remains as a fallback.
+# The payload SHA enters the same explicit-SHA path as a manual dispatch; the schedule remains as a fallback. The event
+# must follow the Artemis image build, because an explicit SHA without a published image fails the run.
 on:
   schedule:
     - cron: '23 4 * * 1,4'
@@ -31,6 +32,7 @@ concurrency:
 
 env:
   REGISTRY_IMAGE: ghcr.io/ls1intum/artemis-feature-model
+  ARTEMIS_IMAGE: ghcr.io/ls1intum/artemis
   ARTEMIS_REPOSITORY: https://github.com/ls1intum/Artemis.git
   ARTEMIS_TRACKING_REF: refs/heads/develop
 
@@ -43,6 +45,7 @@ jobs:
       artemis_sha: ${{ steps.resolve.outputs.artemis_sha }}
       snapshot_id: ${{ steps.identity.outputs.snapshot_id }}
       proceed: ${{ steps.short-circuit.outputs.proceed }}
+      skip_reason: ${{ steps.short-circuit.outputs.skip_reason }}
 
     steps:
       - name: Check out repository
@@ -58,6 +61,7 @@ jobs:
           EVENT_ARTEMIS_SHA: ${{ github.event.client_payload.artemis_sha }}
         run: |
           set -euo pipefail
+          explicit=true
           if [[ -n "${EVENT_ARTEMIS_SHA:-}" ]]; then
             artemis_sha="$EVENT_ARTEMIS_SHA"
             echo "Target from repository_dispatch payload."
@@ -65,11 +69,35 @@ jobs:
             artemis_sha="$INPUT_ARTEMIS_SHA"
             echo "Target from explicit dispatch input."
           else
+            explicit=false
             artemis_sha=$(git ls-remote "$ARTEMIS_REPOSITORY" "$ARTEMIS_TRACKING_REF" | awk '{ print $1 }')
             echo "Target resolved once from ${ARTEMIS_TRACKING_REF}."
           fi
           [[ "$artemis_sha" =~ ^[0-9a-f]{40}$ ]]
           echo "artemis_sha=$artemis_sha" >> "$GITHUB_OUTPUT"
+          echo "explicit=$explicit" >> "$GITHUB_OUTPUT"
+
+      # Remote deployment packages deploy the image Artemis CI tags sha-<commit> for the model's source commit. Artemis
+      # CI builds no image for documentation-only commits and pushes the tag only after its build finishes.
+      - name: Require the Artemis image of the target commit
+        id: artemis-image
+        shell: bash
+        env:
+          ARTEMIS_SHA: ${{ steps.resolve.outputs.artemis_sha }}
+          EXPLICIT: ${{ steps.resolve.outputs.explicit }}
+        run: |
+          set -euo pipefail
+          image="${ARTEMIS_IMAGE}:sha-${ARTEMIS_SHA}"
+          if docker buildx imagetools inspect "$image" > /dev/null 2>&1; then
+            echo "Artemis image ${image} is published."
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$EXPLICIT" == "true" ]]; then
+            echo "::error::Artemis image ${image} is not published, so remote packages of this commit could not deploy it. Deliver a commit with a published image."
+            exit 1
+          else
+            echo "::warning::Artemis image ${image} is not published yet; skipping this delivery so that a later run delivers a commit with an image."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Compute content-addressed snapshot id
         id: identity
@@ -81,22 +109,29 @@ jobs:
           manifest_digest=$(sha256sum src/main/resources/feature-model/extraction/artemis-feature-manifest.yml | awk '{ print $1 }')
           echo "snapshot_id=generated-${ARTEMIS_SHA:0:12}-${manifest_digest:0:12}" >> "$GITHUB_OUTPUT"
 
-      - name: Short-circuit when this identity is already published from this source commit
+      - name: Short-circuit when the Artemis image is missing or this identity is already published from this source commit
         id: short-circuit
         shell: bash
         env:
           SNAPSHOT_ID: ${{ steps.identity.outputs.snapshot_id }}
+          ARTEMIS_IMAGE_AVAILABLE: ${{ steps.artemis-image.outputs.available }}
         run: |
           set -euo pipefail
           proceed=true
-          if image_config=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:${SNAPSHOT_ID}" --format '{{ json .Image }}' 2>/dev/null); then
+          skip_reason=
+          if [[ "$ARTEMIS_IMAGE_AVAILABLE" != "true" ]]; then
+            proceed=false
+            skip_reason=missing-artemis-image
+          elif image_config=$(docker buildx imagetools inspect "${REGISTRY_IMAGE}:${SNAPSHOT_ID}" --format '{{ json .Image }}' 2>/dev/null); then
             published_revision=$(printf '%s' "$image_config" | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty')
             if [[ "$published_revision" == "$GITHUB_SHA" ]]; then
               proceed=false
+              skip_reason=already-published
               echo "Snapshot ${SNAPSHOT_ID} from source commit ${GITHUB_SHA} is already published; nothing to deliver."
             fi
           fi
           echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=$skip_reason" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Validate and publish
@@ -252,10 +287,16 @@ jobs:
         env:
           SNAPSHOT_ID: ${{ needs.resolve.outputs.snapshot_id }}
           ARTEMIS_SHA: ${{ needs.resolve.outputs.artemis_sha }}
+          SKIP_REASON: ${{ needs.resolve.outputs.skip_reason }}
         run: |
           {
             echo '## Delivery short-circuited'
             echo
-            echo "- Artemis commit \`${ARTEMIS_SHA}\` resolves to snapshot \`${SNAPSHOT_ID}\`, which this source commit already published."
+            if [[ "$SKIP_REASON" == "missing-artemis-image" ]]; then
+              echo "- Artemis commit \`${ARTEMIS_SHA}\` has no published image \`${ARTEMIS_IMAGE}:sha-${ARTEMIS_SHA}\` yet, so remote packages could not deploy it."
+              echo '- Artemis CI builds no image for documentation-only commits and publishes the tag after its build; a later run delivers a newer commit.'
+            else
+              echo "- Artemis commit \`${ARTEMIS_SHA}\` resolves to snapshot \`${SNAPSHOT_ID}\`, which this source commit already published."
+            fi
             echo '- No validation, publication, or delivery PR was produced.'
           } >> "$GITHUB_STEP_SUMMARY"

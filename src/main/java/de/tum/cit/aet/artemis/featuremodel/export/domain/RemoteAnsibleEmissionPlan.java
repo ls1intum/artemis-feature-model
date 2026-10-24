@@ -11,12 +11,13 @@ import java.util.TreeSet;
  * and no secret or environment values.
  *
  * @param targetGroup inventory group name of the deployment target.
+ * @param artemisImageTag Artemis image tag the inventory deploys, derived from the active model's source commit.
  * @param valuesFiles rendered inventory files in package order.
  * @param envReferences environment references contained in the rendered files, in file order.
  * @param classifications per-feature classification results in model order.
  * @param bindingCatalog identity of the binding catalog the plan was produced with.
  */
-public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> valuesFiles, List<PlannedEnvReference> envReferences,
+public record RemoteAnsibleEmissionPlan(String targetGroup, String artemisImageTag, List<PlannedFile> valuesFiles, List<PlannedEnvReference> envReferences,
         List<FeatureClassificationResult> classifications, CatalogIdentity bindingCatalog) {
 
     /** Environment-reference kind of an admin-owned identity value. */
@@ -29,6 +30,7 @@ public record RemoteAnsibleEmissionPlan(String targetGroup, List<PlannedFile> va
      * Normalizes nullable collections to immutable empty lists.
      *
      * @param targetGroup inventory group name.
+     * @param artemisImageTag deployed Artemis image tag.
      * @param valuesFiles rendered inventory files.
      * @param envReferences contained environment references.
      * @param classifications per-feature classification results.

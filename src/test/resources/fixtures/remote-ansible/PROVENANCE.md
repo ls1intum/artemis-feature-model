@@ -34,6 +34,12 @@ values:
   the connection line. It also wires `artemistests_without_atlas`, which the reference inventory does not need:
   Atlas is enabled by default in the Artemis image, so a selection without Atlas must switch it off explicitly.
 
+## Artemis image tag
+
+`artemistests_common_config.yml` keeps the catalog token `@ARTEMIS_IMAGE_TAG@` as the value of `artemis_version`.
+The package deploys `sha-<commit>` for the source commit of the model, and every delivery moves that commit, so
+`RemoteAnsibleGoldenFixtureTest` replaces the token with the tag of the loaded model before it compares bytes.
+
 ## Collection pin
 
 The fixtures match the collection pin of the binding catalog. The pinned collection deploys PostgreSQL only, so

@@ -1,34 +1,45 @@
 package de.tum.cit.aet.artemis.featuremodel.export.domain;
 
+import java.util.regex.Pattern;
+
 /**
- * Image coordinates for the Artemis runtime used by a generated deployment package.
+ * Image coordinates for the Artemis runtime used by a generated deployment package. A package names its image either
+ * by a pinned digest or by the per-commit tag of the model's source commit.
  *
  * @param imageRepository official Artemis application image repository.
- * @param imageDigest original configured digest, or the special value {@code latest}.
+ * @param imageDigest pinned image digest, or {@code null} when the package names its image by tag.
+ * @param imageTag per-commit image tag, or {@code null} when a digest is pinned or the package names no image.
  */
-public record ArtemisRuntimeSource(String imageRepository, String imageDigest) {
+public record ArtemisRuntimeSource(String imageRepository, String imageDigest, String imageTag) {
 
-    /** Special digest value that selects the mutable {@code latest} tag instead of an exact digest. */
-    private static final String LATEST = "latest";
+    /** Prefix of the immutable per-commit tag Artemis CI publishes for every image it builds. */
+    private static final String COMMIT_TAG_PREFIX = "sha-";
+
+    private static final Pattern FULL_COMMIT_SHA = Pattern.compile("[0-9a-f]{40}");
 
     /**
-     * Renders the configured Artemis image reference.
+     * Derives the image tag Artemis CI publishes for an Artemis commit. Only a full commit names a pushed tag; an
+     * abbreviated commit would name a tag that was never pushed.
      *
-     * @return tag reference for {@code latest}, otherwise a digest reference.
+     * @param commit Artemis commit, possibly {@code null}.
+     * @return {@code sha-<commit>}, or {@code null} if the value is no full 40-character commit SHA.
      */
-    public String imageReference() {
-        if (usesLatestTag()) {
-            return imageRepository + ":" + LATEST;
+    public static String commitTag(String commit) {
+        if (commit == null || !FULL_COMMIT_SHA.matcher(commit).matches()) {
+            return null;
         }
-        return imageRepository + "@" + imageDigest;
+        return COMMIT_TAG_PREFIX + commit;
     }
 
     /**
-     * Checks whether the configured digest selects the mutable {@code latest} tag.
+     * Renders the Artemis image reference.
      *
-     * @return true if the image is referenced through the {@code latest} tag.
+     * @return digest reference for a pinned digest, otherwise the tag reference.
      */
-    public boolean usesLatestTag() {
-        return LATEST.equals(imageDigest);
+    public String imageReference() {
+        if (imageDigest != null) {
+            return imageRepository + "@" + imageDigest;
+        }
+        return imageRepository + ":" + imageTag;
     }
 }

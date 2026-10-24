@@ -88,12 +88,16 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   applies the selected CI profile family while recording its developer-managed
   database choice and generating actionable MySQL or PostgreSQL instructions.
   `local-docker` generates an extends-based Compose stack for the selected
-  database and CI provider plus a self-contained stack using the configured
-  `ghcr.io/ls1intum/artemis` image. `start-demo.sh` uses the local checkout when
-  given a path and the remote image without an argument. The runtime image
-  digest is resolved strictly from active snapshot metadata or the classpath
-  runtime properties; `latest` is rendered as a mutable tag and other values as
-  digest references. Packages record no Artemis source commit; the static
+  database and CI provider plus a self-contained stack using the
+  `ghcr.io/ls1intum/artemis:sha-<commit>` image of the active model's
+  `sourceCommitSha` (pulled only when missing; generation fails closed without a
+  full commit). `start-demo.sh` uses the local checkout when given a path and the
+  remote image without an argument. A `sha256:` digest resolved strictly from
+  active snapshot metadata or the classpath runtime properties pins a different
+  image; the configured value `latest` pins none. The local checkout path runs
+  the image its own Compose file selects (usually the newest `latest`), which the
+  package README spells out. Packages carry no separate source-commit field; the
+  image tag names the model commit, and the static
   config validation report names the commit the overlay keys were verified
   against. Both stacks retain selection-consistency runtime checks.
   Its integrated-code-lifecycle stack points LocalVC at the containerized
@@ -112,7 +116,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   playbook, inventory membership wiring and group values, preflight script)
   plus remote metadata (`remote-readiness.json`, `env-references.json`).
   Values come from the curated Ansible binding catalog
-  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`, catalog v4),
+  (`src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`, catalog v5),
   a YAML catalog using literal content blocks, stripped `#:` annotations,
   and derived group filenames and environment references. It is an
   application resource in both source modes, versioned by its collection
@@ -136,6 +140,14 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   deselection-gated for the same reason: its image-shipped default is enabled,
   so deselection emits an explicit `atlas.enabled: false` group
   (`artemistests_without_atlas`) while selection emits nothing. The package
+  deploys the Artemis image of the active model's `sourceCommitSha` (the
+  validation pin in classpath mode): the planner replaces the catalog's
+  `@ARTEMIS_IMAGE_TAG@` token in `artemis_version` with `sha-<commit>`, the
+  per-commit tag Artemis CI pushes, records it as `artemisRuntime.imageTag` in
+  the manifest, and fails closed with a controlled 400 when the model names no
+  full commit; Compose files still follow the `develop` branch head, because
+  the collection checks out branch names only. The golden fixture keeps the
+  token and its test derives the tag from the loaded model. The package
   bakes no environment value at all: every identity and secret value is
   emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
   user-provisioned environment-variable names (8 identity plus 13
@@ -317,9 +329,11 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   published digest as `verified` without rebuilding and appends to the
   `delivery/verified-images.json` ledger via an automated PR; rollback is
   promotion of a prior ledger entry. The scheduled poller
-  (`poll-artemis-delivery.yml`) resolves the Artemis tracking ref, publishes,
-  and opens the delivery auto-PR (fixture refresh, validation-pin bump,
-  coverage summary). No workflow publishes `latest` or deploys the image;
+  (`poll-artemis-delivery.yml`) resolves the Artemis tracking ref, requires
+  the `ghcr.io/ls1intum/artemis:sha-<commit>` image of that commit (a
+  scheduled run without it short-circuits, an explicit SHA without it fails),
+  publishes, and opens the delivery auto-PR (fixture refresh, validation-pin
+  bump, coverage summary). No workflow publishes `latest` or deploys the image;
   deployment remains deferred. The cutover to the Artemis-hosted manifest is
   documented in the Maintainer Guide
   (`documentation/docs/maintainer/tasks/manifest-cutover.mdx`) and not

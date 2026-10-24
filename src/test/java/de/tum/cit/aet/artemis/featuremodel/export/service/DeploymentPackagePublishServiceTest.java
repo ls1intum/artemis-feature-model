@@ -129,7 +129,7 @@ class DeploymentPackagePublishServiceTest {
 
         String message = headCommitMessage();
         assertThat(message).startsWith("deploy artemis-remote: model ");
-        assertThat(message).contains("catalog v4@" + catalogLoader.catalog().collectionPin().substring(0, 7));
+        assertThat(message).contains("catalog v" + catalogLoader.catalog().catalogVersion() + "@" + catalogLoader.catalog().collectionPin().substring(0, 7));
         assertThat(message).contains("\nprofile: ");
         assertThat(message).contains("database: postgresql   ci: integrated-code-lifecycle");
         assertThat(message).contains("modules off: atlas, exam, tutorialgroup");

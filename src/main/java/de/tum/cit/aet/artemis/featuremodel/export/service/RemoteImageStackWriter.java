@@ -104,7 +104,7 @@ public class RemoteImageStackWriter {
         yaml.append("    artemis-app:\n");
         yaml.append("        image: \"").append(imageReference).append("\"\n");
         yaml.append("        container_name: artemis-feature-model-local-app\n");
-        yaml.append("        pull_policy: always\n");
+        yaml.append("        pull_policy: missing\n");
         yaml.append("        ports:\n");
         yaml.append("            - \"8080:8080\"\n");
         yaml.append("            - \"5005:5005\"\n");

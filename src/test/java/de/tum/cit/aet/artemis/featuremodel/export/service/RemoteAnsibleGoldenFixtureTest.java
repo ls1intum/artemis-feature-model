@@ -20,6 +20,7 @@ import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogSe
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
 import de.tum.cit.aet.artemis.featuremodel.deployment.repository.DeploymentProfileRepository;
 import de.tum.cit.aet.artemis.featuremodel.deployment.service.DeploymentProfileService;
+import de.tum.cit.aet.artemis.featuremodel.export.domain.AnsibleBindingCatalog;
 import de.tum.cit.aet.artemis.featuremodel.export.domain.GeneratedArtifactPackage;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.ArtifactGenerationRequest;
 import de.tum.cit.aet.artemis.featuremodel.export.dto.RemoteEnvironmentInput;
@@ -33,7 +34,9 @@ import tools.jackson.databind.ObjectMapper;
  * reference inventory that was deployed successfully, and split into two classes: structural files stay byte-identical
  * to the reference inventory, while value-bearing files are package-own expectations rendering environment lookup
  * expressions. Provenance and the class split are recorded in {@code PROVENANCE.md} next to the fixtures. Updating a
- * fixture is a deliberate, reviewed act.
+ * fixture is a deliberate, reviewed act. The deployed Artemis image tag follows the model's source commit, which every
+ * delivery moves, so the fixtures hold the catalog's image tag token and the test derives the expected tag from the
+ * loaded model.
  */
 class RemoteAnsibleGoldenFixtureTest {
 
@@ -47,6 +50,8 @@ class RemoteAnsibleGoldenFixtureTest {
 
     private DeploymentPackageService service;
 
+    private String expectedArtemisImageTag;
+
     @BeforeEach
     void setUp() {
         DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
@@ -54,6 +59,7 @@ class RemoteAnsibleGoldenFixtureTest {
         FeatureModelTreeService treeService = new FeatureModelTreeService();
         JsonFeatureModelStore store = new JsonFeatureModelStore(resourceLoader, objectMapper);
         FeatureModelCatalogService catalogService = new FeatureModelCatalogService(store, new FeatureModelIntegrityService(), treeService);
+        expectedArtemisImageTag = "sha-" + catalogService.loadActiveModel().model().sourceCommitSha();
         FeatureModelValidationService validationService = new FeatureModelValidationService(catalogService, treeService);
         DeploymentProfileRepository repository = new DeploymentProfileRepository(new SnapshotProperties(dataRoot.toString(), null), objectMapper);
         DeploymentProfileService profileService = new DeploymentProfileService(repository);
@@ -103,7 +109,8 @@ class RemoteAnsibleGoldenFixtureTest {
     private String fixtureContent(String fixtureName) {
         try (InputStream inputStream = getClass().getResourceAsStream(FIXTURE_DIR + fixtureName)) {
             assertThat(inputStream).as("fixture resource %s", fixtureName).isNotNull();
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            String content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            return content.replace(AnsibleBindingCatalog.ARTEMIS_IMAGE_TAG_TOKEN, expectedArtemisImageTag);
         }
         catch (IOException e) {
             throw new IllegalStateException("Could not read fixture " + fixtureName + ".", e);

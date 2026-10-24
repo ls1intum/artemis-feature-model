@@ -4,9 +4,12 @@ title: Update the Artemis Runtime Image Reference
 sidebar_label: Update the Runtime Image
 ---
 
-A Docker deployment package can start Artemis from a published Artemis image instead of a local checkout. This page
-shows how to choose which Artemis image that is. You need it when you want generated packages to use a fixed,
-tested Artemis version instead of the newest one.
+A Docker deployment package can start Artemis from a published Artemis image instead of a local checkout. By default,
+it runs the image that Artemis CI built from the commit the model was extracted from, the same image that remote
+deployment packages deploy. This page shows how to pin a different image by its digest instead. You need it when Docker
+packages should run a specific image, for example a release, whatever commit the model comes from. Remote deployment
+packages ignore this reference; they always deploy the image of the
+[validation pin](/maintainer/pipeline/delivery-files#the-validation-pin).
 
 ## What the reference controls
 
@@ -16,8 +19,8 @@ reference decides which version of this image the stack names:
 
 | Reference | Rendered as | Effect |
 |---|---|---|
-| `latest` | `ghcr.io/ls1intum/artemis:latest` | Every start pulls the newest Artemis image |
-| `sha256:<digest>` | `ghcr.io/ls1intum/artemis@sha256:<digest>` | Every start runs exactly this image |
+| `latest` | `ghcr.io/ls1intum/artemis:sha-<commit>` | Runs the image of the model's source commit; pins no digest |
+| `sha256:<digest>` | `ghcr.io/ls1intum/artemis@sha256:<digest>` | Runs exactly this image, whatever the model's commit |
 
 The reference lives in two places, one for each source mode of the application:
 
@@ -26,7 +29,7 @@ The reference lives in two places, one for each source mode of the application:
 - `artemis.feature-model.runtime.image-digest` in `src/main/resources/application.yml` for local development, which
   serves the classpath fixture.
 
-Keep both values equal.
+Keep both values equal. To return to the image of the model's commit, set both back to `latest`.
 
 ## Choose an image digest
 

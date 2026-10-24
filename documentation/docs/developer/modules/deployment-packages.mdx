@@ -56,9 +56,12 @@ stop the stack.
 text and that the overlay passes static validation. The package README states the supported hosts: Linux with Docker
 Engine, macOS with Docker Desktop, and Windows through WSL2.
 
-The image reference comes from the active snapshot or, in classpath mode, from
-`artemis.feature-model.runtime.image-digest`. The value `latest` becomes a mutable tag; any other value is used as a
-digest.
+The self-contained stack runs `ghcr.io/ls1intum/artemis:sha-<commit>`, the image of the model's `sourceCommitSha`
+and the same image that remote packages deploy, and pulls it only when it is missing. A `sha256:` digest in the active
+snapshot or, in classpath mode, in `artemis.feature-model.runtime.image-digest` pins a different image; the value
+`latest` pins none. Without a pinned digest, a model without a full commit fails with
+`ARTIFACT_GENERATION_MISSING_ARTEMIS_RUNTIME_VALUE`. The checkout path runs whatever image the checkout's Compose file
+selects, usually the newest `latest`, and the package README says so.
 
 A selection with `jenkins` produces a package without a Jenkins service. The package says so in a warning, and its
 `jenkins-stack-available` check fails.
@@ -101,6 +104,14 @@ The binding catalog describes every environment variable in its `environment` se
 referenced variable has no description or a description names no referenced variable. The package lists the
 variables it needs in `metadata/env-references.json`, each with its `kind` and `description`, and its README shows the
 same list as a table that says whether the value is a GitHub Environment secret or variable.
+
+The package deploys the Artemis image of the commit that the model was extracted from. The catalog's common
+configuration sets `artemis_version` to the token `@ARTEMIS_IMAGE_TAG@`, and `RemoteAnsibleEmissionPlanner` replaces it
+with `sha-<commit>`, the tag that Artemis CI pushes for every commit it builds. The commit is the `sourceCommitSha` of
+the active model; in classpath mode it equals the validation pin, because the delivery pull request moves both
+together. A model without a full commit fails with `ARTIFACT_GENERATION_REMOTE_ANSIBLE_MISSING_SOURCE_COMMIT`. The
+manifest records the tag in `artemisRuntime.imageTag`. The collection checks out the Compose files by branch name, so
+they still come from the head of `develop`.
 
 The optional `remoteEnvironment.targetName` in the request names the inventory target group; the review page sends the
 value of its **Target name** field.

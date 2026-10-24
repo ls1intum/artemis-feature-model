@@ -61,9 +61,11 @@ public class RemoteAnsibleValuesWriter {
      * @param modelVersion active feature model version.
      * @param profileId active deployment profile id.
      * @param envReferences planned environment references in {@code env-references.json} order.
+     * @param artemisImageTag Artemis image tag the generated inventory deploys.
      * @return README markdown text.
      */
-    public String packageReadme(String modelId, String modelVersion, String profileId, List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences) {
+    public String packageReadme(String modelId, String modelVersion, String profileId, List<RemoteAnsibleEmissionPlan.PlannedEnvReference> envReferences,
+            String artemisImageTag) {
         return """
                 # Artemis Remote Deployment Package (Ansible)
 
@@ -149,10 +151,12 @@ public class RemoteAnsibleValuesWriter {
                 ansible-playbook -i inventory/hosts playbook.yml
                 ```
 
-                The deployed Artemis version is set by `artemis_version` in
-                `inventory/group_vars/artemistests_common_config.yml` (baseline: `develop`). Telemetry reporting is
-                disabled by default (`artemis_telemetry_enabled: false`); review the generated values before pointing
-                a deployment at any shared infrastructure.
+                The package deploys the Artemis image `ghcr.io/ls1intum/artemis:%s`, which Artemis CI built from
+                the commit the feature model was extracted from. `artemis_version` in
+                `inventory/group_vars/artemistests_common_config.yml` sets this tag; the Compose files still come from
+                the head of the branch in `artemis_branch`. Telemetry reporting is disabled by default
+                (`artemis_telemetry_enabled: false`); review the generated values before pointing a deployment at any
+                shared infrastructure.
 
                 ## Lifecycle boundary
 
@@ -160,7 +164,8 @@ public class RemoteAnsibleValuesWriter {
                 the values are generated, and environment values appear only as lookup expressions. It did **not**
                 prove the inventory renders or boots — that is the preflight's and the admin's job. See
                 `metadata/remote-readiness.json`.
-                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin(), environmentTable(envReferences));
+                """.formatted(modelId, modelVersion, profileId, catalog.catalogVersion(), catalog.collectionPin(), environmentTable(envReferences),
+                        artemisImageTag);
     }
 
     /**

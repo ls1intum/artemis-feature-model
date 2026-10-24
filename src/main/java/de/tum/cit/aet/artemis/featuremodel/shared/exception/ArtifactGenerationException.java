@@ -210,6 +210,19 @@ public class ArtifactGenerationException extends RuntimeException {
     }
 
     /**
+     * Creates a bad-request exception for an active model that names no full Artemis source commit, so the
+     * remote-ansible package cannot name the Artemis image of that commit.
+     *
+     * @param sourceCommit source commit recorded in the active model metadata, possibly {@code null}.
+     * @return missing source commit exception.
+     */
+    public static ArtifactGenerationException remoteAnsibleMissingSourceCommit(String sourceCommit) {
+        String message = "Cannot generate a remote-ansible package: the active feature model must name its Artemis source commit as a full "
+                + "40-character SHA to select the Artemis image, but model.sourceCommitSha is '" + sourceCommit + "'.";
+        return new ArtifactGenerationException("ARTIFACT_GENERATION_REMOTE_ANSIBLE_MISSING_SOURCE_COMMIT", message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Creates a bad-request exception for a remote environment component supplied on a non-remote deployment mode.
      *
      * @param deploymentMode resolved deployment mode of the request.

@@ -7,11 +7,18 @@ import de.tum.cit.aet.artemis.featuremodel.export.domain.ArtemisRuntimeSource;
 import de.tum.cit.aet.artemis.featuremodel.extraction.domain.GeneratedSnapshotMetadata;
 import de.tum.cit.aet.artemis.featuremodel.shared.exception.ArtifactGenerationException;
 
-/** Resolves the Artemis runtime image from the active snapshot or the classpath runtime properties. */
+/**
+ * Resolves the Artemis runtime image from the active snapshot or the classpath runtime properties. A configured
+ * {@code sha256:} digest pins the image; the configured value {@code latest} pins none, so a package runs the
+ * per-commit image of the model's source commit.
+ */
 @Component
 public class ArtemisRuntimeSourceResolver {
 
     private static final String IMAGE_REPOSITORY = "ghcr.io/ls1intum/artemis";
+
+    /** Configured digest value that pins no digest, so packages run the per-commit image of the model's source commit. */
+    private static final String NO_PINNED_DIGEST = "latest";
 
     private final RuntimeFeatureModelBundle runtimeBundle;
 
@@ -29,45 +36,47 @@ public class ArtemisRuntimeSourceResolver {
     }
 
     /**
-     * Resolves and validates the runtime image required by local-docker generation.
+     * Resolves and validates the runtime image required by local-docker generation: the configured digest when one is
+     * pinned, otherwise the per-commit image of the model's source commit, the Artemis commit that the overlay keys
+     * were verified against.
      *
+     * @param sourceCommit Artemis source commit of the active model.
      * @return complete Artemis runtime source.
-     * @throws ArtifactGenerationException if the selected source lacks an image digest.
+     * @throws ArtifactGenerationException if the selected source configures no value, or no digest is pinned and the
+     *             model names no full source commit.
      */
-    public ArtemisRuntimeSource resolveForLocalDocker() {
+    public ArtemisRuntimeSource resolveForLocalDocker(String sourceCommit) {
         GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
-        ArtemisRuntimeSource source = metadata == null ? fromClasspath() : fromSnapshot(metadata);
-        requireValue(source.imageDigest(), sourceLabel(metadata));
-        return source;
+        String configuredDigest = configuredDigest(metadata);
+        requireValue(configuredDigest, sourceLabel(metadata));
+        if (!NO_PINNED_DIGEST.equals(configuredDigest)) {
+            return new ArtemisRuntimeSource(IMAGE_REPOSITORY, configuredDigest, null);
+        }
+        String imageTag = ArtemisRuntimeSource.commitTag(sourceCommit);
+        requireValue(imageTag, "model.sourceCommitSha, which must be a full 40-character commit SHA when no image digest is pinned");
+        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, null, imageTag);
     }
 
     /**
      * Resolves the available runtime image for dev-ide without imposing remote-image requirements.
      *
-     * @return Artemis runtime source whose image digest may be absent for a legacy snapshot.
+     * @return Artemis runtime source with the pinned digest, if any, and no image tag.
      */
     public ArtemisRuntimeSource resolveForDevIde() {
-        GeneratedSnapshotMetadata metadata = runtimeBundle.snapshotMetadata();
-        return metadata == null ? fromClasspath() : fromSnapshot(metadata);
+        String configuredDigest = configuredDigest(runtimeBundle.snapshotMetadata());
+        boolean pinned = configuredDigest != null && !configuredDigest.isBlank() && !NO_PINNED_DIGEST.equals(configuredDigest);
+        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, pinned ? configuredDigest : null, null);
     }
 
     /**
-     * Builds a source exclusively from active snapshot metadata.
+     * Reads the configured digest exclusively from active snapshot metadata or, in classpath mode, from the runtime
+     * properties.
      *
-     * @param metadata active snapshot metadata.
-     * @return snapshot-derived runtime source.
+     * @param metadata active metadata, or null for classpath mode.
+     * @return configured digest value, possibly {@code null}.
      */
-    private ArtemisRuntimeSource fromSnapshot(GeneratedSnapshotMetadata metadata) {
-        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, metadata.imageDigest());
-    }
-
-    /**
-     * Builds a source exclusively from classpath runtime properties.
-     *
-     * @return classpath-derived runtime source.
-     */
-    private ArtemisRuntimeSource fromClasspath() {
-        return new ArtemisRuntimeSource(IMAGE_REPOSITORY, runtimeProperties.imageDigest());
+    private String configuredDigest(GeneratedSnapshotMetadata metadata) {
+        return metadata == null ? runtimeProperties.imageDigest() : metadata.imageDigest();
     }
 
     /**

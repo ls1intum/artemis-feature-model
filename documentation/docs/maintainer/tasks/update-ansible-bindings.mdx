@@ -64,6 +64,8 @@ Follow these rules:
   feature is switched off, for example to set `lecture: false`.
 - Lines that start with `#:` are notes for maintainers; the package leaves them out. Plain `#` comments stay in the
   package.
+- Keep `artemis_version: "@ARTEMIS_IMAGE_TAG@"` in the common configuration. The export replaces the token with the
+  Artemis image of the model's source commit, and the catalog fails to load without it.
 
 A new environment variable name also needs an entry in the expected list of `AnsibleBindingCatalogTest`, which pins
 the full set of names that operators must provide.

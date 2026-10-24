@@ -14,6 +14,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureModel;
 import de.tum.cit.aet.artemis.featuremodel.catalog.domain.FeatureNode;
+import de.tum.cit.aet.artemis.featuremodel.catalog.domain.ModelMetadata;
 import de.tum.cit.aet.artemis.featuremodel.catalog.repository.JsonFeatureModelStore;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelCatalogService;
 import de.tum.cit.aet.artemis.featuremodel.catalog.service.FeatureModelIntegrityService;
@@ -255,7 +256,30 @@ class RemoteAnsibleEmissionPlannerTest {
                     .doesNotContain("hashi_vault")
                     .doesNotContain("REPLACE_ME_")
                     .doesNotContain("{value}")
-                    .doesNotContain("{vaultServerName}");
+                    .doesNotContain("{vaultServerName}")
+                    .doesNotContain(AnsibleBindingCatalog.ARTEMIS_IMAGE_TAG_TOKEN);
+        }
+    }
+
+    @Test
+    void artemisVersionDeploysTheImageOfTheModelSourceCommit() {
+        RemoteAnsibleEmissionPlan plan = planner.plan(model, fullSelection(), labEnvironment());
+
+        String expectedTag = "sha-" + model.model().sourceCommitSha();
+        assertThat(plan.artemisImageTag()).isEqualTo(expectedTag);
+        assertThat(fileContent(plan, "inventory/group_vars/artemistests_common_config.yml"))
+                .contains("\nartemis_version: \"" + expectedTag + "\"\nartemis_branch: develop\n");
+    }
+
+    @Test
+    void modelWithoutAFullSourceCommitIsRefused() {
+        for (String sourceCommit : new String[] { null, model.model().sourceCommitSha().substring(0, 12) }) {
+            ModelMetadata metadata = new ModelMetadata(model.model().id(), model.model().name(), model.model().version(), model.model().status(), sourceCommit);
+            FeatureModel modelWithoutCommit = new FeatureModel(metadata, model.features(), model.relations(), model.constraints());
+
+            assertThatThrownBy(() -> planner.plan(modelWithoutCommit, fullSelection(), labEnvironment())).isInstanceOf(ArtifactGenerationException.class)
+                    .satisfies(error -> assertThat(((ArtifactGenerationException) error).getCode())
+                            .isEqualTo("ARTIFACT_GENERATION_REMOTE_ANSIBLE_MISSING_SOURCE_COMMIT"));
         }
     }
 
