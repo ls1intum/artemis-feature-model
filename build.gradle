@@ -5,7 +5,9 @@ plugins {
 }
 
 group = 'de.tum.cit.aet.artemis'
-version = '1.0.0-SNAPSHOT'
+// package.json holds the only copy of the version: `npm version <x.y.z> --no-git-tag-version` bumps it together with
+// package-lock.json, and Gradle follows.
+version = new groovy.json.JsonSlurper().parse(file('package.json')).version
 
 java {
     toolchain {
@@ -226,6 +228,8 @@ tasks.register('copyFrontendResources', Copy) {
 }
 
 tasks.named('bootJar') {
+    // A version-free name lets the Dockerfile copy the jar without knowing the version.
+    archiveFileName = 'artemis-feature-model.jar'
     dependsOn tasks.named('copyFrontendResources')
     from(frontendResourcesDir) {
         into 'BOOT-INF/classes'
