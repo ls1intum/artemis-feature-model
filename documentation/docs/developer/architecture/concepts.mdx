@@ -75,11 +75,13 @@ An option has a status: `published` options are shown, `draft` options are hidde
 ## Capabilities and deployment profiles
 
 Some features need something from the deployment around Artemis. Iris, for example, needs a running Pyris service and
-a shared secret. The feature lists these needs as **capabilities**, such as `pyris-service`.
+a shared secret. The feature lists these needs as **capabilities**, such as `iris-service` and `iris-secret`. The
+extraction pipeline derives them from the feature's deployment inputs: `<feature>-service` when an input is not a
+secret, `<feature>-secret` when one is.
 
-A **deployment profile** describes a deployment context and lists the capabilities it provides. A feature is
-**available** when the active profile provides every capability it needs. The application ships one profile,
-`default-artemis-profile`, which provides all capabilities.
+A **deployment profile** describes a deployment context and the capabilities it provides. A feature is **available**
+when the active profile provides every capability it needs. The application ships one profile,
+`default-artemis-profile`, which provides every capability the active model requires.
 
 ## Artifact mappings and the configuration overlay
 

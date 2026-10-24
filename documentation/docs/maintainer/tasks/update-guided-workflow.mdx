@@ -27,9 +27,8 @@ The scaffold task adds what the model has and the workflow lacks:
 
 For every included functional feature without an option, it adds a draft option named `enable-<feature-id>` with
 `TODO` text. The option goes into the decision of the feature's group, or into a new decision when the group has
-none yet. It adds a review group for a model group that has none, and applies
-the renames declared in the manifest. It only reports references to features that no longer exist; it never deletes
-anything. When nothing is missing, the file stays byte-identical.
+none yet. It adds a review group for a model group that has none. It only reports references to features that no
+longer exist; it never deletes or renames anything. When nothing is missing, the file stays byte-identical.
 
 The task prints what it changed, for example `Added options: [enable-ldap]`, and writes a report to
 `build/guided-workflow-scaffold-report.json`.

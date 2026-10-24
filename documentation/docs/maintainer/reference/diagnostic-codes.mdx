@@ -13,8 +13,8 @@ explains the checks behind the codes.
 
 | Code | Severity | Meaning | Fix |
 |---|---|---|---|
-| `UNDECLARED_CANDIDATE` | error | A candidate has no include or exclude entry | [Curate a Feature](/maintainer/tasks/curate-a-feature) |
-| `RELATION_CANDIDATE_UNDECLARED` | error | A relation between two included features has no constraint and no ignored relation | [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
+| `UNDECLARED_CANDIDATE` | error | A module that Artemis presents as a feature has no features or notModeled entry | [Curate a Feature](/maintainer/tasks/curate-a-feature) |
+| `RELATION_CANDIDATE_UNDECLARED` | error | A relation between two modeled features has no constraint and no ignored relation | [The Feature Manifest](/maintainer/extraction/manifest#constraints-and-ignored-relations) |
 | `MANIFEST_ORPHAN_ANCHOR` | error | A manifest anchor matches no candidate, or more than one | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
 | `MANIFEST_CURATION_CONFLICT` | error | Manifest entries collide, for example two features with one id | Fix the entries the message names |
 | `EXTRACTOR_ERROR` | error | A scanner could not read its source | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
@@ -22,17 +22,19 @@ explains the checks behind the codes.
 | `DANGLING_GENERATED_CONSTRAINT` | error | A constraint names a feature that is not in the model | Fix or remove the constraint |
 | `GENERATED_MODEL_INVALID` | error | The generated model breaks an integrity rule of the application | Fix the manifest entry the message names |
 | `TECHNICAL_FEATURE_ROLE_LEAK` | error | A technical feature would be visible to teachers | Check the `category` of the feature |
-| `PROFILE_CAPABILITY_MISMATCH` | error | A technical feature provides a capability the deployment profile does not list | Add the capability to the profile |
+| `TECHNICAL_MAPPING_UNDERIVABLE` | error | The Compose file or the Spring profiles of a technical feature cannot be derived from its anchor | [Follow Artemis Changes](/maintainer/tasks/follow-artemis-changes) |
 | `CONFIG_KEY_CATALOG_DRIFT` | error | A mapped configuration key has no default in Artemis | [Curate a Feature](/maintainer/tasks/curate-a-feature#run-the-pipeline) |
 | `GENERATED_WORKFLOW_INVALID` | error | The guided workflow refers to something the model does not have | [Update the Guided Workflow](/maintainer/tasks/update-guided-workflow) |
 | `GUIDED_WORKFLOW_FINDINGS` | error or warning | The guided workflow validation has findings; the severity is the highest among them | See the next table |
 | `PIPELINE_ARTIFACT_INVALID` | error | A stage could not read or verify the output of an earlier stage | Run the earlier stage again |
 | `CLIENT_SERVER_MIRROR_MISMATCH` | warning or error | The Artemis client and server disagree about a module or a toggle | None in this repository; it describes Artemis |
-| `EXCLUSION_REASON_UNSPECIFIED` | warning | An exclude entry has no reason | Add a `reason` |
-| `EXCLUDED_TOGGLE_RATIONALE_MISSING` | warning | An excluded runtime toggle has no rationale | Add a `rationale` |
-| `ANNOTATED_BUT_UNSCOPED` | warning | An `@ArtemisFeature` annotation sits on a candidate that is not included | Include the candidate, or ignore |
-| `MANIFEST_OVERRIDES_ANNOTATION` | warning | The manifest replaces a value of an annotation | None; the manifest wins |
-| `ANNOTATED_ANCHOR_NOT_EXTRACTED` | warning | An annotation sits on something the scan did not find | Check the annotation in Artemis |
+| `EXCLUSION_REASON_UNSPECIFIED` | warning | A notModeled entry has no reason | Add a `reason` |
+| `EXCLUDED_TOGGLE_RATIONALE_MISSING` | warning | A runtime toggle in notModeled has no rationale | Add a `rationale` |
+| `MANIFEST_CONSTRAINT_REDUNDANT` | warning | A declared constraint repeats a derived exclusion of an `alternative` group | Delete the constraint |
+| `UNMODELED_ANCHOR` | info | A candidate without an entry stays out of the model; it needs no decision | None, or record the reason in notModeled |
+| `CONFIG_MAPPING_DERIVED` | info | A configuration key became a deployment input of a feature | None |
+| `CONFIG_MAPPING_TUNABLE_SKIPPED` | info | A configuration key has a working default and stays out of the model | None, or add it as a configuration entry |
+| `CONFIG_MAPPING_REJECTED` | info | A configuration entry rejects a key | None |
 | `MODULE_CONSTANT_ASYMMETRY` | info | A module has a configuration key but no module constant, or the other way round | None; it describes Artemis |
 
 ## Guided workflow validation

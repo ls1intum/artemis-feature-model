@@ -17,6 +17,7 @@ findings in the extraction report, see [Diagnostic Codes](/maintainer/reference/
 | `The model stage did not produce model-result.json; run the upstream command before this one.` | You started a later stage without the earlier ones | Run `buildFeatureModelSnapshot`, or the named stage first |
 | `The model artifact was produced with manifest digest … but this run requires …` | An input changed after the earlier stage ran | Run the earlier stage again |
 | `Unsupported manifestVersion …` or `… contains unknown field(s) …` | The manifest has a wrong version or a typo | Fix the manifest entry that the message names |
+| `… was removed in manifestVersion …` | The manifest uses a section or field that the pipeline derives or reads elsewhere | Follow the instruction in the message, see [The Feature Manifest](/maintainer/extraction/manifest#schema-version) |
 | `Missing -PsnapshotPath=<snapshot-directory> …` | A snapshot task needs the path of a snapshot | Pass `-PsnapshotPath=build/feature-extraction/<source-revision>/snapshot` |
 | The snapshot directory is missing after a run | The run had a blocking finding | Open `report/index.html`, see [Fix a Failed Run](/maintainer/tasks/fix-failed-extraction) |
 

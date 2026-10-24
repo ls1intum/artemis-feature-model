@@ -266,8 +266,10 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   placement, and prose of a functional feature (its anchor is implied as
   `module:<id>`), `technical` entries declare the maintainer-only members with
   their `infra:` or `profile:` anchor and an optional `profiles` token list,
-  `notModeled` entries record the five deliberate feature-shaped exclusions, and
+  `notModeled` entries record the deliberate feature-shaped exclusions, and
   `conceptualNodes`, `constraints`, and `ignoredRelations` shape the hierarchy.
+  Every entry is a block mapping separated from the next by a blank line, and
+  each section opens with a comment on its role.
   Everything else is derived at run time: the `artemis` root when no root node
   is declared, the pairwise `excludes` constraints of every `alternative` group
   (`<a>-excludes-<b>`; a declared duplicate warns

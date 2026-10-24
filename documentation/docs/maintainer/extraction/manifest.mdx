@@ -4,22 +4,41 @@ title: The Feature Manifest
 sidebar_label: The Feature Manifest
 ---
 
-The feature manifest is the file you edit to curate the feature model. This page explains what it decides, how it is
-structured, and how the pipeline reads it. Read it before your first change to the manifest.
+The feature manifest is the file you edit to curate the feature model. This page explains what it decides, what the
+pipeline derives on its own, how the manifest is structured, and how the pipeline reads it. Read it before your first
+change to the manifest.
 
 ## What the manifest decides
 
-The pipeline reads facts from Artemis: which modules and toggles exist, their names and descriptions from the Artemis
-English translations, their default states from the Artemis configuration, and the configuration key that switches
-each module on. The manifest adds what code cannot say:
+The manifest holds modeling judgments, the decisions that code cannot express:
 
-- which candidates belong to the model and which stay out, and why;
+- which Artemis modules become features, and which feature-shaped modules deliberately stay out, and why;
+- which technical features exist, such as the database and the CI provider;
 - where each feature sits in the tree, and in which order;
-- whether a feature is mandatory, functional or technical, and which deployment capabilities it needs;
-- configuration mappings beyond the module's on/off key, such as a service URL;
-- constraints between features.
+- whether a feature is mandatory, and its default state when the Artemis default does not fit;
+- constraints between features, and relations that deliberately stay unenforced;
+- configuration keys that the pipeline cannot find or classify on its own.
 
-When the manifest and Artemis both describe something, the manifest wins.
+Everything else comes from Artemis. The pipeline reads the names and descriptions of modules from the Artemis English
+translations, their default states from the Artemis configuration, and the keys each module reads from its guarded
+source files. When the manifest and Artemis both describe something, the manifest wins.
+
+## What the pipeline derives
+
+The pipeline fills in the parts that follow from the source or from the manifest itself:
+
+| Derived part | Source |
+|---|---|
+| The anchor of a functional feature | The feature id: the entry `fileupload` anchors `module:fileupload` |
+| The root `artemis` | Implied when no conceptual node declares a root |
+| The `excludes` constraints of an `alternative` group | One constraint for every pair of children |
+| The configuration mappings of a feature | The keys its guarded source files read, see [Curation and Conformance](/maintainer/extraction/curation-and-conformance#configuration-derivation) |
+| The Compose file of a database feature | The Compose files the scan finds for the `infra:` anchor |
+| The `SPRING_PROFILES_ACTIVE` value of a profile feature | The profile name of the anchor, or the `profiles` list |
+| The required capabilities of a functional feature | Its deployment inputs: `<id>-service` when one is not a secret, `<id>-secret` when one is |
+
+Because these parts are derived, a change in Artemis reaches the model without a manifest edit. When Artemis moves its
+Compose files, for example, the derived Compose paths follow.
 
 ## Where it lives
 
@@ -40,31 +59,29 @@ Artemis path: when a copy exists there, it must be byte-identical to the file in
 The manifest has six lists below its version:
 
 ```yaml
-manifestVersion: 3
-include: []           # candidates that become features
-exclude: []           # candidates that stay out, with a reason
-conceptualNodes: []   # features without an anchor: the root and the groups
+manifestVersion: 5
+features: []          # Artemis modules that become functional features
+technical: []         # maintainer-only features with an infra: or profile: anchor
+notModeled: []        # feature-shaped modules that stay out, with a reason
+conceptualNodes: []   # features without an anchor: the groups and the core modules
 constraints: []       # requires and excludes rules between features
 ignoredRelations: []  # relation candidates that deliberately stay unenforced
-renames: []           # feature id renames for the guided workflow
 ```
+
+Write every entry as a block, and separate entries with a blank line. Each list starts with a comment that says what
+it holds.
 
 The pipeline reads the file strictly. An unknown field, a wrong value, or a reference to an undeclared parent stops the
 run with a message that names the entry.
 
-## Include a candidate
+## Features
 
-An include entry names the candidate in `anchor` and gives the feature its `id`:
+A features entry turns an Artemis module into a functional feature. Its `id` is the Artemis module id:
 
 ```yaml
-- anchor: module:athena
-  id: athena
+- id: athena
   group: assessment-and-integrity
   order: 3
-  requiresCapabilities: [athena-service, athena-secret]
-  artifactMappings:
-    - { target: application-feature-model.yml, path: artemis.athena.url, source: environment }
-    - { target: application-feature-model.yml, path: artemis.athena.secret, source: environment, secret: true }
 ```
 
 Most fields are optional:
@@ -73,30 +90,70 @@ Most fields are optional:
 |---|---|
 | `group` or `parent` | Where the feature sits in the tree |
 | `order` | Position among its siblings |
-| `kind`, `category`, `optionality` | Override the defaults: modules are optional `functional` features |
+| `optionality` | `mandatory` or `optional`; features are optional by default |
 | `defaultState` | `enabled` or `disabled`; without it, the Artemis default applies |
-| `requiresCapabilities`, `providesCapabilities` | Deployment capabilities, see [Key Concepts](/developer/architecture/concepts#capabilities-and-deployment-profiles) |
-| `artifactMappings` | Configuration entries beyond the module's on/off key, which the pipeline adds on its own |
+| `configuration` | Configuration keys the pipeline cannot find or classify on its own, see below |
 | `name`, `description`, `documentationUrl` | Override the texts that the pipeline takes from Artemis |
-| `rationale` | Why the feature is included |
+| `rationale` | Why the feature is modeled this way |
 
-## Exclude a candidate
+## Configuration entries
 
-An exclude entry keeps a candidate out of the model:
+The pipeline finds most configuration keys of a feature on its own. A `configuration` entry handles the rest:
 
 ```yaml
-- anchor: toggle:RateLimit
-  reason: operational
-  rationale: Rate limiting is an abuse-protection safeguard, not a course or deployment capability choice.
+configuration:
+  - key: spring.ai.openai.api-key
+    secret: true
 ```
+
+An entry adds or confirms a key as a deployment input. `secret: true` marks its value as a secret, which the
+deployment packages only ever write as a `${VARIABLE}` placeholder. `action: exclude` rejects a key that the pipeline
+derived but that does not belong to the feature. Write a comment above the list that says why the pipeline cannot see
+the key.
+
+## Technical features
+
+A technical entry declares a maintainer-only feature. It names its candidate in `anchor`:
+
+```yaml
+- anchor: profile:localci
+  id: integrated-code-lifecycle
+  group: ci-provider
+  defaultState: enabled
+  order: 1
+  profiles: [localci, buildagent]
+  name: Integrated Code Lifecycle
+  description: Built-in CI provider activated by the localci and buildagent Spring profiles.
+```
+
+The fields are the same as for a features entry. `profiles` lists the Spring profiles the feature activates when the
+profile name of the anchor alone is not enough. The pipeline derives the Compose file of an `infra:` anchor and the
+`SPRING_PROFILES_ACTIVE` value of a `profile:` anchor. When it cannot, the run fails with
+`TECHNICAL_MAPPING_UNDERIVABLE`.
+
+Technical features are for maintainers only; the guided workflow never shows them to teachers.
+
+## Not modeled
+
+A notModeled entry keeps a module out of the model:
+
+```yaml
+- anchor: module:passkey-admin
+  reason: sub-option
+  rationale: Administrator reauthentication policy within passkey support, not an independent feature.
+```
+
+Only modules that Artemis presents as features need a decision: the modules the server enumerates or the admin page
+shows. Every other candidate without an entry, such as a runtime toggle or a Spring profile, stays out of the model
+and appears as `info` in the report. You can still list such a candidate here to record why it stays out.
 
 The `reason` is a short code that groups exclusions in the report. The manifest uses `deferred`, `sub-option`,
 `internal-mechanism`, `operational`, and `experimental`. Without a reason, the entry counts as `unspecified` and the
-report shows a warning. Write a `rationale` for every runtime toggle you exclude; the report warns when one is missing.
+report shows a warning. Write a `rationale` for every runtime toggle you list; the report warns when one is missing.
 
 ## Conceptual nodes and the technical subtree
 
-Conceptual nodes are features without an anchor. They give the tree its root and groups:
+Conceptual nodes are features without an anchor. They give the tree its groups and the mandatory core modules:
 
 ```yaml
 - id: database
@@ -104,16 +161,17 @@ Conceptual nodes are features without an anchor. They give the tree its root and
   kind: group
   category: technical
   groupType: alternative
+  order: 6
   name: Database
 ```
 
-A group with `groupType: alternative` lets a deployment choose exactly one child. The technical subtree uses this for
-the database (`mysql` or `postgresql`) and the CI provider (`integrated-code-lifecycle` or `jenkins`). Technical
-features are for maintainers only; the guided workflow never shows them to teachers.
+A group with `groupType: alternative` lets a deployment choose exactly one child. The pipeline derives one `excludes`
+constraint for every pair of its children. The technical subtree uses this for the database (`mysql` or `postgresql`)
+and the CI provider (`integrated-code-lifecycle` or `jenkins`).
 
 ## Constraints and ignored relations
 
-A constraint is a rule between two included features:
+A constraint is a rule between two features:
 
 ```yaml
 - id: apollon-requires-modeling
@@ -122,24 +180,16 @@ A constraint is a rule between two included features:
   target: modeling
 ```
 
-The type is `requires` or `excludes`. When the scan finds a relation candidate between two included features, the
-manifest must decide about it: declare a constraint, or record it under `ignoredRelations` with a rationale that says
-why the relation stays unenforced.
+The type is `requires` or `excludes`. Do not declare the exclusions of an `alternative` group: the pipeline derives
+them, and a declared duplicate is dropped with the warning `MANIFEST_CONSTRAINT_REDUNDANT`.
 
-## Renames
-
-A rename tells the [guided workflow scaffold](/maintainer/tasks/update-guided-workflow) that a feature id changed, so it
-can update every reference in `guided-workflow.json`:
-
-```yaml
-renames:
-  - { from: old-id, to: new-id, rationale: Same feature, new id in Artemis. }
-```
-
-The target must be a current id, and the source must not be one.
+When the scan finds a relation candidate between two modeled features, the manifest must decide about it: declare a
+constraint, or record it under `ignoredRelations` with a rationale that says why the relation stays unenforced.
 
 ## Schema version
 
-The manifest declares `manifestVersion: 3`. The pipeline rejects every other version. It also rejects the fields
-`artemisCommitSha` and `artemisImageDigest` with a message that says where these values live: the source revision
-comes from the checkout, and the runtime image reference lives in `delivery/artemis-runtime-image.json`.
+The manifest declares `manifestVersion: 5`. The pipeline rejects every other version. It also rejects sections and
+fields that the pipeline derives or that live elsewhere, with a message that says what to do instead. Examples are
+`include`, `exclude`, and `renames`, the fields `artifactMappings` and `requiresCapabilities`, and `artemisCommitSha`:
+the source revision comes from the checkout, and the runtime image reference lives in
+`delivery/artemis-runtime-image.json`.

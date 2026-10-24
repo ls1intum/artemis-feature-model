@@ -42,7 +42,7 @@ The scan reads the Artemis checkout through the [source scanners](/maintainer/ex
 | `evidence.json` | The source locations that support each candidate |
 | `relation-candidates.json` | Dependencies between candidates found in the source |
 | `config-defaults.json` | The default values of the Artemis `application*.yml` files |
-| `annotations.json` | `@ArtemisFeature` annotations, when Artemis contains any |
+| `config-injections.json` | The configuration keys each guarded Java file reads |
 | `scan-diagnostics.json` | Findings of the scanners |
 | `scan-metadata.json` | Timestamps of the scan |
 | `scan-result.json` | The envelope |
@@ -55,12 +55,13 @@ The model stage applies the manifest to the scan and writes `model/`:
 |---|---|
 | `generated-feature-model.json` | The generated model |
 | `generated-config-key-catalog.json` | The config-key catalog, built from the model's configuration mappings and the scanned defaults |
+| `config-derivation.json` | Every configuration key per feature, with its origin and decision |
 | `manifest-conformance-report.json` | The curation decisions and every gap the manifest leaves open |
 | `model-diagnostics.json` | Findings of the model checks |
 | `model-result.json` | The envelope |
 
-When the manifest leaves a candidate or a relation undecided, the stage writes the conformance report and stops
-before it assembles a model. Other blocking findings, such as an invalid model, let the stage finish; the package
+When the manifest leaves a feature-shaped module or a relation undecided, the stage writes the conformance report and
+stops before it assembles a model. Other blocking findings, such as an invalid model, let the stage finish; the package
 stage then refuses to write a snapshot. [Curation and Conformance](/maintainer/extraction/curation-and-conformance) lists every
 check.
 
