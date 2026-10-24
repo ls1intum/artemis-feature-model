@@ -22,9 +22,8 @@ import tools.jackson.databind.node.ObjectNode;
  * Keeps the authored guided workflow structurally in sync with the manifest member set without ever touching prose.
  * The sync is an incremental diff, not a regeneration: covered features cause zero writes, a newly included functional
  * feature gains a {@code draft} stub option with filled wiring and TODO prose that the effective-workflow projection
- * keeps off every client surface until a maintainer publishes it, an orphan reference is flagged but never deleted, and
- * only an explicitly declared id rename is rewritten mechanically across all id reference locations. A run without
- * changes leaves the file byte-identical, which is the idempotence contract of the
+ * keeps off every client surface until a maintainer publishes it, and an orphan reference is flagged but never deleted
+ * or rewritten. A run without changes leaves the file byte-identical, which is the idempotence contract of the
  * {@code syncGuidedWorkflowScaffold} task.
  */
 public class GuidedWorkflowScaffoldService {
