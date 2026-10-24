@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 // This file runs in Node.js. Do not use browser APIs or JSX here.
 const REPOSITORY_URL = 'https://github.com/ls1intum/artemis-feature-model';
-const EDIT_URL = `${REPOSITORY_URL}/tree/mvp/documentation/`;
+const EDIT_URL = `${REPOSITORY_URL}/tree/develop/documentation/`;
 const PRODUCT_NAME = 'Artemis Feature Model';
 
 const config: Config = {

@@ -18,11 +18,11 @@ When the commit is newer than the validation pin, run the pipeline against it lo
 
 ## Start the poller
 
-Start **Artemis delivery poller** from the **Actions** tab with **Run workflow** on `mvp`, and enter the SHA as
+Start **Artemis delivery poller** from the **Actions** tab with **Run workflow** on `develop`, and enter the SHA as
 **artemis_sha**. Or use the GitHub CLI:
 
 ```bash
-gh workflow run poll-artemis-delivery.yml --ref mvp -f artemis_sha=<full-artemis-commit-sha>
+gh workflow run poll-artemis-delivery.yml --ref develop -f artemis_sha=<full-artemis-commit-sha>
 ```
 
 Leave the field empty to deliver the current head of the Artemis `develop` branch, which is what the schedule does.
@@ -41,7 +41,7 @@ Follow the run in the **Actions** tab. When it finishes, [review the delivery pu
 
 When the same snapshot was already published from the current commit of this repository, the run ends after the
 first job with the summary **Delivery short-circuited**. Nothing is wrong: the image exists, and you can find it by
-its snapshot id tag. A new commit on `mvp` lifts the short-circuit, because the image would then be built from
+its snapshot id tag. A new commit on `develop` lifts the short-circuit, because the image would then be built from
 different code.
 
 ## Publish without a pull request

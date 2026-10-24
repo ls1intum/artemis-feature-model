@@ -371,7 +371,7 @@ The Angular dev server proxies `/api/**` to `http://localhost:8090`. The local p
 The documentation site lives in `documentation/`: a self-contained Docusaurus
 project with its own `package.json`, published to GitHub Pages at
 `https://ls1intum.github.io/artemis-feature-model/` when `documentation/**`
-changes on `mvp`. It has two guides: the Developer Guide
+changes on `develop`. It has two guides: the Developer Guide
 (`documentation/docs/developer/`) for code changes and the Maintainer Guide
 (`documentation/docs/maintainer/`) for extraction, delivery, and maintenance
 tasks. A page appears only when `sidebar-developer.ts` or

@@ -21,10 +21,10 @@ Find the registry digest of the image you want to promote. It appears in three p
 
 ## Promote an image
 
-Start **Promote snapshot image** from the **Actions** tab with **Run workflow** on `mvp`, or use the GitHub CLI:
+Start **Promote snapshot image** from the **Actions** tab with **Run workflow** on `develop`, or use the GitHub CLI:
 
 ```bash
-gh workflow run promote-image.yml --ref mvp \
+gh workflow run promote-image.yml --ref develop \
   -f image_digest=sha256:<digest> \
   -f expected_snapshot_id=<snapshot-id>
 ```

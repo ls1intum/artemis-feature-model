@@ -1,7 +1,8 @@
 name: CI
 
 # A change that only touches documentation/ skips this workflow; build-documentation.yml checks it instead. A skipped
-# workflow leaves its checks pending, so if these checks ever become required on mvp, docs-only pull requests cannot merge.
+# workflow leaves its checks pending, so if these checks ever become required on develop, docs-only pull requests cannot
+# merge.
 on:
   push:
     branches:

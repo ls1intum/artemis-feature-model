@@ -39,7 +39,7 @@ The site is published with GitHub Pages at `https://ls1intum.github.io/artemis-f
 - [`build-documentation.yml`](../.github/workflows/build-documentation.yml) runs the type check and the build on every
   pull request that changes `documentation/`.
 - [`deploy-documentation.yml`](../.github/workflows/deploy-documentation.yml) builds and deploys the site when a push to
-  `mvp` changes `documentation/`. Run it manually to redeploy without a change.
+  `develop` changes `documentation/`. Run it manually to redeploy without a change.
 
 ## Structure
 
