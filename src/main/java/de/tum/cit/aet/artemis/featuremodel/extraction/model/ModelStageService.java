@@ -83,8 +83,7 @@ public class ModelStageService {
         ModelAssemblyOutcome outcome;
         try {
             scan = artifactStore.readScan(context.layout(), context.artemisCommit());
-            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), inputLoader.deploymentProfile(inputs),
-                    context.artemisCommit());
+            outcome = new ModelAssemblyService(objectMapper).assemble(manifest, scan.outcome(), context.artemisCommit());
         }
         catch (IOException | RuntimeException failure) {
             new ControlledFailureReportWriter(artifactStore).write(context, failure);
@@ -106,7 +105,8 @@ public class ModelStageService {
         }
         List<ReportItem> items = new ArrayList<>(scan.outcome().items());
         items.addAll(outcome.items());
-        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(), items, false);
+        var report = new ExtractionReportAssembler().assemble(context.artemisCommit(), context.manifestDigest(), outcome.curation(),
+                outcome.configDerivation(), items, false);
         artifactStore.writeReport(context.layout(), report);
     }
 

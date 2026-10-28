@@ -12,16 +12,18 @@ import java.util.Map;
  * @param artemisCommit resolved git commit of the scanned checkout.
  * @param manifestDigest digest of the manifest bytes used by this run.
  * @param curation manifest membership and semantic-source section.
+ * @param configDerivation per-member configuration-key resolutions, or null when the run failed before derivation.
  * @param codes stable diagnostic codes with one-line meanings, sorted by code.
  * @param severityCounts item counts per severity, sorted by severity name.
  * @param codeCounts item counts per code, sorted by code.
  * @param items report items sorted by code, then subject, then message.
  */
 public record ExtractionReport(int schemaVersion, String status, String artemisCommit, String manifestDigest, CurationReport curation,
-        Map<String, String> codes, Map<String, Integer> severityCounts, Map<String, Integer> codeCounts, List<ReportItem> items) {
+        ConfigDerivationReport configDerivation, Map<String, String> codes, Map<String, Integer> severityCounts, Map<String, Integer> codeCounts,
+        List<ReportItem> items) {
 
-    /** Current report schema. */
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    /** Current report schema; version 3 added the configuration-derivation section. */
+    public static final int CURRENT_SCHEMA_VERSION = 3;
 
     /** Passing delivery verdict. */
     public static final String STATUS_PASS = "pass";

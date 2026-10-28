@@ -67,11 +67,13 @@ without scanning anything:
 ```
 
 ```text
-manifestVersion=3
+manifestVersion=5
 artemisCommitSha=<commit of the checkout>
 manifestDigest=sha256:<digest of the manifest>
-includeCount=<number of include entries>
-excludeCount=<number of exclude entries>
+featureCount=<number of features entries>
+technicalCount=<number of technical entries>
+notModeledCount=<number of notModeled entries>
+derivedConstraintCount=<number of derived alternative-group exclusions>
 ```
 
 When `artemisCommitSha` shows the commit you checked out, your setup works. Continue with

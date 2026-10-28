@@ -1,0 +1,43 @@
+# Copy of the mini-Artemis manifest with the cione profile as a technical member whose profile mapping joins the
+# declared profiles list and whose environment mappings come from configuration confirmations only, because the
+# fixture injects nothing under @Profile(PROFILE_CIONE).
+manifestVersion: 5
+technical:
+  - anchor: profile:cione
+    id: ci-one
+    parent: fixture-root
+    defaultState: disabled
+    order: 3
+    profiles: [cione, agentx]
+    name: CI One
+    configuration:
+      - { key: artemis.continuous-integration.concurrent-build-size }
+      - { key: artemis.continuous-integration.ci-token, secret: true }
+features:
+  - id: alpha
+    group: fixture-root
+notModeled:
+  - { anchor: infra:mysql, reason: test-fixture }
+  - { anchor: infra:postgres, reason: test-fixture }
+  - { anchor: module:beta, reason: test-fixture }
+  - { anchor: module:beta-extra, reason: test-fixture }
+  - { anchor: module:delta, reason: test-fixture }
+  - { anchor: module:gamma, reason: test-fixture }
+  - { anchor: profile:agentx, reason: test-fixture }
+  - { anchor: profile:feprofile, reason: test-fixture }
+  - { anchor: profile:jenkins, reason: test-fixture }
+  - anchor: toggle:ClientOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate client-only fixture toggle.
+  - anchor: toggle:ServerOnlyToggle
+    reason: test-fixture
+    rationale: Deliberate server-only fixture toggle.
+  - anchor: toggle:ToggleOne
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+  - anchor: toggle:ToggleTwo
+    reason: test-fixture
+    rationale: Fixture toggle excluded for membership testing.
+conceptualNodes:
+  - id: fixture-root
+    kind: root

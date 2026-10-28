@@ -37,7 +37,7 @@ feature; the manifest does that.
 | Configuration | Every `application*.yml` file | Default values of configuration keys |
 | Compose files | Top-level files in `deployment/docker` | The MySQL and PostgreSQL stacks, and the Jenkins stack |
 | Usage | Production Java and client sources | Where toggles and conditions are used |
-| Annotations | Java files with `@ArtemisFeature` | Suggested feature attributes |
+| Configuration injections | Java files with `@Value` or `@ConfigurationProperties` | Which keys a file reads, and the `@Conditional` and `@Profile` guards of the file |
 
 The scanners are fail-soft: when one cannot parse a file, it reports an `EXTRACTOR_ERROR` and the others continue.
 The model stage then stops the run, because the facts are incomplete.
@@ -68,8 +68,8 @@ A moved or renamed source usually shows up in one of three ways:
 - `MANIFEST_ORPHAN_ANCHOR`: a candidate disappeared, for example because the Compose files moved and the database
   candidates are no longer found.
 - `EXTRACTOR_ERROR`: a scanner found a file but could not read its new structure.
-- `UNDECLARED_CANDIDATE` together with `MANIFEST_ORPHAN_ANCHOR`: Artemis renamed a module or a toggle, so the old
-  anchor matches nothing and the new id has no decision.
+- `UNDECLARED_CANDIDATE` together with `MANIFEST_ORPHAN_ANCHOR`: Artemis renamed a module, so the old anchor matches
+  nothing and the new id has no decision.
 
 To fix the first two, update the path or symbol in `ArtemisSourceConventions` and add the new layout to the test
 checkout in `src/test/resources/extraction/mini-artemis/`. A rename in Artemis is a curation change instead: update

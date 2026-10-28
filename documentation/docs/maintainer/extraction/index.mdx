@@ -28,9 +28,9 @@ flowchart LR
 ```
 
 The pipeline reads a clean Artemis checkout, the feature manifest, and the authored guided workflow
-`src/main/resources/feature-model/guided-workflow.json`. It also reads two small files of this repository: the bundled
-deployment profile and `delivery/artemis-runtime-image.json`. It always writes a report. Only a run without blocking
-findings also writes a [snapshot](/maintainer/extraction/snapshots), the unit that the delivery workflows publish.
+`src/main/resources/feature-model/guided-workflow.json`. It also reads `delivery/artemis-runtime-image.json`, the
+reference of the Artemis runtime image. It always writes a report. Only a run without blocking findings also writes a
+[snapshot](/maintainer/extraction/snapshots), the unit that the delivery workflows publish.
 
 ## The four stages
 

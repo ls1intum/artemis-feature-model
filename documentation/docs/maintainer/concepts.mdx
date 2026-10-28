@@ -31,8 +31,10 @@ profile, or a piece of infrastructure such as a database. Each candidate has an 
 An **anchor** is the candidate id that a manifest entry refers to. **Evidence** is a source location that supports a
 candidate: a constant, a configuration key, a condition class, a usage site.
 
-Every candidate needs a **decision** in the manifest. An **include** entry turns it into a feature of the model; an
-**exclude** entry keeps it out, with a reason such as `deferred` or `internal-mechanism`.
+A **decision** in the manifest says whether a candidate becomes a feature. A **features** entry turns an Artemis
+module into a functional feature, and a **technical** entry turns a profile or a piece of infrastructure into a
+technical feature. A **notModeled** entry keeps a module out, with a reason such as `deferred` or `sub-option`. Every
+module that Artemis presents as a feature needs a decision; any other candidate without one stays out of the model.
 
 A **conceptual node** is a feature without an anchor. It gives the tree its structure, for example the root `artemis`
 or the group `exercise-system`.
@@ -41,7 +43,7 @@ The **technical subtree** is the part of the model with deployment choices inste
 the CI provider, and the version control baseline. Only maintainers see these features; teachers never do.
 
 A **relation candidate** is a dependency between two candidates that the scan finds in the source, for example a
-condition class that needs two modules at once. Between two included features, every relation candidate needs a
+condition class that needs two modules at once. Between two modeled features, every relation candidate needs a
 **constraint** or an **ignored relation** entry in the manifest.
 
 ## Checks
@@ -50,7 +52,7 @@ A **finding** is one diagnostic of a run, with a stable code, a severity, and a 
 severity `error` and stops the run. A **warning** or an `info` finding is reported but does not stop it.
 
 **Fail-closed** means that the pipeline stops when it cannot decide something safely, instead of guessing. An
-undecided candidate, for example, stops the run.
+undecided module that Artemis presents as a feature, for example, stops the run.
 
 **Conformance** is the check that the generated model contains exactly what the manifest declares, nothing more and
 nothing less.

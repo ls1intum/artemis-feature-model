@@ -21,11 +21,18 @@ write a snapshot.
 ## Curation: does the manifest decide everything?
 
 Before it assembles a model, the model stage compares the manifest with the scan. It collects every gap in one pass,
-so the report lists all of them at once. These findings block the run:
+so the report lists all of them at once.
 
-- `UNDECLARED_CANDIDATE`: a candidate has no include or exclude entry. This is the usual sign that Artemis added a
-  module, a toggle, or a profile.
-- `RELATION_CANDIDATE_UNDECLARED`: the scan found a dependency between two included features, and the manifest has
+The check is tiered. A module that Artemis itself presents as a feature, because the server enumerates it or the admin
+page shows it, needs a decision: a features entry or a notModeled entry. Every other candidate without an entry, such
+as a runtime toggle, a Spring profile, or a module that only has a condition class, stays out of the model and appears
+as `UNMODELED_ANCHOR` with severity `info`.
+
+These findings block the run:
+
+- `UNDECLARED_CANDIDATE`: a module that Artemis presents as a feature has no features or notModeled entry. This is
+  the usual sign that Artemis added a module.
+- `RELATION_CANDIDATE_UNDECLARED`: the scan found a dependency between two modeled features, and the manifest has
   neither a constraint nor an ignored relation for it.
 - `MANIFEST_ORPHAN_ANCHOR`: a manifest entry names an anchor that matches no candidate, or more than one. Artemis
   usually renamed or removed something.
@@ -33,8 +40,31 @@ so the report lists all of them at once. These findings block the run:
   the same id.
 - `EXTRACTOR_ERROR`: a scanner could not read its source. The facts of the run are incomplete, so the run stops.
 
-Two warnings point to missing explanations: `EXCLUSION_REASON_UNSPECIFIED` for an exclude entry without a reason, and
-`EXCLUDED_TOGGLE_RATIONALE_MISSING` for an excluded runtime toggle without a rationale.
+Two warnings point to missing explanations: `EXCLUSION_REASON_UNSPECIFIED` for a notModeled entry without a reason,
+and `EXCLUDED_TOGGLE_RATIONALE_MISSING` for a runtime toggle in notModeled without a rationale. A third warning,
+`MANIFEST_CONSTRAINT_REDUNDANT`, reports a declared constraint that repeats a derived exclusion of an `alternative`
+group; the pipeline drops the declared copy.
+
+## Configuration derivation
+
+The pipeline finds the configuration keys of a feature in the Artemis source. A feature is guarded by its condition
+class, for example `AthenaEnabled`, and a technical profile feature by its `@Profile` constant. A key belongs to the
+feature when it is read only in files with that guard: through `@Value`, below a `@ConfigurationProperties` prefix of
+such a file, or below the namespace of the feature's enabled key. A key that other code also reads, such as the server
+URL, belongs to no feature.
+
+The pipeline then classifies each key. A key whose default is a placeholder, or whose name ends in an endpoint or a
+credential, is a deployment input and becomes a configuration mapping. Every other key is a tunable with a working
+default: the report lists it as `CONFIG_MAPPING_TUNABLE_SKIPPED`, and the model leaves it out. A key whose name or
+placeholder suggests a credential is a secret.
+
+The [configuration entries](/maintainer/extraction/manifest#configuration-entries) of the manifest take precedence: they
+add keys the source does not reveal, and reject derived keys with `action: exclude` (`CONFIG_MAPPING_REJECTED`). Every
+derived deployment input appears as `CONFIG_MAPPING_DERIVED`. All three codes have severity `info`. The full result per
+feature is in `model/config-derivation.json` and in the **Configuration derivation** section of the report.
+
+The derived mappings of technical features also include their Compose file or Spring profiles. When the pipeline
+cannot derive them, the run fails with `TECHNICAL_MAPPING_UNDERIVABLE`.
 
 ## Conformance: does the model match the manifest?
 
@@ -49,11 +79,8 @@ that a constraint names a feature you just excluded.
 ## Model and catalog checks
 
 The model stage then validates the generated model with the same integrity rules that the application uses at
-startup (`GENERATED_MODEL_INVALID`). It adds two delivery rules:
-
-- `TECHNICAL_FEATURE_ROLE_LEAK`: a technical feature would be visible or configurable for teachers.
-- `PROFILE_CAPABILITY_MISMATCH`: a technical feature provides a capability that the bundled deployment profile does not
-  list.
+startup (`GENERATED_MODEL_INVALID`). It adds one delivery rule: `TECHNICAL_FEATURE_ROLE_LEAK`, a technical feature
+that would be visible or configurable for teachers.
 
 The stage also builds the config-key catalog from the configuration mappings of the model. When a mapped key has no
 default in the Artemis `application*.yml` files, the run fails with `CONFIG_KEY_CATALOG_DRIFT`: the pipeline cannot
@@ -78,18 +105,6 @@ The scan also reports what looks inconsistent inside Artemis itself. `CLIENT_SER
 Artemis client and server disagree about a module or a toggle, and `MODULE_CONSTANT_ASYMMETRY` means that a module has
 a configuration key but no module constant, or the other way round. These findings describe Artemis, not your
 manifest, and they do not stop the run.
-
-## Source annotations
-
-Artemis code may carry an `@ArtemisFeature` annotation next to a feature's anchor, for example on an `*Enabled`
-condition class. The scan reads it as a suggestion for the feature's attributes, such as its group or capabilities.
-The contract of the annotation lives in this repository in
-`src/main/java/de/tum/cit/aet/artemis/featuremodel/extraction/annotation/ArtemisFeature.java`.
-
-The manifest always decides. An annotation never includes a candidate by itself, and an attribute in the manifest
-replaces the one in the annotation. Three warnings report where the two disagree: `ANNOTATED_BUT_UNSCOPED` (an annotated
-candidate is not included), `MANIFEST_OVERRIDES_ANNOTATION` (the manifest replaces an annotated value), and
-`ANNOTATED_ANCHOR_NOT_EXTRACTED` (an annotation sits on something the scan did not find).
 
 ## Where findings show up
 

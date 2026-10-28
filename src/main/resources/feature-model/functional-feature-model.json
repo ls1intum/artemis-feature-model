@@ -379,7 +379,7 @@
       }
     },
     {
-      "id" : "file-upload",
+      "id" : "fileupload",
       "name" : "File Upload Exercises",
       "kind" : "module",
       "selectable" : true,
@@ -657,7 +657,9 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [ ],
+      "requiresCapabilities" : [
+        "atlas-service"
+      ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -713,8 +715,8 @@
         "maintainer"
       ],
       "requiresCapabilities" : [
-        "pyris-service",
-        "pyris-secret"
+        "iris-service",
+        "iris-secret"
       ],
       "artifactMappings" : [
         {
@@ -779,7 +781,8 @@
         "maintainer"
       ],
       "requiresCapabilities" : [
-        "hyperion-service"
+        "hyperion-service",
+        "hyperion-secret"
       ],
       "artifactMappings" : [
         {
@@ -843,7 +846,10 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [ ],
+      "requiresCapabilities" : [
+        "deimos-service",
+        "deimos-secret"
+      ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -927,9 +933,7 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [
-        "lti-platform-registration"
-      ],
+      "requiresCapabilities" : [ ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -1034,7 +1038,7 @@
         "maintainer"
       ],
       "requiresCapabilities" : [
-        "apollon-conversion-service"
+        "apollon-service"
       ],
       "artifactMappings" : [
         {
@@ -1091,7 +1095,7 @@
         "maintainer"
       ],
       "requiresCapabilities" : [
-        "sharing-platform-registration",
+        "sharing-service",
         "sharing-secret"
       ],
       "artifactMappings" : [
@@ -1337,30 +1341,6 @@
         },
         {
           "target" : "application-feature-model.yml",
-          "path" : "artemis.continuous-integration.url",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.continuous-integration.user",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.continuous-integration.password",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : true
-        },
-        {
-          "target" : "application-feature-model.yml",
           "path" : "artemis.continuous-integration.token",
           "source" : "environment",
           "valueWhenSelected" : null,
@@ -1386,6 +1366,30 @@
         {
           "target" : "application-feature-model.yml",
           "path" : "artemis.continuous-integration.artemis-authentication-token-value",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : true
+        },
+        {
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.url",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
+        },
+        {
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.user",
+          "source" : "environment",
+          "valueWhenSelected" : null,
+          "valueWhenDeselected" : null,
+          "secret" : false
+        },
+        {
+          "target" : "application-feature-model.yml",
+          "path" : "artemis.continuous-integration.password",
           "source" : "environment",
           "valueWhenSelected" : null,
           "valueWhenDeselected" : null,
@@ -1508,7 +1512,7 @@
     },
     {
       "parentId" : "exercise-system",
-      "childId" : "file-upload",
+      "childId" : "fileupload",
       "relationType" : "optional",
       "order" : 6
     },
@@ -1659,7 +1663,7 @@
       "source" : "mysql",
       "target" : "postgresql",
       "expression" : null,
-      "description" : "A deployment runs exactly one database system; the paired Docker compose stacks are mutually exclusive."
+      "description" : "A deployment selects exactly one option of Database; MySQL and PostgreSQL are mutually exclusive."
     },
     {
       "id" : "integrated-code-lifecycle-excludes-jenkins",
@@ -1667,7 +1671,7 @@
       "source" : "integrated-code-lifecycle",
       "target" : "jenkins",
       "expression" : null,
-      "description" : "A deployment uses exactly one CI provider; the activating Spring profile sets are mutually exclusive."
+      "description" : "A deployment selects exactly one option of CI Provider; Integrated Code Lifecycle and Jenkins are mutually exclusive."
     }
   ]
 }

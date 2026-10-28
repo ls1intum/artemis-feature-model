@@ -6,7 +6,7 @@ sidebar_label: Curate a Feature
 
 Curation decides which Artemis candidates become features of the model, and how. This page walks through one
 curation change from the decision to the pull request. You need it when a run reports an undeclared candidate, or when
-a deferred candidate should finally become a feature.
+a module that the model leaves out should finally become a feature.
 
 ## Before you begin
 
@@ -16,8 +16,8 @@ that you know what Artemis says about it.
 
 ## Decide
 
-Ask whether someone setting up Artemis would choose this feature for a deployment. If yes, include it. If not, exclude
-it with one of the reasons the manifest already uses:
+Ask whether someone setting up Artemis would choose this feature for a deployment. If yes, model it. If not, list it in
+notModeled with one of the reasons the manifest already uses:
 
 | Reason | Use it when the candidate is… |
 |---|---|
@@ -27,33 +27,31 @@ it with one of the reasons the manifest already uses:
 | `experimental` | a research or trial setting |
 | `deferred` | a real feature that the model does not cover yet |
 
-When you include a candidate, also decide:
+Only a module that Artemis presents as a feature must be decided. A runtime toggle or a Spring profile without an entry
+stays out of the model on its own; add a notModeled entry only when you want to record why.
+
+When you model a module, also decide:
 
 - where it sits in the tree (`group` or `parent`) and in which `order`;
 - whether it is `mandatory` or optional (the default);
-- whether it is `technical` (a deployment choice for maintainers) or functional (the default for modules);
-- which deployment capabilities it needs, for example a running external service;
-- which configuration keys it needs beyond its on/off key, for example a service URL or a secret;
 - whether it depends on or excludes another feature.
+
+A deployment choice for maintainers, such as a database, is a technical entry instead; see
+[The Feature Manifest](/maintainer/extraction/manifest#technical-features).
 
 ## Edit the manifest
 
-Add the entry to `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`. A simple optional module
-needs only three lines:
+Add the entry to the `features` list of `src/main/resources/feature-model/extraction/artemis-feature-manifest.yml`. Its
+`id` is the Artemis module id. A simple optional module needs only two lines:
 
 ```yaml
-- anchor: module:ldap
-  id: ldap
+- id: ldap
   group: platform-integrations
 ```
 
-To include an excluded candidate, delete its exclude entry and add the include entry. The pipeline takes
-the name, the description, the default state, and the on/off configuration key from Artemis.
-[The Feature Manifest](/maintainer/extraction/manifest) lists every field.
-
-When the feature needs a capability that no deployment profile provides yet, add the capability id to
-`providedCapabilities` in `src/main/resources/deployment-profiles/default-artemis-profile.json`. Otherwise the workflow
-stage reports an unknown capability.
+To model a module from notModeled, delete its notModeled entry and add the features entry. The pipeline takes the
+name, the description, the default state, and the configuration keys from Artemis, and derives the capabilities the
+feature needs from those keys. [The Feature Manifest](/maintainer/extraction/manifest) lists every field.
 
 ## Run the pipeline
 
@@ -61,13 +59,18 @@ stage reports an unknown capability.
 ./gradlew buildFeatureModelSnapshot -PartemisPath=../artemis-extraction
 ```
 
-Check the report: the candidate appears under included or excluded candidates. For an included feature, look at
-its entry in `model/generated-feature-model.json`, including the configuration mappings.
+Check the report: the candidate appears under included features or excluded candidates. For a modeled feature, look
+at its keys in the **Configuration derivation** section of the report. Every key that a deployment must provide, such
+as a service URL or a secret, should be there as a deployment input.
+
+When a key is missing, the pipeline cannot see it in the source, for example because a library reads it. Add it as a
+[configuration entry](/maintainer/extraction/manifest#configuration-entries). When a derived key does not belong to
+the feature, reject it with `action: exclude`.
 
 A `CONFIG_KEY_CATALOG_DRIFT` error means that a mapped key has no default in the Artemis `application*.yml` files.
 Check the spelling of the keys you added. When the error names the module's own on/off key, the module is switched on
 by a key without a default, for example a service URL. Such a module needs a developer to decide how its configuration
-is mapped before it can be included.
+is mapped before it can be modeled.
 
 ## Update the guided workflow
 
@@ -102,7 +105,7 @@ Start the application and look at the feature in the **Explorer** and the **Conf
 
 ## Checklist
 
-1. The manifest has an include or exclude entry for the candidate.
+1. The manifest has a features or notModeled entry for the module.
 2. The pipeline passes locally.
 3. An included functional feature has a published guided option.
 4. The binding catalog classifies an included selectable feature.

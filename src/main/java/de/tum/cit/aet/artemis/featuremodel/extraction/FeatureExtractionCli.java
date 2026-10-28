@@ -31,8 +31,8 @@ public final class FeatureExtractionCli {
     private static final String PREFLIGHT_COMMAND = "preflight";
 
     private static final Set<String> SUPPORTED_OPTIONS = Set.of(FeatureExtractionInputs.OPTION_ARTEMIS_PATH, FeatureExtractionInputs.OPTION_MANIFEST,
-            FeatureExtractionInputs.OPTION_MANIFEST_SOURCE, FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_DEPLOYMENT_PROFILE,
-            FeatureExtractionInputs.OPTION_RUNTIME_IMAGE, FeatureExtractionInputs.OPTION_OUTPUT_ROOT, FeatureExtractionInputs.OPTION_EXPECTED_ARTEMIS_SHA);
+            FeatureExtractionInputs.OPTION_MANIFEST_SOURCE, FeatureExtractionInputs.OPTION_AUTHORED_WORKFLOW, FeatureExtractionInputs.OPTION_RUNTIME_IMAGE,
+            FeatureExtractionInputs.OPTION_OUTPUT_ROOT, FeatureExtractionInputs.OPTION_EXPECTED_ARTEMIS_SHA);
 
     private FeatureExtractionCli() {
     }
@@ -87,8 +87,10 @@ public final class FeatureExtractionCli {
         System.out.println("manifestVersion=" + summary.manifestVersion());
         System.out.println("artemisCommitSha=" + summary.artemisCommitSha());
         System.out.println("manifestDigest=" + summary.manifestDigest());
-        System.out.println("includeCount=" + summary.includeCount());
-        System.out.println("excludeCount=" + summary.excludeCount());
+        System.out.println("featureCount=" + summary.featureCount());
+        System.out.println("technicalCount=" + summary.technicalCount());
+        System.out.println("notModeledCount=" + summary.notModeledCount());
+        System.out.println("derivedConstraintCount=" + summary.derivedConstraintCount());
     }
 
     /**

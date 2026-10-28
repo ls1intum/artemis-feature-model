@@ -41,13 +41,13 @@ class GuidedWorkflowAssemblerTest {
     void derivesOptionCapabilitiesFromSelectedModelFeatures() {
         GuidedWorkflow enriched = enrichedBundledWorkflow();
 
-        assertThat(findOption(enriched, "enable-iris").requiresCapabilities()).containsExactly("pyris-service", "pyris-secret");
+        assertThat(findOption(enriched, "enable-iris").requiresCapabilities()).containsExactly("iris-service", "iris-secret");
         assertThat(findOption(enriched, "enable-athena").requiresCapabilities()).containsExactly("athena-service", "athena-secret");
-        assertThat(findOption(enriched, "enable-hyperion").requiresCapabilities()).containsExactly("hyperion-service");
-        assertThat(findOption(enriched, "enable-lti").requiresCapabilities()).containsExactly("lti-platform-registration");
+        assertThat(findOption(enriched, "enable-hyperion").requiresCapabilities()).containsExactly("hyperion-service", "hyperion-secret");
+        assertThat(findOption(enriched, "enable-lti").requiresCapabilities()).isEmpty();
         assertThat(findOption(enriched, "enable-theia").requiresCapabilities()).containsExactly("theia-service");
-        assertThat(findOption(enriched, "enable-apollon").requiresCapabilities()).containsExactly("apollon-conversion-service");
-        assertThat(findOption(enriched, "enable-sharing").requiresCapabilities()).containsExactly("sharing-platform-registration", "sharing-secret");
+        assertThat(findOption(enriched, "enable-apollon").requiresCapabilities()).containsExactly("apollon-service");
+        assertThat(findOption(enriched, "enable-sharing").requiresCapabilities()).containsExactly("sharing-service", "sharing-secret");
         assertThat(findOption(enriched, "enable-lecture-materials").requiresCapabilities()).isEmpty();
         assertThat(findOption(enriched, "keep-core-course-workflow").requiresCapabilities()).isEmpty();
     }

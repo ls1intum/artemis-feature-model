@@ -42,4 +42,10 @@ public record EvidenceItem(String candidateId, String kind, String file, Integer
     public static final String KIND_USAGE_TEMPLATE = "usage-template";
 
     public static final String KIND_USAGE_CONDITIONAL = "usage-conditional";
+
+    public static final String KIND_USAGE_CONFIG_INJECTION = "usage-config-injection";
+
+    public static final String KIND_USAGE_CONFIG_PREFIX = "usage-config-prefix";
+
+    public static final String KIND_USAGE_CONFIG_YAML = "usage-config-yaml";
 }
