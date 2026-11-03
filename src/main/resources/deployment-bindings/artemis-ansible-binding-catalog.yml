@@ -326,3 +326,7 @@ features:
         url: "https://dev-exchange.codeability-austria.uibk.ac.at/"
         apikey: "{{ lookup('ansible.builtin.env', 'SHARING_APIKEY') }}"
         actionname: "Export to Artemis@{{ var_server_hostname }}"
+  agent-access:
+    binding: "unsupported"
+    unsupportedWhen: "selected"
+    reason: "The pinned Ansible collection has no binding for artemis.agent-access.enabled. Choose Docker runtime or IntelliJ IDE development setup to enable Agent Access."
