@@ -78,6 +78,12 @@ features:
     group: platform-integrations
     order: 4
 
+  - id: agent-access
+    group: platform-integrations
+    order: 5
+    name: Agent Access
+    description: Allow instructors and editors to give coding agents scoped access to course content through personal access tokens and MCP.
+
   - id: deimos
     group: adaptive-learning-and-ai
 
@@ -173,8 +179,14 @@ notModeled:
   - anchor: module:hyperion-exercise-generation
     reason: deferred
     rationale: >-
-      Generation needs Hyperion, the localci and localvc profiles, and a separately provisioned AI Worker whose
-      generation workload Artemis does not ship yet; revisit as a child of hyperion once the worker layer is deployable.
+      Generation needs Hyperion, the localci and localvc profiles, and a separate AI Worker. The curated deployment
+      packages do not provision that worker yet; revisit as a child of hyperion once the packages support the worker layer.
+
+  - anchor: module:aiworker
+    reason: internal-mechanism
+    rationale: >-
+      Shared execution and coordination infrastructure for installed AI workloads, automatically enabled by eligible
+      Hyperion generation nodes. The curated model defers whole-exercise generation and does not provision AI Workers.
 
 conceptualNodes:
   # Structure of the curated model that has no Artemis anchor: the functional groups and the mandatory core modules.
