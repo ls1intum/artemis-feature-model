@@ -461,7 +461,7 @@
       "id": "ai-and-integrations",
       "title": "AI and Integrations",
       "order": 5,
-      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, modeling conversion, and sharing integration features.",
+      "description": "Configure adaptive learning, AI tutoring, LTI, online IDE, modeling conversion, exercise sharing, and coding agent access.",
       "decisions": [
         {
           "id": "ai-feature-selection",
@@ -571,7 +571,7 @@
         {
           "id": "integration-feature-selection",
           "question": "Which platform integrations should be enabled?",
-          "description": "Integration choices connect Artemis to external learning tools, IDE services, modeling conversion, or exercise sharing platforms.",
+          "description": "Connect Artemis to learning tools, IDE services, modeling conversion, exercise sharing platforms, or your coding agents.",
           "selectionMode": "multiple",
           "options": [
             {
@@ -672,6 +672,30 @@
               "thingsToKnow": [
                 "Sharing focuses on programming exercise exchange, not general course content synchronization.",
                 "The integration is useful only when a compatible external Sharing Platform is available."
+              ]
+            },
+            {
+              "id": "enable-agent-access",
+              "status": "published",
+              "label": "Enable coding agent access",
+              "description": "Let your coding agent help prepare teaching material in Artemis.",
+              "selects": [
+                "agent-access"
+              ],
+              "deselects": [],
+              "warnings": [
+                "Course content may be sent to your agent's model provider."
+              ],
+              "enabledOutcome": [
+                "Coding agents can draft exercises, lecture material, competencies, and announcements.",
+                "Personal access tokens limit each agent to your chosen permissions."
+              ],
+              "recommendedWhen": [
+                "Your course team uses coding agents to prepare teaching material."
+              ],
+              "thingsToKnow": [
+                "Use your own agent and model account. Tokens require an instructor or editor account without administrator privileges.",
+                "Docker runtime and IntelliJ IDE setup are supported; Remote server (Ansible) export is not."
               ]
             }
           ]
