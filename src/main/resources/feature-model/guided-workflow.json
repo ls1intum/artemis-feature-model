@@ -678,27 +678,24 @@
               "id": "enable-agent-access",
               "status": "published",
               "label": "Enable coding agent access",
-              "description": "Let instructors and editors use their coding agents to prepare course content in Artemis.",
+              "description": "Let your coding agent help prepare teaching material in Artemis.",
               "selects": [
                 "agent-access"
               ],
               "deselects": [],
               "warnings": [
-                "Your coding agent may send course content to its model provider. Choose an agent approved for the content you share."
+                "Course content may be sent to your agent's model provider."
               ],
               "enabledOutcome": [
-                "Connect your coding agent to Artemis to read courses and prepare exercises, competencies, announcements, and lecture material.",
-                "Give each agent a personal access token with permissions limited to the tasks you choose."
+                "Coding agents can draft exercises, lecture material, competencies, and announcements.",
+                "Personal access tokens limit each agent to your chosen permissions."
               ],
               "recommendedWhen": [
-                "Your course team already uses coding agents and wants them to help prepare teaching material."
+                "Your course team uses coding agents to prepare teaching material."
               ],
               "thingsToKnow": [
-                "You provide your own coding agent and model account; no additional AI service is deployed with Artemis.",
-                "Only instructors and editors can create tokens. Administrator accounts cannot use them.",
-                "Available actions depend on the enabled course features, your course role, and the token permissions.",
-                "Exercises and lecture units must have a future release date. Review them before release; announcements, lecture details, and competencies can be visible to students immediately.",
-                "Choose Docker runtime or IntelliJ IDE development setup to use this option. Remote server (Ansible) export cannot enable it yet."
+                "Use your own agent and model account. Tokens require an instructor or editor account without administrator privileges.",
+                "Docker runtime and IntelliJ IDE setup are supported; Remote server (Ansible) export is not."
               ]
             }
           ]
