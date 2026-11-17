@@ -164,10 +164,6 @@ notModeled:
     reason: sub-option
     rationale: Administrator reauthentication policy within passkey support, not an independent feature.
 
-  - anchor: module:atlasml
-    reason: sub-option
-    rationale: AtlasML is an extra sub-switch of Atlas rather than an independent feature.
-
   - anchor: module:atlasllm
     reason: sub-option
     rationale: AtlasLLM is an extra sub-switch of Atlas rather than an independent feature.
