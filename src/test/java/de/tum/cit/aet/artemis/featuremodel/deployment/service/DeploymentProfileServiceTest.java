@@ -40,9 +40,8 @@ class DeploymentProfileServiceTest {
         DeploymentProfileDetailDTO detail = service().getProfileDetail("default-artemis-profile");
 
         // Derived from the active model: <feature>-service for a non-secret deployment input, <feature>-secret for a secret one.
-        assertThat(detail.providedCapabilities()).containsExactly("athena-service", "athena-secret", "atlas-service", "iris-service", "iris-secret",
-                "hyperion-service", "hyperion-secret", "deimos-service", "deimos-secret", "theia-service", "apollon-service", "sharing-service",
-                "sharing-secret");
+        assertThat(detail.providedCapabilities()).containsExactly("athena-service", "athena-secret", "iris-service", "iris-secret", "theia-service",
+                "apollon-service", "sharing-service", "sharing-secret");
         assertThat(detail.providedCapabilities()).doesNotContain("lti-platform-registration", "pyris-service", "default-database");
         assertThat(detail.defaultProfile()).isTrue();
     }

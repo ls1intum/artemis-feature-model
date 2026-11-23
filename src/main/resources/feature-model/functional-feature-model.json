@@ -2,9 +2,9 @@
   "model" : {
     "id" : "artemis-generated-feature-model",
     "name" : "Artemis Generated Feature Model",
-    "version" : "0.1.0+8a0d74d9a3db",
+    "version" : "0.1.0+c8db9b671dea",
     "status" : "generated",
-    "sourceCommitSha" : "8a0d74d9a3db953e91f03516d1a4c80ac60df74a"
+    "sourceCommitSha" : "c8db9b671deacdafe86025849cd8145c06c38701"
   },
   "features" : [
     {
@@ -64,7 +64,7 @@
           "ArtemisConfigHelper.java:195,337",
           "Constants.java:554,668",
           "LectureEnabled.java:13",
-          "admin-feature-toggle.component.ts:135,184",
+          "admin-feature-toggle.component.ts:135,185",
           "app.constants.ts:87",
           "application-core.yml:25",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -111,7 +111,7 @@
           "ArtemisConfigHelper.java:205,340",
           "Constants.java:559,673",
           "TutorialGroupEnabled.java:13",
-          "admin-feature-toggle.component.ts:136,185",
+          "admin-feature-toggle.component.ts:136,186",
           "app.constants.ts:89",
           "application-core.yml:37",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -299,7 +299,7 @@
           "ArtemisConfigHelper.java:165,328",
           "Constants.java:539,653",
           "TextEnabled.java:13",
-          "admin-feature-toggle.component.ts:132,181",
+          "admin-feature-toggle.component.ts:132,182",
           "app.constants.ts:81",
           "application-core.yml:19",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -346,7 +346,7 @@
           "ArtemisConfigHelper.java:175,331",
           "Constants.java:544,658",
           "ModelingEnabled.java:13",
-          "admin-feature-toggle.component.ts:133,182",
+          "admin-feature-toggle.component.ts:133,183",
           "app.constants.ts:83",
           "application-core.yml:21",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -393,7 +393,7 @@
           "ArtemisConfigHelper.java:185,334",
           "Constants.java:549,663",
           "FileUploadEnabled.java:13",
-          "admin-feature-toggle.component.ts:134,183",
+          "admin-feature-toggle.component.ts:134,184",
           "app.constants.ts:85",
           "application-core.yml:23",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -461,7 +461,7 @@
           "ArtemisConfigHelper.java:145,322",
           "Constants.java:529,643",
           "ExamEnabled.java:13",
-          "admin-feature-toggle.component.ts:130,179",
+          "admin-feature-toggle.component.ts:130,180",
           "app.constants.ts:77",
           "application-core.yml:15",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -508,7 +508,7 @@
           "ArtemisConfigHelper.java:155,325",
           "Constants.java:534,648",
           "PlagiarismEnabled.java:13",
-          "admin-feature-toggle.component.ts:131,180",
+          "admin-feature-toggle.component.ts:131,181",
           "app.constants.ts:79",
           "application-core.yml:17",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -555,7 +555,7 @@
           "ArtemisConfigHelper.java:225,355",
           "AthenaEnabled.java:13",
           "Constants.java:574,698",
-          "admin-feature-toggle.component.ts:139,188",
+          "admin-feature-toggle.component.ts:139,189",
           "app.constants.ts:95",
           "application-core.yml:41",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -642,7 +642,7 @@
           "ArtemisConfigHelper.java:75,301",
           "AtlasEnabled.java:13",
           "Constants.java:496,613",
-          "admin-feature-toggle.component.ts:125,174",
+          "admin-feature-toggle.component.ts:125,175",
           "app.constants.ts:63",
           "application-core.yml:5",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -657,9 +657,7 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [
-        "atlas-service"
-      ],
+      "requiresCapabilities" : [ ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -667,14 +665,6 @@
           "source" : "selection",
           "valueWhenSelected" : true,
           "valueWhenDeselected" : false,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.atlas.chat-model",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
           "secret" : false
         }
       ],
@@ -699,7 +689,7 @@
           "ArtemisConfigHelper.java:135,319",
           "Constants.java:524,638",
           "IrisEnabled.java:13",
-          "admin-feature-toggle.component.ts:124,173",
+          "admin-feature-toggle.component.ts:124,174",
           "app.constants.ts:75",
           "application-core.yml:13",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -765,7 +755,7 @@
           "ArtemisConfigHelper.java:96,307",
           "Constants.java:506,625",
           "HyperionEnabled.java:13",
-          "admin-feature-toggle.component.ts:127,176",
+          "admin-feature-toggle.component.ts:127,177",
           "app.constants.ts:67",
           "application-core.yml:11",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -780,10 +770,7 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [
-        "hyperion-service",
-        "hyperion-secret"
-      ],
+      "requiresCapabilities" : [ ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -792,38 +779,6 @@
           "valueWhenSelected" : true,
           "valueWhenDeselected" : false,
           "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "spring.ai.openai.api-key",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : true
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "spring.ai.openai.base-url",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.hyperion.quiz-pool.base-url",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.hyperion.quiz-pool.api-key",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : true
         }
       ],
       "extraction" : {
@@ -847,7 +802,7 @@
           "ArtemisConfigHelper.java:125,316",
           "Constants.java:519,733",
           "DeimosEnabled.java:13",
-          "admin-feature-toggle.component.ts:129,178",
+          "admin-feature-toggle.component.ts:129,179",
           "app.constants.ts:73",
           "application-core.yml:9",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -862,10 +817,7 @@
         "teacher",
         "maintainer"
       ],
-      "requiresCapabilities" : [
-        "deimos-service",
-        "deimos-secret"
-      ],
+      "requiresCapabilities" : [ ],
       "artifactMappings" : [
         {
           "target" : "application-feature-model.yml",
@@ -874,22 +826,6 @@
           "valueWhenSelected" : true,
           "valueWhenDeselected" : false,
           "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.deimos.llm.base-url",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : false
-        },
-        {
-          "target" : "application-feature-model.yml",
-          "path" : "artemis.deimos.llm.api-key",
-          "source" : "environment",
-          "valueWhenSelected" : null,
-          "valueWhenDeselected" : null,
-          "secret" : true
         }
       ],
       "extraction" : {
@@ -934,7 +870,7 @@
           "ArtemisConfigHelper.java:215,352",
           "Constants.java:569,693",
           "LtiEnabled.java:13",
-          "admin-feature-toggle.component.ts:138,187",
+          "admin-feature-toggle.component.ts:138,188",
           "app.constants.ts:93",
           "application-core.yml:39",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -981,9 +917,9 @@
           "ArtemisConfigHelper.java:275,367",
           "Constants.java:466,723",
           "TheiaEnabled.java:13",
-          "admin-feature-toggle.component.ts:145,194",
+          "admin-feature-toggle.component.ts:145,195",
           "app.constants.ts:103",
-          "application.yml:139",
+          "application.yml:142",
           "src/main/webapp/i18n/en/featureToggles.json"
         ]
       },
@@ -1038,7 +974,7 @@
           "ApollonEnabled.java:13",
           "ArtemisConfigHelper.java:235,358",
           "Constants.java:579,703",
-          "admin-feature-toggle.component.ts:140,189",
+          "admin-feature-toggle.component.ts:140,190",
           "app.constants.ts:97",
           "application-core.yml:43",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -1095,7 +1031,7 @@
           "ArtemisConfigHelper.java:65,349",
           "Constants.java:564,688",
           "SharingEnabled.java:13",
-          "admin-feature-toggle.component.ts:137,186",
+          "admin-feature-toggle.component.ts:137,187",
           "app.constants.ts:91",
           "application-core.yml:27",
           "src/main/webapp/i18n/en/featureToggles.json"
@@ -1162,7 +1098,7 @@
           "ArtemisConfigHelper.java:373,385",
           "Constants.java:601,603",
           "app.constants.ts:107",
-          "application-artemis.yml:24"
+          "application-artemis.yml:31"
         ]
       },
       "category" : "functional",
