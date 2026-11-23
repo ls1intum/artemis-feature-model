@@ -189,7 +189,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void noGeneratedByteContainsAValueChannelOrBakedEnvironmentValue() {
-        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_POSTGRES_SELECTION, "iris", "hyperion", "deimos"), null, null,
+        GeneratedArtifactPackage result = service.generate(new ArtifactGenerationRequest(withExtra(FULL_POSTGRES_SELECTION, "iris", "athena", "sharing"), null, null,
                 "remote-ansible", labEnvironment()));
 
         String secretsFile = content(result, "inventory/group_vars/artemislocal/secrets.yml");
@@ -236,7 +236,7 @@ class RemoteAnsibleDeploymentPackageTest {
 
     @Test
     void envReferencesAndTheReadmeTableDescribeExactlyThePackageVariables() {
-        List<String> reducedWithIntegrations = withExtra(FULL_POSTGRES_SELECTION, "iris", "lti", "hyperion");
+        List<String> reducedWithIntegrations = withExtra(FULL_POSTGRES_SELECTION, "iris", "lti", "athena");
         reducedWithIntegrations.remove("exam");
 
         for (List<String> selection : List.of(FULL_POSTGRES_SELECTION, reducedWithIntegrations)) {

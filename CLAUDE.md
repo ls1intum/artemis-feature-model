@@ -129,7 +129,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   `feature-model/module-toggles`, pinned at
   `c46df338a49406f1f0872289aff31a100e8fd772`) — never part of a model snapshot. Every
   selectable feature must be classified `bound`/`no-op`/`unsupported`;
-  unclassified or inexpressible selections (MySQL or Jenkins) fail closed with a
+  unclassified or inexpressible selections (MySQL, Jenkins, Hyperion, or Deimos) fail closed with a
   controlled 400 naming the catalog identity or missing variable. This collection
   pin supports PostgreSQL only: upstream removed MySQL deployment support and
   hardcodes PostgreSQL JDBC and compose selection. The classpath default remains
@@ -154,7 +154,7 @@ This MVP does not use a database, Liquibase, authentication, authorization, Helm
   token and its test derives the tag from the loaded model. The package
   bakes no environment value at all: every identity and secret value is
   emitted as a `lookup('ansible.builtin.env', '<NAME>')` expression over the
-  user-provisioned environment-variable names (8 identity plus 13
+  user-provisioned environment-variable names (8 identity plus 9
   secret-class names; a mapping-conformance test pins the catalog's name set
   to them verbatim), the target-group section of `inventory/hosts` stays
   empty (the connection line is execution-environment-owned), and the

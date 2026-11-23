@@ -41,15 +41,14 @@ class AnsibleBindingCatalogTest {
 
     /**
      * The environment-variable names that operators provide for the package, verbatim: the 8 identity values,
-     * including {@code ARTEMIS_UNIVERSITY_NAME} for the collection's installation-metadata check, and the 13
+     * including {@code ARTEMIS_UNIVERSITY_NAME} for the collection's installation-metadata check, and the 9
      * secret-class values.
      */
     private static final List<String> PROVISIONED_ENV_VAR_NAMES = List.of(
             "TESTSERVER_NAME", "SERVER_HOSTNAME", "ARTEMIS_EMAIL_TEST", "ARTEMIS_OPERATOR_NAME", "ARTEMIS_OPERATOR_ADMIN_NAME",
             "ARTEMIS_UNIVERSITY_NAME", "PROXY_SSL_CERTIFICATE_PATH", "PROXY_SSL_CERTIFICATE_KEY_PATH",
             "ARTEMIS_DATABASE_PASSWORD", "ARTEMIS_INTERNAL_ADMIN_PASSWORD", "ARTEMIS_JHIPSTER_JWT",
-            "ATHENA_URL", "ATHENA_SECRET", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT_NAME",
-            "DEIMOS_API_KEY", "IRIS_URL", "IRIS_SECRET", "LTI_OAUTH_SECRET", "SHARING_APIKEY");
+            "ATHENA_URL", "ATHENA_SECRET", "IRIS_URL", "IRIS_SECRET", "LTI_OAUTH_SECRET", "SHARING_APIKEY");
 
     @Test
     void bundledCatalogLoadsWithItsCollectionPinIdentity() {
@@ -335,7 +334,7 @@ class AnsibleBindingCatalogTest {
         assertThat(catalog.bindingFor("iris").envReferences()).containsExactly(
                 new AnsibleBindingCatalog.EnvReference("IRIS_URL", "iris.url"),
                 new AnsibleBindingCatalog.EnvReference("IRIS_SECRET", "iris.secret"));
-        assertThat(catalog.bindingFor("hyperion").envReferences().getFirst().consumer()).isEqualTo("spring_ai.azure_openai.api_key");
+        assertThat(catalog.bindingFor("sharing").envReferences().getFirst().consumer()).isEqualTo("sharing.apikey");
     }
 
     @Test
