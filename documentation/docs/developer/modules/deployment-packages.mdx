@@ -94,8 +94,8 @@ collection. It is a small, self-contained values repository:
 
 The values come from the Ansible binding catalog,
 `src/main/resources/deployment-bindings/artemis-ansible-binding-catalog.yml`. It classifies every selectable feature as
-`bound`, `no-op`, or `unsupported`. A selection that the pinned collection cannot express, such as MySQL or Jenkins,
-fails with `ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE`, and the response names the feature and the
+`bound`, `no-op`, or `unsupported`. A selection that the pinned collection cannot express, such as MySQL, Jenkins,
+Hyperion, or Deimos, fails with `ARTIFACT_GENERATION_REMOTE_ANSIBLE_UNSUPPORTED_FEATURE`, and the response names the feature and the
 reason. A feature that the catalog does not classify fails too, so a new feature can never slip through unbound.
 
 The package contains no values from the environment. Every host-specific or secret value is an Ansible

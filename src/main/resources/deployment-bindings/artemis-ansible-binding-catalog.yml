@@ -97,10 +97,6 @@ environment:
   IRIS_SECRET: "Shared secret for Iris, from the Iris operator."
   ATHENA_URL: "URL of the Athena service, from its operator."
   ATHENA_SECRET: "Shared secret for Athena, from the Athena operator."
-  AZURE_OPENAI_API_KEY: "Azure OpenAI API key used by Hyperion, from the owner of the Azure resource."
-  AZURE_OPENAI_ENDPOINT: "Azure OpenAI endpoint URL used by Hyperion."
-  AZURE_OPENAI_DEPLOYMENT_NAME: "Name of the Azure OpenAI model deployment Hyperion calls."
-  DEIMOS_API_KEY: "API key of the language model service Deimos calls (the `base_url` in its values file), from that service's operator."
   LTI_OAUTH_SECRET: "OAuth secret for LTI launches, paired with the fixed key `artemis_lti_key`; agreed with the learning platform's administrator."
   SHARING_APIKEY: "API key of the exercise sharing platform, from its operator."
 technical:
@@ -253,32 +249,15 @@ features:
       atlas:
         enabled: false
   hyperion:
-    binding: "bound"
-    membership: "artemistests_hyperion"
-    evidence: "Guard in artemis.env.j2 renders the Spring AI block only when api_key, endpoint, and deployment_name are all non-empty; an unset variable would fail that guard silently, which is why the preflight env gate refuses missing or empty values first. Value shape from the upstream artemistests_hyperion.yml without the LLM cost overrides."
-    content: |-
-      ---
-      artemis_hyperion_enabled: true
-
-      spring_ai:
-        azure_openai:
-          api_key: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_API_KEY') }}"
-          endpoint: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_ENDPOINT') }}"
-          deployment_name: "{{ lookup('ansible.builtin.env', 'AZURE_OPENAI_DEPLOYMENT_NAME') }}"
-          temperature: 1.0
+    binding: "unsupported"
+    unsupportedWhen: "selected"
+    reason: "Artemis now configures language models under artemis.llm with endpoints, presets, and per-module preset assignments, and refuses to start an enabled Hyperion without them. The pinned Ansible collection still renders only the replaced spring.ai.openai keys, so leave Hyperion off for a remote server."
+    evidence: "Artemis #14726 replaced spring.ai.openai with artemis.llm; LlmConfigurationValidator rejects an active module without a preset assignment. The collection's artemis.env.j2 renders SPRING_AI_OPENAI_* only."
   deimos:
-    binding: "bound"
-    membership: "artemistests_deimos"
-    evidence: "Guard in artemis.env.j2: deimos is defined renders ARTEMIS_DEIMOS_ENABLED='true' plus the five llm values; artemis.deimos.enabled defaults to false in the image-shipped application-core.yml, so absence is off. Value shape from the deimos block of the upstream artemistests_common_config.yml (ls1intum/artemis-ansible at cca6f51), with the api key read from the DEIMOS_API_KEY environment variable like every other secret. The LLM endpoint is an external service the admin should review."
-    content: |-
-      ---
-      deimos:
-        llm:
-          base_url: https://logos.aet.cit.tum.de/v1
-          api_key: "{{ lookup('ansible.builtin.env', 'DEIMOS_API_KEY') }}"
-          model: openai/gpt-oss-120b
-          completions_path: /chat/completions
-          temperature: 0.3
+    binding: "unsupported"
+    unsupportedWhen: "selected"
+    reason: "Artemis now configures language models under artemis.llm with endpoints, presets, and per-module preset assignments, and refuses to start an enabled Deimos without them. The pinned Ansible collection still renders only the replaced artemis.deimos.llm keys, so leave Deimos off for a remote server."
+    evidence: "Artemis #14726 replaced artemis.deimos.llm with artemis.deimos.llm-preset; LlmConfigurationValidator rejects an active module without a preset assignment. The collection's artemis.env.j2 renders ARTEMIS_DEIMOS_LLM_* only."
   lti:
     binding: "bound"
     membership: "artemistests_lti"

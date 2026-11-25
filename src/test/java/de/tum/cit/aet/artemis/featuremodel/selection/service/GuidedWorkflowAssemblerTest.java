@@ -43,7 +43,7 @@ class GuidedWorkflowAssemblerTest {
 
         assertThat(findOption(enriched, "enable-iris").requiresCapabilities()).containsExactly("iris-service", "iris-secret");
         assertThat(findOption(enriched, "enable-athena").requiresCapabilities()).containsExactly("athena-service", "athena-secret");
-        assertThat(findOption(enriched, "enable-hyperion").requiresCapabilities()).containsExactly("hyperion-service", "hyperion-secret");
+        assertThat(findOption(enriched, "enable-hyperion").requiresCapabilities()).isEmpty();
         assertThat(findOption(enriched, "enable-lti").requiresCapabilities()).isEmpty();
         assertThat(findOption(enriched, "enable-theia").requiresCapabilities()).containsExactly("theia-service");
         assertThat(findOption(enriched, "enable-apollon").requiresCapabilities()).containsExactly("apollon-service");

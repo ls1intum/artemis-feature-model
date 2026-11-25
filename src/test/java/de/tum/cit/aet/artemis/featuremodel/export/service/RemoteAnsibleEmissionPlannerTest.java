@@ -33,7 +33,7 @@ import tools.jackson.databind.ObjectMapper;
 class RemoteAnsibleEmissionPlannerTest {
 
     private static final List<String> MINIMAL_SELECTION = List.of("lecture", "tutorialgroup", "course-workflow", "communication", "exercise-common",
-            "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "athena", "atlas", "iris", "hyperion", "lti", "theia", "apollon",
+            "programming", "quiz", "text", "modeling", "fileupload", "exam", "plagiarism", "athena", "atlas", "iris", "lti", "theia", "apollon",
             "sharing", "postgresql", "integrated-code-lifecycle", "localvc");
 
     private AnsibleBindingCatalog catalog;
@@ -234,7 +234,7 @@ class RemoteAnsibleEmissionPlannerTest {
 
         List<String> names = plan.requiredEnvironmentVariables();
         assertThat(names).isSorted().doesNotHaveDuplicates();
-        assertThat(names).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "AZURE_OPENAI_API_KEY", "SHARING_APIKEY");
+        assertThat(names).contains("ARTEMIS_DATABASE_PASSWORD", "SERVER_HOSTNAME", "ATHENA_SECRET", "SHARING_APIKEY");
     }
 
     @Test
@@ -303,6 +303,17 @@ class RemoteAnsibleEmissionPlannerTest {
         assertThat(RemoteEnvironmentValues.resolve("  ").targetGroup()).isEqualTo("artemistarget");
         assertThatThrownBy(() -> RemoteEnvironmentValues.resolve("bad name {{ lookup"))
                 .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining("targetName");
+    }
+
+    @Test
+    void selectedLanguageModelFeaturesFailClosed() {
+        for (String featureId : List.of("hyperion", "deimos")) {
+            Set<String> selection = fullSelection();
+            selection.add(featureId);
+
+            assertThatThrownBy(() -> planner.plan(model, selection, labEnvironment())).as(featureId)
+                    .isInstanceOf(ArtifactGenerationException.class).hasMessageContaining(featureId).hasMessageContaining("artemis.llm");
+        }
     }
 
     @Test

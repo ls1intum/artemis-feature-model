@@ -44,9 +44,6 @@ features:
   - id: atlas
     group: adaptive-learning-and-ai
     order: 1
-    configuration:
-      # Derivable by prefix but carrying a real default, so the classifier calls it a tunable; kept a deployment input.
-      - key: artemis.atlas.chat-model
 
   - id: iris
     group: adaptive-learning-and-ai
@@ -55,12 +52,6 @@ features:
   - id: hyperion
     group: adaptive-learning-and-ai
     order: 3
-    configuration:
-      # Read by the Spring AI auto-configuration and linked to hyperion only by a YAML comment, so derivation cannot see them.
-      - key: spring.ai.openai.api-key
-        secret: true
-
-      - key: spring.ai.openai.base-url
 
   - id: lti
     group: platform-integrations
